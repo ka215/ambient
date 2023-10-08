@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+    [role="alert"] {
+        z-index: 51 !important;
+    }
+
+    [drawer-backdrop] {
+        z-index: 49 !important;
+    }
+}
+
+@layer utilities {
+    :disabled {
+        cursor: default !important;
+        opacity: 0.3 !important;
+    }
+}

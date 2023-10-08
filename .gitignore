@@ -1,0 +1,49 @@
+# Logs
+/logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage
+
+# Dependency directories
+node_modules/
+jspm_packages/
+vendor/
+
+# Output of 'npm pack'
+*.tgz
+
+# dotenv environment variables file
+.env
+
+# IDE / Editor
+.idea
+
+# macOS
+.DS_Store
+
+# Vim swap files
+*.swp
+
+# Asset files
+assets/*.json
+!assets/PlayList.json
+!assets/lang.json
+assets/media
+assets/media/
+
+# User-specific extension files
+custom.php
+
+# Others
+*.orig
+*.bak
+*.bak.*
+src/_*.*
+package-lock.json
