@@ -143,7 +143,7 @@ trait utils {
      * @return string
      */
     public function __( string $text ): string {
-        $this->logger( __METHOD__, $text );
+        //$this->logger( __METHOD__, $text );
         if ( !empty( $this->translation_data ) && array_key_exists( $text, $this->translation_data ) ) {
             return $this->translation_data[$text] ?: $text;
         } else {

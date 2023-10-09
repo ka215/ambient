@@ -9,6 +9,7 @@ const AMP_STATUS = initStatus()
  * Initialize AMP_STATUS object.
  */
 function initStatus() {
+    removeStge()
     const baseObj = window.$ambient || {}
     return Object.assign(baseObj, {
         prev: null,
@@ -19,9 +20,15 @@ function initStatus() {
         playlist: null,
         media: null,
         order: 'normal',
-        loop: false,
+        playertype: null,
         options: null,
     })
+}
+
+// Window sizes container
+const currentWindowSize = {
+    width: window.innerWidth,
+    height: window.innerHeight,
 }
 
 // Advance preparation for using YouTube players.
@@ -31,6 +38,17 @@ var firstScriptTag = document.getElementsByTagName('script')[0]
 firstScriptTag.parentNode.insertBefore(tag, firstScriptTag)
 var player
 
+// seek container
+var seekId
+
+/**
+ * Abort seek for playback media.
+ */
+function abortSeeking() {
+    clearInterval(seekId)
+    seekId = null
+}
+
 /**
  * Watcher for AMP_STATUS object.
  */
@@ -38,7 +56,7 @@ function watchState() {
     const callback = function(prop, oldValue, newValue) {
         logger(`callback(${prop}):`, oldValue, '->', newValue)
         switch (true) {
-            case /^(prev|current|next|ctg|order|loop)$/i.test(prop):
+            case /^(prev|current|next|ctg|order)$/i.test(prop):
                 // Synchronize to the saved data of web storage when specific properties of AMP_STATUS object are changed.
                 saveStge(prop, newValue)
                 if ('current' === prop) {
@@ -84,7 +102,6 @@ if (AmbientData) {
         // If there are multiple playlists, do nothing yet.
     }
 }
-//logger('!:', AmbientData, AMP_STATUS, loadStge())
 
 /**
  * Fetch data of specific playlist.
@@ -92,6 +109,7 @@ if (AmbientData) {
  * @param {string} playlist 
  */
 async function getPlaylistData(playlist) {
+    initStatus()
     const endpointURL = `${BASE_URL}playlist/${playlist}`
     const data = await fetchData(endpointURL)
     if (data && data.hasOwnProperty('media')) {
@@ -135,7 +153,7 @@ const $TOGGLE_RANDOMLY    = document.getElementById('toggle-randomly')
 const $DRAWER_PLAYLIST    = document.getElementById('drawer-playlist')
 const $LIST_PLAYLIST      = document.getElementById('playlist-list-group')
 //const $PLAYLIST_ITEMS   = Array.from($LIST_PLAYLIST.querySelectorAll('a'))
-const $CAROUSEL           = document.getElementById('carousel-container')
+//const $CAROUSEL           = document.getElementById('carousel-container')
 const $CAROUSEL_WRAPPER   = document.getElementById('carousel-wrapper')
 const $CAROUSEL_PREV      = document.getElementById('data-carousel-prev')
 const $CAROUSEL_NEXT      = document.getElementById('data-carousel-next')
@@ -144,8 +162,15 @@ const $EMBED_WRAPPER      = document.getElementById('embed-wrapper')
 const $OPTIONAL_CONTAINER = document.getElementById('optional-container')
 const $BUTTON_WATCH_TY    = document.getElementById('btn-watch-origin')
 const $MENU               = document.getElementById('menu-container')
+const $BUTTON_REFRESH     = document.getElementById('btn-refresh')
+const $BUTTON_PLAY        = document.getElementById('btn-play')
+const $BUTTON_PAUSE       = document.getElementById('btn-pause')
 
-
+/**
+ * Method for switching display of alert component.
+ * 
+ * @param {string | null} state allow "show", "hide" or "hidden" as value.
+ */
 function toggleAlert(state=null) {
     let shown
     switch (true) {
@@ -177,13 +202,18 @@ function toggleAlert(state=null) {
 }
 toggleAlert('hide')
 
+/**
+ * Monitors the state of the playlist drawer component and fires an event when it is displayed.
+ */
 watcher($DRAWER_PLAYLIST, (mutation) => {
     if (mutation.attributeName === 'aria-modal' && mutation.target.ariaModal) {
-        logger('watch drawer-playlist: open!')
         scrollToFocusItem()
     }
 })
 
+/**
+ * Empty the playlist.
+ */
 function clearPlaylist() {
     // Clear all items of playlist
     const clone = document.getElementById('no-media').cloneNode(true)
@@ -194,6 +224,11 @@ function clearPlaylist() {
     //clearCarousel()
 }
 
+/**
+ * Create a playlist from the data of the AMP_STATUS object.
+ * 
+ * @returns 
+ */
 function updatePlaylist() {
     clearPlaylist()
     const $LIST_NO_MEDIA = document.getElementById('no-media')
@@ -244,7 +279,11 @@ function updatePlaylist() {
             imgElm.setAttribute('alt', mb_strimwidth(item.desc, 0, 50, '...'))
             itemElm.appendChild(imgElm)
         }
-        itemElm.append(document.createTextNode(item.title))
+        let labelText = item.title
+        if (format = getOption('playlist')) {
+            labelText = filterText(format, item)
+        }
+        itemElm.append(document.createTextNode(labelText))
         $LIST_PLAYLIST.appendChild(itemElm)
     })
     Array.from($LIST_PLAYLIST.querySelectorAll('a')).forEach((elm) => {
@@ -253,10 +292,19 @@ function updatePlaylist() {
     //updateCarousel()
 }
 
+/**
+ * Get the URL of the thumbnail image of YouTube media.
+ * 
+ * @param {string} videoid 
+ * @returns 
+ */
 function getYoutubeThumbnailURL(videoid) {
     return 'https://img.youtube.com/vi/' + videoid + '/hqdefault.jpg'
 }
 
+/**
+ * Clears items in the category selection field in the settings menu.
+ */
 function clearCategory() {
     const clone = document.getElementById('all-category').cloneNode(true)
     while($SELECT_CATEGORY.firstChild) {
@@ -267,6 +315,9 @@ function clearCategory() {
     $SELECT_CATEGORY.setAttribute('disabled', '')
 }
 
+/**
+ * Update the items in the category selection field of the settings menu.
+ */
 function updateCategory() {
     //logger('updateCategory:', AMP_STATUS.category)
     if (AMP_STATUS.category && AMP_STATUS.category.length > 0) {
@@ -284,6 +335,12 @@ function updateCategory() {
     $SELECT_CATEGORY.removeAttribute('disabled')
 }
 
+/**
+ * Getter for optional data of the AMP_STATUS object.
+ * 
+ * @param {string} key 
+ * @returns Returns null if the specified optional property is not a valid value.
+ */
 function getOption(key) {
     if (AMP_STATUS.hasOwnProperty('options') && AMP_STATUS.options !== null) {
         if (!AMP_STATUS.options.hasOwnProperty(key) || AMP_STATUS.options[key] === null || AMP_STATUS.options[key] === '') {
@@ -296,6 +353,9 @@ function getOption(key) {
     }
 }
 
+/**
+ * Causes the application to apply specific option contents of the AMP_STATUS object.
+ */
 function applyOptions() {
     const bgImage = getOption('background')
     if (bgImage && AmbientData && AmbientData.hasOwnProperty('imageDir')) {
@@ -317,16 +377,130 @@ function applyOptions() {
     }
 }
 
+/**
+ * Clear and initialize the carousel display.
+ */
 function clearCarousel() {
     logger('clearCarousel')
+    const $CAROUSEL_NO_MEDIA = document.createElement('div')
+    $CAROUSEL_NO_MEDIA.id = 'carousel-item-1'
+    $CAROUSEL_NO_MEDIA.classList.add('hidden', 'duration-700', 'ease-in-out')
+    $CAROUSEL_NO_MEDIA.setAttribute('data-carousel-item', '')
+    const $NO_MEDIA_IMAGE = document.createElement('img')
+    $NO_MEDIA_IMAGE.src = './views/images/no-media-placeholder.svg'
+    $NO_MEDIA_IMAGE.setAttribute('class', 'absolute block h-full -translate-x-1/2 -translate-y-1/2 top-1/2 left-1/2')
+    $NO_MEDIA_IMAGE.setAttribute('alt', 'No media available')
+    $CAROUSEL_NO_MEDIA.appendChild($NO_MEDIA_IMAGE)
+    const clone = $CAROUSEL_NO_MEDIA.clone(true)
+    clone.id = 'carousel-item-2'
+    while($CAROUSEL_WRAPPER.firstChild) {
+        $CAROUSEL_WRAPPER.removeChild($CAROUSEL_WRAPPER.firstChild)
+    }
+    $CAROUSEL_WRAPPER.appendChild($CAROUSEL_NO_MEDIA)
+    $CAROUSEL_WRAPPER.appendChild(clone)
+    $CAROUSEL_PREV.setAttribute('disabled', true)
+    $CAROUSEL_NEXT.setAttribute('disabled', true)
 }
 
+/**
+ * Update the carousel display.
+ */
 function updateCarousel() {
-    logger('updateCarousel')
+    let items = []
+    if (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null)
+    logger('updateCarousel:', AMP_STATUS)
+    let is_show = false
+    if (AMP_STATUS.hasOwnProperty('prev') && AMP_STATUS.prev !== null) {
+        items.push(AMP_STATUS.prev)
+    }
+    if (AMP_STATUS.hasOwnProperty('current') && AMP_STATUS.current !== null) {
+        items.push(AMP_STATUS.current)
+        is_show = true
+    }
+    if (AMP_STATUS.hasOwnProperty('next') && AMP_STATUS.next !== null) {
+        items.push(AMP_STATUS.next)
+    }
+    if (!is_show) {
+        clearCarousel()
+        return
+    }
+    while($CAROUSEL_WRAPPER.firstChild) {
+        $CAROUSEL_WRAPPER.removeChild($CAROUSEL_WRAPPER.firstChild)
+    }
+    items.forEach((amId, index) => {
+        const $COROUSEL_ITEM = document.createElement('div')
+        $COROUSEL_ITEM.id = 'carousel-item-' + (index + 1)
+        if (amId == AMP_STATUS.current) {
+            $COROUSEL_ITEM.classList.add('duration-700', 'ease-in-out')
+        } else {
+            $COROUSEL_ITEM.classList.add('hidden', 'duration-700', 'ease-in-out')
+        }
+        $COROUSEL_ITEM.setAttribute('data-carousel-item', amId == AMP_STATUS.current ? 'active' : '')
+        const $COROUSEL_ITEM_IMAGE = document.createElement('img')
+        let mediaImage = './views/images/no-media-placeholder.svg'
+        const mediaData = AMP_STATUS.media.filter((item) => item.amId == amId).shift()
+        //logger('updateCarousel:2:', mediaData)
+        let base_aspect = 'h-full'
+        if (mediaData.hasOwnProperty('image') && mediaData.image !== null && mediaData.image !== '') {
+            mediaImage  = AmbientData.imageDir + mediaData.image
+        } else
+        if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== null && mediaData.videoid !== '') {
+            mediaImage = getYoutubeThumbnailURL(mediaData.videoid)
+            base_aspect = 'w-full'
+        }
+        $COROUSEL_ITEM_IMAGE.src = mediaImage
+        $COROUSEL_ITEM_IMAGE.classList.add('absolute', 'block', base_aspect, '-translate-x-1/2', '-translate-y-1/2', 'top-1/2', 'left-1/2')
+        $COROUSEL_ITEM_IMAGE.setAttribute('alt', mediaData.title)
+        $COROUSEL_ITEM.appendChild($COROUSEL_ITEM_IMAGE)
+        $CAROUSEL_WRAPPER.appendChild($COROUSEL_ITEM)
+    })
+    $CAROUSEL_PREV.removeAttribute('disabled')
+    $CAROUSEL_NEXT.removeAttribute('disabled')
+}
+
+/**
+ * Update the media caption display.
+ * @param {Object} mediaData 
+ */
+function updateMediaCaption(mediaData) {
+    const format = getOption('caption') || '%artist% - %title%'
+    labelText = filterText(format, mediaData)
+    while($MEDIA_CAPTION.firstChild) {
+        $MEDIA_CAPTION.removeChild($MEDIA_CAPTION.firstChild)
+    }
+    logger('updateMediaCaption:', getOption('caption'), labelText, labelText.match(/<.*?[!^<].*?>/gi))
+    if (/<.*?[!^<].*?>/gi.test(labelText)) {
+        $MEDIA_CAPTION.innerHTML = labelText
+    } else {
+        $MEDIA_CAPTION.appendChild(document.createTextNode(labelText))
+    }
+}
+
+/**
+ * Filters text to the specified format.
+ */
+function filterText(format, mediaData) {
+    const patterns = format.match(/%(.+?)%/gi)
+    let text = format
+    if (patterns.length > 0) {
+        patterns.forEach((pattern) => {
+            const property = pattern.replaceAll('%', '')
+            const replacer = (mediaData.hasOwnProperty(property) && mediaData[property]) ? mediaData[property] : ''
+            text = text.replaceAll(`%${property}%`, replacer)
+            //logger('filterText:', property, replacer, text)
+        })
+        text = text.trim().replace(/^[-_‐–−—ー]?(.*)[-_‐–−—ー]?$/, '$1').trim()
+    }
+    //logger('filterText:', format, patterns, text)
+    return text
 }
 
 
-// Event handlers
+// Event handlings
+
+/**
+ * Event listener when the playlist selection field in the settings menu is changed.
+ */
 $SELECT_PLAYLIST.addEventListener('change', (evt) => {
     let oldPlaylist = null
     if (AMP_STATUS.hasOwnProperty('playlist')) {
@@ -341,6 +515,9 @@ $SELECT_PLAYLIST.addEventListener('change', (evt) => {
     logger('changed playlist:', AMP_STATUS)
 })
 
+/**
+ * Event listener when the category selection field in the settings menu is changed.
+ */
 $SELECT_CATEGORY.addEventListener('change', (evt) => {
     let oldCtgId = null
     if (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null) {
@@ -348,19 +525,46 @@ $SELECT_CATEGORY.addEventListener('change', (evt) => {
     }
     if (oldCtgId !== evt.target.value) {
         AMP_STATUS.ctg = Number(evt.target.value)
+        AMP_STATUS.prev    = null
+        AMP_STATUS.current = null
+        AMP_STATUS.next    = null
     }
     logger('changed category:', AMP_STATUS)
     updatePlaylist()
 })
 
 $CAROUSEL_PREV.addEventListener('click', (evt) => {
-    logger(evt)
+    playItem(evt.target, AMP_STATUS.prev)
 })
 
 $CAROUSEL_NEXT.addEventListener('click', (evt) => {
-    logger(evt)
+    playItem(evt.target, AMP_STATUS.next)
 })
 
+$BUTTON_REFRESH.addEventListener('click', (evt) => {
+    reloadPage()
+})
+
+$BUTTON_PLAY.addEventListener('click', (evt) => {
+    logger('click Play button:', evt)
+})
+
+$BUTTON_PAUSE.addEventListener('click', (evt) => {
+    if (!AMP_STATUS.hasOwnProperty('playertype') || AMP_STATUS.playertype === null || AMP_STATUS.playertype === '') {
+        return false
+    }
+    $BUTTON_PAUSE.classList.add('hidden')
+    $BUTTON_PLAY.classList.remove('hidden')
+    if (AMP_STATUS.playertype === 'youtube') {
+        logger('click Pause button:', AMP_STATUS.playertype, player)
+    } else {
+        logger('click Pause button:', AMP_STATUS.playertype, document.getElementsByTagName(AMP_STATUS.playertype))
+    }
+})
+
+/**
+ * Toggle style to focus the active item in a playlist.
+ */
 function changePlaylistFocus() {
     // Change the focus of playlist.
     Array.from($LIST_PLAYLIST.querySelectorAll('a')).forEach((elm) => {
@@ -376,6 +580,9 @@ function changePlaylistFocus() {
     scrollToFocusItem()
 }
 
+/**
+ * Auto-scroll to active item in playlist.
+ */
 function scrollToFocusItem() {
     const targetElm = $LIST_PLAYLIST.querySelector('a[aria-current="true"]')
     const elmRect = getRect(targetElm)
@@ -387,24 +594,39 @@ function scrollToFocusItem() {
     }
 }
 
+/**
+ * Event listener when changing the settings menu toggle button.
+ */
 $TOGGLE_RANDOMLY.querySelector('input[type="checkbox"]').addEventListener('change', (evt) => {
     AMP_STATUS.order = evt.target.checked ? 'random' : 'normal'
     //logger('Change Randomly Play: ->', AMP_STATUS.order)
 })
 
+/**
+ * Toggle the settings menu toggle button.
+ */
 function changeToggleRandomly() {
     const toggleElm = $TOGGLE_RANDOMLY.querySelector('input[type="checkbox"]')
     //logger('changeToggleRandomly:', toggleElm.checked)
     toggleElm.checked = AMP_STATUS.order === 'random'
 }
 
+/**
+ * Updates the user's media playback state.
+ * By giving this function the ID you want to play, it will generate a media 
+ * configuration that includes the previous and next playback IDs according 
+ * to the playback order.
+ * 
+ * @param {number} currentAmId 
+ */
 function updatePlayStatus(currentAmId) {
     // Set looking ahead to the next index.
     const targetData = AMP_STATUS.ctg != null && AMP_STATUS.ctg != -1 ? AMP_STATUS.media.filter((item) => item.catId == AMP_STATUS.ctg) : AMP_STATUS.media
     let idCandidates = targetData.map((item) => item.amId)
     //logger('playItem:', AMP_STATUS.ctg, idCandidates)
     AMP_STATUS.current = currentAmId
-    let prevId, nextId
+    let prevId = null
+    let nextId = null
     if (AMP_STATUS.order === 'random') {
         if (idCandidates.length > 1) {
             idCandidates = idCandidates.filter((v) => v != currentAmId)
@@ -420,28 +642,33 @@ function updatePlayStatus(currentAmId) {
             }
         })
     }
-    //logger('playItem:', prevId, nextId, AMP_STATUS, mediaData, mediaSrc, priority)
-    if ( prevId && nextId ) {
-        AMP_STATUS.prev = prevId
-        AMP_STATUS.next = nextId
-    }
+    AMP_STATUS.prev = prevId
+    AMP_STATUS.next = nextId
+    //logger('playItem:', prevId, currentAmId, nextId, AMP_STATUS)
+    updateCarousel()
 }
 
-function playItem(event) {
-    const thisElm = event.target
-    const amId = Number(thisElm.dataset.playlistItem)
+/**
+ * Commit a media item to play.
+ * This function is intended to be called from a playlist item click event, 
+ * but it can also be called independently by specifying the media ID directly 
+ * or from an event listener on an element with the data-playlist-item attribute.
+ * 
+ * @param {Object | null} object 
+ * @param {number | null} id 
+ */
+function playItem(object=null, id=null) {
+    const thisElm = isElement(object) ? object : object.target
+    const amId = id !== null ? id : (thisElm.dataset.playlistItem ? Number(thisElm.dataset.playlistItem) : 0) 
     const mediaData = AMP_STATUS.media.filter((item) => item.amId == amId).shift()
     let mediaSrc   = null
-    let priority   = 0// 0:auto|1:local|2:youtube
     let playerType = null
     if (mediaData.hasOwnProperty('file') && mediaData.file !== '') {
         mediaSrc = mediaData.file
-        priority = 1
         playerType = 'html'
     }
     if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== '') {
         mediaSrc = mediaData.videoid
-        priority = 2
         playerType = 'youtube'
     }
     logger('playItem:', amId, mediaSrc, playerType)
@@ -451,29 +678,48 @@ function playItem(event) {
     setupPlayer(playerType, mediaSrc, mediaData)
 }
 
+/**
+ * Handle the player to prepare depending on the type of media to play.
+ * 
+ * @param {string} type "youtube" or "html" only 
+ * @param {string} src 
+ * @param {Object} mediaData 
+ */
 function setupPlayer(type, src, mediaData) {
     logger('setupPlayer:', type, src, mediaData)
+    // update media caption.
+    updateMediaCaption(mediaData)
     switch(true) {
         case /^YouTube$/i.test(type):
+            AMP_STATUS.playertype = type
             createYTPlayer(mediaData)
             break
         case /^HTML$/i.test(type):
             const extension = getExt(src)
             //logger('setupPlayer:', extension)
-            if (/^(aac|midi?|mp3|mp4a|ogg|opus|wav|weba)$/i.test(extension)) {
+            if (/^(aac|midi?|mp3|m4a|ogg|opus|wav|weba)$/i.test(extension)) {
+                AMP_STATUS.playertype = 'audio'
                 createPlayerTag('audio', mediaData)
             } else
             if (/^(avi|mpe?g|mp4|ogv|ts|webm|3g(p|2))$/i.test(extension)) {
+                AMP_STATUS.playertype = 'video'
                 createPlayerTag('video', mediaData)
             } else {
+                AMP_STATUS.playertype = null
                 throw new Error('Unsupported file format')
             }
             break
         default:
+            AMP_STATUS.playertype = null
             throw new Error('Unsupported player specified.')
     }
 }
 
+/**
+ * Event handler that is called when the YouTube player is ready to play.
+ * 
+ * @param {Object} event 
+ */
 function onPlayerReady(event) {
     // from: flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-full h-0 opacity-0
     // to:   flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-max h-max
@@ -489,6 +735,11 @@ function onPlayerReady(event) {
     event.target.playVideo()
 }
 
+/**
+ * Event handler called when the state of the YouTube player changes.
+ * 
+ * @param {Object} event 
+ */
 function onPlayerStateChange(event) {
     if (event.data == YT.PlayerState.ENDED) {
         // from: flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-max h-max
@@ -500,7 +751,7 @@ function onPlayerStateChange(event) {
         $BUTTON_WATCH_TY.setAttribute('disabled', '')
         $OPTIONAL_CONTAINER.classList.add('hidden', 'opacity-0')
     
-        const nextId = AMP_STATUS.next
+        const nextId = AMP_STATUS.next || 0
         const mediaData = AMP_STATUS.media.filter((item) => item.amId == nextId).shift()
         let mediaSrc   = null
         let playerType = null
@@ -515,14 +766,48 @@ function onPlayerStateChange(event) {
         }
         updatePlayStatus(nextId)
         setupPlayer(playerType, mediaSrc, mediaData)
-        //createYTPlayer(mediaData)
     }
 }
 
+/**
+ * Event handler called when the YouTube player encounters an error.
+ * 
+ * @param {Object} event 
+ */
 function onPlayerError(event) {
+    // Skip if media playback fails.
     logger('onYTPlayerError:', event.data)
+    // from: flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-max h-max
+    // to:   flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-full h-0 opacity-0
+    $EMBED_WRAPPER.classList.add('w-full', 'h-0', 'opacity-0')
+    $EMBED_WRAPPER.classList.remove('w-max', 'h-max')
+
+    $BUTTON_WATCH_TY.href = '#'
+    $BUTTON_WATCH_TY.setAttribute('disabled', '')
+    $OPTIONAL_CONTAINER.classList.add('hidden', 'opacity-0')
+
+    const nextId = AMP_STATUS.next
+    const mediaData = AMP_STATUS.media.filter((item) => item.amId == nextId).shift()
+    let mediaSrc   = null
+    let playerType = null
+    if (mediaData.hasOwnProperty('file') && mediaData.file !== '') {
+        mediaSrc = mediaData.file
+        playerType = 'html'
+        player.destroy()
+    }
+    if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== '') {
+        mediaSrc = mediaData.videoid
+        playerType = 'youtube'
+    }
+    updatePlayStatus(nextId)
+    setupPlayer(playerType, mediaSrc, mediaData)
 }
-   
+
+/**
+ * Create a YouTube player.
+ * 
+ * @param {Object} mediaData 
+ */
 function createYTPlayer(mediaData) {
     const playerElm = document.createElement('div')
     playerElm.id = 'ytplayer'
@@ -575,7 +860,12 @@ function createYTPlayer(mediaData) {
     })
 }
 
-
+/**
+ * Create a media playback player using HTML.
+ * 
+ * @param {string} tagname "audio" or "video"
+ * @param {Object} mediaData 
+ */
 function createPlayerTag(tagname, mediaData) {
     logger('createPlayerTag:', tagname, mediaData)
     const playerElm = document.createElement(tagname)
@@ -606,14 +896,13 @@ function createPlayerTag(tagname, mediaData) {
     playerElm.addEventListener('play', (evt) => {
         if (mediaData.hasOwnProperty('end') && mediaData.end !== '') {
             // When the seek end time is reached, forcibly seeks to the end of the media and ends playback.
-            let itvid
-            if (!itvid) {
-                itvid = setInterval(() => {
+            if (!seekId) {
+                seekId = setInterval(() => {
                     if (evt.target.currentTime >= mediaData.end) {
                         evt.target.currentTime = evt.target.duration
-                        clearInterval(itvid)
-                        itvid = null
+                        abortSeeking()
                     }
+                    //logger('Now seeking:', seekId, evt.target.currentTime)
                 }, 500)
             }
         }
@@ -624,6 +913,8 @@ function createPlayerTag(tagname, mediaData) {
         // to:   flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-full h-0 opacity-0
         $EMBED_WRAPPER.classList.add('border', 'w-full', 'h-0', 'opacity-0')
         $EMBED_WRAPPER.classList.remove('w-max', 'h-max', 'border-0')
+
+        abortSeeking()
 
         const nextId = AMP_STATUS.next
         const mediaData = AMP_STATUS.media.filter((item) => item.amId == nextId).shift()
@@ -641,191 +932,41 @@ function createPlayerTag(tagname, mediaData) {
         updatePlayStatus(nextId)
         setupPlayer(playerType, mediaSrc, mediaData)
     })
-    
-}
 
-/*
-function createVideoTag(src) {
-    logger('createVideoTag:', src)
-} */
+    playerElm.addEventListener('error', (evt) => {
+        logger('Player Error:', evt)
+    })
 
-const items = [
-    {
-        position: 0,
-        el: document.getElementById('carousel-item-1')
-    },
-    {
-        position: 1,
-        el: document.getElementById('carousel-item-2')
-    },
-    {
-        position: 2,
-        el: document.getElementById('carousel-item-3')
-    },/*
-    {
-        position: 3,
-        el: document.getElementById('carousel-item-4')
-    },
-    {
-        position: 4,
-        el: document.getElementById('carousel-item-5')
-    },
-    {
-        position: 5,
-        el: document.getElementById('carousel-item-6')
-    },*/
-]
-
-const options = {
-    defaultPosition: 1,
-    interval: 3000,
-    /*
-    indicators: {
-        activeClasses: 'bg-white dark:bg-gray-800',
-        inactiveClasses: 'bg-white/50 dark:bg-gray-800/50 hover:bg-white dark:hover:bg-gray-800',
-        items: [
-            {
-                position: 0,
-                el: document.getElementById('carousel-indicator-1')
-            },
-            {
-                position: 1,
-                el: document.getElementById('carousel-indicator-2')
-            },
-            {
-                position: 2,
-                el: document.getElementById('carousel-indicator-3')
-            },
-            {
-                position: 3,
-                el: document.getElementById('carousel-indicator-4')
-            },
-        ]
-    },
-    */    
-    // callback functions
-    onNext: () => {
-        console.log('next slider item is shown')
-    },
-    onPrev: ( ) => {
-        console.log('previous slider item is shown')
-    },
-    onChange: ( ) => {
-        console.log('new slider item has been shown')
-    }
-}
-
-//import { Carousel } from './dist/flowbite.min.js'
-
-//const carousel = new Carousel(items, options)
-
-//carousel.cycle()
-
-const $carouselContainer = document.getElementById('carousel-container')
-const $carouselWrapper = document.getElementById('carousel-wrapper')
-const $prevButton = document.getElementById('data-carousel-prev')
-const $nextButton = document.getElementById('data-carousel-next')
-
-/*
-$prevButton.addEventListener('click', (evt) => {
-    //console.log(evt)
-    carousel.prev()
-})
-
-$nextButton.addEventListener('click', (evt) => {
-    //console.log(evt)
-    carousel.next()
-})
-*/
-$carouselContainer.classList.remove('hidden')
-//$prevButton.classList.remove('hidden')
-//$nextButton.classList.remove('hidden')
-
-// --------------------------
-
-const currentWindowSize = {
-    width: window.innerWidth,
-    height: window.innerHeight,
-}
-
-window.addEventListener('resize', updateWindowSize)
-
-/*
-<?php if ( $output_player == 1 ): ?>
-const audio = document.querySelector('audio')
-audio.addEventListener('ended', () => {
-    reloadPage()
-})
-<?php endif; ?>
-
-<?php if ( $output_player == 2 ): ?>
-var tag = document.createElement('script')
-tag.src = 'https://www.youtube.com/player_api'
-var firstScriptTag = document.getElementsByTagName('script')[0]
-firstScriptTag.parentNode.insertBefore(tag, firstScriptTag)
-
-var player;
-function onYouTubePlayerAPIReady() {
-    player = new YT.Player('ytplayer', {
-        height: currentWindowSize.width >= 640 ? 360 : 216,
-        width: currentWindowSize.width >= 640 ? 640 : 384,
-        videoId: '<?= $video_id ?>',
-        playerVars: {
-            'autoplay': 1,
-            'controls': 1,
-            'fs': 0,
-            'cc_load_policy': 0,
-            'rel': 0,
-            <?php if ( $start_sec && $start_sec > 0 ): ?>'start': <?= $start_sec ?>,<?php endif; ?>
-            <?php if ( $end_sec && $end_sec > 0 ): ?>'end': <?= $end_sec ?>,<?php endif; ?>
-        },
-        events: {
-            'onReady': onPlayerReady,
-            'onStateChange': onPlayerStateChange,
-            'onError': onPlayerError,
-        },
+    playerElm.addEventListener('loadstart', (evt) => {
+        // If the readyState does not change 1 second after the start of loading, 
+        // it is skipped as an unsupported medium.
+        setTimeout(() => {
+            if (evt.target.readyState == 0) {
+                logger('The player will treat this media as unsupported and will skip it.')
+                evt.target.dispatchEvent(new Event('ended'))
+            }
+        }, 1000)
     })
 }
-function onPlayerReady(event) {
-    const wrapper = document.getElementById('embed-wrapper')
-    wrapper.classList.add('w-max', 'h-max')
-    wrapper.classList.remove('h-0', 'opacity-0')
-    event.target.setVolume(33)
-    event.target.playVideo()
-}
 
-function onPlayerStateChange(event) {
-    if (event.data == YT.PlayerState.ENDED) {
-        const wrapper = document.getElementById('embed-wrapper')
-        wrapper.classList.add('h-0', 'opacity-0')
-        wrapper.classList.remove('w-max', 'h-max')
-        reloadPage()
-    }
-}
-
-function onPlayerError(event) {
-    console.error(event.data)
-}
-<?php endif; ?>
-*/
-
-const btn = document.getElementById('btn-refresh')
-btn.addEventListener('click', (e) => {
-    reloadPage()
-})
-
+/**
+ * Restart this application.
+ */
 function reloadPage() {
-    //window.location.replace(window.location.href)
     window.location.reload()
 }
+
+// Globals
+
+window.addEventListener('resize', updateWindowSize)
 
 function updateWindowSize() {
     currentWindowSize.width  = window.innerWidth
     currentWindowSize.height = window.innerHeight
-    //console.log( 'updateWindowSize:', typeof player, player.getIframe() )
+    logger('updateWindowSize:', currentWindowSize)
     if (player && typeof player === 'object' && typeof player.getIframe === 'function') {
         const elm = player.getIframe()
-        if ( currentWindowSize.width >= 640 ) {
+        if (currentWindowSize.width >= 640) {
             elm.width  = 640
             elm.height = 360
         } else {
@@ -834,6 +975,7 @@ function updateWindowSize() {
         }
     }
 }
+
 };// end init()
 
 // --------------------------------------------------

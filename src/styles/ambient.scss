@@ -14,7 +14,7 @@ body {
     align-items: center;
 }
 .text--artist::after {
-    content: '\\2013';
+    content: "\2013";
     position: relative;
     top: -1px;
     margin-left: 4px;
@@ -22,7 +22,7 @@ body {
 }
 .text--title {
     &::before {
-        content: '\\ff62';
+        content: "\ff62";
         position: relative;
         top: -1px;
         margin-right: 1px;
@@ -30,7 +30,7 @@ body {
         transform: rotate(0.03deg);
     }
     &::after {
-        content: '\\ff63';
+        content: "\ff63";
         position: relative;
         top: 0;
         margin-left: 1px;
@@ -44,7 +44,7 @@ body {
     color: #6b7280;
 
     &::before {
-        content: '\\28';
+        content: "\28";
         position: relative;
         top: -1px;
         margin-right: 2px;
@@ -52,7 +52,7 @@ body {
     }
     
     &::after {
-        content: '\\29';
+        content: "\29";
         margin-top: -1px;
         margin-left: 2px;
         color: #6b7280;

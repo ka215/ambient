@@ -1,3 +1,4 @@
+@charset "UTF-8";
 body {
   overflow-y: hidden !important;
   overflow-x: hidden !important;
@@ -22,7 +23,7 @@ body {
 }
 
 .text--artist::after {
-  content: "\\2013";
+  content: "–";
   position: relative;
   top: -1px;
   margin-left: 4px;
@@ -30,7 +31,7 @@ body {
 }
 
 .text--title::before {
-  content: "\\ff62";
+  content: "｢";
   position: relative;
   top: -1px;
   margin-right: 1px;
@@ -39,7 +40,7 @@ body {
           transform: rotate(0.03deg);
 }
 .text--title::after {
-  content: "\\ff63";
+  content: "｣";
   position: relative;
   top: 0;
   margin-left: 1px;
@@ -54,14 +55,14 @@ body {
   color: #6b7280;
 }
 .text--desc::before {
-  content: "\\28";
+  content: "(";
   position: relative;
   top: -1px;
   margin-right: 2px;
   color: #6b7280;
 }
 .text--desc::after {
-  content: "\\29";
+  content: ")";
   margin-top: -1px;
   margin-left: 2px;
   color: #6b7280;
