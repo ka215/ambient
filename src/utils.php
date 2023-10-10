@@ -159,7 +159,7 @@ trait utils {
      * @return void
      */
     public function logger( ...$args ): void {
-        if ( !DEBUG_MODE ) {
+        if ( !defined( 'DEBUG_MODE' ) || !DEBUG_MODE ) {
             return;
         }
         ob_start();

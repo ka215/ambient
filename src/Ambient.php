@@ -28,7 +28,7 @@ class Ambient {
     public function setup(): void {
         set_error_handler( [ $this, 'error_handler' ] );
 
-        //$this->clear_log();
+        $this->clear_log();
 
         // If there is a JSON file that is defined the translational text, load it.
         if ( file_exists( ASSETS_DIR . 'lang.json' ) ) {
@@ -58,6 +58,9 @@ class Ambient {
             $has_images = count( glob( IMAGES_DIR . '{*.jpg,*.jpeg,*.png,*.webp,*.bmp,*.gif}', GLOB_BRACE) ) > 0;
             if ( $has_images ) {
                 $localize_data['imageDir'] = str_replace( APP_ROOT, '.', IMAGES_DIR );
+            }
+            if ( defined( 'DEBUG_MODE' ) && DEBUG_MODE ) {
+                $localize_data['debug'] = true;
             }
             $this->set_localize_script( 'AmbientData', $localize_data );
         }

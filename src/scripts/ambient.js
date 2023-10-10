@@ -2,6 +2,10 @@ const init = function() {
 
 var selfURL = new URL(window.location.href)
 const BASE_URL = selfURL.origin + selfURL.pathname
+
+if (!window.hasOwnProperty('APP_KEY')) {
+    window.APP_KEY  = 'AmbientUserData'
+}
 useStge()
 const AMP_STATUS = initStatus()
 
@@ -54,7 +58,7 @@ function abortSeeking() {
  */
 function watchState() {
     const callback = function(prop, oldValue, newValue) {
-        logger(`callback(${prop}):`, oldValue, '->', newValue)
+        //logger(`callback(${prop}):`, oldValue, '->', newValue)
         switch (true) {
             case /^(prev|current|next|ctg|order)$/i.test(prop):
                 // Synchronize to the saved data of web storage when specific properties of AMP_STATUS object are changed.
@@ -65,6 +69,10 @@ function watchState() {
                 if ('order' === prop) {
                     changeToggleRandomly()
                 }
+                break
+            case /^media$/i.test(prop):
+                //logger(`change "${prop}" of AMP_STATUS:`, newValue)
+                togglePlayerControllButtons()
                 break
             case /^category$/i.test(prop):
                 updateCategory()
@@ -153,7 +161,7 @@ const $TOGGLE_RANDOMLY    = document.getElementById('toggle-randomly')
 const $DRAWER_PLAYLIST    = document.getElementById('drawer-playlist')
 const $LIST_PLAYLIST      = document.getElementById('playlist-list-group')
 //const $PLAYLIST_ITEMS   = Array.from($LIST_PLAYLIST.querySelectorAll('a'))
-//const $CAROUSEL           = document.getElementById('carousel-container')
+//const $CAROUSEL         = document.getElementById('carousel-container')
 const $CAROUSEL_WRAPPER   = document.getElementById('carousel-wrapper')
 const $CAROUSEL_PREV      = document.getElementById('data-carousel-prev')
 const $CAROUSEL_NEXT      = document.getElementById('data-carousel-next')
@@ -162,9 +170,11 @@ const $EMBED_WRAPPER      = document.getElementById('embed-wrapper')
 const $OPTIONAL_CONTAINER = document.getElementById('optional-container')
 const $BUTTON_WATCH_TY    = document.getElementById('btn-watch-origin')
 const $MENU               = document.getElementById('menu-container')
+const $BUTTON_PLAYLIST    = document.getElementById('btn-playlist')
 const $BUTTON_REFRESH     = document.getElementById('btn-refresh')
 const $BUTTON_PLAY        = document.getElementById('btn-play')
 const $BUTTON_PAUSE       = document.getElementById('btn-pause')
+const $BUTTON_SETTINGS    = document.getElementById('btn-settings')
 
 /**
  * Method for switching display of alert component.
@@ -203,7 +213,8 @@ function toggleAlert(state=null) {
 toggleAlert('hide')
 
 /**
- * Monitors the state of the playlist drawer component and fires an event when it is displayed.
+ * Monitors the state of the playlist drawer component and fires 
+ * an event when it is displayed.
  */
 watcher($DRAWER_PLAYLIST, (mutation) => {
     if (mutation.attributeName === 'aria-modal' && mutation.target.ariaModal) {
@@ -221,7 +232,6 @@ function clearPlaylist() {
         $LIST_PLAYLIST.removeChild($LIST_PLAYLIST.firstChild)
     }
     $LIST_PLAYLIST.appendChild(clone)
-    //clearCarousel()
 }
 
 /**
@@ -241,7 +251,7 @@ function updatePlaylist() {
         items = AMP_STATUS.media.filter((item) => item.catId == AMP_STATUS.ctg)
     }
     is_no_media = items.length == 0
-    logger('updatePlaylist:', is_no_media)
+    //logger('updatePlaylist:', is_no_media)
     if (is_no_media) {
         // no playable media
         $LIST_NO_MEDIA.classList.remove('hidden')
@@ -261,24 +271,22 @@ function updatePlaylist() {
         //itemElm.setAttribute('data-drawer-hide', 'drawer-playlist')
         //itemElm.setAttribute('aria-controls', 'drawer-playlist')
         itemElm.setAttribute('data-playlist-item', item.amId)
+        let imageSrc = './views/images/no-media-thumb.svg'
         if ((item.image && item.image !== '') || (item.thumb && item.thumb !== '')) {
             if (AmbientData && AmbientData.imageDir) {
-                const imageSrc = AmbientData.imageDir + (item.thumb && item.thumb !== '' ? item.thumb : item.image)
-                const imgElm = document.createElement('img')
-                imgElm.setAttribute('src', imageSrc)
-                imgElm.classList.add('w-8', 'h-8', 'rounded')
-                imgElm.setAttribute('alt', mb_strimwidth(item.desc, 0, 50, '...'))
-                itemElm.appendChild(imgElm)
+                imageSrc = AmbientData.imageDir + (item.thumb && item.thumb !== '' ? item.thumb : item.image)
             }
         } else
         if (item.videoid && item.videoid !== '') {
-            const imageSrc = getYoutubeThumbnailURL(item.videoid)
-            const imgElm = document.createElement('img')
-            imgElm.setAttribute('src', imageSrc)
-            imgElm.classList.add('w-8', 'h-8', 'rounded')
-            imgElm.setAttribute('alt', mb_strimwidth(item.desc, 0, 50, '...'))
-            itemElm.appendChild(imgElm)
+            imageSrc = getYoutubeThumbnailURL(item.videoid)
         }
+        // Set thumbnail image.
+        const imgElm = document.createElement('img')
+        imgElm.setAttribute('src', imageSrc)
+        imgElm.classList.add('w-8', 'h-8', 'rounded')
+        imgElm.setAttribute('alt', mb_strimwidth(item.desc, 0, 50, '...'))
+        itemElm.appendChild(imgElm)
+
         let labelText = item.title
         if (format = getOption('playlist')) {
             labelText = filterText(format, item)
@@ -287,9 +295,13 @@ function updatePlaylist() {
         $LIST_PLAYLIST.appendChild(itemElm)
     })
     Array.from($LIST_PLAYLIST.querySelectorAll('a')).forEach((elm) => {
-        elm.addEventListener('click', playItem)
+        elm.addEventListener('click', (evt) => {
+            playItem(evt.target)
+            // Toggle player control buttons shown.
+            $BUTTON_PLAY.classList.add('hidden')
+            $BUTTON_PAUSE.classList.remove('hidden')
+        })
     })
-    //updateCarousel()
 }
 
 /**
@@ -381,7 +393,6 @@ function applyOptions() {
  * Clear and initialize the carousel display.
  */
 function clearCarousel() {
-    logger('clearCarousel')
     const $CAROUSEL_NO_MEDIA = document.createElement('div')
     $CAROUSEL_NO_MEDIA.id = 'carousel-item-1'
     $CAROUSEL_NO_MEDIA.classList.add('hidden', 'duration-700', 'ease-in-out')
@@ -407,8 +418,9 @@ function clearCarousel() {
  */
 function updateCarousel() {
     let items = []
-    if (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null)
-    logger('updateCarousel:', AMP_STATUS)
+    if (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null) {
+        // do nothing.
+    }
     let is_show = false
     if (AMP_STATUS.hasOwnProperty('prev') && AMP_STATUS.prev !== null) {
         items.push(AMP_STATUS.prev)
@@ -443,6 +455,7 @@ function updateCarousel() {
         let base_aspect = 'h-full'
         if (mediaData.hasOwnProperty('image') && mediaData.image !== null && mediaData.image !== '') {
             mediaImage  = AmbientData.imageDir + mediaData.image
+            //logger('updateCarousel:3:', mediaImage, mediaData.image, mediaData)
         } else
         if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== null && mediaData.videoid !== '') {
             mediaImage = getYoutubeThumbnailURL(mediaData.videoid)
@@ -468,7 +481,7 @@ function updateMediaCaption(mediaData) {
     while($MEDIA_CAPTION.firstChild) {
         $MEDIA_CAPTION.removeChild($MEDIA_CAPTION.firstChild)
     }
-    logger('updateMediaCaption:', getOption('caption'), labelText, labelText.match(/<.*?[!^<].*?>/gi))
+    //logger('updateMediaCaption:', getOption('caption'), labelText, labelText.match(/<.*?[!^<].*?>/gi))
     if (/<.*?[!^<].*?>/gi.test(labelText)) {
         $MEDIA_CAPTION.innerHTML = labelText
     } else {
@@ -512,7 +525,6 @@ $SELECT_PLAYLIST.addEventListener('change', (evt) => {
         initStatus()
         clearCategory()
     }
-    logger('changed playlist:', AMP_STATUS)
 })
 
 /**
@@ -529,37 +541,112 @@ $SELECT_CATEGORY.addEventListener('change', (evt) => {
         AMP_STATUS.current = null
         AMP_STATUS.next    = null
     }
-    logger('changed category:', AMP_STATUS)
     updatePlaylist()
 })
 
+/**
+ * Event listener when the button of "previous" for carousel has been clicked.
+ */
 $CAROUSEL_PREV.addEventListener('click', (evt) => {
     playItem(evt.target, AMP_STATUS.prev)
 })
 
+/**
+ * Event listener when the button of "next" for carousel has been clicked.
+ */
 $CAROUSEL_NEXT.addEventListener('click', (evt) => {
     playItem(evt.target, AMP_STATUS.next)
 })
 
+/**
+ * Event listener when the button of "refresh" in bottom menu has been clicked.
+ */
 $BUTTON_REFRESH.addEventListener('click', (evt) => {
     reloadPage()
 })
 
+/**
+ * Toggle the display of player controls button after media loaded.
+ */
+function togglePlayerControllButtons() {
+    if (AMP_STATUS.media !== null && AMP_STATUS.media.length > 0) {
+        // There are activated when available media are set.
+        $BUTTON_PLAY.removeAttribute('disabled')
+        $BUTTON_PAUSE.removeAttribute('disabled')
+    } else {
+        // There are deactivated when no available media.
+        $BUTTON_PLAY.setAttribute('disabled', true)
+        $BUTTON_PLAY.classList.remove('hidden')
+        $BUTTON_PAUSE.setAttribute('disabled', true)
+        $BUTTON_PAUSE.classList.add('hidden')
+    }
+}
+
+/**
+ * Event listener when the "play" button in bottom menu has been clicked.
+ */
 $BUTTON_PLAY.addEventListener('click', (evt) => {
-    logger('click Play button:', evt)
+    let playableIds = AMP_STATUS.media.map((item) => item.amId) 
+    if (AMP_STATUS.ctg > -1) {
+        playableIds = AMP_STATUS.media.filter((item) => item.catId == AMP_STATUS.ctg).map((item) => item.amId)
+    }
+    let playId
+    if (AMP_STATUS.current !== null) {
+        playId = AMP_STATUS.current
+    } else {
+        if (AMP_STATUS.order === 'random') {
+            playId = playableIds[Math.floor(Math.random() * playableIds.length)]
+        } else {
+            playId = playableIds.shift()
+        }
+    }
+    if (AMP_STATUS.playertype === 'youtube' && player) {
+        const YTPstate = player.getPlayerState()
+        //logger('"Play" the YouTube Player:', YTPstate)
+        if (YTPstate != 1) {
+            player.playVideo()
+        }
+    } else
+    if (/^(audio|video)$/i.test(AMP_STATUS.playertype)) {
+        const _elms = document.getElementsByTagName(AMP_STATUS.playertype)
+        const playerElm = _elms[0]
+        playerElm.play()
+    } else {
+        playItem(null, playId)
+    }
+    // Toggle this button shown.
+    $BUTTON_PLAY.classList.add('hidden')
+    $BUTTON_PAUSE.classList.remove('hidden')
 })
 
+/**
+ * Event listener when the "pause" button in bottom menu has been clicked.
+ */
 $BUTTON_PAUSE.addEventListener('click', (evt) => {
     if (!AMP_STATUS.hasOwnProperty('playertype') || AMP_STATUS.playertype === null || AMP_STATUS.playertype === '') {
         return false
     }
+    if (AMP_STATUS.playertype === 'youtube' && player) {
+        if (player.getPlayerState() == 1) {
+            player.pauseVideo()
+        } else {
+            player.stopVideo()
+        }
+    } else 
+    if (/^(audio|video)$/i.test(AMP_STATUS.playertype)) {
+        const _elms = document.getElementsByTagName(AMP_STATUS.playertype)
+        const playerElm = _elms[0]
+        playerElm.pause()
+    } else {
+        // Deactivate their player control buttons.
+        $BUTTON_PLAY.setAttribute('disabled', true)
+        $BUTTON_PLAY.classList.remove('hidden')
+        $BUTTON_PAUSE.setAttribute('disabled', true)
+        $BUTTON_PAUSE.classList.add('hidden')
+    }
+    // Toggle this button shown.
     $BUTTON_PAUSE.classList.add('hidden')
     $BUTTON_PLAY.classList.remove('hidden')
-    if (AMP_STATUS.playertype === 'youtube') {
-        logger('click Pause button:', AMP_STATUS.playertype, player)
-    } else {
-        logger('click Pause button:', AMP_STATUS.playertype, document.getElementsByTagName(AMP_STATUS.playertype))
-    }
 })
 
 /**
@@ -588,7 +675,6 @@ function scrollToFocusItem() {
     const elmRect = getRect(targetElm)
     if (elmRect) {
         let move = targetElm.offsetTop > $LIST_PLAYLIST.clientHeight ? Math.abs($LIST_PLAYLIST.clientHeight - targetElm.offsetTop) + elmRect.height : 0
-        //$LIST_PLAYLIST.scrollTop = move
         $LIST_PLAYLIST.scrollTo({top: move, behavior: 'smooth'})
         //logger('scrollToFocusItem:', activeRect, targetElm.offsetTop, $LIST_PLAYLIST.clientHeight, $LIST_PLAYLIST.offsetTop, move, $LIST_PLAYLIST.scrollHeight)
     }
@@ -599,7 +685,6 @@ function scrollToFocusItem() {
  */
 $TOGGLE_RANDOMLY.querySelector('input[type="checkbox"]').addEventListener('change', (evt) => {
     AMP_STATUS.order = evt.target.checked ? 'random' : 'normal'
-    //logger('Change Randomly Play: ->', AMP_STATUS.order)
 })
 
 /**
@@ -607,9 +692,29 @@ $TOGGLE_RANDOMLY.querySelector('input[type="checkbox"]').addEventListener('chang
  */
 function changeToggleRandomly() {
     const toggleElm = $TOGGLE_RANDOMLY.querySelector('input[type="checkbox"]')
-    //logger('changeToggleRandomly:', toggleElm.checked)
     toggleElm.checked = AMP_STATUS.order === 'random'
 }
+
+/**
+ * Toggle the display of backdrop for drawer.
+ */
+function toggleDrawerBackdrop() {
+    const backdropElm = document.querySelector('div[drawer-backdrop]')
+    if (currentWindowSize.width >= 1320) {
+        $BUTTON_PLAYLIST.setAttribute('data-drawer-backdrop', 'false')
+        $BUTTON_SETTINGS.setAttribute('data-drawer-backdrop', 'false')
+        if (isElement(backdropElm)) {
+            backdropElm.classList.add('hidden')
+        }
+    } else {
+        $BUTTON_PLAYLIST.setAttribute('data-drawer-backdrop', 'true')
+        $BUTTON_PLAYLIST.setAttribute('data-drawer-backdrop', 'true')
+        if (isElement(backdropElm)) {
+            backdropElm.classList.remove('hidden')
+        }
+    }
+}
+toggleDrawerBackdrop()
 
 /**
  * Updates the user's media playback state.
@@ -658,7 +763,7 @@ function updatePlayStatus(currentAmId) {
  * @param {number | null} id 
  */
 function playItem(object=null, id=null) {
-    const thisElm = isElement(object) ? object : object.target
+    const thisElm = isElement(object) ? object : (object !== null ? object.target : null)
     const amId = id !== null ? id : (thisElm.dataset.playlistItem ? Number(thisElm.dataset.playlistItem) : 0) 
     const mediaData = AMP_STATUS.media.filter((item) => item.amId == amId).shift()
     let mediaSrc   = null
@@ -671,10 +776,13 @@ function playItem(object=null, id=null) {
         mediaSrc = mediaData.videoid
         playerType = 'youtube'
     }
-    logger('playItem:', amId, mediaSrc, playerType)
+    //logger('playItem:', amId, mediaSrc, playerType)
     updatePlayStatus(amId)
-    // Hide drawer playlist
-    document.getElementById('btn-close-playlist').click()
+    if (currentWindowSize.width < 1320) {
+        // Hide drawers
+        document.getElementById('btn-close-playlist').click()
+        document.getElementById('btn-close-settings').click()
+    }
     setupPlayer(playerType, mediaSrc, mediaData)
 }
 
@@ -686,7 +794,6 @@ function playItem(object=null, id=null) {
  * @param {Object} mediaData 
  */
 function setupPlayer(type, src, mediaData) {
-    logger('setupPlayer:', type, src, mediaData)
     // update media caption.
     updateMediaCaption(mediaData)
     switch(true) {
@@ -697,7 +804,7 @@ function setupPlayer(type, src, mediaData) {
         case /^HTML$/i.test(type):
             const extension = getExt(src)
             //logger('setupPlayer:', extension)
-            if (/^(aac|midi?|mp3|m4a|ogg|opus|wav|weba)$/i.test(extension)) {
+            if (/^(aac|midi?|mp3|m4a|ogg|opus|wav|weba|wma)$/i.test(extension)) {
                 AMP_STATUS.playertype = 'audio'
                 createPlayerTag('audio', mediaData)
             } else
@@ -711,6 +818,7 @@ function setupPlayer(type, src, mediaData) {
             break
         default:
             AMP_STATUS.playertype = null
+            playItem(null, AMP_STATUS.next)
             throw new Error('Unsupported player specified.')
     }
 }
@@ -776,7 +884,7 @@ function onPlayerStateChange(event) {
  */
 function onPlayerError(event) {
     // Skip if media playback fails.
-    logger('onYTPlayerError:', event.data)
+    logger('error', 'onYTPlayerError:', event.data, mediaData, 'force')
     // from: flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-max h-max
     // to:   flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-full h-0 opacity-0
     $EMBED_WRAPPER.classList.add('w-full', 'h-0', 'opacity-0')
@@ -846,7 +954,7 @@ function createYTPlayer(mediaData) {
     if (getOption('seek') && mediaData.hasOwnProperty('end') && mediaData.end !== '') {
         playerOptions.end = mediaData.end
     }
-    logger('createYTPlayer:', mediaData, playerOptions)
+    //logger('createYTPlayer:', mediaData, playerOptions)
     player = new YT.Player('ytplayer', {
         height: currentWindowSize.width >= 640 ? 360 : 216,
         width: currentWindowSize.width >= 640 ? 640 : 384,
@@ -867,7 +975,6 @@ function createYTPlayer(mediaData) {
  * @param {Object} mediaData 
  */
 function createPlayerTag(tagname, mediaData) {
-    logger('createPlayerTag:', tagname, mediaData)
     const playerElm = document.createElement(tagname)
     const sourceElm = document.createElement('source')
     playerElm.id = 'audio-player'
@@ -886,7 +993,7 @@ function createPlayerTag(tagname, mediaData) {
     $EMBED_WRAPPER.appendChild(playerElm)
     // from: flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-full h-0 opacity-0
     // to:   flex justify-center        border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-max h-max border-0
-    $EMBED_WRAPPER.classList.add('w-max', 'h-max', 'border-0')
+    $EMBED_WRAPPER.classList.add('max-w-2xl', 'w-max', 'h-max', 'border-0')
     $EMBED_WRAPPER.classList.remove('border', 'w-full', 'h-0', 'opacity-0')
 
     $BUTTON_WATCH_TY.href = '#'
@@ -912,7 +1019,7 @@ function createPlayerTag(tagname, mediaData) {
         // from: flex justify-center        border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-max h-max border-0
         // to:   flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-full h-0 opacity-0
         $EMBED_WRAPPER.classList.add('border', 'w-full', 'h-0', 'opacity-0')
-        $EMBED_WRAPPER.classList.remove('w-max', 'h-max', 'border-0')
+        $EMBED_WRAPPER.classList.remove('max-w-2xl', 'w-max', 'h-max', 'border-0')
 
         abortSeeking()
 
@@ -934,7 +1041,7 @@ function createPlayerTag(tagname, mediaData) {
     })
 
     playerElm.addEventListener('error', (evt) => {
-        logger('Player Error:', evt)
+        logger('error', 'Player Error:', mediaData, evt, 'force')
     })
 
     playerElm.addEventListener('loadstart', (evt) => {
@@ -942,10 +1049,27 @@ function createPlayerTag(tagname, mediaData) {
         // it is skipped as an unsupported medium.
         setTimeout(() => {
             if (evt.target.readyState == 0) {
-                logger('The player will treat this media as unsupported and will skip it.')
+                logger('warn', `The player will treat this media (${mediaData.file}) as unsupported and will skip it.`, 'force')
                 evt.target.dispatchEvent(new Event('ended'))
             }
-        }, 1000)
+        }, 1500)
+    })
+
+    playerElm.addEventListener('loadedmetadata', (evt) => {
+        const self = evt.target
+        if (self.tagName === 'VIDEO') {
+            //logger('loadedmetadata:', `videoSize(${self.videoWidth} x ${self.videoHeight})`)
+            if (!self.videoHeight || !self.videoWidth) {
+                self.setAttribute('poster', './views/images/no-media-placeholder.svg')
+            }
+            if (currentWindowSize.width >= 640) {
+                self.width  = 640
+                self.height = Math.floor((640 * self.videoHeight) / self.videoWidth)
+            } else {
+                self.width  = 384
+                self.height = Math.floor((384 * self.videoHeight) / self.videoWidth)
+            }
+        }
     })
 }
 
@@ -958,8 +1082,9 @@ function reloadPage() {
 
 // Globals
 
-window.addEventListener('resize', updateWindowSize)
-
+/**
+ * Event handler when the window size is resized.
+ */
 function updateWindowSize() {
     currentWindowSize.width  = window.innerWidth
     currentWindowSize.height = window.innerHeight
@@ -974,48 +1099,78 @@ function updateWindowSize() {
             elm.height = 216
         }
     }
+    toggleDrawerBackdrop()
 }
+
+window.addEventListener('resize', updateWindowSize)
 
 };// end init()
 
-// --------------------------------------------------
+// Below are the utility functions: ---------------------------------------------------------------
 
-// Below are the utility functions:
+/**
+ * Finds whether the given variable is an object.
+ * 
+ * @param {any} value 
+ * @returns 
+ */
 function isObject(value) {
     return value !== null && "object" === typeof value 
 }
 
+/**
+ * Finds whether the given variable is an element of HTML.
+ * 
+ * @param {any} node 
+ * @returns 
+ */
 function isElement(node) {
     return !(!node || !(node.nodeName || node.prop && node.attr && node.find))
 }
 
+/**
+ * Determines if the given variable is a numeric string.
+ * 
+ * @param {any} numstr 
+ * @returns 
+ */
 function isNumberString(numstr) {
     return "string" == typeof numstr && "" !== numstr && !isNaN(numstr)
 }
 
+/**
+ * Determines if the given variable is a boolean string.
+ * @param {any} boolstr 
+ * @returns 
+ */
 function isBooleanString(boolstr) {
     return "string" == typeof boolstr && "" !== boolstr && /^(true|false)$/i.test(boolstr)
 }
 
+/**
+ * Given a string containing the path to a file or directory, 
+ * this function will return the trailing name component.
+ * If the given path ends in a file, only the file name without 
+ * the extension is returned.
+ * 
+ * @param {any} path 
+ * @returns 
+ */
 function basename(path) {
-    return path.split('/').pop().split('.').shift();
+    return path.split(/[\/\\]/).pop().split('.').shift();
 }
 
+/**
+ * Gets the extension from the given file path.
+ * 
+ * @param {any} path 
+ * @returns 
+ */
 function getExt(path) {
     return path.split('.').pop()
 }
 
-function executeIfFileExist(src, callback) {
-    const xhr = new XMLHttpRequest()
-    xhr.onreadystatechange = function() {
-        logger(this)
-        if (this.readyState === this.DONE) {
-            callback()
-        }
-    }
-    xhr.open('HEAD', src)
-}
-
+/*
 function filterValue(val, withDecodeURI=!1, castNumeric=!1, castLogged=!1) {
     console.log(val)
     let objType;
@@ -1043,6 +1198,7 @@ function filterValue(val, withDecodeURI=!1, castNumeric=!1, castLogged=!1) {
         return val
     }
 }
+*/
 
 function getOS() {
     let ua;
@@ -1051,6 +1207,16 @@ function getOS() {
     /android/i.test(ua) ? "Android" : /iPad|iPhone|iPod/.test(ua) || "MacIntel" === navigator.platform && navigator.maxTouchPoints > 1 ? "iOS" : "Other")
 }
 
+/**
+ * Retrieves a DOMRect object providing information about the size 
+ * of given an element and its position relative to the viewport.
+ * This function as a wrapper of  Element.getBoundingClientRect() 
+ * method.
+ * 
+ * @param {Object} targetElement 
+ * @param {string | null} property 
+ * @returns 
+ */
 function getRect(targetElement, property="") {
     if (isElement(targetElement)) {
         const _RECT_OBJ = targetElement.getBoundingClientRect();
@@ -1179,6 +1345,13 @@ function strToNode(str) {
     return (new DOMParser).parseFromString(str, "text/html")
 }
 
+/**
+ * Returns the width of string string, where halfwidth characters count as 1, 
+ * and fullwidth characters count as 2.
+ * 
+ * @param {string} str 
+ * @returns 
+ */
 function mb_strwidth(str) {
     var i = 0,
         l = str.length,
@@ -1201,6 +1374,16 @@ function mb_strwidth(str) {
     return length
 }
 
+/**
+ * Truncates string string to specified width, where halfwidth characters 
+ * count as 1, and fullwidth characters count as 2.
+ * 
+ * @param {string} str 
+ * @param {int} start 
+ * @param {int} width 
+ * @param {string | null} trimmarker 
+ * @returns 
+ */
 function mb_strimwidth(str, start, width, trimmarker) {
     if (typeof trimmarker === 'undefined') trimmarker = ''
     const trimmakerWidth = mb_strwidth(trimmarker)
@@ -1209,8 +1392,7 @@ function mb_strimwidth(str, start, width, trimmarker) {
         trimmedLength = 0,
         trimmedStr = ''
     for (;i < l; i++) {
-        var charCode = str.charCodeAt(i),
-            c = str.charAt(i),
+        var c = str.charAt(i),
             charWidth = mb_strwidth(c),
             next = str.charAt(i + 1),
             nextWidth = mb_strwidth(next)
@@ -1224,6 +1406,7 @@ function mb_strimwidth(str, start, width, trimmarker) {
     return trimmedStr
 }
 
+/*
 function getFieldData(idOrName, attrName="") {
     let nodes = document.getElementById(idOrName) ? [document.getElementById(idOrName)] : Array.from(document.querySelectorAll(`[name="${idOrName}"]`));
     if (nodes = nodes.filter(node=>isElement(node) && /^(INPUT|TEXTAREA|SELECT)$/i.test(node.nodeName)),
@@ -1254,7 +1437,17 @@ function getFieldData(idOrName, attrName="") {
     ),
     1 == retval.length ? retval[0] : retval
 }
+*/
 
+/**
+ * Watches the specified element.
+ * This function as a wrapper for MutationObserver.
+ * 
+ * @param {Object} targetElements 
+ * @param {function} callback 
+ * @param {Object | null} config 
+ * @returns 
+ */
 function watcher(targetElements, callback, config={}) {
     const _ELMS = targetElements instanceof Array ? targetElements : [targetElements];
     if (!callback || "function" != typeof callback)
@@ -1281,6 +1474,17 @@ function watcher(targetElements, callback, config={}) {
     )
 }
 
+/**
+ * Fetch data using the specified URL and method.
+ * This function as a wrapper for Fetch API.
+ * 
+ * @param {string} url 
+ * @param {string | null} method 
+ * @param {Object | null} data 
+ * @param {string | null} datatype 
+ * @param {int | null} timeout 
+ * @returns 
+ */
 async function fetchData(url="", method="get", data={}, datatype="json", timeout=15e3) {
     const controller = new AbortController, 
           timeoutId  = setTimeout(() => {
@@ -1318,7 +1522,7 @@ async function fetchData(url="", method="get", data={}, datatype="json", timeout
         //logger("fetchData::after:", response)
         if (response.ok) {
             const retval = "json" === datatype ? await response.json() : await response.text();
-            logger("fetchData::after:2:", retval)
+            //logger("fetchData::after:2:", retval)
             return Promise.resolve(retval.data)
         } else {
             const errObj = await response.json();
@@ -1329,12 +1533,17 @@ async function fetchData(url="", method="get", data={}, datatype="json", timeout
             })
         }
     } catch (err) {
-        logger("fetchData::error:", err)
+        logger("error", "fetchData::error:", err, "force")
     } finally {
         clearTimeout(timeoutId)
     }
 }
 
+/**
+ * Set the storage for saving user data on the client side to be used.
+ * 
+ * @param {string} stge 
+ */
 function useStge(stge="localStorage") {
     if (window.$ambient) {
         window.$ambient.useStorage = stge
@@ -1343,19 +1552,26 @@ function useStge(stge="localStorage") {
     }
 }
 
+/**
+ * Store user data in client-side storage.
+ * 
+ * @param {string} key 
+ * @param {any} data 
+ * @returns 
+ */
 function saveStge(key, data) {
-    const _data = window[window.$ambient.useStorage].getItem('AmbientUserData')
+    const _data = window[window.$ambient.useStorage].getItem(APP_KEY)
     if (!_data) {
         const newData = {}
         newData[key] = data
-        window[window.$ambient.useStorage].setItem('AmbientUserData', JSON.stringify(newData))
+        window[window.$ambient.useStorage].setItem(APP_KEY, JSON.stringify(newData))
         return true
     }
     try {
         const userData = JSON.parse(_data)
         if (isObject(userData)) {
             userData[key] = data
-            window[window.$ambient.useStorage].setItem('AmbientUserData', JSON.stringify(userData))
+            window[window.$ambient.useStorage].setItem(APP_KEY, JSON.stringify(userData))
             return true
         }
     } catch (error) {
@@ -1364,8 +1580,14 @@ function saveStge(key, data) {
     return false
 }
 
+/**
+ * Load user data from client-side storage.
+ * 
+ * @param {string} key 
+ * @returns 
+ */
 function loadStge(key) {
-    const _data = window[window.$ambient.useStorage].getItem('AmbientUserData')
+    const _data = window[window.$ambient.useStorage].getItem(APP_KEY)
     try {
         const userData = JSON.parse(_data)
         if (isObject(userData) && userData.hasOwnProperty(key)) 
@@ -1376,17 +1598,24 @@ function loadStge(key) {
     return null
 }
 
+/**
+ * Removes specific properties from user data stored in client-side storage.
+ * If no property name is specified, deletes the entire user data.
+ * 
+ * @param {string | null} key 
+ * @returns 
+ */
 function removeStge(key=null) {
     if (!key) {
-        window[window.$ambient.useStorage].removeItem('AmbientUserData')
+        window[window.$ambient.useStorage].removeItem(APP_KEY)
         return true
     }
-    const _data = window[window.$ambient.useStorage].getItem('AmbientUserData')
+    const _data = window[window.$ambient.useStorage].getItem(APP_KEY)
     try {
         const userData = JSON.parse(_data)
         if (isObject(userData) && userData.hasOwnProperty(key)) { 
             delete userData[key]
-            window[window.$ambient.useStorage].setItem('AmbientUserData', JSON.stringify(userData))
+            window[window.$ambient.useStorage].setItem(APP_KEY, JSON.stringify(userData))
             return true
         }
     } catch (error) {
@@ -1395,24 +1624,26 @@ function removeStge(key=null) {
     return false
 }
 
-const DEBUG_MODE = !0
-  , logger = (...args)=>{
-    let isForce = !0;
-    if (args.length > 0 && "string" == typeof args[args.length - 1] && args[args.length - 1] === 'force' && (isForce = args.pop() === 'force'),
-    !isForce)
-        return;
-    const now = new Date
-      , yyyy = undefined
-      , MM = undefined
-      , dd = undefined
-      , HH = undefined
-      , mm = undefined
-      , ss = undefined
-      , dateStr = `[${"" + now.getFullYear()}/${("0" + (now.getMonth() + 1)).slice(-2)}/${("0" + now.getDate()).slice(-2)} ${("0" + now.getHours()).slice(-2)}:${("0" + now.getMinutes()).slice(-2)}:${("0" + now.getSeconds()).slice(-2)}]`
-      , type = /^(error|warn|info|debug|log)$/i.test(args[0]) ? args.shift() : "log";
+/**
+ * Logger for frontend of Ambient Media Player.
+ * 
+ * @param  {...any} args 
+ * @returns 
+ */
+function logger(...args) {
+    let isForce = AmbientData.hasOwnProperty('debug') ? AmbientData.debug : false
+    if (args.length > 0 && "string" == typeof args[args.length - 1] && args[args.length - 1] === 'force') {
+        isForce = args.pop() === 'force'
+    }
+    if (!isForce) {
+        return
+    }
+    const now = new Date,
+        dateStr = `[${"" + now.getFullYear()}/${("0" + (now.getMonth() + 1)).slice(-2)}/${("0" + now.getDate()).slice(-2)} ${("0" + now.getHours()).slice(-2)}:${("0" + now.getMinutes()).slice(-2)}:${("0" + now.getSeconds()).slice(-2)}]`,
+        type = /^(error|warn|info|debug|log)$/i.test(args[0]) ? args.shift() : "log"
     //args = args.map(item=>filterValue(item, !0, !1, !0)),
     return console[type](dateStr, ...args)
-};
+}
 
 function changeMode() {
     const nowTheme = undefined;
