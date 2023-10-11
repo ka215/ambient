@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+    html, body {
+        overflow: hidden !important;
+    }
+}
+
 @layer components {
     [role="alert"] {
         z-index: 51 !important;

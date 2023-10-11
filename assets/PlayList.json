@@ -14,7 +14,7 @@
     "options": {
         "autoplay": true,
         "random": false,
-        "seek": true,
+        "seek": false,
         "background": "",
         "caption": "%artist - %title - %desc",
         "playlist": "%artist - %title"

@@ -2,17 +2,6 @@
   "name": "ambient",
   "version": "1.0.0",
   "scripts": {
-    "dev": "vite",
-    "build": "run-p type-check build-only",
-    "preview": "vite preview --port 4173",
-    "test:unit": "vitest --environment jsdom",
-    "test:e2e": "start-server-and-test preview http://localhost:4173/ 'cypress open --e2e'",
-    "test:e2e:ci": "start-server-and-test preview http://localhost:4173/ 'cypress run --e2e'",
-    "build-only": "vite build",
-    "type-check": "vue-tsc --noEmit -p tsconfig.vitest.json --composite false",
-    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
-    "format": "prettier -w src/**/*.{ts,vue}",
-    "fix": "run-s format lint",
     "tw-dev": "tailwindcss -i ./src/styles/tailwindcss.css -o ./dist/tailwindcss.css --watch",
     "tw-build": "tailwindcss -i ./src/styles/tailwindcss.css -o ./dist/tailwindcss.min.css --minify"
   },

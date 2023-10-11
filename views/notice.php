@@ -24,7 +24,7 @@
 ?>
 <div 
   id="alert-notification"
-  class="fixed top-0 inset-x-0 w-5/6 flex items-center p-4 my-4 mx-auto z-30 text-sm text-<?= $base_color ?>-800 border border-<?= $base_color ?>-300 rounded-lg bg-<?= $base_color ?>-50 dark:bg-gray-800 dark:text-<?= $base_color ?>-400 dark:border-<?= $base_color ?>-800 transition-opacity duration-1000 delay-[2000ms] ease-out"
+  class="fixed top-0 inset-x-0 w-5/6 max-w-xl md:max-w-sm flex items-center p-4 my-4 mx-auto z-30 text-sm text-<?= $base_color ?>-800 border border-<?= $base_color ?>-300 rounded-lg bg-<?= $base_color ?>-50 dark:bg-gray-800 dark:text-<?= $base_color ?>-400 dark:border-<?= $base_color ?>-800 shadow-md transition-opacity duration-1000 delay-[2000ms] ease-out"
   role="alert"
 >
   <svg class="flex-shrink-0 inline w-4 h-4 mr-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">

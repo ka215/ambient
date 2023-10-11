@@ -1,9 +1,9 @@
 @charset "UTF-8";
-body {
-  overflow-y: hidden !important;
-  overflow-x: hidden !important;
+@font-face {
+  font-family: "mplus-1p-regular";
+  src: url("../fonts/mplus-1p-regular.eot");
+  src: url("../fonts/mplus-1p-regular.eot?#iefix") format("embedded-opentype"), url("../fontsmplus-1p-regular.woff") format("woff"), url("../fonts/mplus-1p-regular.ttf") format("truetype");
 }
-
 .font-sans {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, mplus-1p-regular, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   -webkit-transform: rotate(0.03deg);

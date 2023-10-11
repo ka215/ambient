@@ -51,8 +51,9 @@ if ( $this->menu_type == 1 ) {
         <button 
           id="btn-options"
           type="button"
-          disabled
           class="inline-flex flex-col items-center justify-center px-5 border-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 group border-x dark:border-gray-600"
+          data-modal-target="modal-options"
+          data-modal-toggle="modal-options"
         >
             <svg class="w-5 h-5 mb-2 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500" aria-hidden="true" aria-label="other-options" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 3">
                 <path d="M2 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm6.041 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM14 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"/>
@@ -181,6 +182,8 @@ if ( $this->menu_type == 1 ) {
           id="btn-options"
           type="button" 
           class="inline-flex flex-col items-center justify-center px-5 rounded-r-full hover:bg-gray-50 dark:hover:bg-gray-800 group"
+          data-modal-target="modal-options"
+          data-modal-toggle="modal-options"
           data-tooltip-target="tooltip-options" 
         >
             <svg class="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500" aria-hidden="true" aria-label="other-options" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 3">

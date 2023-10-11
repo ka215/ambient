@@ -19,5 +19,19 @@
     "Choose a playlist": "プレイリストを選んでください",
     "Target Category": "対象のカテゴリー",
     "All categories": "すべてのカテゴリー",
-    "Randomly play": "ランダム再生"
+    "Randomly play": "ランダム再生",
+    "Seek and play": "シーク再生",
+    "Close options": "オプションを閉じる",
+    "Media Management": "メディア管理",
+    "Playlist Creator": "プレイリスト作成",
+    "Report an issue": "問題を報告",
+    "About Ambient": "Ambientについて",
+    "Ambient is an open source media player that allows you to seamlessly mix and play media published on YouTube and media stored on your local PC.": "",
+    "Additionally, since Ambient is designed as a web application, anyone can use it by accessing the application's pages with a common web browser.": "",
+    "However, if you want to use Ambient on your local PC, you will need to prepare a PHP execution environment and launch your application onto that environment.": "",
+    "Learn more about the technology Ambient uses below:": "",
+    "tailwindcss": "tailwindcss",
+    "Flowbite": "Flowbite",
+    "Version:": "バージョン",
+    "(user setup)": ""
 }

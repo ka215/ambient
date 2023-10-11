@@ -158,6 +158,7 @@ const $ALERT              = document.getElementById('alert-notification')
 const $SELECT_PLAYLIST    = document.getElementById('current-playlist')
 const $SELECT_CATEGORY    = document.getElementById('target-category')
 const $TOGGLE_RANDOMLY    = document.getElementById('toggle-randomly')
+const $TOGGLE_SEEKPLAY    = document.getElementById('toggle-seekplay')
 const $DRAWER_PLAYLIST    = document.getElementById('drawer-playlist')
 const $LIST_PLAYLIST      = document.getElementById('playlist-list-group')
 //const $PLAYLIST_ITEMS   = Array.from($LIST_PLAYLIST.querySelectorAll('a'))
@@ -175,6 +176,7 @@ const $BUTTON_REFRESH     = document.getElementById('btn-refresh')
 const $BUTTON_PLAY        = document.getElementById('btn-play')
 const $BUTTON_PAUSE       = document.getElementById('btn-pause')
 const $BUTTON_SETTINGS    = document.getElementById('btn-settings')
+const $COLLAPSE_MENU      = document.getElementById('collapse-menu')
 
 /**
  * Method for switching display of alert component.
@@ -220,7 +222,22 @@ watcher($DRAWER_PLAYLIST, (mutation) => {
     if (mutation.attributeName === 'aria-modal' && mutation.target.ariaModal) {
         scrollToFocusItem()
     }
-})
+}, { attributes: true, childList: false, subtree: true, attributeFilter: ['aria-modal'] })
+
+/**
+ * Monitors the state of the collapse menu component and fires 
+ * an event when it is opened.
+ */
+watcher($COLLAPSE_MENU, (mutation) => {
+    if (mutation.attributeName === 'aria-expanded' && mutation.target.ariaExpanded) {
+        const is_collapse_open = mutation.target.ariaExpanded === 'true'
+        const collapse_item_id = mutation.target.getAttribute('aria-controls')
+        if (is_collapse_open) {
+            const $COLLAPSE_ITEM = document.getElementById(collapse_item_id)
+            //logger('Open collapse item:', $COLLAPSE_ITEM)
+        }
+    }
+}, { attributes: true, childList: false, subtree: true, attributeFilter: ['aria-expanded'] })
 
 /**
  * Empty the playlist.
@@ -386,6 +403,11 @@ function applyOptions() {
     const isRandom = getOption('random')
     if (isRandom !== null) {
         AMP_STATUS.order = isRandom ? 'random' : 'normal'
+    }
+
+    const isSeekplay = getOption('seek')
+    if (isSeekplay !== null) {
+        changeToggleSeekplay()
     }
 }
 
@@ -681,19 +703,35 @@ function scrollToFocusItem() {
 }
 
 /**
- * Event listener when changing the settings menu toggle button.
+ * Event listener when changing the randomly of settings menu toggle button.
  */
 $TOGGLE_RANDOMLY.querySelector('input[type="checkbox"]').addEventListener('change', (evt) => {
     AMP_STATUS.order = evt.target.checked ? 'random' : 'normal'
 })
 
 /**
- * Toggle the settings menu toggle button.
+ * Toggle the randomly of settings menu toggle button.
  */
 function changeToggleRandomly() {
     const toggleElm = $TOGGLE_RANDOMLY.querySelector('input[type="checkbox"]')
     toggleElm.checked = AMP_STATUS.order === 'random'
 }
+
+/**
+ * Event listener when changing the seekplay of settings menu toggle button.
+ */
+$TOGGLE_SEEKPLAY.querySelector('input[type="checkbox"]').addEventListener('change', (evt) => {
+    AMP_STATUS.options.seek = evt.target.checked
+})
+
+/**
+ * Toggle the seekplay of settings menu toggle button.
+ */
+function changeToggleSeekplay() {
+    const toggleElm = $TOGGLE_SEEKPLAY.querySelector('input[type="checkbox"]')
+    toggleElm.checked = !!AMP_STATUS.options.seek
+}
+
 
 /**
  * Toggle the display of backdrop for drawer.
@@ -981,7 +1019,7 @@ function createPlayerTag(tagname, mediaData) {
     playerElm.setAttribute('controls', true)
     playerElm.setAttribute('controlslist', 'nodownload')
     playerElm.setAttribute('autoplay', true)
-    if (mediaData.hasOwnProperty('start') && mediaData.start !== '') {
+    if (getOption('seek') && mediaData.hasOwnProperty('start') && mediaData.start !== '') {
         playerElm.currentTime = mediaData.start
     }
     sourceElm.src = mediaData.file
@@ -1001,7 +1039,7 @@ function createPlayerTag(tagname, mediaData) {
     $OPTIONAL_CONTAINER.classList.add('hidden', 'opacity-0')
 
     playerElm.addEventListener('play', (evt) => {
-        if (mediaData.hasOwnProperty('end') && mediaData.end !== '') {
+        if (getOption('seek') && mediaData.hasOwnProperty('end') && mediaData.end !== '') {
             // When the seek end time is reached, forcibly seeks to the end of the media and ends playback.
             if (!seekId) {
                 seekId = setInterval(() => {

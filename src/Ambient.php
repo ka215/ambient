@@ -8,6 +8,9 @@ use ErrorException;
 
 class Ambient {
     /** @var ?array<string> */
+    protected $package_info;
+
+    /** @var ?array<string> */
     protected $translation_data;
 
     /** @var ?array<string> */
@@ -27,8 +30,11 @@ class Ambient {
      */
     public function setup(): void {
         set_error_handler( [ $this, 'error_handler' ] );
+        register_shutdown_function( [ $this, 'shutdown' ] );
 
         $this->clear_log();
+
+        $this->package_info = json_decode( file_get_contents( APP_ROOT . 'package.json' ), true );
 
         // If there is a JSON file that is defined the translational text, load it.
         if ( file_exists( ASSETS_DIR . 'lang.json' ) ) {
@@ -65,7 +71,7 @@ class Ambient {
             $this->set_localize_script( 'AmbientData', $localize_data );
         }
 
-        self::logger( __METHOD__, $this->translation_data, $this->playlists );
+        //self::logger( __METHOD__, $this->translation_data, $this->playlists );
 
         // Routing the requested endpoint.
         $this->route_endpoint();
@@ -192,6 +198,15 @@ class Ambient {
     protected function is_error(): bool {
         //$this->logger( __METHOD__, $this->amp_error, !empty( $this->amp_error ) );
         return !empty( $this->amp_error );
+    }
+
+    /**
+     * Method for execution on shutdown.
+     */
+    protected function shutdown(): void {
+        if ( defined( 'DEBUG_MODE' ) && DEBUG_MODE ) {
+            // Do currently nothing.
+        }
     }
 
     /**

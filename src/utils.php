@@ -18,12 +18,12 @@ trait utils {
         $type = $_SERVER['REQUEST_METHOD'] === 'POST' ? INPUT_POST : INPUT_GET;
         $params = filter_input_array( $type, [
             'action'            => FILTER_SANITIZE_ENCODED,
-            'is_id'             => FILTER_VALIDATE_INT,
-            'reply_id'          => FILTER_VALIDATE_INT,
-            'selected_is_id'    => FILTER_VALIDATE_INT,
-            'selected_reply_id' => FILTER_VALIDATE_INT,
-            'json_data'         => FILTER_SANITIZE_ENCODED,
-            'json_checksum'     => FILTER_SANITIZE_ENCODED,
+            'playlist'          => FILTER_SANITIZE_ENCODED,
+            'category'          => FILTER_SANITIZE_ENCODED,
+            'is_randomly'       => FILTER_VALIDATE_INT,
+            'is_seekable'       => FILTER_VALIDATE_INT,
+            'video_id'          => FILTER_SANITIZE_ENCODED,
+            'image_src'         => FILTER_SANITIZE_ENCODED,
         ] );
         $this->logger( __METHOD__, $type, $params );
         return $params;
@@ -150,6 +150,15 @@ trait utils {
             $this->logger( 'Undefined translated text: "'. $text .'"' );
             return $text;
         }
+    }
+
+    public function get_version(): string {
+        $version = 'undefined';
+        //$this->logger(__METHOD__, $this->package_info, property_exists( $this, 'package_info' ));
+        if ( property_exists( $this, 'package_info' ) ) {
+            $version = $this->package_info['version'];
+        }
+        return $version;
     }
 
     /**

@@ -16,6 +16,7 @@
     amp_component( 'menu' );
     amp_component( 'drawer-left' );
     amp_component( 'drawer-right' );
+    amp_component( 'modal' );
 ?>
 <?= amp_footer() ?>
 </body>
