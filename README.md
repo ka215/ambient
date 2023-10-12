@@ -1,20 +1,21 @@
 <h1 align="center">
-  <br>
+  <div align="center">
+    <img src="./views/images/ambient-logo-color.svg" width="64" align="center" />
+  </div>
   Ambient
-  <br>
 </h1>
 
 Ambient is a media player that runs on a web browser using YouTube IFrame Player API. It also supports playing media files on your local PC.<br>
 Ambient lets you create mixed playlists of your favorite YouTube videos and other media you own on your local PC, and play them seamlessly.<br>
 **Let's start your ambient media experience!**
 
-<p align="center">
+<!-- /* p align="center">
   <img alt="GitHub package.json version" src="https://img.shields.io/github/package-json/v/ka215/sunorhc">
   <img alt="CircleCI" src="https://img.shields.io/circleci/build/github/ka215/sunorhc/main">
   <img alt="npm downloads" src="https://img.shields.io/npm/dt/sunorhc">
   <img alt="npm bundle size" src="https://img.shields.io/bundlephobia/min/sunorhc?label=bundle%20size">
   <img alt="GitHub" src="https://img.shields.io/github/license/ka215/sunorhc">
-</p>
+</p */ -->
 
 <p align="center">
   <a href="#installations">Installations</a> &middot;
@@ -51,6 +52,8 @@ Ambient plays media by loading playlists. Therefore, first you need to create a 
 
 ## Supported browsers
 
+Operation is currently being verified.
+<!-- /*
 The working environment and supported browsers of Sunorhc are as follows.
 
 | Chrome (>= 92) | firefox (>= 91) | Safari (>=13) | Edge (>= 92) | Android | iOS |
@@ -58,7 +61,7 @@ The working environment and supported browsers of Sunorhc are as follows.
 | &check; | &check; | &check; (&ast;) | &check; | &check; | &check; |
 
 **&ast;** Note: "Intl.Locale" object is not supported by native JavaScript in Safari 13, so a separate [Polyfill](https://formatjs.io/docs/polyfills/intl-locale/) is required for formatter language resolution.
-
+*/ -->
 In addition, we have not tested the software on legacy browsers such as IE. We do not plan to provide support for these legacy browsers.
 
 ## Customization
