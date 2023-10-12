@@ -7,7 +7,7 @@ trait render {
     public static $amp_scripts;
 
     /** @var int */
-    public $menu_type = 1;
+    public $menu_type = 2;
 
     /**
      * Render this application's views.

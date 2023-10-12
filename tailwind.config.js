@@ -6,6 +6,7 @@ module.exports = {
       "./views/**/*.{php,html}",
       "./dist/*.js",
   ],
+  darkMode: "class",
   theme: {
     extend: {},
   },

@@ -8,12 +8,12 @@
     >
         <figcaption 
           id="media-caption"
-          class="text-lg font-normal flex justify-center items-center gap-2"
+          class="text-gray-900 text-lg font-normal dark:text-white flex justify-center items-center gap-2 mb-2"
         >
         </figcaption>
         <div 
           id="embed-wrapper"
-          class="flex justify-center w-full h-0 border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out opacity-0"
+          class="flex justify-center w-full h-0 border border-gray-300 dark:bg-gray-800 dark:text-white dark:border-gray-600 rounded-lg overflow-hidden transition-all duration-150 ease-out opacity-0"
         >
         </div>
         <div 
@@ -24,7 +24,7 @@
               id="btn-watch-origin"
               href="#"
               target="_blank"
-              class="text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-full text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700"
+              class="text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-full text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700 transition-opacity duration-500 ease-in-out"
               disabled
             >
                 <?= __( 'Watch on YouTube' ) ?>

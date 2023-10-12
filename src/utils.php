@@ -30,6 +30,19 @@ trait utils {
     }
 
     /**
+     * If there is a JSON file that is defined the translational text, load it.
+     */
+    protected function load_translation_data() {
+        if ( empty( $this->translation_data ) && file_exists( ASSETS_DIR . 'lang.json' ) ) {
+            $this->translation_data = json_decode( file_get_contents( ASSETS_DIR . 'lang.json' ), true );
+            if ( array_key_exists( '$language', $this->translation_data ) ) {
+                $this->current_lang = $this->translation_data['$language'];
+                unset( $this->translation_data['$language'] );
+            }
+        }
+    }
+
+    /**
      * Modify the specified member variable of this class.
      * 
      * @param string $var_name
@@ -43,13 +56,15 @@ trait utils {
     }
 
     /**
-     * Search playlist json file from assets dir.
+     * Search playlist json or yaml file from assets dir.
      */
     protected function find_playlist(): void {
+        // php requires PECL yaml module extension to support yaml files.
+        // $results = glob( ASSETS_DIR . '*.{[Jj][Ss][Oo][Nn],[Yy][Aa][Mm][Ll]}', GLOB_BRACE );
         $results = glob( ASSETS_DIR . '*.[Jj][Ss][Oo][Nn]' );
         if ( $results ) {
             array_walk( $results, function( $value ) {
-                if ( strtolower( basename( $value ) ) !== 'lang.json' ) {
+                if ( !preg_match( '/^lang(|-?.+?)\.json$/i', basename( $value ) ) ) {
                     $this->playlists[basename( $value )] = $value;
                 }
             } );
@@ -152,6 +167,9 @@ trait utils {
         }
     }
 
+    /**
+     * Retrieves a version number from package.json read.
+     */
     public function get_version(): string {
         $version = 'undefined';
         //$this->logger(__METHOD__, $this->package_info, property_exists( $this, 'package_info' ));

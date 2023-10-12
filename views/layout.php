@@ -6,7 +6,7 @@
     <title><?= __( 'Ambient Media Player' ) ?></title>
     <?= amp_head() ?>
 </head>
-<body class="font-sans antialiased w-screen h-screen overflow-hidden">
+<body class="font-sans antialiased w-screen h-screen bg-white dark:bg-gray-800 overflow-hidden">
 <?php 
     $this->logger($this->amp_error, $this->is_error());
     if ( $this->is_error() ) {

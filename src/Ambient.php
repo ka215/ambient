@@ -11,7 +11,10 @@ class Ambient {
     protected $package_info;
 
     /** @var ?array<string> */
-    protected $translation_data;
+    public $translation_data;
+
+    /** @var ?string */
+    public $current_lang;
 
     /** @var ?array<string> */
     protected $playlists;
@@ -29,17 +32,16 @@ class Ambient {
      * Initialize this application.
      */
     public function setup(): void {
-        set_error_handler( [ $this, 'error_handler' ] );
-        register_shutdown_function( [ $this, 'shutdown' ] );
-
         $this->clear_log();
 
-        $this->package_info = json_decode( file_get_contents( APP_ROOT . 'package.json' ), true );
+        register_shutdown_function( [ $this, 'shutdown' ] );
 
-        // If there is a JSON file that is defined the translational text, load it.
-        if ( file_exists( ASSETS_DIR . 'lang.json' ) ) {
-            $this->translation_data = json_decode( file_get_contents( ASSETS_DIR . 'lang.json' ), true );
-        }
+        $this->load_translation_data();
+        //$this->logger( $this->translation_data, $this->current_lang );
+
+        set_error_handler( [ $this, 'error_handler' ] );
+
+        $this->package_info = json_decode( file_get_contents( APP_ROOT . 'package.json' ), true );
 
         $this->find_playlist();
 

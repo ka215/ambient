@@ -35,7 +35,6 @@
   position: relative;
   top: -1px;
   margin-right: 1px;
-  color: #374151;
   -webkit-transform: rotate(0.03deg);
           transform: rotate(0.03deg);
 }
@@ -44,7 +43,6 @@
   position: relative;
   top: 0;
   margin-left: 1px;
-  color: #374151;
   -webkit-transform: rotate(-0.03deg);
           transform: rotate(-0.03deg);
 }
@@ -52,20 +50,17 @@
 .text--desc {
   font-size: 0.9375rem;
   line-height: 1.375rem;
-  color: #6b7280;
 }
 .text--desc::before {
   content: "(";
   position: relative;
   top: -1px;
   margin-right: 2px;
-  color: #6b7280;
 }
 .text--desc::after {
   content: ")";
   margin-top: -1px;
   margin-left: 2px;
-  color: #6b7280;
 }
 
 .text-rotate-0 {

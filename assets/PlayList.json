@@ -1,13 +1,13 @@
 {
-    "Category1": [
+    "Category #1": [
         { "track": 1, "file": "", "title": "", "desc": "", "artist": "", "videoid": "", "image": "", "start": "", "end": "" },
         { "track": 2, "file": "", "title": "", "desc": "", "artist": "", "videoid": "", "image": "", "start": "", "end": "" }
     ],
-    "Category2": [
+    "Category #2": [
         { "id": 1, "file": "", "title": "", "desc": "", "artist": "", "videoid": "", "image": "", "start": "", "end": "" },
         { "id": 2, "file": "", "title": "", "desc": "", "artist": "", "videoid": "", "image": "", "start": "", "end": "" }
     ],
-    "Category3": [
+    "Category #3": [
         { "disc": 1, "track": 1, "file": "", "title": "", "desc": "", "artist": "", "videoid": "", "image": "", "start": "", "end": "" },
         { "disc": 1, "track": 2, "file": "", "title": "", "desc": "", "artist": "", "videoid": "", "image": "", "start": "", "end": "" }
     ],
@@ -15,6 +15,7 @@
         "autoplay": true,
         "random": false,
         "seek": false,
+        "dark": false,
         "background": "",
         "caption": "%artist - %title - %desc",
         "playlist": "%artist - %title"

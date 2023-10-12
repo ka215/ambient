@@ -159,6 +159,7 @@ const $SELECT_PLAYLIST    = document.getElementById('current-playlist')
 const $SELECT_CATEGORY    = document.getElementById('target-category')
 const $TOGGLE_RANDOMLY    = document.getElementById('toggle-randomly')
 const $TOGGLE_SEEKPLAY    = document.getElementById('toggle-seekplay')
+const $TOGGLE_DARKMODE    = document.getElementById('toggle-darkmode')
 const $DRAWER_PLAYLIST    = document.getElementById('drawer-playlist')
 const $LIST_PLAYLIST      = document.getElementById('playlist-list-group')
 //const $PLAYLIST_ITEMS   = Array.from($LIST_PLAYLIST.querySelectorAll('a'))
@@ -234,7 +235,8 @@ watcher($COLLAPSE_MENU, (mutation) => {
         const collapse_item_id = mutation.target.getAttribute('aria-controls')
         if (is_collapse_open) {
             const $COLLAPSE_ITEM = document.getElementById(collapse_item_id)
-            //logger('Open collapse item:', $COLLAPSE_ITEM)
+            $COLLAPSE_ITEM.firstElementChild.setAttribute('style', 'max-height: calc(100vh - 420px)')
+            //logger('Open collapse item:', $COLLAPSE_ITEM.firstElementChild)
         }
     }
 }, { attributes: true, childList: false, subtree: true, attributeFilter: ['aria-expanded'] })
@@ -386,9 +388,9 @@ function getOption(key) {
  * Causes the application to apply specific option contents of the AMP_STATUS object.
  */
 function applyOptions() {
+    // Applies if a background image is specified.
     const bgImage = getOption('background')
     if (bgImage && AmbientData && AmbientData.hasOwnProperty('imageDir')) {
-        // Set background image
         const bgSrc = AmbientData.imageDir + bgImage
         logger('applyOptions:', bgSrc, AMP_STATUS.options )
         $BODY.setAttribute('style', `background-image: url('${bgSrc}');`)
@@ -399,16 +401,25 @@ function applyOptions() {
         $BODY.classList.remove('bg-no-repeat', 'bg-bottom', 'bg-cover')
         $MENU.removeAttribute('style')
     }
-
+    // Applies if a randomly playback is specified.
     const isRandom = getOption('random')
     if (isRandom !== null) {
         AMP_STATUS.order = isRandom ? 'random' : 'normal'
     }
-
+    // Applies if a seeking playback is specified.
     const isSeekplay = getOption('seek')
     if (isSeekplay !== null) {
         changeToggleSeekplay()
     }
+    // Applies if a dark mode is specified.
+    const isDarkMode = getOption('dark')
+    logger(AMP_STATUS.options)
+    if (isDarkMode !== null) {
+        AMP_STATUS.options.dark = isDarkMode
+    //} else {
+    //    AMP_STATUS.options.dark = false
+    } 
+    changeToggleDarkmode()
 }
 
 /**
@@ -486,6 +497,9 @@ function updateCarousel() {
         $COROUSEL_ITEM_IMAGE.src = mediaImage
         $COROUSEL_ITEM_IMAGE.classList.add('absolute', 'block', base_aspect, '-translate-x-1/2', '-translate-y-1/2', 'top-1/2', 'left-1/2')
         $COROUSEL_ITEM_IMAGE.setAttribute('alt', mediaData.title)
+        if (basename(mediaImage) === 'no-media-placeholder' && isObject(AMP_STATUS.options) && AMP_STATUS.options.hasOwnProperty('dark') && AMP_STATUS.options.dark) {
+            $COROUSEL_ITEM_IMAGE.setAttribute('style', 'opacity: .7')
+        }
         $COROUSEL_ITEM.appendChild($COROUSEL_ITEM_IMAGE)
         $CAROUSEL_WRAPPER.appendChild($COROUSEL_ITEM)
     })
@@ -721,7 +735,9 @@ function changeToggleRandomly() {
  * Event listener when changing the seekplay of settings menu toggle button.
  */
 $TOGGLE_SEEKPLAY.querySelector('input[type="checkbox"]').addEventListener('change', (evt) => {
-    AMP_STATUS.options.seek = evt.target.checked
+    if (isObject(AMP_STATUS.options) && AMP_STATUS.options.hasOwnProperty('seek')) {
+        AMP_STATUS.options.seek = evt.target.checked
+    }
 })
 
 /**
@@ -730,6 +746,55 @@ $TOGGLE_SEEKPLAY.querySelector('input[type="checkbox"]').addEventListener('chang
 function changeToggleSeekplay() {
     const toggleElm = $TOGGLE_SEEKPLAY.querySelector('input[type="checkbox"]')
     toggleElm.checked = !!AMP_STATUS.options.seek
+}
+
+/**
+ * Event listener when changing the darkmode of settings menu toggle button.
+ */
+$TOGGLE_DARKMODE.querySelector('input[type="checkbox"]').addEventListener('change', (evt) => {
+    if (!isObject(AMP_STATUS.options)) {
+        AMP_STATUS.options = { dark: evt.target.checked }
+    } else {
+        if (AMP_STATUS.options.hasOwnProperty('dark')) {
+            AMP_STATUS.options.dark = evt.target.checked
+        } else {
+            AMP_STATUS.options = Object.assign(AMP_STATUS.options, { dark: evt.target.checked })
+        }
+    }
+    changeToggleDarkmode()
+})
+
+/**
+ * Toggle the darkmode of settings menu toggle button.
+ */
+function changeToggleDarkmode() {
+    const toggleElm  = $TOGGLE_DARKMODE.querySelector('input[type="checkbox"]')
+    const isDarkmode = isObject(AMP_STATUS.options) && AMP_STATUS.options.hasOwnProperty('dark') ? !!AMP_STATUS.options.dark : false
+    toggleElm.checked = isDarkmode
+    if (isDarkmode) {
+        document.documentElement.classList.add('dark')
+    } else {
+        document.documentElement.classList.remove('dark')
+    }
+    const $CAROUSEL_ITEMS = Array.from(document.querySelectorAll('[id^="carousel-item-"]'))
+    $CAROUSEL_ITEMS.forEach((item) => {
+        const isNoImage = basename(item.firstElementChild.src) === 'ambient-placeholder'
+        //logger('changeToggleDarkmode:', basename(item.firstElementChild.src), isNoImage)
+        if (isDarkmode) {
+            setStyles(item, 'opacity: .7')
+        } else {
+            setStyles(item)
+        }
+    })
+    const $AUDIO_PLAYER = document.getElementsByTagName('audio')
+    if ($AUDIO_PLAYER.length == 1 && isElement($AUDIO_PLAYER[0])) {
+        if (isDarkmode) {
+            setStyles($AUDIO_PLAYER[0], 'opacity: .7')
+        } else {
+            setStyles($AUDIO_PLAYER[0])
+        }
+        //logger('changeToggleDarkmode:', $AUDIO_PLAYER[0])
+    }
 }
 
 
@@ -872,10 +937,16 @@ function onPlayerReady(event) {
     $EMBED_WRAPPER.classList.add('w-max', 'h-max')
     $EMBED_WRAPPER.classList.remove('w-full', 'h-0', 'opacity-0')
 
+    if (youtubeURL = player.getVideoUrl()) {
+        $BUTTON_WATCH_TY.href = youtubeURL
+    } else {
+        $BUTTON_WATCH_TY.href = 'https://www.youtube.com/watch?v=' + mediaData.videoid
+    }
+
     setTimeout(() => {
         $BUTTON_WATCH_TY.removeAttribute('disabled')
         $OPTIONAL_CONTAINER.classList.remove('hidden', 'opacity-0')
-    }, 1000)
+    }, 500)
 
     event.target.setVolume(100)
     event.target.playVideo()
@@ -962,8 +1033,6 @@ function createYTPlayer(mediaData) {
     }
     $EMBED_WRAPPER.appendChild(playerElm)
 
-    $BUTTON_WATCH_TY.href = 'https://www.youtube.com/watch?v=' + mediaData.videoid
-
     const playerOptions = {
         autoplay: 1,
         controls: 1,
@@ -1019,6 +1088,9 @@ function createPlayerTag(tagname, mediaData) {
     playerElm.setAttribute('controls', true)
     playerElm.setAttribute('controlslist', 'nodownload')
     playerElm.setAttribute('autoplay', true)
+    if (tagname === 'audio' && isObject(AMP_STATUS.options) && AMP_STATUS.options.hasOwnProperty('dark') && AMP_STATUS.options.dark) {
+        setStyles(playerElm, 'opacity: .7')
+    }
     if (getOption('seek') && mediaData.hasOwnProperty('start') && mediaData.start !== '') {
         playerElm.currentTime = mediaData.start
     }
@@ -1309,13 +1381,19 @@ function getAtts(targetElement, attribute="") {
     }
 }
 
-function setAtts(targetElements, attributes={}, force=!0) {
-    const _ELMS = undefined;
+/**
+ * Set or remove attributes on the specified element.
+ * 
+ * @param {Object | Array} targetElements The object given should be a HTMLElement
+ * @param {Object} attributes Given an object can be specified multiple attribute name and value pairs
+ * @param {bool} remove If this remove flag is enabled, the corresponding attribute will be removed
+ */
+function setAtts(targetElements, attributes={}, remove=false) {
+    //logger('setAtts:', targetElements, attributes, remove);
     (targetElements instanceof Array ? targetElements : [targetElements]).map(elm=>{
         for (const _key in attributes)
-            force ? elm.setAttribute(_key, attributes[_key]) : elm.removeAttribute(_key)
-    }
-    )
+            !remove ? elm.setAttribute(_key, attributes[_key]) : elm.removeAttribute(_key)
+    })
 }
 
 function hide(targetElements) {
@@ -1681,13 +1759,6 @@ function logger(...args) {
         type = /^(error|warn|info|debug|log)$/i.test(args[0]) ? args.shift() : "log"
     //args = args.map(item=>filterValue(item, !0, !1, !0)),
     return console[type](dateStr, ...args)
-}
-
-function changeMode() {
-    const nowTheme = undefined;
-    getAtts(document.body, "data-theme") ? document.body.removeAttribute("data-theme") : setAtts(document.body, {
-        "data-theme": "dark"
-    }, !0)
 }
 
 // Do dispatcher

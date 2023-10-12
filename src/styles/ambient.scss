@@ -1,4 +1,3 @@
-
 @font-face{ 
     font-family: 'mplus-1p-regular';
     src: url('../fonts/mplus-1p-regular.eot');
@@ -30,7 +29,6 @@
         position: relative;
         top: -1px;
         margin-right: 1px;
-        color: #374151;
         transform: rotate(0.03deg);
     }
     &::after {
@@ -38,28 +36,24 @@
         position: relative;
         top: 0;
         margin-left: 1px;
-        color: #374151;
         transform: rotate(-0.03deg);
     }
 }
 .text--desc {
     font-size: 0.9375rem;
     line-height: 1.375rem;
-    color: #6b7280;
 
     &::before {
         content: "\28";
         position: relative;
         top: -1px;
         margin-right: 2px;
-        color: #6b7280;
     }
     
     &::after {
         content: "\29";
         margin-top: -1px;
         margin-left: 2px;
-        color: #6b7280;
     }
 }
 .text-rotate-0 {

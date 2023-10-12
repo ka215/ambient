@@ -62,7 +62,14 @@ trait api {
         } else {
             if ( $playlist_file ) {
                 if ( array_key_exists( $playlist_file, $this->playlists ) ) {
-                    $playlist_data = json_decode( file_get_contents( $this->playlists[$playlist_file] ), true );
+                    $file_ext = strtolower( pathinfo( $this->playlists[$playlist_file], PATHINFO_EXTENSION ) );
+                    $raw_data = file_get_contents( $this->playlists[$playlist_file] );
+                    if ( $file_ext === 'json' ) {
+                        $playlist_data = json_decode( $raw_data, true );
+                    } else {
+                        // php requires PECL yaml module extension.
+                        //$playlist_data = yaml_parse( $raw_data );
+                    }
                     if ( array_key_exists( 'options', $playlist_data ) ) {
                         $playlist_options = $playlist_data['options'];
                         unset( $playlist_data['options'] );

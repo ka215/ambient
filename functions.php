@@ -26,6 +26,7 @@ function amp_head(): string {
     $output[] = '<link rel="preload" href="https://www.youtube.com/player_api" as="script" />';
     $output[] = '<script src="https://www.youtube.com/iframe_api"></script>';
     //$output[] = '<link href="//mplus-webfonts.sourceforge.jp/mplus_webfonts.css" rel="stylesheet" />';
+    $output[] = '<link rel="icon" href="./'. basename( VIEWS_DIR ) .'/images/ambient.ico">';
     $output[] = $add_styles;
 
     if ( !empty( $GLOBALS['ambient']::$amp_scripts ) ) {
@@ -40,7 +41,7 @@ function amp_component( string $component ): void {
 }
 
 function amp_footer(): string {
-    $GLOBALS['ambient']->logger( __METHOD__ );
+    //$GLOBALS['ambient']->logger( __METHOD__ );
     $output = [];
     //$output[] = '<script src="https://cdn.jsdelivr.net/npm/fs-js@1.0.6/index.min.js" type="module"></script>';
     $output[] = '<script src="./dist/flowbite.min.js"></script>';

@@ -1,5 +1,4 @@
 <?php
-//amp_set_var( 'menu_type', 2 );
 if ( $this->menu_type == 1 ) {
 ?>
 <div 
@@ -7,12 +6,12 @@ if ( $this->menu_type == 1 ) {
   class="fixed bottom-0 left-0 z-40 w-full h-16 bg-white border-t border-gray-200 dark:bg-gray-700 dark:border-gray-600"
 >
     <div
-      class="grid h-full max-w-lg grid-cols-4 mx-auto font-medium"
+      class="grid h-full max-w-lg grid-cols-5 mx-auto font-medium"
     >
         <button 
           id="btn-playlist"
           type="button"
-          class="inline-flex flex-col items-center justify-center px-5 border-gray-200 border-x hover:bg-gray-50 dark:hover:bg-gray-800 group dark:border-gray-600"
+          class="inline-flex flex-col items-center justify-center px-4 border-gray-200 border-x hover:bg-gray-50 dark:hover:bg-gray-800 group dark:border-gray-600"
           data-drawer-target="drawer-playlist"
           data-drawer-show="drawer-playlist"
           data-drawer-placement="left"
@@ -33,6 +32,28 @@ if ( $this->menu_type == 1 ) {
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 1v5h-5M2 19v-5h5m10-4a8 8 0 0 1-14.947 3.97M1 10a8 8 0 0 1 14.947-3.97"/>
             </svg>
             <span class="text-sm text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500"><?= __( 'Refresh' ) ?></span>
+        </button>
+        <button 
+          id="btn-play"
+          type="button" 
+          class="inline-flex flex-col items-center justify-center px-5 border-r border-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 group dark:border-gray-600"
+          disabled
+        >
+            <svg class="w-5 h-5 mb-2 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500" aria-hidden="true" aria-label="media-play" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 14 16">
+                <path d="M0 .984v14.032a1 1 0 0 0 1.506.845l12.006-7.016a.974.974 0 0 0 0-1.69L1.506.139A1 1 0 0 0 0 .984Z"/>
+            </svg>
+            <span class="text-sm text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500"><?= __( 'Play' ) ?></span>
+        </button>
+        <button 
+          id="btn-pause"
+          type="button" 
+          class="hidden inline-flex flex-col items-center justify-center px-5 border-r border-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 group dark:border-gray-600"
+          disabled
+        >
+            <svg class="w-5 h-5 mb-2 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500" aria-hidden="true" aria-label="media-pause" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 12 16">
+                <path d="M3 0H2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2Zm7 0H9a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2Z"/>
+            </svg>
+            <span class="text-sm text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500"><?= __( 'Pause' ) ?></span>
         </button>
         <button 
           id="btn-settings"
