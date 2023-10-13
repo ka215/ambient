@@ -195,7 +195,15 @@ trait utils {
         ob_get_clean();
         if ( $this->buffers ) {
             $date = new DateTimeImmutable( 'now', new DateTimeZone( 'Asia/Tokyo' ) );
-            error_log( $date->format( '[y:m:d h:i:s] ') . $this->buffers . "\n", 3, LOGS_DIR . 'debug.log' );
+            if ( !file_exists( LOGS_DIR ) ) {
+                if ( mkdir( LOGS_DIR, 0755 ) ) { 
+                    @touch( LOGS_DIR . 'debug.log' );
+                    @chmod( LOGS_DIR . 'debug.log', 0755 );
+                }
+            }
+            if ( file_exists( LOGS_DIR . 'debug.log' ) ) {
+                error_log( $date->format( '[y:m:d h:i:s] ') . $this->buffers . "\n", 3, LOGS_DIR . 'debug.log' );
+            }
             $this->buffers = null;
         }
     }
