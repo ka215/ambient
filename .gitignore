@@ -45,3 +45,4 @@ custom.php
 *.bak.*
 src/_*.*
 package-lock.json
+refuges/

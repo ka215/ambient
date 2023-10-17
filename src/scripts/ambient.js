@@ -300,10 +300,10 @@ function updatePlaylist() {
             imageSrc = getYoutubeThumbnailURL(item.videoid)
         }
         // Set thumbnail image.
-        const imgElm = document.createElement('img')
+        const imgElm  = document.createElement('img')
         imgElm.setAttribute('src', imageSrc)
-        imgElm.classList.add('w-8', 'h-8', 'rounded')
-        imgElm.setAttribute('alt', mb_strimwidth(item.desc, 0, 50, '...'))
+        imgElm.classList.add('block', 'h-8', 'w-8', 'rounded', 'object-cover')
+        imgElm.setAttribute('alt', mb_strimwidth(item.title, 0, 50, '...'))
         itemElm.appendChild(imgElm)
 
         let labelText = item.title
@@ -984,6 +984,16 @@ function onPlayerStateChange(event) {
         updatePlayStatus(nextId)
         setupPlayer(playerType, mediaSrc, mediaData)
     }
+    if (event.data == YT.PlayerState.PAUSED) {
+        // Toggle this button shown (Pause -> Play).
+        $BUTTON_PAUSE.classList.add('hidden')
+        $BUTTON_PLAY.classList.remove('hidden')
+    }
+    if (event.data == YT.PlayerState.PLAYING) {
+        // Toggle this button shown (Play -> Pause).
+        $BUTTON_PLAY.classList.add('hidden')
+        $BUTTON_PAUSE.classList.remove('hidden')
+    }
 }
 
 /**
@@ -1123,6 +1133,18 @@ function createPlayerTag(tagname, mediaData) {
                 }, 500)
             }
         }
+    })
+
+    playerElm.addEventListener('playing', (evt) => {
+        // Toggle this button shown (Play -> Pause).
+        $BUTTON_PLAY.classList.add('hidden')
+        $BUTTON_PAUSE.classList.remove('hidden')
+    })
+
+    playerElm.addEventListener('pause', (evt) => {
+        // Toggle this button shown (Pause -> Play).
+        $BUTTON_PAUSE.classList.add('hidden')
+        $BUTTON_PLAY.classList.remove('hidden')
     })
 
     playerElm.addEventListener('ended', (evt) => {
