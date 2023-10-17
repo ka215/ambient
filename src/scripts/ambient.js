@@ -213,7 +213,9 @@ function toggleAlert(state=null) {
         }
     }, 1000)
 }
-toggleAlert('hide')
+if (isElement($ALERT)) {
+    toggleAlert('hide')
+}
 
 /**
  * Monitors the state of the playlist drawer component and fires 
