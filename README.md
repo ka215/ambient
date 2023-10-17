@@ -49,6 +49,11 @@ If you created and installed an ambient directly under the document root, you ca
 ### First, let's create a playlist
 
 Ambient plays media by loading playlists. Therefore, first you need to create a playlist to use with ambient.
+Ambient playlists are managed as JSON format files. By saving the playlist's JSON file in her Assets folder under the Ambient installation directory, Ambient will load it automatically when the application starts.
+You can create multiple playlists and switch between them on the ambient side.
+
+The JSON schema of the ambient playlist can be referenced from the URL below:
+[https://ka2.org/schemas/ambient-playlist.json](https://ka2.org/schemas/ambient-playlist.json)
 
 ## Supported browsers
 
