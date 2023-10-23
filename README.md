@@ -53,6 +53,7 @@ Ambient playlists are managed as JSON format files. By saving the playlist's JSO
 You can create multiple playlists and switch between them on the ambient side.
 
 The JSON schema of the ambient playlist can be referenced from the URL below:
+
 [https://ka2.org/schemas/ambient-playlist.json](https://ka2.org/schemas/ambient-playlist.json)
 
 ## Supported browsers
