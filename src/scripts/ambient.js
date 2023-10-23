@@ -519,11 +519,30 @@ function updateMediaCaption(mediaData) {
     while($MEDIA_CAPTION.firstChild) {
         $MEDIA_CAPTION.removeChild($MEDIA_CAPTION.firstChild)
     }
-    //logger('updateMediaCaption:', getOption('caption'), labelText, labelText.match(/<.*?[!^<].*?>/gi))
+    const $textWrap = document.createElement('div')
+    $textWrap.classList.add('marquee-inner')
     if (/<.*?[!^<].*?>/gi.test(labelText)) {
-        $MEDIA_CAPTION.innerHTML = labelText
+        $textWrap.innerHTML = labelText
     } else {
-        $MEDIA_CAPTION.appendChild(document.createTextNode(labelText))
+        $textWrap.appendChild(document.createTextNode(labelText))
+    }
+    $MEDIA_CAPTION.appendChild($textWrap)
+    //logger('updateMediaCaption:', getOption('caption'), labelText, labelText.match(/<.*?[!^<].*?>/gi), $textWrap.clientWidth)
+    if ($textWrap.clientWidth > currentWindowSize.width) {
+        // Turn overflow text into a marquee.
+        const $cloneElm = $textWrap.cloneNode(true)
+        $cloneElm.setAttribute('aria-hidden', true)
+        $MEDIA_CAPTION.appendChild($cloneElm)
+        const duration = Math.floor($textWrap.clientWidth / 16)// 16px = 1rem
+        $MEDIA_CAPTION.querySelectorAll('.marquee-inner').forEach((elm) => {
+            elm.animate({
+                // gap-2 = 0.5rem = 8px
+                translate: [0, `calc(-100% - 8px)`]
+            }, {
+                duration: duration * 1000,
+                iterations: Infinity
+            })
+        })
     }
 }
 
@@ -1073,10 +1092,15 @@ function createYTPlayer(mediaData) {
     if (getOption('seek') && mediaData.hasOwnProperty('end') && mediaData.end !== '') {
         playerOptions.end = mediaData.end
     }
-    //logger('createYTPlayer:', mediaData, playerOptions)
+    // aspect: 16:9 = w:h -> h = 9w/16
+    const adjustSize = {
+        width: currentWindowSize.width >= 640 ? 640 : (currentWindowSize.width - 2),
+        height: Math.floor((9 * (currentWindowSize.width >= 640 ? 640 : (currentWindowSize.width - 2))) / 16)
+    }
+    logger('createYTPlayer:', mediaData, playerOptions, currentWindowSize, adjustSize)
     player = new YT.Player('ytplayer', {
-        height: currentWindowSize.width >= 640 ? 360 : 216,
-        width: currentWindowSize.width >= 640 ? 640 : 384,
+        height: adjustSize.height,
+        width: adjustSize.width,
         videoId: mediaData.videoid,
         playerVars: playerOptions,
         events: {
@@ -1096,7 +1120,7 @@ function createYTPlayer(mediaData) {
 function createPlayerTag(tagname, mediaData) {
     const playerElm = document.createElement(tagname)
     const sourceElm = document.createElement('source')
-    playerElm.id = 'audio-player'
+    playerElm.id = 'html-player'
     playerElm.setAttribute('controls', true)
     playerElm.setAttribute('controlslist', 'nodownload')
     playerElm.setAttribute('autoplay', true)
@@ -1200,8 +1224,8 @@ function createPlayerTag(tagname, mediaData) {
                 self.width  = 640
                 self.height = Math.floor((640 * self.videoHeight) / self.videoWidth)
             } else {
-                self.width  = 384
-                self.height = Math.floor((384 * self.videoHeight) / self.videoWidth)
+                self.width  = currentWindowSize.width - 2
+                self.height = Math.floor(((currentWindowSize.width - 2) * self.videoHeight) / self.videoWidth)
             }
         }
     })
@@ -1222,16 +1246,21 @@ function reloadPage() {
 function updateWindowSize() {
     currentWindowSize.width  = window.innerWidth
     currentWindowSize.height = window.innerHeight
-    logger('updateWindowSize:', currentWindowSize)
+    // aspect: 16:9 = w:h -> h = 9w/16
+    const adjustSize = {
+        width: currentWindowSize.width >= 640 ? 640 : (currentWindowSize.width - 2),
+        height: Math.floor((9 * (currentWindowSize.width >= 640 ? 640 : (currentWindowSize.width - 2))) / 16)
+    }
+    logger('updateWindowSize:', currentWindowSize, adjustSize)
     if (player && typeof player === 'object' && typeof player.getIframe === 'function') {
-        const elm = player.getIframe()
-        if (currentWindowSize.width >= 640) {
-            elm.width  = 640
-            elm.height = 360
-        } else {
-            elm.width  = 384
-            elm.height = 216
-        }
+        const YTPlayer = player.getIframe()
+        YTPlayer.width  = adjustSize.width
+        YTPlayer.height = adjustSize.height
+    }
+    if (isElement(document.getElementById('html-player'))) {
+        const HTMLPlayer = document.getElementById('html-player')
+        HTMLPlayer.clientWidth  = adjustSize.width
+        HTMLPlayer.clientHeight = adjustSize.height
     }
     toggleDrawerBackdrop()
 }

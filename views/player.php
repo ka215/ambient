@@ -1,14 +1,14 @@
 <div
   id="player-container" 
-  class="flex flex-col items-center w-full h-full mt-0 mx-auto mb-16 z-10 overflow-y-auto overflow-x-hidden"
+  class="flex flex-col items-center max-w-full w-full h-full mt-0 mx-auto mb-16 z-10 overflow-y-auto overflow-x-hidden"
 >
     <?= amp_component( 'carousel' ); ?>
     <figure 
-      class="flex flex-col items-center gap-1 mt-4 mb-16"
+      class="w-full flex flex-col items-center gap-1 mt-4 mb-16"
     >
         <figcaption 
           id="media-caption"
-          class="text-gray-900 text-lg font-normal dark:text-white flex justify-center items-center gap-2 mb-2"
+          class="text-gray-900 text-lg font-normal dark:text-white max-w-full flex justify-center items-center gap-2 mb-2 whitespace-nowrap overflow-hidden"
         >
         </figcaption>
         <div 
