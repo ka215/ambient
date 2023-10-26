@@ -303,9 +303,14 @@ By overwriting the contents of the bundled `assets/lang.json` in Ambient with th
 
 ## References
 
+I appreciate the technology employed in the development of Ambient and respect its source.
+
 * [YouTube Player API Reference](https://developers.google.com/youtube/iframe_api_reference)
 * [tailwindcss](https://tailwindcss.com/docs/installation)
 * [Flowbite](https://flowbite.com/docs/getting-started/introduction/)
+* [M+FONTS](https://mplusfonts.github.io/)
+
+
 
 ## Finally
 
