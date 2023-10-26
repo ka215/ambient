@@ -866,6 +866,37 @@ html, body {
   overflow: hidden !important;
 }
 
+::-webkit-scrollbar {
+  width: 0.5rem;
+  height: 0.5rem;
+}
+
+::-webkit-scrollbar-track {
+  background: #f9fafb;
+  /* gray-50 */
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  /* gray-300 */
+  border: solid 1px #f3f4f6;
+  /* gray-100 */
+  border-radius: 0.5rem;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #6b7280;
+  /* gray-500 */
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #1f2937;
+  /* gray-800 */
+  border: solid 1px #374151;
+  /* gray-700 */
+  border-radius: 0.5rem;
+}
+
 *, ::before, ::after {
   --tw-border-spacing-x: 0;
   --tw-border-spacing-y: 0;
@@ -1123,6 +1154,10 @@ html, body {
 
 .z-50 {
   z-index: 50;
+}
+
+.z-\[59\] {
+  z-index: 59;
 }
 
 .z-\[60\] {
@@ -1393,6 +1428,10 @@ html, body {
   max-width: 42rem;
 }
 
+.max-w-full {
+  max-width: 100%;
+}
+
 .max-w-lg {
   max-width: 32rem;
 }
@@ -1403,10 +1442,6 @@ html, body {
 
 .max-w-xl {
   max-width: 36rem;
-}
-
-.max-w-full {
-  max-width: 100%;
 }
 
 .flex-shrink-0 {
@@ -1731,35 +1766,17 @@ html, body {
   background-size: cover;
 }
 
-.bg-contain {
-  background-size: contain;
-}
-
 .bg-bottom {
   background-position: bottom;
-}
-
-.bg-center {
-  background-position: center;
 }
 
 .bg-no-repeat {
   background-repeat: no-repeat;
 }
 
-.object-contain {
-  -o-object-fit: contain;
-     object-fit: contain;
-}
-
 .object-cover {
   -o-object-fit: cover;
      object-fit: cover;
-}
-
-.object-fill {
-  -o-object-fit: fill;
-     object-fit: fill;
 }
 
 .p-0 {

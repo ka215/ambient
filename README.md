@@ -18,72 +18,299 @@ Ambient lets you create mixed playlists of your favorite YouTube videos and othe
 </p */ -->
 
 <p align="center">
-  <a href="#installations">Installations</a> &middot;
-  <a href="#usage">Usage</a> &middot;
-  <a href="#supported-browsers">Supported browsers</a> &middot;
-  <a href="#customization">Customization</a> &middot;
-  <a href="#documentation">Documentation</a>
+  <a href="#introduction">Introduction</a> &middot;
+  <a href="#environment">Environment</a> &middot;
+  <a href="#installation">Installation</a> &middot;
+  <a href="#creating-playlists">Creating Playlists</a> &middot;
+  <a href="#media-assets">Media Assets</a> &middot;
+  <a href="#compatibility">Compatibility</a> &middot;
+  <a href="#localization">Localization</a> &middot;
+  <a href="#references">References</a> &middot;
+  <a href="#finally">Finally</a>
 </p>
 
-## Installations
+## Introduction
 
-### Get started with Ambient
+I often have music playing in the background when I'm working on my PC. The songs I play during these times vary, ranging from audio files imported from my collection of album CDs to YouTube videos. Consequently, the media and playback environment are quite diverse. So, for local audio sources, I would use the media player installed on my PC, and for YouTube videos, I would access them through my browser. Well, it's a common practice, but managing my PC's audio and my favorite YouTube videos separately has been somewhat challenging and frustrating.
 
-To use Ambient, you need an environment where PHP can run. If you want to use ambient on your local PC, please prepare an environment where PHP can run using XAMPP, MAMP, docker, etc.
+It would be great if I could manage both types of media centrally and play them without having to switch players.
 
-Once the PHP operating environment is ready, install Ambient on an endpoint that can be accessed with a web browser.
+Perhaps there are solutions out there that could meet this demand, but searching for them could be bothersome, and there's also the possibility that they might not be available for free. So, I pondered if there was a way to make it work.
 
-For example, if you want to install to a folder called "ambient", the steps are as follows.
+If I were to create a web application that combines YouTube's embedded Iframe player with HTML media tags such as <audio> and <video>, I should be able to play both YouTube videos and my PC's media files simultaneously, shouldn't I?
+
+Without further ado, I went ahead and created a web browser-based player that could handle both YouTube and local media.
+
+I named it "Ambient".
+
+![Ambient Media Player](https://ka2.org/assets/2023/10/Ambient_Media_Player_03.jpg)
+
+I am personally very satisfied with the outcome of this media player.
+
+## Environment
+
+In essence, "Ambient" is a web application, so it can be accessed and utilized simply through a web browser. The true power of "Ambient" is unleashed when installed in a local PC environment, where it can be used as a hybrid media player capable of playing both YouTube media and PC-based media. Fundamentally, "Ambient" searches for local media files based on relative paths in the deployed environment, which means it cannot play media files that do not exist in the installed environment. On the other hand, for YouTube media, it can reference the media via URL using the "YouTube Iframe Player API," thus not being particularly dependent on the installation environment.
+
+For this reason, although I'm considering releasing a cloud version for demonstration purposes, it will likely become a half-baked media player that can only play YouTube media in that cloud version.
+
+Now, to run the main feature, "Ambient," you'll need to prepare the PHP execution environment and set up a web server (Apache etc.) environment on your local PC so that you can access it via a web browser. Well, the easiest way to go about it would be to install "XAMPP" for Windows machines or "MAMP" for Mac. If you have the know-how, setting up a virtual environment with Docker or WSL is also an option, and you can use not only Apache but also Nginx for the web server (it will work as long as you configure URL rewriting).
+
+As for the PHP version, as long as it's PHP 7.4 or later, it should work without any issues. I developed "Ambient" in a PHP 8.2.4 environment, but I haven't included any code that only works in versions 8.x and later.
+
+Furthermore, the JavaScript and CSS installation packages have already been deployed, so there shouldn't be any issues with running it on the latest browsers.
+
+## Installation
+
+Installing "Ambient" is as simple as fetching the package resources from [the GitHub repository](https://github.com/ka215/ambient). If you're using the command line, navigate to the path where you want to install it (directly under the document root, for example), and execute the following command:
 
 ```
-git clone {repoURL} /path/to/ambient
+git clone https://github.com/ka215/ambient.git ambient
 ```
 
-That's it! Easy, right?
+or,
 
-All you have to do now is access the path where you installed Ambient in your browser.
-If you created and installed an ambient directly under the document root, you can access it by entering "localhost/ambient" in the URL field of your browser.
+```
+git clone git@github.com:ka215/ambient.git ambient
+```
 
-## Usage
+This will create the ambient directory and install the files within it. If you installed it using the above command directly under the document root, you can start it by entering `localhost/ambient` in the URL bar of your browser (if you have specified a virtual host name, it would be `http://<hostname>/ambient` ).
 
-### First, let's create a playlist
+Alternatively, you can also download the ZIP file from [the Ambient GitHub repository](https://github.com/ka215/ambient) and extract it to the desired location for installation.
 
-Ambient plays media by loading playlists. Therefore, first you need to create a playlist to use with ambient.
-Ambient playlists are managed as JSON format files. By saving the playlist's JSON file in her Assets folder under the Ambient installation directory, Ambient will load it automatically when the application starts.
-You can create multiple playlists and switch between them on the ambient side.
+## Creating Playlists
 
-The JSON schema of the ambient playlist can be referenced from the URL below:
+Next, you'll need to create playlists for media playback in "Ambient." When initially installed, an empty playlist is bundled as a template for creating your own playlists. The playlists are stored in the assets folder within the "Ambient" installation directory. It's possible to create multiple playlists, so it's advisable to copy the template `assets/PlayList.json` for your use.
 
-[https://ka2.org/schemas/ambient-playlist.json](https://ka2.org/schemas/ambient-playlist.json)
+The format of the playlist is in JSON, and the JSON Schema can be found at [https://ka2.org/schemas/ambient.json](https://ka2.org/schemas/ambient.json).
 
-## Supported browsers
+To make it easier to understand beyond just the schema definition, here's an example of an actual playlist:
 
-Operation is currently being verified.
-<!-- /*
-The working environment and supported browsers of Sunorhc are as follows.
+```json
+{
+    "YouTube Favorites": [
+        {
+            "title": "Thunder",
+            "artist": "Imagine Dragons",
+            "videoid": "fKopy74weus",
+            "start": "21"
+        },
+        {
+            "title": "Numb",
+            "artist": "Linkin Park",
+            "videoid": "kXYiU_JCYtU"
+        },
+        {
+            "title": "Unity",
+            "artist": "TheFatRat",
+            "videoid": "n8X9_MgEdCg"
+        }
+    ],
+    "Local PC Music": [
+        {
+            "disc": 1,
+            "track": 1,
+            "file": "Grandia_Theme.mp3",
+            "title": "Unforgettable Adventure",
+            "desc": "The Best of Grandia Disc1",
+            "artist": "Noritaka Iwadare",
+            "image": "The_Best_of_GRANDIA.jpg"
+        },
+        {
+            "disc": 1,
+            "track": 1,
+            "file": "Journey_to_the_Fantasy_World.mp3",
+            "title": "Prologue - Journey to the Fantasy World",
+            "desc": "Title Theme",
+            "artist": "Genso Suikoden Original Game Soundtrack DISC1",
+            "image": "gensousuikoden.webp"
+        }
+    ],
+    "options": {
+        "autoplay":   true,
+        "random":     true,
+        "seek":       true,
+        "dark":       false
+    }
+}
+```
 
-| Chrome (>= 92) | firefox (>= 91) | Safari (>=13) | Edge (>= 92) | Android | iOS |
-|:---:|:---:|:---:|:---:|:---:|:---:|
-| &check; | &check; | &check; (&ast;) | &check; | &check; | &check; |
+Here's a brief explanation of the playlist settings. Firstly, the root object's properties of the playlist JSON data can be freely named as "Category Name." However, if the property name is "options," it will be treated as the initial settings for "Ambient," so be careful (the "options" setting can be omitted if not needed). Then, the value of the category property is specified in an array format for the media to be played. The structure of the media data is as follows:
 
-**&ast;** Note: "Intl.Locale" object is not supported by native JavaScript in Safari 13, so a separate [Polyfill](https://formatjs.io/docs/polyfills/intl-locale/) is required for formatter language resolution.
-*/ -->
-In addition, we have not tested the software on legacy browsers such as IE. We do not plan to provide support for these legacy browsers.
+| Property | Value Type | Description |
+|-----------|-------|---------|
+| title | ?string | Title of the media to be played. If this is not specified or is an empty string, the media will be considered invalid and cannot be played by Ambient. |
+| file | ?string | File path of the media to be played. It should be specified as a relative path from the `assets/media` folder under the Ambient installation directory. If there is no media file at the specified path, it will not be played. |
+| videoid | ?string | VIDEO ID of the media to be played on YouTube (the parameter value represented by "v=" in the YouTube video URL). If both videoid and file are defined for the media, the YouTube video specified by videoid will take priority. |
+| desc | ?string | Description or subtitle of the media to be played. This will be used in the output of the Ambient caption section, for example. |
+| artist | ?string | Artist name of the media to be played. This will be used in the output of the Ambient caption section, for example. |
+| image | ?string | File path of the thumbnail image for the media. It should be specified as a relative path from the `assets/images` folder under the Ambient installation directory. If there is no image file at the specified path, the thumbnail will not be displayed. For media from YouTube videos, the thumbnail will be automatically obtained from YouTube, so this is specifically for specifying thumbnails for local media files. |
+| start | ?string ?integer | Start time of the media playback (in seconds). If "Seek and play" is enabled as an option, the media with this specified time will seek to the specified seconds before starting playback. It can be specified as an integer value in seconds or in the `H:MM:SS` format. |
+| end | ?string ?integer | End time of the media playback (in seconds). If "Seek and play" is enabled as an option, the media with this specified time will stop playing when the specified number of seconds has elapsed. It can be specified as an integer value in seconds or in the `H:MM:SS` format. |
 
-## Customization
+Additional properties can be added freely other than the ones mentioned above, allowing you to create properties for your own management items.
 
-Sorry, currently writing.
+Next, let's explain the data structure of the "options" property for the initial settings for Ambient:
 
-## Documentation
+| Property | Value Type | Default Value | Description |
+|-----------|-------|------|---------|
+| autoplay | ?boolean | true | Flag for autoplay. Currently, only `true` is valid. |
+| random | ?boolean | false | Flag for randomly play. It can be changed on the Ambient settings. |
+| seek | ?boolean | false | Flag to enable seeking playback (seek and play). It can be changed on the Ambient settings. |
+| dark | ?boolean | false | Flag to enable dark mode for the Ambient UI. It can be changed on the Ambient settings. |
+| background | ?string | - | File path for displaying a background image in the Ambient UI. It should be specified as a relative path from the `assets/images` folder under the Ambient installation directory. |
+| caption | ?string | `%artist% - %title% - %desc%` | Format for displaying media data in the caption section of Ambient. Use `%<Property Name>%` placeholders to refer to the property values defined in the media data. |
+| playlist | ?string | `%artist% - %title%` | Format for displaying media data in the playlist (left drawer) of Ambient. Use `%<Property Name>%` placeholders to refer to the property values defined in the media data. |
 
-I'm thinking of creating one if you need it.
+If there are no changes to the default values for the "options" property, it can be omitted.
+
+## Media Assets
+
+If all the media set in the playlist is from YouTube, you can skip this phase.
+
+If you intend to play local PC media, you need to place the playback media and image files in the Ambient asset directory. The process for installing asset files is as follows:
+
+- Playback media files: Located in the `assets/media` folder directly under the Ambient installation directory.
+- Various image files: Located in the `assets/images` folder directly under the Ambient installation directory.
+
+However, moving local PC media files can be cumbersome, and it can create discrepancies with the reference points of other media players. On the other hand, copying would unnecessarily occupy storage space on your PC. Therefore, it is recommended to create symbolic links to the folder where the media files are originally located within the `assets/media` directory.
+
+It's worth noting that Ambient doesn't support Windows shortcuts, so creating symbolic links is necessary. Here's an example of creating a symbolic link:
+
+**For Windows**
+
+1. Navigate to the Ambient media folder in Explorer, then type `cmd` in the address bar and press Enter.
+2. Once the command prompt is open, use the following command:
+```cmd
+mklink /D nzk "C:\Users\<YourUserName>\Music\BEST OF VOCAL WORKS [nZk]"
+```
+to register the path to the folder where the local PC media is already stored as a symbolic link (if the folder name contains spaces, enclose the entire link path in quotation marks).
+3. Update the file path specification of the file property in the playlist JSON media data to use the path via the symbolic link, for example, `nzk/friends.mp4`.
+
+**For Mac (Linux)**
+
+1. Launch a command-line tool like Terminal and navigate to the Ambient media folder, then use the command:
+```bash
+cd /Applications/MAMP/htdocs/ambient/assets/media
+ln -s nzk /Users/YourUserName/Music/BEST\ OF\ VOCAL\ WORKS\ [nZk]
+```
+to register the path to the folder where the local PC media is stored as a symbolic link (if the folder name contains spaces, escape them with a backslash).
+2. Update the file path specification of the file property in the playlist JSON media data to use the path via the symbolic link, for example, `nzk/friends.aac`.
+
+Furthermore, the feature to mount the existing media directory to the Ambient side via symbolic links will be added to the Ambient options menu soon (as issuing commands every time can be cumbersome).
+
+### Loading the Playlist on the Ambient Side
+
+Ambient automatically searches for JSON files within the assets on startup and loads valid playlists. When you update the playlist, you can reload the playlist by restarting Ambient (execute "Refresh" from the bottom menu).
+
+After that, you simply need to open the "Settings" menu (right drawer) and select the playlist you want to load.
+
+Once you select the playlist you want to play, you can choose categories within the playlist. By default, all media belonging to each category is selected for playback, but you can also filter the media for each category.
+
+### Playing Media in Ambient
+
+Once the playlist is loaded, the play button in the bottom menu becomes active, and clicking it starts playback.
+
+![Ambient UI](https://ka2.org/assets/2023/10/Ambient_Media_Player_UI.jpg)
+
+① In general, media playback can be controlled using the play/pause button in the bottom menu. Of course, control is also possible through the embedded YouTube player or HTML media player's playback controls, and this control is synchronized with the play/pause button in the bottom menu.
+
+② By opening the playlist menu (left drawer) and clicking on the media you want to play, you can play any desired media.
+
+③ The left and right arrow buttons displaying the thumbnails of the media allow you to specify the previously played media or the candidate media to be played next.
+
+## Compatibility
+
+As of October 20, 2023, the compatibility status for browsers and media file playback is as follows:
+
+### Browsers
+
+Verified working browsers:
+
+| Chrome(>=^118) | Firefox(>=^118) | Edge(>=^118) | Safari(>=^16) | Opera(>=^103) |
+|:--------------:|:---------------:|:------------:|:-------------:|:-------------:|
+| Ok | Ok | Ok | Ok | Ok |
+
+It does not work on older browsers that do not support the HTML5 `<audio>` and `<video>` tags or on browsers where JavaScript is not enabled.
+
+### Media File Formats
+
+With "Ambient," all publicly available YouTube videos can be played. On the other hand, for media file formats on the local PC, it adheres to the media playable by the HTML5 `<audio>` and `<video>` tags. The compatibility for common media file formats is summarized below.
+
+| MP3(.mp3) | WAVE(.wav) | MP4(.mp4) | AAC(.aac) | WEBM(.webm) | OGG(.ogg) | M4A(.m4a) | WMA(.wma) |
+|:---------:|:----------:|:---------:|:---------:|:-----------:|:---------:|:---------:|:---------:|
+| Ok        | Ok         | Ok        | Ok        | Ok          | Ok        | ✕        | ✕        |
+
+Compatibility with other media file formats not listed above has not been checked, so it is unclear, but there are likely other playable media formats as well. There is a considerable number of media file formats in the world, including minor video and audio files, so we have not been able to check them all. Additionally, the ability to play media formats may change depending on the status of the playback codecs installed on the PC.
+
+## Localization
+
+Ambient supports the localization of its user interface (UI). By placing a translation definition file, lang.json, directly under the assets folder, it is possible to switch the UI from the default English to another languages. As a sample, the translation definition file for German localization is presented below.
+
+```json
+{
+    "$language": "Deutsch",
+    "Ambient Media Player": "",
+    "Get choose your playlist you want to play from the settings menu.": "Wählen Sie im Einstellungsmenü die Playlist aus, die Sie abspielen möchten.",
+    "Notify": "Benachrichtigen",
+    "Dismiss": "Schließen",
+    "Previous Item": "Frühere Medien",
+    "Next Item": "Nächste Medien",
+    "Watch on YouTube": "Auf YouTube ansehen",
+    "Playlist": "Wiedergabeliste",
+    "Refresh": "Neu laden",
+    "Play": "Wiedergabe",
+    "Pause": "Pause",
+    "Settings": "Einstellung",
+    "Options": "Optionen",
+    "Close Playlist": "Wiedergabeliste schließen",
+    "No media available.": "Keine Medien verfügbar.",
+    "Close Settings": "Einstellungen schließen",
+    "Current Playlist": "Aktuelle Wiedergabeliste",
+    "Choose a playlist": "Wählen Sie eine Wiedergabeliste aus",
+    "Target Category": "Zielkategorie",
+    "All categories": "Alle Kategorien",
+    "Randomly play": "Zufällige Wiedergabe",
+    "Seek and play": "Suchen und wiedergabe",
+    "Dark mode": "Dunkler Modus",
+    "Close options": "Optionen schließen",
+    "Media Management": "Medienverwaltung",
+    "Add media to the currently active playlist.": "",
+    "Media you add is lost when you switch playlists or end your application session.": "",
+    "If you want the additional media to be permanent, you will need to download the playlist after adding the media.": "",
+    "Add New Media": "",
+    "Playlist Creator": "Wiedergabelisten-Erstellung",
+    "It is expected to be implemented in the near future.": "",
+    "Please look forward to it.": "",
+    "Report an issue": "Ein Problem melden",
+    "Ambient development code is managed in a github repository.": "",
+    "To report bugs or problems, please raise an issue on github.": "",
+    "Before reporting a problem, please check to see if a similar issue has already been submitted.": "",
+    "Check out and submit issues.": "",
+    "About Ambient": "Über Ambient",
+    "Ambient is an open source media player that allows you to seamlessly mix and play media published on YouTube and media stored on your local PC.": "",
+    "Additionally, since Ambient is designed as a web application, anyone can use it by accessing the application's pages with a common web browser.": "",
+    "However, if you want to use Ambient on your local PC, you will need to prepare a PHP execution environment and launch your application onto that environment.": "",
+    "Learn more about the technology Ambient uses below:": "",
+    "YouTube IFrame Player API": "",
+    "tailwindcss": "",
+    "Flowbite": "",
+    "Version:": "",
+    "(user setup)": ""
+}
+```
+
+By overwriting the contents of the bundled `assets/lang.json` in Ambient with the above content, most of the major UI elements will be localized into German. Regarding the translation definition file, it is possible to manage it by separating the files with suffix support, such as having a German translation definition as `lang-de.json`. However, in the current version of Ambient, `lang.json` is prioritized, so if you create a suffix-based translation definition file, you will need to either back up lang.json somewhere or change the extension from json to disable it. We plan to improve the loading process for these multilingual files in the future.
 
 ## References
 
 * [YouTube Player API Reference](https://developers.google.com/youtube/iframe_api_reference)
+* [tailwindcss](https://tailwindcss.com/docs/installation)
+* [Flowbite](https://flowbite.com/docs/getting-started/introduction/)
 
-## License
+## Finally
 
-Code released under the [MIT License](https://github.com/ka215/ambient/blob/main/LICENSE).
+"Ambient" is released as an open-source project under the [MIT License](https://github.com/ka215/ambient/blob/main/LICENSE). Additionally, all resources are publicly available on GitHub, so if you are interested, please give it a try.
 
+[https://github.com/ka215/ambient](https://github.com/ka215/ambient)
 
+I would be delighted to hear your thoughts and feedback!

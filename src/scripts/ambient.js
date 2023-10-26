@@ -33,6 +33,7 @@ function initStatus() {
 const currentWindowSize = {
     width: window.innerWidth,
     height: window.innerHeight,
+    minFullUIWidth: 1282,// = 320 + 1 + 640 + 1 + 320
 }
 
 // Advance preparation for using YouTube players.
@@ -161,6 +162,7 @@ const $TOGGLE_RANDOMLY    = document.getElementById('toggle-randomly')
 const $TOGGLE_SEEKPLAY    = document.getElementById('toggle-seekplay')
 const $TOGGLE_DARKMODE    = document.getElementById('toggle-darkmode')
 const $DRAWER_PLAYLIST    = document.getElementById('drawer-playlist')
+const $DRAWER_SETTINGS    = document.getElementById('drawer-settings')
 const $LIST_PLAYLIST      = document.getElementById('playlist-list-group')
 //const $PLAYLIST_ITEMS   = Array.from($LIST_PLAYLIST.querySelectorAll('a'))
 //const $CAROUSEL         = document.getElementById('carousel-container')
@@ -177,6 +179,7 @@ const $BUTTON_REFRESH     = document.getElementById('btn-refresh')
 const $BUTTON_PLAY        = document.getElementById('btn-play')
 const $BUTTON_PAUSE       = document.getElementById('btn-pause')
 const $BUTTON_SETTINGS    = document.getElementById('btn-settings')
+const $MODAL_OPTIONS      = document.getElementById('modal-options')
 const $COLLAPSE_MENU      = document.getElementById('collapse-menu')
 
 /**
@@ -528,22 +531,39 @@ function updateMediaCaption(mediaData) {
     }
     $MEDIA_CAPTION.appendChild($textWrap)
     //logger('updateMediaCaption:', getOption('caption'), labelText, labelText.match(/<.*?[!^<].*?>/gi), $textWrap.clientWidth)
-    if ($textWrap.clientWidth > currentWindowSize.width) {
+    toggleMarqueeCaption()
+}
+
+/**
+ * Toggle caption marqueeing depending on window size.
+ */
+function toggleMarqueeCaption() {
+    const $MARQUEE_NODE = $MEDIA_CAPTION.querySelector('.marquee-inner')
+    if (!isElement($MARQUEE_NODE)) {
+        return
+    }
+    const $MARQUEE_CLONE = $MARQUEE_NODE.cloneNode(true)
+    const marqueeDuration = Math.floor($MARQUEE_NODE.clientWidth / 32)// 16px = 1rem
+    if ($MARQUEE_NODE.clientWidth > currentWindowSize.width) {
         // Turn overflow text into a marquee.
-        const $cloneElm = $textWrap.cloneNode(true)
-        $cloneElm.setAttribute('aria-hidden', true)
-        $MEDIA_CAPTION.appendChild($cloneElm)
-        const duration = Math.floor($textWrap.clientWidth / 16)// 16px = 1rem
+        $MARQUEE_CLONE.setAttribute('aria-hidden', true)
+        $MEDIA_CAPTION.appendChild($MARQUEE_CLONE)
         $MEDIA_CAPTION.querySelectorAll('.marquee-inner').forEach((elm) => {
             elm.animate({
-                // gap-2 = 0.5rem = 8px
-                translate: [0, `calc(-100% - 8px)`]
+                // .gap-2 = 0.5rem = 8px
+                translate: [0, 'calc(-100% - 8px)']
             }, {
-                duration: duration * 1000,
+                duration: marqueeDuration * 1000,
                 iterations: Infinity
             })
         })
+    } else {
+        while($MEDIA_CAPTION.firstChild) {
+            $MEDIA_CAPTION.removeChild($MEDIA_CAPTION.firstChild)
+        }
+        $MEDIA_CAPTION.appendChild($MARQUEE_CLONE)
     }
+    //logger('toggleMarqueeCaption:', $MARQUEE_CLONE, marqueeDuration, currentWindowSize.width)
 }
 
 /**
@@ -818,28 +838,6 @@ function changeToggleDarkmode() {
     }
 }
 
-
-/**
- * Toggle the display of backdrop for drawer.
- */
-function toggleDrawerBackdrop() {
-    const backdropElm = document.querySelector('div[drawer-backdrop]')
-    if (currentWindowSize.width >= 1320) {
-        $BUTTON_PLAYLIST.setAttribute('data-drawer-backdrop', 'false')
-        $BUTTON_SETTINGS.setAttribute('data-drawer-backdrop', 'false')
-        if (isElement(backdropElm)) {
-            backdropElm.classList.add('hidden')
-        }
-    } else {
-        $BUTTON_PLAYLIST.setAttribute('data-drawer-backdrop', 'true')
-        $BUTTON_PLAYLIST.setAttribute('data-drawer-backdrop', 'true')
-        if (isElement(backdropElm)) {
-            backdropElm.classList.remove('hidden')
-        }
-    }
-}
-toggleDrawerBackdrop()
-
 /**
  * Updates the user's media playback state.
  * By giving this function the ID you want to play, it will generate a media 
@@ -902,7 +900,7 @@ function playItem(object=null, id=null) {
     }
     //logger('playItem:', amId, mediaSrc, playerType)
     updatePlayStatus(amId)
-    if (currentWindowSize.width < 1320) {
+    if (currentWindowSize.width < currentWindowSize.minFullUIWidth) {
         // Hide drawers
         document.getElementById('btn-close-playlist').click()
         document.getElementById('btn-close-settings').click()
@@ -1241,31 +1239,98 @@ function reloadPage() {
 // Globals
 
 /**
+ * Toggle the display of backdrop for drawer or modal.
+ */
+watcher([$DRAWER_PLAYLIST, $DRAWER_SETTINGS, $MODAL_OPTIONS], (mutation) => {
+    if (mutation.attributeName === 'aria-modal' && mutation.target.ariaModal === 'true') { 
+        const $DRAWER_BACKDROP = Array.from(document.querySelectorAll('div[drawer-backdrop]'))
+        const $MODAL_BACKDROP  = document.querySelector('div[modal-backdrop]')
+        logger('shown:', mutation.target, currentWindowSize, $DRAWER_BACKDROP, $MODAL_BACKDROP)
+        if ($DRAWER_BACKDROP.length > 0) {
+            $DRAWER_BACKDROP.forEach((elm) => {
+                if (currentWindowSize.width >= currentWindowSize.minFullUIWidth) {
+                    elm.classList.add('hidden')
+                } else {
+                    elm.classList.remove('hidden')
+                }
+            })
+        }
+        if (isElement($MODAL_BACKDROP)) {
+            if (currentWindowSize.width >= currentWindowSize.minFullUIWidth) {
+                $MODAL_BACKDROP.classList.remove('z-40')
+                $MODAL_BACKDROP.classList.add('z-[59]')
+            } else {
+                $MODAL_BACKDROP.classList.remove('z-[59]')
+                $MODAL_BACKDROP.classList.add('z-40')
+            }
+        }
+    }
+})
+
+/**
  * Event handler when the window size is resized.
  */
 function updateWindowSize() {
     currentWindowSize.width  = window.innerWidth
     currentWindowSize.height = window.innerHeight
     // aspect: 16:9 = w:h -> h = 9w/16
-    const adjustSize = {
+    const adjustPlayerSize = {
         width: currentWindowSize.width >= 640 ? 640 : (currentWindowSize.width - 2),
         height: Math.floor((9 * (currentWindowSize.width >= 640 ? 640 : (currentWindowSize.width - 2))) / 16)
     }
-    logger('updateWindowSize:', currentWindowSize, adjustSize)
     if (player && typeof player === 'object' && typeof player.getIframe === 'function') {
         const YTPlayer = player.getIframe()
-        YTPlayer.width  = adjustSize.width
-        YTPlayer.height = adjustSize.height
+        YTPlayer.width  = adjustPlayerSize.width
+        YTPlayer.height = adjustPlayerSize.height
     }
     if (isElement(document.getElementById('html-player'))) {
         const HTMLPlayer = document.getElementById('html-player')
-        HTMLPlayer.clientWidth  = adjustSize.width
-        HTMLPlayer.clientHeight = adjustSize.height
+        HTMLPlayer.clientWidth  = adjustPlayerSize.width
+        HTMLPlayer.clientHeight = adjustPlayerSize.height
     }
-    toggleDrawerBackdrop()
+    const shownLeftDrawer  = getAtts($DRAWER_PLAYLIST, 'aria-modal') || false
+    const shownRightDrawer = getAtts($DRAWER_SETTINGS, 'aria-modal') || false
+    //logger('updateWindowSize:', currentWindowSize, adjustPlayerSize, shownLeftDrawer, shownRightDrawer)
+    if (currentWindowSize.width < currentWindowSize.minFullUIWidth) {
+        if (shownLeftDrawer) {
+            document.getElementById('btn-close-playlist').click()
+            $BUTTON_PLAYLIST.setAttribute('data-drawer-backdrop', 'true')
+        }
+        if (shownRightDrawer) {
+            document.getElementById('btn-close-settings').click()
+            $BUTTON_SETTINGS.setAttribute('data-drawer-backdrop', 'true')
+        }
+    } else {
+        if (!shownLeftDrawer) {
+            //logger('open playlist', $BUTTON_PLAYLIST)
+            $BUTTON_PLAYLIST.setAttribute('data-drawer-backdrop', 'false')
+            $BUTTON_PLAYLIST.click()
+        }
+        if (!shownRightDrawer) {
+            //logger('open settings', $BUTTON_SETTINGS)
+            $BUTTON_SETTINGS.setAttribute('data-drawer-backdrop', 'false')
+            $BUTTON_SETTINGS.click()
+        }
+    }
+    toggleMarqueeCaption()
 }
 
-window.addEventListener('resize', updateWindowSize)
+/**
+ * Window resize event listener with throttling.
+ */
+const resize = () => {
+    let timeoutID = 0
+    let delay = 300
+    window.addEventListener('resize', () => {
+        clearTimeout(timeoutID)
+        timeoutID = setTimeout(() => {
+            updateWindowSize()
+        }, delay)
+    }, false)
+}
+resize()
+
+window.dispatchEvent(new Event('resize', { bubbles: true, cancelable: false }))
 
 };// end init()
 
