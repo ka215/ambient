@@ -7,6 +7,10 @@ function amp_set_var( string $var_name, mixed $value ): void {
     }
 }
 
+function is_local(): bool {
+    return isset( $GLOBALS['ambient'] ) ? $GLOBALS['ambient']->is_local() : false;
+}
+
 function __( string $text ): string {
     return isset( $GLOBALS['ambient'] ) ? $GLOBALS['ambient']->__( $text ) : $text;
 }

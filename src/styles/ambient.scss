@@ -56,6 +56,49 @@
         margin-left: 2px;
     }
 }
+.two-lines {
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+}
+.playlist-title,
+.text--playlist-title {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: #111827;
+    pointer-events: none;
+    transform: rotate(0.03deg);
+}
+.playlist-title:hover,
+.text--playlist-title:hover {
+    color: #fff;
+}
+a[aria-current="true"] .playlist-title {
+    color: #fff;
+}
+.dark .playlist-title,
+.dark .text--playlist-title {
+    color: #f3f4f6;
+}
+.playlist-subtitle,
+.text--playlist-artist {
+    font-size: 0.75rem;
+    line-height: 1rem;
+    color: #78350f;
+    pointer-events: none;
+    transform: rotate(0.03deg);
+}
+.playlist-subtitle:hover,
+.text--playlist-artist:hover {
+    color: #fffbeb;
+}
+a[aria-current="true"] .playlist-subtitle {
+    color: #fde68a;
+}
+.dark .playlist-subtitle,
+.dark .text--playlist-artist {
+    color: #f59e0b;
+}
 .text-rotate-0 {
     transform: rotate(0.03deg);
 }

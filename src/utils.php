@@ -69,7 +69,19 @@ trait utils {
                 }
             } );
         }
-    }    
+    }
+
+    /**
+     * Recursively searches the specified directory and its subdirectories 
+     * to obtain a list of matching files.
+     */
+    public function recursive_glob( string $pattern, int $flags = 0 ): array {
+        $files = glob( $pattern, $flags );
+        foreach ( glob( dirname( $pattern ) . '/*', GLOB_ONLYDIR|GLOB_NOSORT ) as $dir ) {
+            $files = array_merge( $files, $this->recursive_glob( $dir .'/'. basename( $pattern ), $flags ) );
+        }
+        return $files;
+    }
 
     /**
      * Filter data by media in playlist.
@@ -87,6 +99,7 @@ trait utils {
                     $item['end'] = $this->filter_seeking( (string)$item['end'] );
                 }
                 if ( array_key_exists( 'image', $item ) && !empty( $item['image'] ) ) {
+                    $this->logger(__METHOD__, IMAGES_DIR . $item['image'], file_exists( IMAGES_DIR . $item['image'] ));
                     if ( file_exists( IMAGES_DIR . $item['image'] ) ) {
                         $_pi = pathinfo( $item['image'] );
                         $_pattern = sprintf( '%3$s{%1$s_thumb.%2$s,%1$s-thumb.%2$s}', $_pi['filename'], $_pi['extension'], IMAGES_DIR );
@@ -101,7 +114,7 @@ trait utils {
                 if ( array_key_exists( 'file', $item ) && !empty( $item['file'] ) ) {
                     if ( file_exists( MEDIA_DIR . $item['file'] ) ) {
                         //$item['file'] = realpath( MEDIA_DIR . $item['file'] );
-                        $item['file'] = str_replace( APP_ROOT, '.', MEDIA_DIR . $item['file'] );
+                        $item['file'] = str_replace( APP_ROOT, './', MEDIA_DIR . $item['file'] );
                     } else {
                         $item['file'] = '';
                     }
@@ -177,6 +190,17 @@ trait utils {
             $version = $this->package_info['version'];
         }
         return $version;
+    }
+
+    /**
+     * Whether the application is running locally.
+     *
+     * @return bool
+     */
+    public static function is_local(): bool {
+        $server_addr = $_SERVER['SERVER_ADDR'];
+        $remote_addr = $_SERVER['REMOTE_ADDR'];
+        return substr( $server_addr, 0, mb_strrpos( $server_addr, '.' ) ) === substr( $remote_addr, 0, mb_strrpos( $remote_addr, '.' ) );
     }
 
     /**

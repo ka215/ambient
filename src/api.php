@@ -35,7 +35,7 @@ trait api {
                 'state' => 'error',
                 'code'  => 401,
                 'data'  => [
-                    'message' => __( 'Unauthorized request.' ),
+                    'message' => $this->__( 'Unauthorized request.' ),
                 ]
             ];
             $this->return_response();
@@ -56,7 +56,7 @@ trait api {
                 'state' => 'error',
                 'code'  => 404,
                 'data'  => [
-                    'message' => __( 'Playlist not found. Please create a new playlist.' ),
+                    'message' => $this->__( 'Playlist not found. Please create a new playlist.' ),
                 ]
             ];
         } else {
@@ -89,7 +89,7 @@ trait api {
                         'state' => 'error',
                         'code'  => 404,
                         'data'  => [
-                            'message' => __( 'Specified playlist could not be found.' ),
+                            'message' => $this->__( 'Specified playlist could not be found.' ),
                         ],
                     ];
                 }
@@ -105,6 +105,43 @@ trait api {
                     'data'  => $relative_playlist,
                 ];
             }
+        }
+    }
+
+    /**
+     * This is an API endpoint to search for the corresponding file in the media directory and obtain the relative path.
+     * 
+     * @param  string $filename
+     * @return void             At post-processing returns an array for the response.
+     */
+    private function get_filepath( string $filename ): void {
+        if ( preg_match( '/\[(.*)\]/', $filename ) ) {
+            $extension = pathinfo( $filename, PATHINFO_EXTENSION );
+            $files = $this->recursive_glob( MEDIA_DIR .'*.'. $extension );
+            $files = array_values( array_filter( $files, function( $filepath ) use( $filename ) {
+                return strpos( $filepath, $filename ) !== false;
+            } ) );
+        } else {
+            $files = $this->recursive_glob( MEDIA_DIR .'*'. $filename );
+        }
+        if ( !empty( $files ) ) {
+            $relative_filepath = str_replace( APP_ROOT, './', $files[0] );
+        } else {
+            $relative_filepath = '';
+        }
+        $this->logger( __METHOD__, $filename, $files, $relative_filepath );
+        if ( empty( $relative_filepath ) ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 404,
+                'data'  => $this->__( 'File not found in media directory.' ),
+            ];
+        } else {
+            $this->api_response = [
+                'state' => 'ok',
+                'code'  => 200,
+                'data'  => rawurlencode( $relative_filepath ),
+            ];
         }
     }
 

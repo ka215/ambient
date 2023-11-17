@@ -65,7 +65,7 @@ class Ambient {
             }
             $has_images = count( glob( IMAGES_DIR . '{*.jpg,*.jpeg,*.png,*.webp,*.bmp,*.gif}', GLOB_BRACE) ) > 0;
             if ( $has_images ) {
-                $localize_data['imageDir'] = str_replace( APP_ROOT, '.', IMAGES_DIR );
+                $localize_data['imageDir'] = str_replace( APP_ROOT, './', IMAGES_DIR );
             }
             if ( defined( 'DEBUG_MODE' ) && DEBUG_MODE ) {
                 $localize_data['debug'] = true;
@@ -87,15 +87,22 @@ class Ambient {
      */
     private function route_endpoint(): void {
         $this->api_response = null;
-
-        preg_match( '|' . dirname( $_SERVER['SCRIPT_NAME'] ) . '/([\w%/_\-\.]*)|', $_SERVER['REQUEST_URI'], $matches );
-        $paths = explode( '/', $matches[1] );
-        $request_route = strtolower( $_SERVER['REQUEST_METHOD'] ) .':'. array_shift( $paths );
-        $params = !empty( $paths ) ? array_values( array_map( function( $path ) { return htmlspecialchars( $path ); }, $paths ) ) : null;
+        $decoded_url = urldecode( $_SERVER['REQUEST_URI'] );
+        //$pattern = '|' . dirname( $_SERVER['SCRIPT_NAME'] ) . '/([\w%/_\-\.]*)|';
+        $pattern = '|' . dirname( $_SERVER['SCRIPT_NAME'] ) . '/(.*)$|';
+        preg_match( $pattern, $decoded_url, $matches );
+        if ( !empty( $matches ) ) {
+            $paths = explode( '/', $matches[1] );
+            $request_route = strtolower( $_SERVER['REQUEST_METHOD'] ) .':'. array_shift( $paths );
+            $params = !empty( $paths ) ? array_values( array_map( function( $path ) { return htmlspecialchars( $path ); }, $paths ) ) : null;
+        } else {
+            $request_route = '';
+            $params = null;
+        }
+        $args = [];
         switch ( $request_route ) {
             case 'get:playlist':
                 $method = 'get_playlist';
-                $args   = [];
                 if ( $params ) {
                     $_route = "Get playlist \"{$params[0]}\"";
                     //$this->get_playlist( $params[0] );
@@ -105,9 +112,14 @@ class Ambient {
                     //$this->get_playlist();
                 }
                 break;
+            case 'get:filepath':
+                $method = 'get_filepath';
+                $pathinfo_basename = pathinfo( $decoded_url, PATHINFO_BASENAME );
+                $_route = "Retrieve media filepath \"{$pathinfo_basename}\"";
+                $args[] = $pathinfo_basename;
+                break;
             case 'post:playlist':
                 $method = 'upsert_playlist';
-                $args   = [];
                 $_route = "Add item to playlist \"{$params[0]}\"";
                 $args[] = $params[0];
                 break;
@@ -115,7 +127,7 @@ class Ambient {
                 $_route = "Normal access";
                 break;
         }
-        $this->logger( __METHOD__, $request_route, $params, $_route );
+        $this->logger( __METHOD__, $request_route, $params, $_route, $decoded_url, $paths );
         if ( isset( $method ) && isset( $args ) ) {
             $this->api_request_handler( $method, $args );
         }

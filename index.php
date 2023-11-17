@@ -9,11 +9,11 @@
  * @license           MIT License
  */
 define( 'APP_ROOT',   realpath( './' ).'/' );
-define( 'ASSETS_DIR', APP_ROOT.'/assets/'  );
+define( 'ASSETS_DIR', APP_ROOT.'assets/'  );
 define( 'MEDIA_DIR',  ASSETS_DIR.'media/'  );
 define( 'IMAGES_DIR', ASSETS_DIR.'images/' );
-define( 'VIEWS_DIR',  APP_ROOT.'/views/'   );
-define( 'LOGS_DIR',   APP_ROOT.'/logs/'    );
+define( 'VIEWS_DIR',  APP_ROOT.'views/'   );
+define( 'LOGS_DIR',   APP_ROOT.'logs/'    );
 define( 'DEBUG_MODE', true );
 
 require_once APP_ROOT . 'autoload.php';

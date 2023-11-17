@@ -29,12 +29,62 @@
 }
 
 @layer components {
-    [role="alert"] {
-        z-index: 51 !important;
+    .z-99 {
+        z-index: 99;
     }
-
+    .delay-2000 {
+        transition-delay: 2000ms;
+    }
+    #playlist-list-group a * {
+        pointer-events: none !important;
+    }
     [drawer-backdrop] {
         z-index: 49 !important;
+    }
+    .required {
+        position: relative;
+        display: inline-flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 0.125rem;
+    }
+    .required::after {
+        position: relative;
+        content: '*';
+        color: #dc2626;/* red-600 */
+        font-size: 1.125rem;
+        font-weight: 400;
+        top: 0px;
+    }
+    .dark .required::after {
+        color: #f87171;/* red-400 */
+    }
+    .normal-text {
+        @apply text-gray-900 dark:text-white
+    }
+    .error-text {
+        @apply text-red-600 dark:text-red-400
+    }
+    .success-text {
+        @apply text-green-500 dark:text-green-400
+    }
+    .normal-input {
+        @apply bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:ring-blue-500 dark:focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-500 !important
+    }
+    .error-input {
+        @apply bg-red-50 dark:bg-gray-700 border-red-500 dark:border-red-500 text-gray-900 dark:text-white placeholder-red-700 dark:placeholder-red-500 focus:ring-red-500 focus:border-red-500 !important
+    }
+    .success-input {
+        @apply bg-green-50 dark:bg-gray-700 border-green-500 dark:border-green-500 text-gray-900 dark:text-white placeholder-green-700 dark:placeholder-green-500 focus:ring-green-500 focus:border-green-500 !important
+    }
+    .normal-prefix {
+        @apply text-gray-700 dark:text-gray-400 border-gray-300 dark:border-gray-600 !important
+    }
+    .error-prefix {
+        @apply text-red-900 dark:text-red-500 border-red-500 dark:border-red-500 !important
+    }
+    .success-prefix {
+        @apply text-green-900 dark:text-green-500 border-green-500 dark:border-green-500 !important
     }
 }
 
