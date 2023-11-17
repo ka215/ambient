@@ -87,17 +87,24 @@ class Ambient {
      */
     private function route_endpoint(): void {
         $this->api_response = null;
-        $decoded_url = urldecode( $_SERVER['REQUEST_URI'] );
-        $pattern = '|' . dirname( $_SERVER['SCRIPT_NAME'] ) . '/(.*)$|';
-        $paths = null;
-        $request_route = '';
-        $params = null;
-        preg_match( $pattern, $decoded_url, $matches );
-        if ( !empty( $matches ) ) {
-            $paths = explode( '/', $matches[1] );
-            $request_route = strtolower( $_SERVER['REQUEST_METHOD'] ) .':'. array_shift( $paths );
-            $params = !empty( $paths ) ? array_values( array_map( function( $path ) { return htmlspecialchars( $path ); }, $paths ) ) : $params;
+        $protocol = isset( $_SERVER['HTTPS'] ) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'];
+        $uri = isset( $_SERVER['REQUEST_URI'] ) ? urldecode( $_SERVER['REQUEST_URI'] ) : '';
+        $current_url  = $protocol . "://" . $host . $uri;
+        $current_path = parse_url( $current_url, PHP_URL_PATH );// `/ambient/playlist/~.json`, `/playlist/`
+        $doc_root = DIRECTORY_SEPARATOR === '/' ? $_SERVER['DOCUMENT_ROOT'] : str_replace( '/', DIRECTORY_SEPARATOR, $_SERVER['DOCUMENT_ROOT'] );
+        $relative_app_root = stripslashes( str_replace( $doc_root, '', APP_ROOT ) );// `ambient/`, `/`
+        $paths = explode( $relative_app_root, $current_path );
+        $_paths = null;
+        if ( isset( $paths[1] ) ) {
+            $request_name = strpos( $paths[1], '/' ) !== false ? strstr( $paths[1], '/', true ) : $paths[1];
+            $_paths = strpos( $paths[1], '/' ) !== false ? explode( '/', substr( $paths[1], strpos( $paths[1], '/' ) + 1 ) ) : null;
         }
+        if ( count( $paths ) > 2 ) {
+            $_paths = array_slice( $paths, 2 );
+        }
+        $request_route = strtolower( $_SERVER['REQUEST_METHOD'] ) .':'. $request_name;
+        $params = !empty( $_paths ) ? array_values( array_map( function( $_path ) { return htmlspecialchars( $_path ); }, $_paths ) ) : null;
         $args = [];
         switch ( $request_route ) {
             case 'get:playlist':
@@ -113,7 +120,7 @@ class Ambient {
                 break;
             case 'get:filepath':
                 $method = 'get_filepath';
-                $pathinfo_basename = pathinfo( $decoded_url, PATHINFO_BASENAME );
+                $pathinfo_basename = pathinfo( $current_path, PATHINFO_BASENAME );
                 $_route = "Retrieve media filepath \"{$pathinfo_basename}\"";
                 $args[] = $pathinfo_basename;
                 break;
@@ -126,7 +133,7 @@ class Ambient {
                 $_route = "Normal access";
                 break;
         }
-        $this->logger( __METHOD__, $request_route, $params, $_route, $decoded_url, $paths );
+        $this->logger( __METHOD__, $request_route, $params, $_route, $paths );
         if ( isset( $method ) && isset( $args ) ) {
             $this->api_request_handler( $method, $args );
         }
