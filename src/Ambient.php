@@ -88,16 +88,15 @@ class Ambient {
     private function route_endpoint(): void {
         $this->api_response = null;
         $decoded_url = urldecode( $_SERVER['REQUEST_URI'] );
-        //$pattern = '|' . dirname( $_SERVER['SCRIPT_NAME'] ) . '/([\w%/_\-\.]*)|';
         $pattern = '|' . dirname( $_SERVER['SCRIPT_NAME'] ) . '/(.*)$|';
+        $paths = null;
+        $request_route = '';
+        $params = null;
         preg_match( $pattern, $decoded_url, $matches );
         if ( !empty( $matches ) ) {
             $paths = explode( '/', $matches[1] );
             $request_route = strtolower( $_SERVER['REQUEST_METHOD'] ) .':'. array_shift( $paths );
-            $params = !empty( $paths ) ? array_values( array_map( function( $path ) { return htmlspecialchars( $path ); }, $paths ) ) : null;
-        } else {
-            $request_route = '';
-            $params = null;
+            $params = !empty( $paths ) ? array_values( array_map( function( $path ) { return htmlspecialchars( $path ); }, $paths ) ) : $params;
         }
         $args = [];
         switch ( $request_route ) {
