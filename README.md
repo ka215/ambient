@@ -9,13 +9,13 @@ Ambient is a media player that runs on a web browser using YouTube IFrame Player
 Ambient lets you create mixed playlists of your favorite YouTube videos and other media you own on your local PC, and play them seamlessly.<br>
 **Let's start your ambient media experience!**
 
-<!-- /* p align="center">
-  <img alt="GitHub package.json version" src="https://img.shields.io/github/package-json/v/ka215/sunorhc">
-  <img alt="CircleCI" src="https://img.shields.io/circleci/build/github/ka215/sunorhc/main">
-  <img alt="npm downloads" src="https://img.shields.io/npm/dt/sunorhc">
-  <img alt="npm bundle size" src="https://img.shields.io/bundlephobia/min/sunorhc?label=bundle%20size">
-  <img alt="GitHub" src="https://img.shields.io/github/license/ka215/sunorhc">
-</p */ -->
+<p align="center">
+  <img alt="GitHub package.json version" src="https://img.shields.io/github/package-json/v/ka215/ambient">
+  <!-- img alt="CircleCI" src="https://img.shields.io/circleci/build/github/ka215/sunorhc/main" -->
+  <!-- img alt="npm downloads" src="https://img.shields.io/npm/dt/sunorhc" -->
+  <!-- img alt="npm bundle size" src="https://img.shields.io/bundlephobia/min/sunorhc?label=bundle%20size" -->
+  <img alt="GitHub" src="https://img.shields.io/github/license/ka215/ambient">
+</p>
 
 <p align="center">
   <a href="#introduction">Introduction</a> &middot;
@@ -47,11 +47,15 @@ I named it "Ambient".
 
 I am personally very satisfied with the outcome of this media player.
 
+Also, I offer a cloud version for demonstration purposes, so please try it out below:
+
+[Ambient DEMO (cloud ver.)](https://amp.ka2.org/)
+
 ## Environment
 
 In essence, "Ambient" is a web application, so it can be accessed and utilized simply through a web browser. The true power of "Ambient" is unleashed when installed in a local PC environment, where it can be used as a hybrid media player capable of playing both YouTube media and PC-based media. Fundamentally, "Ambient" searches for local media files based on relative paths in the deployed environment, which means it cannot play media files that do not exist in the installed environment. On the other hand, for YouTube media, it can reference the media via URL using the "YouTube Iframe Player API," thus not being particularly dependent on the installation environment.
 
-For this reason, although I'm considering releasing a cloud version for demonstration purposes, it will likely become a half-baked media player that can only play YouTube media in that cloud version.
+For this reason, the cloud version released for demonstration purposes does not store any media on the host web server, making it a media player that can only play and manage YouTube media.
 
 Now, to run the main feature, "Ambient," you'll need to prepare the PHP execution environment and set up a web server (Apache etc.) environment on your local PC so that you can access it via a web browser. Well, the easiest way to go about it would be to install "XAMPP" for Windows machines or "MAMP" for Mac. If you have the know-how, setting up a virtual environment with Docker or WSL is also an option, and you can use not only Apache but also Nginx for the web server (it will work as long as you configure URL rewriting).
 
