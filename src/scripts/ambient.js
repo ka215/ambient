@@ -606,7 +606,7 @@ function toggleMarqueeCaption() {
     }
     const $MARQUEE_CLONE = $MARQUEE_NODE.cloneNode(true)
     const marqueeDuration = Math.floor($MARQUEE_NODE.clientWidth / 32)// 16px = 1rem
-    if ($MARQUEE_NODE.clientWidth > currentWindowSize.width) {
+    if ($MARQUEE_NODE.clientWidth > currentWindowSize.width || $MARQUEE_NODE.clientWidth > 640) {
         // Turn overflow text into a marquee.
         $MARQUEE_CLONE.setAttribute('aria-hidden', true)
         $MEDIA_CAPTION.appendChild($MARQUEE_CLONE)
