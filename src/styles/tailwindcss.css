@@ -62,6 +62,9 @@
     .normal-text {
         @apply text-gray-900 dark:text-white
     }
+    .muted-text {
+        @apply text-gray-600 dark:text-gray-400
+    }
     .error-text {
         @apply text-red-600 dark:text-red-400
     }
@@ -85,6 +88,12 @@
     }
     .success-prefix {
         @apply text-green-900 dark:text-green-500 border-green-500 dark:border-green-500 !important
+    }
+    .lead-text {
+        @apply text-teal-900 dark:text-teal-100 bg-teal-100 dark:bg-teal-950 !important
+    }
+    .lead-text-muted {
+        @apply text-gray-600 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 !important
     }
 
     @media (min-width: 1282px) {

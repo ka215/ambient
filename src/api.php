@@ -109,7 +109,8 @@ trait api {
     }
 
     /**
-     * This is an API endpoint to search for the corresponding file in the media directory and obtain the relative path.
+     * This is an API endpoint to search for the corresponding file in the media directory 
+     * and obtain the relative path.
      * 
      * @param  string $filename
      * @return void             At post-processing returns an array for the response.
@@ -141,6 +142,65 @@ trait api {
                 'state' => 'ok',
                 'code'  => 200,
                 'data'  => rawurlencode( $relative_filepath ),
+            ];
+        }
+    }
+
+    /**
+     * This is an API endpoint that creates a symbolic link for the specified destination 
+     * into the media directory.
+     * 
+     * @param  string $local_media_dir
+     * @param  string $symlink_name
+     * @return void                    At post-processing returns an array for the response.
+     */
+    private function create_symlink( string $local_media_dir, string $symlink_name ): void {
+        $error_message = '';
+        if ( !$this->is_local() ) {
+            $error_message = $this->__( 'This feature cannot be performed on remote hosts.' );
+        } elseif ( !file_exists( $local_media_dir ) ) {
+            $error_message = $this->__( 'The path to link to does not exist.' );
+        } elseif ( file_exists( MEDIA_DIR . $symlink_name ) ) {
+            $error_message = $this->__( 'A link with the same name already exists.' );
+        } else {
+            if ( DIRECTORY_SEPARATOR === '\\' ) {
+                // Use `mklink` on Windows OS.
+                $command = 'mklink';
+                $exec_command = sprintf( '%s /D "%s" "%s"', $command, MEDIA_DIR . $symlink_name, $local_media_dir );
+                exec( $exec_command, $output, $returnCode );
+                $this->logger( __METHOD__, 'for Windows', $exec_command, $output, $returnCode );
+                if ( $returnCode !== 0 ) {
+                    $error_message = $this->__( 'Failed to create symbolic link.' );
+                }
+            } else {
+                // Use `ln` on Linux OS etc.
+                $command = 'ln';
+                $check   = shell_exec( 'which ' . escapeshellarg( $command ) );
+                if ( $check == null ) {
+                    $error_message = $this->__( 'The command to make symbolic link is not available in the current environment.' );
+                } else {
+                    $exec_command = sprintf( '%s -s "%s" "%s"', $command, $local_media_dir, MEDIA_DIR . $symlink_name );
+                    exec( $exec_command, $output, $returnCode );
+                    $this->logger( __METHOD__, 'for Linux', $exec_command, $output, $returnCode );
+                    if ( $returnCode !== 0 ) {
+                        $error_message = $this->__( 'Failed to create symbolic link.' );
+                    }
+                }
+            }
+        }
+        if ( !empty( $error_message ) ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 500,
+                'data'  => $error_message,
+                //'cmd'   => isset( $exec_command ) ? $exec_command : null,
+            ];
+        } else {
+            $this->api_response = [
+                'state' => 'ok',
+                'code'  => 200,
+                'data'  => $this->__( 'Symbolic link created successfully.' ),
+                //'cmd'   => $exec_command,
             ];
         }
     }

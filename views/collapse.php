@@ -431,18 +431,22 @@
                   id="playlist-management-field-symbolic-link"
                   class="mb-4"
                 >
-                    <h3 class="text-base font-semibold mb-2 -mx-5 px-5 text-teal-900 dark:text-teal-100 bg-teal-100 dark:bg-teal-950"><?= __( 'Create Symbolic Link' ) ?></h3>
+                    <h3 
+                      class="text-base font-semibold mb-2 -mx-5 px-5 <?php if ( is_local() ): ?>lead-text<?php else: ?>lead-text-muted<?php endif; ?>"
+                    ><?= __( 'Create Symbolic Link' ) ?></h3>
                     <p class="mb-2 text-gray-500 dark:text-gray-400"><?= __( 'Create a symbolic link of the folder containing the media files on your host computer into media directory in the Ambient.' ) ?></p>
                     <label 
                       id="local-media-directory-label"
                       for="local-media-directory"
-                      class="block mb-2 text-sm font-medium normal-text"
+                      class="block mb-2 text-sm font-medium <?php if ( is_local() ): ?>normal-text<?php else: ?>muted-text<?php endif; ?>"
                     >
-                        <span class="required" data-tooltip-target="tooltip-local-media-directory"><?= __( 'Local Media Folder Path' ) ?></span>
+                        <span class="required" <?php if ( is_local() ): ?>data-tooltip-target="tooltip-local-media-directory"<?php endif; ?>><?= __( 'Local Media Folder Path' ) ?></span>
+<?php if ( is_local() ): ?>
                         <div id="tooltip-local-media-directory" role="tooltip" class="absolute z-10 invisible inline-block px-2 py-2 text-xs font-normal text-white transition-opacity duration-300 bg-red-600 rounded-lg shadow-sm opacity-0 tooltip dark:bg-red-500">
                             <?= __( 'Required' ) ?>
                             <div class="tooltip-arrow" data-popper-arrow></div>
                         </div>
+<?php endif; ?>
                         <span 
                           id="note-error-local-media-directory"
                           class="hidden bg-red-100 text-red-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300"
@@ -461,6 +465,7 @@
                       class="block w-full text-sm border rounded-lg cursor-pointer focus:outline-none normal-input"
                       placeholder="C:/Users/Username/Media/FavoriteFolder"
                       required
+                      <?php if ( !is_local() ): ?>disabled<?php endif; ?>
                     />
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-300">
                         <?= __( 'Enter the full path to the media folder on the host computer that you want to link to.' ) ?>
@@ -473,13 +478,15 @@
                         <label
                           id="symlink-name-label"
                           for="symlink-name"
-                          class="block mb-2 text-sm font-medium normal-text"
+                          class="block mb-2 text-sm font-medium <?php if ( is_local() ): ?>normal-text<?php else: ?>muted-text<?php endif; ?>"
                         >
-                            <span class="required" data-tooltip-target="tooltip-symlink-name"><?= __( 'Symbolic Link Name' ) ?></span>
+                            <span class="required" <?php if ( is_local() ): ?>data-tooltip-target="tooltip-symlink-name"<?php endif; ?>><?= __( 'Symbolic Link Name' ) ?></span>
+<?php if ( is_local() ): ?>
                             <div id="tooltip-symlink-name" role="tooltip" class="absolute z-10 invisible inline-block px-2 py-2 text-xs font-normal text-white transition-opacity duration-300 bg-red-600 rounded-lg shadow-sm opacity-0 tooltip dark:bg-red-500">
                                 <?= __( 'Required' ) ?>
                                 <div class="tooltip-arrow" data-popper-arrow></div>
                             </div>
+<?php endif; ?>
                             <span 
                               id="note-error-symlink-name"
                               class="hidden bg-red-100 text-red-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300"
@@ -498,6 +505,7 @@
                           class="border text-sm rounded-lg block w-full p-2.5 normal-input"
                           placeholder="<?= __( 'Please fill any strings' ) ?>"
                           required
+                          <?php if ( !is_local() ): ?>disabled<?php endif; ?>
                         />
                     </div>
                     <div class="flex justify-end items-end">

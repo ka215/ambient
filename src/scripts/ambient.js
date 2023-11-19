@@ -300,6 +300,9 @@ function updatePlaylist() {
     }
     is_no_media = items.length == 0
     //logger('updatePlaylist:', is_no_media)
+    // Enable playlist download
+    const $BUTTON_DOWNLOAD_PLAYLIST = document.getElementById('btn-download-playlist')
+    setAtts($BUTTON_DOWNLOAD_PLAYLIST, { disabled: '' }, true)
     if (is_no_media) {
         // no playable media
         $LIST_NO_MEDIA.classList.remove('hidden')
@@ -447,7 +450,6 @@ function getOption(key) {
  * Causes the application to apply specific option contents of the AMP_STATUS object.
  */
 function applyOptions() {
-    logger(AMP_STATUS)
     // Applies if a background image is specified.
     const bgImage = getOption('background')
     if (bgImage && AmbientData && AmbientData.hasOwnProperty('imageDir')) {
@@ -654,16 +656,17 @@ function filterText(format, mediaData) {
  * Event listener when the playlist selection field in the settings menu is changed.
  */
 $SELECT_PLAYLIST.addEventListener('change', (evt) => {
+    const newPlaylist = evt.target.value
     let oldPlaylist = null
     if (AMP_STATUS.hasOwnProperty('playlist')) {
         oldPlaylist = AMP_STATUS.playlist
     }
-    if (oldPlaylist !== evt.target.value) {
-        AMP_STATUS.playlist = evt.target.value
-        getPlaylistData(evt.target.value)
-        initStatus()
+    if (oldPlaylist !== newPlaylist) {
+        getPlaylistData(newPlaylist)
+        //initStatus()
         clearCategory()
     }
+    AMP_STATUS.playlist = newPlaylist
 })
 
 /**
@@ -1098,6 +1101,25 @@ function onPlayerReady(event) {
         $BUTTON_WATCH_TY.removeAttribute('disabled')
         $OPTIONAL_CONTAINER.classList.remove('hidden', 'opacity-0')
     }, 500)
+    
+    if (getOption('autoplay')) {
+        // Force play if playback does not start after (wait * 100) milliseconds.
+        const wait = 15
+        let elapsed = 0
+        let intervalID = setInterval(() => {
+            elapsed++
+            if (event.target.getPlayerState() == YT.PlayerState.PLAYING) {
+                clearInterval(intervalID)
+                intervalID = null
+                logger(`onPlayerReady::elapsed ${elapsed * 100}ms:`, 'Playback has started!')
+            } else
+            if (elapsed > wait) {
+                //document.getElementById('btn-play').click()
+                document.getElementById('btn-play').dispatchEvent(new Event('click'))
+            }
+            
+        }, 100)
+    }
 
     event.target.setVolume(AMP_STATUS.volume)
     event.target.playVideo()
@@ -1144,6 +1166,10 @@ function onPlayerStateChange(event) {
         // Toggle this button shown (Play -> Pause).
         $BUTTON_PLAY.classList.add('hidden')
         $BUTTON_PAUSE.classList.remove('hidden')
+    }
+    if (event.data == -1 && getOption('autoplay')) {
+        // When playback unstarted.
+        logger('onPlayerStateChange::unstarted.')
     }
 }
 
@@ -1232,7 +1258,7 @@ function createYTPlayer(mediaData) {
         width: currentWindowSize.width >= 640 ? 640 : (currentWindowSize.width - 2),
         height: Math.floor((9 * (currentWindowSize.width >= 640 ? 640 : (currentWindowSize.width - 2))) / 16)
     }
-    logger('createYTPlayer:', mediaData, playerOptions, currentWindowSize, adjustSize)
+    //logger('createYTPlayer:', mediaData, playerOptions, currentWindowSize, adjustSize)
     player = new YT.Player('ytplayer', {
         height: adjustSize.height,
         width: adjustSize.width,
@@ -1681,6 +1707,7 @@ $PLAYLIST_MANAGE_ELMS.forEach((elm) => {
     switch(elm.name) {
         case 'local_media_dir':
         case 'symlink_name':
+        case 'category_name':
             elm.addEventListener('input', (evt) => {
                 if (evt.target.value === '') {
                     setValidated(evt.target)
@@ -1692,8 +1719,168 @@ $PLAYLIST_MANAGE_ELMS.forEach((elm) => {
                 setValidated(evt.target, !isEmpty)
             })
             break
+        case 'create_symlink':
+        case 'create_category':
+        case 'download_playlist':
+            const callback = {
+                getFormData: function(oneData=null) {
+                    const formData = new FormData($PLAYLIST_MANAGE_FORM)
+                    if (oneData) {
+                        return formData.get(oneData)
+                    } else {
+                        return Array.from(formData.entries())
+                    }
+                },
+                createSymlink: async function() {
+                    const endpointURL = `${BASE_URL}symlink`
+                    const payload = {}
+                    for (let pair of this.getFormData()) {
+                        if (inArray(pair[0], ['local_media_dir', 'symlink_name'])) {
+                            payload[pair[0]] = pair[1]
+                        }
+                    }
+                    const response = await fetchData(endpointURL, 'post', payload)
+                    logger('createSymlink:', endpointURL, payload, response)
+                    updateNotice({
+                        type: response.state === 'ok' ? 'success' : 'error',
+                        message: response.data,
+                        delay: 2000,
+                    })
+                },
+                createCategory: function() {
+                    const categoryName = this.getFormData('category_name')
+                    if (!inArray(categoryName, AMP_STATUS.category)) {
+                        AMP_STATUS.category.push(categoryName)
+                    } else {
+                        // When adding a category, if there is the same category, add it with a branch number.
+                        const uniqueSet = new Set(AMP_STATUS.category)
+                        let newValue = categoryName
+                        let count = 1
+                        while (uniqueSet.has(newValue)) {
+                            newValue = categoryName + '_' + count
+                            count++
+                        }
+                        AMP_STATUS.category.push(newValue)
+                    }
+                    const selfElm = document.getElementById('btn-create-category')
+                    logger('createCategory:', categoryName, AMP_STATUS)
+                    updateNotice({
+                        type: 'success',
+                        message: selfElm.dataset.messageSuccess,
+                        delay: 2000,
+                    })
+                    clearCategory()
+                    updateCategory()
+                },
+                downloadPlaylist: async function() {
+                    const seek_format = Number(this.getFormData('seek_format')) == 1 || false
+                    const jsonContent = generatePlaylistJson(seek_format)
+                    const blob = new Blob([jsonContent], { type: 'application/json' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = AMP_STATUS.playlist
+                    document.body.appendChild(a)
+                    a.click()
+                    document.body.removeChild(a)
+                    URL.revokeObjectURL(url)
+                    const selfElm = document.getElementById('btn-download-playlist')
+                    updateNotice({
+                        type: 'success',
+                        message: selfElm.dataset.messageSuccess,
+                        delay: 2000,
+                    })
+                }
+            }
+            elm.addEventListener('click', (evt) => {
+                //const functionName = snakeToCapital(evt.target.name)
+                callback[snakeToCapital(evt.target.name)]()
+                logger('onClickButton::', evt.target.name)
+                resetPlaylistManageForm()
+            })
+            break
+        default:
+            logger('Event undefined element:', elm.name, elm)
+            break
     }
 })
+
+/**
+ * Generates the currently active playlist as a JSON format string.
+ * @param {boolean} seekFormat 
+ * @returns 
+ */
+function generatePlaylistJson(seekFormat) {
+    //logger('generatePlaylistJson::before:', seekFormat, AMP_STATUS)
+    const convertHMS = (value) => {
+        if (value === '' || Number(value) == 0) {
+            return ''
+        }
+        const seconds = Number(value)
+        const hours = Math.floor(seconds / 3600)
+        const minutes = Math.floor((seconds % 3600) / 60)
+        const remainingSeconds = seconds % 60
+        let retval = ''
+        if (hours > 0) {
+            retval += String(hours) + ':' + String(minutes).padStart(2, '0') + ':' + String(remainingSeconds).padStart(2, '0')
+        } else
+        if (minutes > 0) {
+            retval += String(minutes) + ':' + String(remainingSeconds).padStart(2, '0')
+        } else
+        if (remainingSeconds > 0) {
+            retval += String(remainingSeconds)
+        }
+        //logger('convertHMS::', value, retval)
+        return retval
+    }
+    const newPlaylist = {}
+    AMP_STATUS.media.forEach((item) => {
+        const belongCategory = AMP_STATUS.category[item.catId]
+        const oneData = {
+            file:    item.file.replace('./assets/media/', ''),
+            title:   item.title,
+            desc:    item.desc,
+            artist:  item.artist,
+            videoid: item.videoid,
+            image:   item.image,
+            start:   seekFormat ? convertHMS(item.start) : item.start,
+            end:     seekFormat ? convertHMS(item.end) : item.end,
+        }
+        if (!newPlaylist.hasOwnProperty(belongCategory)) {
+            newPlaylist[belongCategory] = []
+        }
+        newPlaylist[belongCategory].push(oneData)
+    })
+    newPlaylist.options = AMP_STATUS.options
+    logger('generatePlaylistJson::after:', newPlaylist)
+    return JSON.stringify(newPlaylist, null, 2)
+}
+
+/**
+ * Reset fill of all fields and validation in the playlist management form.
+ */
+function resetPlaylistManageForm() {
+    $PLAYLIST_MANAGE_FORM.reset()
+    $PLAYLIST_MANAGE_ELMS.forEach((child) => {
+        let event = null
+        if (/^input$/i.test(child.nodeName)) {
+            switch (child.type) {
+                case 'text':
+                    event = 'input'
+                    break
+                case 'checkbox':
+                    child.checked = false
+                    break
+                default:
+                    break
+            }
+        }
+        if (event) {
+            logger('resetPlaylistManageForm:', child, event)
+            child.dispatchEvent(new Event(event))
+        }
+    })
+}
 
 /**
  * Show alert depend on the given notification object.
@@ -1747,6 +1934,38 @@ watcher($MEDIA_MANAGE_FORM, (mutation) => {
         const isContainAll = inArray(contains, valid_items, false)
         logger(`Check valid items for "${mediaType}":`, valid_items, contains, isContainAll)
         setAtts($BUTTON_ADD_MEDIA, {disabled: ''}, isContainAll)
+    }
+}, { childList: true, attributes: true, subtree: true })
+
+/**
+ * Do async validation while watch changing fields in the playlist management form.
+ */
+watcher($PLAYLIST_MANAGE_FORM, (mutation) => {
+    if (mutation.type === 'attributes' && mutation.attributeName === 'data-validate') {
+        const formData  = new FormData($PLAYLIST_MANAGE_FORM)
+        //const mediaType = formData.get('media_type')
+        const valid_items = []
+        if (getAtts(mutation.target, 'data-validate')) {
+            $PLAYLIST_MANAGE_ELMS.forEach((elm) => {
+                let isValid = getAtts(elm, 'data-validate') || false
+                logger(elm.id, getAtts(elm, 'data-validate'), isValid)
+                if (isValid) {
+                    valid_items.push(elm.id)
+                }
+            })
+        }
+        // Check symlink validation
+        const $BUTTON_CREATE_SYMLINK = document.getElementById('btn-create-symlink')
+        const symlink_contains = ['local-media-directory', 'symlink-name']
+        const isSymlinkContainAll = inArray(symlink_contains, valid_items, false)
+        logger(`Check valid items for "Create Symlink":`, valid_items, symlink_contains, isSymlinkContainAll)
+        setAtts($BUTTON_CREATE_SYMLINK, {disabled: ''}, isSymlinkContainAll)
+        // Check category validation
+        const $BUTTON_CREATE_CATEGORY = document.getElementById('btn-create-category')
+        const category_contains = ['category-name']
+        const isCategoryContainAll = inArray(category_contains, valid_items, false)
+        logger(`Check valid items for "Create Category":`, valid_items, category_contains, isCategoryContainAll)
+        setAtts($BUTTON_CREATE_CATEGORY, {disabled: ''}, isCategoryContainAll)
     }
 }, { childList: true, attributes: true, subtree: true })
 
@@ -2015,6 +2234,15 @@ function inArray(contains, targetArray, at_least_one=false) {
     } else {
         return contains.every(item => targetArray.includes(item))
     }
+}
+
+/**
+ * Convert a string in snake case (snake_case) to capital case (CapitalCase).
+ * @param {string} str 
+ * @returns 
+ */
+function snakeToCapital(str) {
+    return str.replace(/_./g, match => match.charAt(1).toUpperCase());
 }
 
 /*

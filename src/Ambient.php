@@ -111,11 +111,9 @@ class Ambient {
                 $method = 'get_playlist';
                 if ( $params ) {
                     $_route = "Get playlist \"{$params[0]}\"";
-                    //$this->get_playlist( $params[0] );
                     $args[] = $params[0];
                 } else {
                     $_route = 'Get all playlists';
-                    //$this->get_playlist();
                 }
                 break;
             case 'get:filepath':
@@ -129,11 +127,19 @@ class Ambient {
                 $_route = "Add item to playlist \"{$params[0]}\"";
                 $args[] = $params[0];
                 break;
+            case 'post:symlink':
+                $method = 'create_symlink';
+                $args = filter_input_array( INPUT_POST, [
+                    'local_media_dir' => FILTER_SANITIZE_FULL_SPECIAL_CHARS,
+                    'symlink_name' => FILTER_SANITIZE_FULL_SPECIAL_CHARS,
+                ] );
+                $_route = "Create symlink \"{$args['symlink_name']}\" <==> \"{$args['local_media_dir']}\"";
+                break;
             default:
                 $_route = "Normal access";
                 break;
         }
-        $this->logger( __METHOD__, $request_route, $params, $_route, $paths );
+        $this->logger( __METHOD__, $request_route, $params, $args, $_route, $paths );
         if ( isset( $method ) && isset( $args ) ) {
             $this->api_request_handler( $method, $args );
         }

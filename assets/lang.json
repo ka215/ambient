@@ -1,5 +1,5 @@
 {
-    "$language": "",
+    "$language": "English",
     "Ambient Media Player": "",
     "Get choose your playlist you want to play from the settings menu.": "",
     "Notify": "",
@@ -73,6 +73,10 @@
     "Symbolic Link Name": "",
     "This name is required": "",
     "Please fill any strings": "",
+    "This feature cannot be performed on remote hosts.": "",
+    "The path to link to does not exist.": "",
+    "A link with the same name already exists.": "",
+    "The command to make symbolic link is not available in the current environment.": "",
     "Symbolic link created successfully.": "",
     "Failed to create symbolic link.": "",
     "Add New Category": "",
