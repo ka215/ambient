@@ -71,15 +71,9 @@ Installing "Ambient" is as simple as fetching the package resources from [the Gi
 git clone https://github.com/ka215/ambient.git ambient
 ```
 
-or,
-
-```
-git clone git@github.com:ka215/ambient.git ambient
-```
-
 This will create the ambient directory and install the files within it. If you installed it using the above command directly under the document root, you can start it by entering `localhost/ambient` in the URL bar of your browser (if you have specified a virtual host name, it would be `http://<hostname>/ambient` ).
 
-Alternatively, you can also download the ZIP file from [the Ambient GitHub repository](https://github.com/ka215/ambient) and extract it to the desired location for installation.
+Alternatively, you can download the ZIP files from each release version of [Ambient Release Packages](https://github.com/ka215/ambient/releases) and unzip them to the desired installation location.
 
 ## Creating Playlists
 
@@ -141,29 +135,32 @@ To make it easier to understand beyond just the schema definition, here's an exa
 Here's a brief explanation of the playlist settings. Firstly, the root object's properties of the playlist JSON data can be freely named as "Category Name." However, if the property name is "options," it will be treated as the initial settings for "Ambient," so be careful (the "options" setting can be omitted if not needed). Then, the value of the category property is specified in an array format for the media to be played. The structure of the media data is as follows:
 
 | Property | Value Type | Description |
-|-----------|-------|---------|
-| title | ?string | Title of the media to be played. If this is not specified or is an empty string, the media will be considered invalid and cannot be played by Ambient. |
-| file | ?string | File path of the media to be played. It should be specified as a relative path from the `assets/media` folder under the Ambient installation directory. If there is no media file at the specified path, it will not be played. |
-| videoid | ?string | VIDEO ID of the media to be played on YouTube (the parameter value represented by "v=" in the YouTube video URL). If both videoid and file are defined for the media, the YouTube video specified by videoid will take priority. |
-| desc | ?string | Description or subtitle of the media to be played. This will be used in the output of the Ambient caption section, for example. |
-| artist | ?string | Artist name of the media to be played. This will be used in the output of the Ambient caption section, for example. |
-| image | ?string | File path of the thumbnail image for the media. It should be specified as a relative path from the `assets/images` folder under the Ambient installation directory. If there is no image file at the specified path, the thumbnail will not be displayed. For media from YouTube videos, the thumbnail will be automatically obtained from YouTube, so this is specifically for specifying thumbnails for local media files. |
-| start | ?string ?integer | Start time of the media playback (in seconds). If "Seek and play" is enabled as an option, the media with this specified time will seek to the specified seconds before starting playback. It can be specified as an integer value in seconds or in the `H:MM:SS` format. |
-| end | ?string ?integer | End time of the media playback (in seconds). If "Seek and play" is enabled as an option, the media with this specified time will stop playing when the specified number of seconds has elapsed. It can be specified as an integer value in seconds or in the `H:MM:SS` format. |
+|:--------:|:----------:|:------------|
+| title | string | Title of the media to be played. If this is not specified or is an empty string, the media will be considered invalid and cannot be played by Ambient. |
+| file | string | File path of the media to be played. It should be specified as a relative path from the `assets/media` folder under the Ambient installation directory. If there is no media file at the specified path, it will not be played. |
+| videoid | string | VIDEO ID of the media to be played on YouTube (the parameter value represented by "v=" in the YouTube video URL). If both videoid and file are defined for the media, the YouTube video specified by videoid will take priority. |
+| desc | string | Description or subtitle of the media to be played. This will be used in the output of the Ambient caption section, for example. |
+| artist | string | Artist name of the media to be played. This will be used in the output of the Ambient caption section, for example. |
+| image | string | File path of the thumbnail image for the media. It should be specified as a relative path from the `assets/images` folder under the Ambient installation directory. If there is no image file at the specified path, the thumbnail will not be displayed. For media from YouTube videos, the thumbnail will be automatically obtained from YouTube, so this is specifically for specifying thumbnails for local media files. |
+| volume | integer | Added since version 1.1.0. Specify the initial volume when playing media in the range of 0 to 100. The default value when omitted is 100, but it is depend on the optional volume setting. Note that the volume set on the media side has priority over the volume setting in the options. |
+| start | string/integer | Start time of the media playback (in seconds). If "Seek and play" is enabled as an option, the media with this specified time will seek to the specified seconds before starting playback. It can be specified as an integer value in seconds or in the `H:MM:SS` format. |
+| end | string/integer | End time of the media playback (in seconds). If "Seek and play" is enabled as an option, the media with this specified time will stop playing when the specified number of seconds has elapsed. It can be specified as an integer value in seconds or in the `H:MM:SS` format. |
 
 Additional properties can be added freely other than the ones mentioned above, allowing you to create properties for your own management items.
 
 Next, let's explain the data structure of the "options" property for the initial settings for Ambient:
 
 | Property | Value Type | Default Value | Description |
-|-----------|-------|------|---------|
-| autoplay | ?boolean | true | Flag for autoplay. Currently, only `true` is valid. |
-| random | ?boolean | false | Flag for randomly play. It can be changed on the Ambient settings. |
-| seek | ?boolean | false | Flag to enable seeking playback (seek and play). It can be changed on the Ambient settings. |
-| dark | ?boolean | false | Flag to enable dark mode for the Ambient UI. It can be changed on the Ambient settings. |
-| background | ?string | - | File path for displaying a background image in the Ambient UI. It should be specified as a relative path from the `assets/images` folder under the Ambient installation directory. |
-| caption | ?string | `%artist% - %title% - %desc%` | Format for displaying media data in the caption section of Ambient. Use `%<Property Name>%` placeholders to refer to the property values defined in the media data. |
-| playlist | ?string | `%artist% - %title%` | Format for displaying media data in the playlist (left drawer) of Ambient. Use `%<Property Name>%` placeholders to refer to the property values defined in the media data. |
+|:--------:|:----------:|:-------------:|:------------|
+| autoplay | boolean | true | Flag for autoplay. Currently, only `true` is valid. |
+| random | boolean | false | Flag for randomly play. It can be changed on the Ambient settings. |
+| shuffle | boolean | false | Flag for shuffle play. It can be changed on the Ambient settings. Added since version 1.1.0. |
+| seek | boolean | false | Flag to enable seeking playback (seek and play). It can be changed on the Ambient settings. |
+| volume | integer | 100 | Specifies the initial volume at which media in the playlist is played. Even if you change the volume of each player during playback, it will be initialized to this initial volume when you switch the playback media. Additionally, if there is a volume setting on each media side, that volume will take priority. |
+| dark | boolean | false | Flag to enable dark mode for the Ambient UI. It can be changed on the Ambient settings. |
+| background | string | - | File path for displaying a background image in the Ambient UI. It should be specified as a relative path from the `assets/images` folder under the Ambient installation directory. |
+| caption | string | `%artist% - %title% - %desc%` | Format for displaying media data in the caption section of Ambient. Use `%<Property Name>%` placeholders to refer to the property values defined in the media data. It is also possible to markup with HTML tags. |
+| playlist | string | `%artist% - %title%` | Format for displaying media data in the playlist (left drawer) of Ambient. Use `%<Property Name>%` placeholders to refer to the property values defined in the media data. It is also possible to markup with HTML tags. |
 
 If there are no changes to the default values for the "options" property, it can be omitted.
 
@@ -200,7 +197,8 @@ ln -s nzk /Users/YourUserName/Music/BEST\ OF\ VOCAL\ WORKS\ [nZk]
 to register the path to the folder where the local PC media is stored as a symbolic link (if the folder name contains spaces, escape them with a backslash).
 2. Update the file path specification of the file property in the playlist JSON media data to use the path via the symbolic link, for example, `nzk/friends.aac`.
 
-Furthermore, the feature to mount the existing media directory to the Ambient side via symbolic links will be added to the Ambient options menu soon (as issuing commands every time can be cumbersome).
+In version 1.1.0 of Ambient, the ability to mount an existing media directory on the Ambient side via a symbolic link was added to the "Options" menu.
+We recommend using this feature when creating symbolic links.
 
 ### Loading the Playlist on the Ambient Side
 
@@ -314,10 +312,14 @@ I appreciate the technology employed in the development of Ambient and respect i
 * [Flowbite](https://flowbite.com/docs/getting-started/introduction/)
 * [M+FONTS](https://mplusfonts.github.io/)
 
+In my blog article, I introduce specific ways to use Ambient.
 
+* [Introducing the initial release (Japanese)](https://ka2.org/ambient-media-player)
+* [About features added in version 1.1.0 (Japanese)](https://ka2.org/released_ambient_demo_version)
 
 ## Finally
 
+Please note that the only API used by "Ambient" is the IFrame Player API, and is excluded from the API clients specified by YouTube. As such, they are exempt from the terms of the Developer Policy.
 "Ambient" is released as an open-source project under the [MIT License](https://github.com/ka215/ambient/blob/main/LICENSE). Additionally, all resources are publicly available on GitHub, so if you are interested, please give it a try.
 
 [https://github.com/ka215/ambient](https://github.com/ka215/ambient)
