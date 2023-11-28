@@ -145,6 +145,8 @@ Here's a brief explanation of the playlist settings. Firstly, the root object's 
 | volume | integer | Added since version 1.1.0. Specify the initial volume when playing media in the range of 0 to 100. The default value when omitted is 100, but it is depend on the optional volume setting. Note that the volume set on the media side has priority over the volume setting in the options. |
 | start | string/integer | Start time of the media playback (in seconds). If "Seek and play" is enabled as an option, the media with this specified time will seek to the specified seconds before starting playback. It can be specified as an integer value in seconds or in the `H:MM:SS` format. |
 | end | string/integer | End time of the media playback (in seconds). If "Seek and play" is enabled as an option, the media with this specified time will stop playing when the specified number of seconds has elapsed. It can be specified as an integer value in seconds or in the `H:MM:SS` format. |
+| fadein | integer/float | Specifies the time in seconds before the volume fades in. If a seek time for the start of playback is set, a fade-in will be performed for the set number of seconds from the start of playback. |
+| fadeout | integer/float | Specify the duration in seconds for the volume to fade out. If a seek time for the end of playback has set, the fadeout will start after the set number of seconds from the end of playback. |
 
 Additional properties can be added freely other than the ones mentioned above, allowing you to create properties for your own management items.
 
@@ -157,6 +159,7 @@ Next, let's explain the data structure of the "options" property for the initial
 | shuffle | boolean | false | Flag for shuffle play. It can be changed on the Ambient settings. Added since version 1.1.0. |
 | seek | boolean | false | Flag to enable seeking playback (seek and play). It can be changed on the Ambient settings. |
 | volume | integer | 100 | Specifies the initial volume at which media in the playlist is played. Even if you change the volume of each player during playback, it will be initialized to this initial volume when you switch the playback media. Additionally, if there is a volume setting on each media side, that volume will take priority. |
+| fader | boolean | false | Flag for whether to perform volume pseudo-fader processing for played media. This setting was added since version 1.2.0. Please refer to the separate section for details on the fade in/fade out mechanism using pseudo faders. |
 | dark | boolean | false | Flag to enable dark mode for the Ambient UI. It can be changed on the Ambient settings. |
 | background | string | - | File path for displaying a background image in the Ambient UI. It should be specified as a relative path from the `assets/images` folder under the Ambient installation directory. |
 | caption | string | `%artist% - %title% - %desc%` | Format for displaying media data in the caption section of Ambient. Use `%<Property Name>%` placeholders to refer to the property values defined in the media data. It is also possible to markup with HTML tags. |
@@ -301,7 +304,8 @@ Ambient supports the localization of its user interface (UI). By placing a trans
 }
 ```
 
-By overwriting the contents of the bundled `assets/lang.json` in Ambient with the above content, most of the major UI elements will be localized into German. Regarding the translation definition file, it is possible to manage it by separating the files with suffix support, such as having a German translation definition as `lang-de.json`. However, in the current version of Ambient, `lang.json` is prioritized, so if you create a suffix-based translation definition file, you will need to either back up lang.json somewhere or change the extension from json to disable it. We plan to improve the loading process for these multilingual files in the future.
+By overwriting the contents of the bundled `assets/lang.json` in Ambient with the above content, most of the major UI elements will be localized into German. Regarding the translation definition file, it is possible to manage it by separating the files with suffix support, such as having a German translation definition as `lang-de.json`.
+Since version 1.2.0, we can now switch the language from the settings menu. The translation file for the language you want to switch to should be placed as `lang-{langCode}.json` under the `assets` directory.
 
 ## References
 
