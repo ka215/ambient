@@ -33,6 +33,60 @@ trait utils {
      * If there is a JSON file that is defined the translational text, load it.
      */
     protected function load_translation_data() {
+        $files = glob( ASSETS_DIR . '*.[Jj][Ss][Oo][Nn]' );
+        if ( $files ) {
+            array_walk( $files, function( $file ) {
+                if ( preg_match( '/^lang(.*)?\.json$/i', basename( $file ), $matches ) ) {
+                    if ( isset( $matches[1] ) ) {
+                        $_key = empty( $matches[1] ) ? 'origin' : trim( $matches[1], '_-' );
+                    }
+                    if ( file_exists( ASSETS_DIR . $matches[0] ) ) {
+                        $_preload = json_decode( file_get_contents( ASSETS_DIR . $matches[0] ), true );
+                        if ( array_key_exists( '$language', $_preload ) ) {
+                            $lang_name = $_preload['$language'];
+                            unset( $_preload['$language'] );
+                        } else {
+                            $lang_name = $_key;
+                        }
+                        $this->languages[$_key] = [
+                            'file' => $matches[0],
+                            'name' => $lang_name,
+                            'data' => $_preload,
+                        ];
+                    }
+                }
+            } );
+            if ( count( $this->languages ) > 1 ) {
+                uksort( $this->languages, function( $a, $b ) {
+                    if ( $a === 'origin' ) {
+                        return -1;
+                    } elseif ( $b === 'origin' ) {
+                        return 1;
+                    } else {
+                        return strcmp( $a, $b );
+                    }
+                } );
+            }
+        }
+
+        /* if ( isset( $_SESSION['lang'] ) ) {
+            $this->logger( __METHOD__, $_SESSION['lang'] );
+            $this->current_lang = $_SESSION['lang'];
+        } else */
+        if ( isset( $_COOKIE['lang'] ) && !empty( $_COOKIE['lang'] ) ) {
+            $this->current_lang = $_COOKIE['lang'];
+            //$_SESSION['lang'] = $_COOKIE['lang'];
+        } else {
+            $this->current_lang = 'origin';
+        }
+
+        $target_file = ASSETS_DIR . $this->languages[$this->current_lang]['file'];
+        //$this->logger( __METHOD__, $this->languages, $this->current_lang, $target_file );
+
+        if ( !empty( $this->languages ) && file_exists( $target_file ) ) {
+            $this->translation_data = $this->languages[$this->current_lang]['data'];
+        }
+        /*
         if ( empty( $this->translation_data ) && file_exists( ASSETS_DIR . 'lang.json' ) ) {
             $this->translation_data = json_decode( file_get_contents( ASSETS_DIR . 'lang.json' ), true );
             if ( array_key_exists( '$language', $this->translation_data ) ) {
@@ -40,6 +94,7 @@ trait utils {
                 unset( $this->translation_data['$language'] );
             }
         }
+        */
     }
 
     /**

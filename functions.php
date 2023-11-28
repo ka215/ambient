@@ -28,7 +28,7 @@ function amp_head(): string {
     $output[] = '<link href="./dist/tailwindcss.css?20231005" rel="stylesheet" />';
     $output[] = '<link href="./dist/flowbite.min.css" rel="stylesheet" />';
     $output[] = '<link rel="preload" href="https://www.youtube.com/player_api" as="script" />';
-    $output[] = '<script src="https://www.youtube.com/iframe_api"></script>';
+    //$output[] = '<script src="https://www.youtube.com/iframe_api"></script>';
     //$output[] = '<link href="//mplus-webfonts.sourceforge.jp/mplus_webfonts.css" rel="stylesheet" />';
     $output[] = '<link rel="icon" href="./'. basename( VIEWS_DIR ) .'/images/ambient.ico">';
     $output[] = $add_styles;

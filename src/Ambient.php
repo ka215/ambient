@@ -11,6 +11,9 @@ class Ambient {
     protected $package_info;
 
     /** @var ?array<string> */
+    public $languages;
+
+    /** @var ?array<string> */
     public $translation_data;
 
     /** @var ?string */
@@ -37,7 +40,7 @@ class Ambient {
         register_shutdown_function( [ $this, 'shutdown' ] );
 
         $this->load_translation_data();
-        //$this->logger( $this->translation_data, $this->current_lang );
+        //$this->logger( $this->translation_data, $this->current_lang, $this->languages );
 
         set_error_handler( [ $this, 'error_handler' ] );
 
@@ -136,6 +139,7 @@ class Ambient {
                 $_route = "Create symlink \"{$args['symlink_name']}\" <==> \"{$args['local_media_dir']}\"";
                 break;
             default:
+                // Not handle the endpoint because no RESTful due to normal access.
                 $_route = "Normal access";
                 break;
         }
@@ -245,6 +249,10 @@ class Ambient {
 
         if ( !isset( $instance ) ) {
             $instance = new Ambient();
+        }
+
+        if ( session_status() === PHP_SESSION_NONE ) {
+            @session_start();
         }
 
         return $instance;

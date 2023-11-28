@@ -35,7 +35,7 @@ I often have music playing in the background when I'm working on my PC. The song
 
 It would be great if I could manage both types of media centrally and play them without having to switch players.
 
-Perhaps there are solutions out there that could meet this demand, but searching for them could be bothersome, and there's also the possibility that they might not be available for free. So, I pondered if there was a way to make it work.
+Several solutions already exist that meet this demand, such as "FreeTube" and "CherryPlayer". However, it was difficult to find what I was looking for because the supported platforms were limited, there were too many functions, and the UI was complex and difficult to operate intuitively. I want a simple media player that just plays my favorite media continuously, like ambient sounds. Therefore, I thought it would be faster to make it myself to fulfill this request.
 
 If I were to create a web application that combines YouTube's embedded Iframe player with HTML media tags such as <audio> and <video>, I should be able to play both YouTube videos and my PC's media files simultaneously, shouldn't I?
 

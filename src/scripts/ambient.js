@@ -58,6 +58,24 @@ function abortSeeking() {
     seekId = null
 }
 
+// fader container
+var fadeinId
+var fadeoutId
+
+/**
+ * Abort fader for playback media.
+ * @param {string} type Either `fadein` or `fadeout` 
+ */
+function abortFader(type) {
+    if (type === 'fadein') {
+        clearInterval(fadeinId)
+        fadeinId = null
+    } else {
+        clearInterval(fadeoutId)
+        fadeoutId = null
+    }
+}
+
 /**
  * Watcher for AMP_STATUS object.
  */
@@ -175,8 +193,10 @@ const $SELECT_CATEGORY    = document.getElementById('target-category')
 const $TOGGLE_RANDOMLY    = document.getElementById('toggle-randomly')
 const $TOGGLE_SHUFFLE     = document.getElementById('toggle-shuffle')
 const $TOGGLE_SEEKPLAY    = document.getElementById('toggle-seekplay')
+const $TOGGLE_FADER       = document.getElementById('toggle-fader')
 const $RANGE_VOLUME       = document.getElementById('default-volume')
 const $TOGGLE_DARKMODE    = document.getElementById('toggle-darkmode')
+const $SELECT_LANGUAGE    = document.getElementById('language')
 const $DRAWER_PLAYLIST    = document.getElementById('drawer-playlist')
 const $DRAWER_SETTINGS    = document.getElementById('drawer-settings')
 const $LIST_PLAYLIST      = document.getElementById('playlist-list-group')
@@ -478,6 +498,11 @@ function applyOptions() {
     const isSeekplay = getOption('seek')
     if (isSeekplay !== null) {
         changeToggleSeekplay()
+    }
+    // Applies if a pseudo fader is specified, since v1.2.0
+    const isFader = getOption('fader')
+    if (isFader !== null) {
+        changeToggleFader()
     }
     // Applies if a default volume is specified.
     AMP_STATUS.volume = getOption('volume') || 100
@@ -900,6 +925,23 @@ function changeToggleSeekplay() {
 }
 
 /**
+ * Event listener when changing the pseudo fader of settings menu toggle button.
+ */
+$TOGGLE_FADER.querySelector('input[type="checkbox"]').addEventListener('change', (evt) => {
+    if (isObject(AMP_STATUS.options) && AMP_STATUS.options.hasOwnProperty('fader')) {
+        AMP_STATUS.options.fader = evt.target.checked
+    }
+})
+
+/**
+ * Toggle the pseudo fader of settings menu toggle button.
+ */
+function changeToggleFader() {
+    const toggleElm = $TOGGLE_FADER.querySelector('input[type="checkbox"]')
+    toggleElm.checked = !!AMP_STATUS.options.fader
+}
+
+/**
  * Event listener when inputting the volume of settings menu range slider.
  */
 $RANGE_VOLUME.addEventListener('input', (evt) => {
@@ -965,6 +1007,16 @@ function changeToggleDarkmode() {
         //logger('changeToggleDarkmode:', $AUDIO_PLAYER[0])
     }
 }
+
+$SELECT_LANGUAGE.addEventListener('change', (evt) => {
+    const currentLanguage = getCookie('lang')
+    const newLanguage = evt.target.value
+    logger('changeLanguage::', currentLanguage, newLanguage)
+    if (currentLanguage !== newLanguage) {
+        updateCookie('lang', newLanguage)
+        reloadPage()
+    }
+})
 
 /**
  * Updates the user's media playback state.
@@ -1091,6 +1143,7 @@ function onPlayerReady(event) {
     $EMBED_WRAPPER.classList.add('w-max', 'h-max')
     $EMBED_WRAPPER.classList.remove('w-full', 'h-0', 'opacity-0')
 
+    const mediaData = AMP_STATUS.media.filter((item) => item.amId == AMP_STATUS.current).shift()
     if (youtubeURL = player.getVideoUrl()) {
         $BUTTON_WATCH_TY.href = youtubeURL
     } else {
@@ -1121,7 +1174,12 @@ function onPlayerReady(event) {
         }, 100)
     }
 
-    event.target.setVolume(AMP_STATUS.volume)
+    // Add since v1.2.0
+    if (AMP_STATUS.fader && mediaData.hasOwnProperty('fadein') && mediaData.fadein !== '') {
+        event.target.setVolume(0)
+    } else {
+        event.target.setVolume(AMP_STATUS.volume)
+    }
     event.target.playVideo()
 }
 
@@ -1153,6 +1211,7 @@ function onPlayerStateChange(event) {
         if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== '') {
             mediaSrc = mediaData.videoid
             playerType = 'youtube'
+            event.target.g.remove()
         }
         updatePlayStatus(nextId)
         setupPlayer(playerType, mediaSrc, mediaData)
@@ -1166,6 +1225,20 @@ function onPlayerStateChange(event) {
         // Toggle this button shown (Play -> Pause).
         $BUTTON_PLAY.classList.add('hidden')
         $BUTTON_PAUSE.classList.remove('hidden')
+        // Add since v1.2.0, fade-in by the fader option.
+        if (AMP_STATUS.fader) {
+            const currentMedia = AMP_STATUS.media.filter((item) => item.amId == AMP_STATUS.current).shift()
+            if (currentMedia.hasOwnProperty('fadeout') && currentMedia.fadeout !== '') {
+                const seekEnd = currentMedia.hasOwnProperty('end') && currentMedia.end !== '' ? parseFloat(currentMedia.end) : event.target.getDuration()
+                event.target.setVolume(AMP_STATUS.volume)
+                fadeOut(event.target, parseFloat(currentMedia.fadeout), seekEnd)
+            }
+            if (currentMedia.hasOwnProperty('fadein') && currentMedia.fadein !== '') {
+                const seekStart = currentMedia.hasOwnProperty('start') && currentMedia.start !== '' ? parseFloat(currentMedia.start) : 0
+                event.target.setVolume(0)
+                fadeIn(event.target, parseFloat(currentMedia.fadein), seekStart)
+            }
+        }
     }
     if (event.data == -1 && getOption('autoplay')) {
         // When playback unstarted.
@@ -1202,6 +1275,7 @@ function onPlayerError(event) {
     if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== '') {
         mediaSrc = mediaData.videoid
         playerType = 'youtube'
+        event.target.g.remove()
     }
     updatePlayStatus(nextId)
     setupPlayer(playerType, mediaSrc, mediaData)
@@ -1233,11 +1307,23 @@ function createYTPlayer(mediaData) {
     if (optControls = getOption('controls')) {
         playerOptions.controls = Number(optControls)
     }
+    if (mediaData.hasOwnProperty('controls') && mediaData.controls !== '') {
+        // Add since v1.2.0
+        playerOptions.controls = Number(Boolean(mediaData.controls))
+    }
     if (optFs = getOption('fs')) {
         playerOptions.fs = Number(optFs)
     }
+    if (mediaData.hasOwnProperty('fs') && mediaData.fs !== '') {
+        // Add since v1.2.0
+        playerOptions.fs = Number(Boolean(mediaData.fs))
+    }
     if (optCLP = getOption('cc_load_policy')) {
         playerOptions.cc_load_policy = Number(optCLP)
+    }
+    if (mediaData.hasOwnProperty('cc') && mediaData.fs !== '') {
+        // Add since v1.2.0
+        playerOptions.cc_load_policy = Number(Boolean(mediaData.cc))
     }
     if (optRel = getOption('rel')) {
         playerOptions.rel = Number(optRel)
@@ -1247,6 +1333,12 @@ function createYTPlayer(mediaData) {
     }
     if (getOption('seek') && mediaData.hasOwnProperty('end') && mediaData.end !== '') {
         playerOptions.end = mediaData.end
+    }
+    // Add since v1.2.0, the following fader option:
+    if (optFader = getOption('fader')) {
+        AMP_STATUS.fader = Boolean(optFader)
+    } else {
+        AMP_STATUS.fader = false
     }
     if (mediaData.hasOwnProperty('volume') && mediaData.volume !== '' && inRange(Number(mediaData.volume), 0, 100)) {
         AMP_STATUS.volume = Number(mediaData.volume)
@@ -1282,15 +1374,25 @@ function createPlayerTag(tagname, mediaData) {
     const playerElm = document.createElement(tagname)
     const sourceElm = document.createElement('source')
     playerElm.id = 'html-player'
-    playerElm.setAttribute('controls', true)
+    playerElm.setAttribute('controls', getOption('controls'))
     playerElm.setAttribute('controlslist', 'nodownload')
-    playerElm.setAttribute('autoplay', true)
+    playerElm.setAttribute('autoplay', getOption('autoplay'))
+    // Add since v1.2.0, the following fader option:
+    if (optFader = getOption('fader')) {
+        AMP_STATUS.fader = Boolean(optFader)
+    } else {
+        AMP_STATUS.fader = false
+    }
     if (mediaData.hasOwnProperty('volume') && mediaData.volume !== '' && inRange(Number(mediaData.volume), 0, 100)) {
         AMP_STATUS.volume = Number(mediaData.volume)
     } else {
         AMP_STATUS.volume = getOption('volume') || 100
     }
-    playerElm.volume = AMP_STATUS.volume / 100
+    if (AMP_STATUS.fader && mediaData.hasOwnProperty('fadein') && mediaData.fadein !== '') {
+        playerElm.volume = 0
+    } else {
+        playerElm.volume = AMP_STATUS.volume / 100
+    }
     if (tagname === 'audio' && isObject(AMP_STATUS.options) && AMP_STATUS.options.hasOwnProperty('dark') && AMP_STATUS.options.dark) {
         setStyles(playerElm, 'opacity: .7')
     }
@@ -1314,6 +1416,7 @@ function createPlayerTag(tagname, mediaData) {
     $OPTIONAL_CONTAINER.classList.add('hidden', 'opacity-0')
 
     playerElm.addEventListener('play', (evt) => {
+        // Fire when the paused is to `false` from `true` as result when `autoplay`.
         if (getOption('seek') && mediaData.hasOwnProperty('end') && mediaData.end !== '') {
             // When the seek end time is reached, forcibly seeks to the end of the media and ends playback.
             if (!seekId) {
@@ -1321,6 +1424,7 @@ function createPlayerTag(tagname, mediaData) {
                     if (evt.target.currentTime >= mediaData.end) {
                         evt.target.currentTime = evt.target.duration
                         abortSeeking()
+                        abortFader('fadeout')
                     }
                     //logger('Now seeking:', seekId, evt.target.currentTime)
                 }, 500)
@@ -1332,6 +1436,18 @@ function createPlayerTag(tagname, mediaData) {
         // Toggle this button shown (Play -> Pause).
         $BUTTON_PLAY.classList.add('hidden')
         $BUTTON_PAUSE.classList.remove('hidden')
+        if (AMP_STATUS.fader) {
+            if (mediaData.hasOwnProperty('fadeout') && mediaData.fadeout !== '') {
+                const seekEnd = mediaData.hasOwnProperty('end') && mediaData.end !== '' ? parseFloat(mediaData.end) : evt.target.duration
+                evt.target.volume = AMP_STATUS.volume / 100
+                fadeOut(evt.target, parseFloat(mediaData.fadeout), seekEnd)
+            }
+            if (mediaData.hasOwnProperty('fadein') && mediaData.fadein !== '') {
+                const seekStart = mediaData.hasOwnProperty('start') && mediaData.start !== '' ? parseFloat(mediaData.start) : 0
+                evt.target.volume = 0
+                fadeIn(evt.target, parseFloat(mediaData.fadein), seekStart)
+            }
+        }
     })
 
     playerElm.addEventListener('pause', (evt) => {
@@ -1351,6 +1467,7 @@ function createPlayerTag(tagname, mediaData) {
         $EMBED_WRAPPER.classList.remove('max-w-2xl', 'w-max', 'h-max', 'border-0')
 
         abortSeeking()
+        abortFader('fadeout')
 
         const nextId = AMP_STATUS.next
         const mediaData = AMP_STATUS.media.filter((item) => item.amId == nextId).shift()
@@ -1402,6 +1519,138 @@ function createPlayerTag(tagname, mediaData) {
     })
 }
 
+/**
+ * Fade in the volume of the specified media.
+ * @param {object} media 
+ * @param {number} period 
+ * @param {number} start 
+ */
+function fadeIn(media, period, start) {
+    const mediaType = isElement(media) ? 'local' : 'youtube'
+    const fadeEnd = (start + period) * 1000// unit milliseconds
+    const steps = period * 10
+    const stepVolume = AMP_STATUS.volume / steps
+    logger('fadeIn::', mediaType === 'youtube' ? media.getDuration() : media.duration, mediaType === 'youtube' ? media.getVolume() : media.volume, period, start, fadeEnd, steps, stepVolume, AMP_STATUS.volume)
+    let elapsed = 0
+    let incrementVolume = 0
+    fadeinId = setInterval(() => {
+        const currentTime = (mediaType === 'youtube' ? media.getCurrentTime() : media.currentTime) * 1000// unit milliseconds
+        if (inRange(currentTime, start * 1000, fadeEnd)) {
+            elapsed = Math.floor((currentTime - start * 1000) / 100)
+            //incrementVolume = Math.floor(stepVolume * elapsed)
+            incrementVolume = elapsed > 0 ? stepVolume * elapsed * elapsed / steps : 0
+            if (mediaType === 'youtube') {
+                media.setVolume(incrementVolume)
+            } else {
+                media.volume = incrementVolume / 100
+            }
+        } else if (currentTime >= fadeEnd) {
+            if (mediaType === 'youtube') {
+                media.setVolume(AMP_STATUS.volume)
+            }
+            abortFader('fadein')
+        } else {
+            if (mediaType === 'youtube') {
+                media.setVolume(0)
+            } else {
+                media.volume = 0
+            }
+        }
+        logger(`fadeIn:: ${currentTime}ms from ${start}; elapsed: ${elapsed}`, incrementVolume, mediaType === 'youtube' ? media.getVolume() : media.volume)
+    }, 100)
+    /*
+    const fadeEnd = parseFloat(currentMedia.fadein) * 1000// unit milliseconds
+    const fi_steps = fadeEnd / 100
+    const fi_stepVolume = AMP_STATUS.volume / fi_steps
+    //logger('onPlayerStateChange::Playing.fadeIn:', event.target.getDuration(), event.target.getVolume(), currentMedia, fadeEnd, fi_stepVolume, AMP_STATUS.volume)
+    let fi_elapsed = 0
+    let fadeinID = setInterval(() => {
+        if (event.target.getPlayerState() == YT.PlayerState.PLAYING) {
+            fi_elapsed++
+            //const incrementVolume = Math.floor(fi_stepVolume * fi_elapsed)
+            const incrementVolume = fi_stepVolume * fi_elapsed * fi_elapsed / fi_steps
+            if (fi_elapsed * 100 >= fadeEnd) {
+                event.target.setVolume(AMP_STATUS.volume)
+                clearInterval(fadeinID)
+                fadeinID = null
+            } else {
+                event.target.setVolume(incrementVolume)
+            }
+            //logger(`onPlayerReady::fadeIn:elapsed ${fi_elapsed * 100}ms:`, incrementVolume, event.target.getVolume())
+        }
+    }, 100)
+    */
+}
+
+/**
+ * Fade out the volume of the specified media.
+ * @param {object} media 
+ * @param {number} period 
+ * @param {number} end 
+ */
+function fadeOut(media, period, end) {
+    const mediaType = isElement(media) ? 'local' : 'youtube'
+    const fadeStart = (end - period) * 1000// unit milliseconds
+    const steps = period * 10
+    const stepVolume = (mediaType === 'youtube' ? AMP_STATUS.volume : media.volume * 100) / steps
+    logger('fadeOut::', mediaType === 'youtube' ? media.getDuration() : media.duration, mediaType === 'youtube' ? media.getVolume() : media.volume, period, end, fadeStart, steps, stepVolume, AMP_STATUS.volume)
+    let elapsed = 0
+    let decrementVolume = 0
+    fadeoutId = setInterval(() => {
+        const currentTime = (mediaType === 'youtube' ? media.getCurrentTime() : media.currentTime) * 1000// unit milliseconds
+        if (inRange(currentTime, fadeStart, end * 1000)) {
+            elapsed = Math.floor((end * 1000 - currentTime) / 100)
+            //decrementVolume = AMP_STATUS.volume - (elapsed > 0 ? stepVolume * elapsed * elapsed / steps : 0)
+            decrementVolume = elapsed > 0 ? stepVolume * elapsed : 0
+            if (mediaType === 'youtube') {
+                media.setVolume(decrementVolume)
+            } else {
+                media.volume = decrementVolume / 100
+            }
+            logger(`fadeOut:: ${currentTime}ms until ${end * 1000}ms; elapsed: ${elapsed}`, decrementVolume, mediaType === 'youtube' ? media.getVolume() : media.volume)
+        } else if (currentTime < fadeStart) {
+            // continue
+        } else {
+            if (mediaType === 'youtube') {
+                media.setVolume(0)
+                abortFader('fadeout')
+                logger([media])
+            } else {
+                media.volume = 0
+                abortFader('fadeout')
+                media.dispatchEvent(new Event('ended'))
+            }
+        }
+    }, 100)
+    /*
+    let fadeStart = (event.target.getDuration() - parseFloat(currentMedia.fadeout)) * 1000// unit milliseconds
+    if (currentMedia.hasOwnProperty('end') && currentMedia.end !== '') {
+        fadeStart = (parseFloat(currentMedia.end) - parseFloat(currentMedia.fadeout)) * 1000// unit milliseconds
+    }
+    const fo_steps = parseFloat(currentMedia.fadeout) * 10
+    const fo_stepVolume = AMP_STATUS.volume / fo_steps
+    //logger('onPlayerStateChange::Playing.fadeOut:', event.target.getDuration(), event.target.getVolume(), currentMedia, fadeStart, fo_steps, fo_stepVolume, AMP_STATUS.volume)
+    let fo_elapsed = 0
+    let fadeoutID = setInterval(() => {
+        if (event.target.getPlayerState() == YT.PlayerState.PLAYING) {
+            //logger(`onPlayerReady::fadeOut:elapsed ${fo_elapsed * 100}ms:`, fadeStart, event.target.getCurrentTime() * 1000)
+            if (fadeStart <= event.target.getCurrentTime() * 1000) {
+                fo_elapsed++
+                const decrementVolume = AMP_STATUS.volume - (fo_stepVolume * fo_elapsed * fo_elapsed / fo_steps)
+                if (decrementVolume <= 0) {
+                    event.target.setVolume(0)
+                    clearInterval(fadeoutID)
+                    fadeoutID = null
+                } else {
+                    event.target.setVolume(decrementVolume)
+                }
+                //logger(`onPlayerReady::fadeOut:elapsed ${fo_elapsed * 100}ms:`, decrementVolume, event.target.getVolume())
+            }
+        }
+    }, 100)
+    */
+}
+
 // Modal Options since v1.1.0
 
 /**
@@ -1421,11 +1670,11 @@ $MEDIA_MANAGE_ELMS.forEach((elm) => {
                 if (evt.target.value === 'youtube') {
                     toggleClass($MEDIA_URL_FIELD,   { hidden: false })
                     toggleClass($MEDIA_FILES_FIELD, { hidden: true  })
-                    toggleClass($MEDIA_DIR_FIELD,   { hidden: true  })
+                    //toggleClass($MEDIA_DIR_FIELD,   { hidden: true  })
                 } else {
                     toggleClass($MEDIA_URL_FIELD,   { hidden: true  })
                     toggleClass($MEDIA_FILES_FIELD, { hidden: false })
-                    toggleClass($MEDIA_DIR_FIELD,   { hidden: false })
+                    //toggleClass($MEDIA_DIR_FIELD,   { hidden: false })
                 }
                 AMP_STATUS.addtype = evt.target.value
                 if (prevType !== evt.target.value) {
@@ -2283,6 +2532,52 @@ function getOS() {
 }
 
 /**
+ * Get cookie with specified name.
+ * @param {string} name 
+ * @returns 
+ */
+function getCookie(name) {
+    const getCookiePath = (cookie) => {
+        const pathMatch = cookie.match(/(?:^|;\s*)path=([^;]*)/)
+        return pathMatch ? pathMatch[1] : '/'
+    }
+    const cookies = document.cookie.split(';')
+    for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim()
+        const keyValue = cookie.split('=')
+        const cookieName = keyValue[0]
+        const cookieValue = keyValue[1]
+        if (cookieName === name) {
+            const cookiePath = getCookiePath(cookie)
+            const currentPath = window.location.pathname
+            if (currentPath.startsWith(cookiePath)) {
+                return cookieValue
+            } else {
+                return null
+            }
+        }
+    }
+    return null
+}
+
+/**
+ * Update the value of the cookie with the specified name.
+ * @param {string} name 
+ * @param {string} value 
+ * @param {number | null} daysToExpire 
+ */
+function updateCookie(name, value, daysToExpire=null) {
+    const expirationDate = new Date()
+    if (!daysToExpire) {
+        expirationDate.setFullYear(expirationDate.getFullYear() + 1)
+    } else {
+        expirationDate.setDate(expirationDate.getDate() + daysToExpire)
+    }
+    const cookieString = `${name}=${value}; expires=${expirationDate.toUTCString()}; path=${window.location.pathname}; Secure; SameSite=Lax`
+    document.cookie = cookieString
+}
+
+/**
  * Retrieves a DOMRect object providing information about the size 
  * of given an element and its position relative to the viewport.
  * This function as a wrapper of  Element.getBoundingClientRect() 
@@ -2421,8 +2716,6 @@ function replaceAttribute(targetElement, attributeName, replacementName) {
 }
 
 function strToNode(str) {
-    const parser = undefined
-      , node = undefined;
     return (new DOMParser).parseFromString(str, "text/html")
 }
 
