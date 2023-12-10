@@ -11,9 +11,12 @@ Ambient lets you create mixed playlists of your favorite YouTube videos and othe
 
 <p align="center">
   <img alt="GitHub package.json version" src="https://img.shields.io/github/package-json/v/ka215/ambient">
-  <!-- img alt="CircleCI" src="https://img.shields.io/circleci/build/github/ka215/sunorhc/main" -->
-  <!-- img alt="npm downloads" src="https://img.shields.io/npm/dt/sunorhc" -->
-  <!-- img alt="npm bundle size" src="https://img.shields.io/bundlephobia/min/sunorhc?label=bundle%20size" -->
+  <!-- img alt="GitHub last commit (branch)" arc="https://img.shields.io/github/last-commit/ka215/ambient/main" -->
+  <!-- img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/ka215/ambient" -->
+  <!-- img alt="GitHub code size in bytes" src="https://img.shields.io/github/languages/code-size/ka215/ambient" -->
+  <!-- img alt="CircleCI" src="https://img.shields.io/circleci/build/github/ka215/ambient/main" -->
+  <!-- img alt="GitHub all releases" src="https://img.shields.io/github/downloads/ka215/ambient/total" -->
+  <!-- img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/ka215/ambient" -->
   <img alt="GitHub" src="https://img.shields.io/github/license/ka215/ambient">
 </p>
 

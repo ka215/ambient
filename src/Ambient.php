@@ -233,7 +233,7 @@ class Ambient {
     /**
      * Method for execution on shutdown.
      */
-    protected function shutdown(): void {
+    public static function shutdown(): void {
         if ( defined( 'DEBUG_MODE' ) && DEBUG_MODE ) {
             // Do currently nothing.
         }

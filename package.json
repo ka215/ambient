@@ -1,6 +1,6 @@
 {
   "name": "ambient",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "scripts": {
     "tw-dev": "tailwindcss -i ./src/styles/tailwindcss.css -o ./dist/tailwindcss.css --watch",
     "tw-build": "tailwindcss -i ./src/styles/tailwindcss.css -o ./dist/tailwindcss.min.css --minify"
