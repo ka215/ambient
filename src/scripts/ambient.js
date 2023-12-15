@@ -103,7 +103,7 @@ function watchState() {
                 updateCategory()
                 break
             case /^shuffle$/i.test(prop):
-                saveStge(prop, newValue)
+                //saveStge(prop, newValue)
                 changeToggleShuffle()
                 break
             case /^volume$/i.test(prop):
@@ -881,8 +881,14 @@ function changeToggleRandomly() {
  * Event listener when changing the shuffle play of settings menu toggle button.
  */
 $TOGGLE_SHUFFLE.querySelector('input[type="checkbox"]').addEventListener('change', (evt) => {
-    if (isObject(AMP_STATUS.options) && AMP_STATUS.options.hasOwnProperty('shuffle')) {
-        AMP_STATUS.options.shuffle = evt.target.checked
+    if (isObject(AMP_STATUS.options)) {
+        if (AMP_STATUS.options.hasOwnProperty('shuffle')) {
+            AMP_STATUS.options.shuffle = evt.target.checked
+        } else {
+            AMP_STATUS.options['shuffle'] = evt.target.checked
+        }
+    } else {
+        AMP_STATUS.options = { shuffle: evt.target.checked }
     }
     AMP_STATUS.shuffle = shufflePlaylist()
 })
@@ -893,7 +899,7 @@ $TOGGLE_SHUFFLE.querySelector('input[type="checkbox"]').addEventListener('change
 function changeToggleShuffle() {
     const toggleElm = $TOGGLE_SHUFFLE.querySelector('input[type="checkbox"]')
     toggleElm.checked = !!AMP_STATUS.options.shuffle
-    shufflePlaylist()
+    AMP_STATUS.shuffle = shufflePlaylist()
 }
 
 /**
@@ -1497,6 +1503,7 @@ function createPlayerTag(tagname, mediaData) {
             nextId = AMP_STATUS.current
         } else {
             nextId = AMP_STATUS.next
+            logger('ended:', AMP_STATUS, nextId)
         }
         const mediaData = AMP_STATUS.media.filter((item) => item.amId == nextId).shift()
         let mediaSrc   = null
