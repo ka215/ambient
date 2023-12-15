@@ -150,6 +150,8 @@ Here's a brief explanation of the playlist settings. Firstly, the root object's 
 | end | string/integer | End time of the media playback (in seconds). If "Seek and play" is enabled as an option, the media with this specified time will stop playing when the specified number of seconds has elapsed. It can be specified as an integer value in seconds or in the `H:MM:SS` format. |
 | fadein | integer/float | Specifies the time in seconds before the volume fades in. If a seek time for the start of playback is set, a fade-in will be performed for the set number of seconds from the start of playback. |
 | fadeout | integer/float | Specify the duration in seconds for the volume to fade out. If a seek time for the end of playback has set, the fadeout will start after the set number of seconds from the end of playback. |
+| fs | integer/boolean | You can switch the display from embedded player display to full screen mode for each playback media. For YouTube videos, a full screen button will be added to the player. In the case of an HTML player, you can switch the display by clicking on the playback area. |
+| cc | integer/boolean | If the media supports subtitles, you can toggle subtitle display. This feature is only valid for YouTube videos. |
 
 Additional properties can be added freely other than the ones mentioned above, allowing you to create properties for your own management items.
 
@@ -167,6 +169,8 @@ Next, let's explain the data structure of the "options" property for the initial
 | background | string | - | File path for displaying a background image in the Ambient UI. It should be specified as a relative path from the `assets/images` folder under the Ambient installation directory. |
 | caption | string | `%artist% - %title% - %desc%` | Format for displaying media data in the caption section of Ambient. Use `%<Property Name>%` placeholders to refer to the property values defined in the media data. It is also possible to markup with HTML tags. |
 | playlist | string | `%artist% - %title%` | Format for displaying media data in the playlist (left drawer) of Ambient. Use `%<Property Name>%` placeholders to refer to the property values defined in the media data. It is also possible to markup with HTML tags. |
+| fs | boolean | false | You can switch from embedded player view to full screen view for all media in your playlist. For information on how to switch the display, please refer to the explanation for the same item in Media Data. |
+| cc | boolean | false | Enable toggle subtitle display for all media in the playlist. However, the only media that supports this feature are YouTube videos with subtitles set. |
 
 If there are no changes to the default values for the "options" property, it can be omitted.
 
