@@ -35,6 +35,7 @@ vendor/
 assets/*.json
 !assets/PlayList.json
 !assets/lang.json
+!assets/lang-*.json
 
 # User-specific extension files
 custom.php
