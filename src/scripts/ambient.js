@@ -30,6 +30,8 @@ function initStatus() {
         // add since v1.1.0
         addtype: null,
         notice: null,
+        // add since v1.2.2
+        loop: null,
     })
 }
 
@@ -83,7 +85,7 @@ function watchState() {
     const callback = function(prop, oldValue, newValue) {
         //logger(`callback(${prop}):`, oldValue, '->', newValue)
         switch (true) {
-            case /^(prev|current|next|ctg|order)$/i.test(prop):
+            case /^(prev|current|next|ctg|order|loop)$/i.test(prop):
                 // Synchronize to the saved data of web storage when specific properties of AMP_STATUS object are changed.
                 saveStge(prop, newValue)
                 if ('current' === prop) {
@@ -101,6 +103,7 @@ function watchState() {
                 updateCategory()
                 break
             case /^shuffle$/i.test(prop):
+                saveStge(prop, newValue)
                 changeToggleShuffle()
                 break
             case /^volume$/i.test(prop):
@@ -190,6 +193,7 @@ const $BODY               = document.body
 const $ALERT              = document.getElementById('alert-notification')
 const $SELECT_PLAYLIST    = document.getElementById('current-playlist')
 const $SELECT_CATEGORY    = document.getElementById('target-category')
+const $TOGGLE_LOOP        = document.getElementById('toggle-loop')
 const $TOGGLE_RANDOMLY    = document.getElementById('toggle-randomly')
 const $TOGGLE_SHUFFLE     = document.getElementById('toggle-shuffle')
 const $TOGGLE_SEEKPLAY    = document.getElementById('toggle-seekplay')
@@ -852,6 +856,13 @@ function scrollToFocusItem() {
 }
 
 /**
+ * Event listener when changing the loop play of settings menu toggle button.
+ */
+$TOGGLE_LOOP.querySelector('input[type="checkbox"]').addEventListener('change', (evt) => {
+    AMP_STATUS.loop = evt.target.checked
+})
+
+/**
  * Event listener when changing the randomly of settings menu toggle button.
  */
 $TOGGLE_RANDOMLY.querySelector('input[type="checkbox"]').addEventListener('change', (evt) => {
@@ -1190,6 +1201,9 @@ function onPlayerReady(event) {
  */
 function onPlayerStateChange(event) {
     if (event.data == YT.PlayerState.ENDED) {
+        abortSeeking()
+        abortFader('fadeout')
+
         // from: flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-max h-max
         // to:   flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-full h-0 opacity-0
         $EMBED_WRAPPER.classList.add('w-full', 'h-0', 'opacity-0')
@@ -1199,7 +1213,14 @@ function onPlayerStateChange(event) {
         $BUTTON_WATCH_TY.setAttribute('disabled', '')
         $OPTIONAL_CONTAINER.classList.add('hidden', 'opacity-0')
     
-        const nextId = AMP_STATUS.next || 0
+        // add since v1.2.2
+        //logger('ended::isLoop?:', AMP_STATUS.loop, player, event.target)
+        let nextId = 0
+        if (AMP_STATUS.loop) {
+            nextId = AMP_STATUS.current
+        } else {
+            nextId = AMP_STATUS.next || 0
+        }
         const mediaData = AMP_STATUS.media.filter((item) => item.amId == nextId).shift()
         let mediaSrc   = null
         let playerType = null
@@ -1461,15 +1482,22 @@ function createPlayerTag(tagname, mediaData) {
     })
 
     playerElm.addEventListener('ended', (evt) => {
+        abortSeeking()
+        abortFader('fadeout')
+
         // from: flex justify-center        border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-max h-max border-0
         // to:   flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-full h-0 opacity-0
         $EMBED_WRAPPER.classList.add('border', 'w-full', 'h-0', 'opacity-0')
         $EMBED_WRAPPER.classList.remove('max-w-2xl', 'w-max', 'h-max', 'border-0')
 
-        abortSeeking()
-        abortFader('fadeout')
-
-        const nextId = AMP_STATUS.next
+        // add since v1.2.2
+        //logger('ended::isLoop?:', AMP_STATUS.loop)
+        let nextId = 0
+        if (AMP_STATUS.loop) {
+            nextId = AMP_STATUS.current
+        } else {
+            nextId = AMP_STATUS.next
+        }
         const mediaData = AMP_STATUS.media.filter((item) => item.amId == nextId).shift()
         let mediaSrc   = null
         let playerType = null
@@ -1517,6 +1545,43 @@ function createPlayerTag(tagname, mediaData) {
             }
         }
     })
+
+    // Add since v1.2.2
+    let allowFullScreen = Boolean(getOption('fs'))
+    if (mediaData.hasOwnProperty('fs') && mediaData.fs !== '') {
+        allowFullScreen = Boolean(mediaData.fs)
+    }
+    if (allowFullScreen) {
+        playerElm.addEventListener('click', (evt) => {
+            //logger('click:', evt.target)
+            if (document.fullscreenElement) {
+                if (!!document.exitFullscreen) {
+                    document.exitFullscreen()
+                } else if (!!evt.target.cancelFullScreen) {
+                    evt.target.cancelFullScreen()
+                } else if (!!evt.target.webkitRequestFullScreen) {
+                    evt.target.webkitRequestFullScreen()
+                } else if (!!evt.target.mozCancelFullScreen) {
+                    evt.target.mozCancelFullScreen()
+                }
+            } else {
+                if (!!evt.target.requestFullScreen) {
+                    evt.target.requestFullScreen()
+                } else if (!!evt.target.webkitRequestFullScreen) {
+                    evt.target.webkitRequestFullScreen()
+                } else if (!!evt.target.webkitEnterFullscreen) {
+                    evt.target.webkitEnterFullscreen()
+                } else if (!!evt.target.mozRequestFullScreen) {
+                    evt.target.mozRequestFullScreen()
+                }
+            }
+            setTimeout(() => {
+                if (evt.target.paused) {
+                    evt.target.play()
+                }
+            }, 10)
+        })
+    }
 }
 
 /**
