@@ -81,7 +81,7 @@ trait utils {
         }
 
         $target_file = ASSETS_DIR . $this->languages[$this->current_lang]['file'];
-        //$this->logger( __METHOD__, $this->languages, $this->current_lang, $target_file );
+        //$this->logger( __METHOD__, $this->languages, $this->current_lang, $target_file, $_COOKIE );
 
         if ( !empty( $this->languages ) && file_exists( $target_file ) ) {
             $this->translation_data = $this->languages[$this->current_lang]['data'];
@@ -101,10 +101,10 @@ trait utils {
      * Modify the specified member variable of this class.
      * 
      * @param string $var_name
-     * @param mixed  $value
+     * @param mixed  $value     "mixed" type since php8
      * @return void
      */
-    public function set_property( string $var_name, mixed $value ): void {
+    public function set_property( string $var_name, $value ): void {
         if ( property_exists( $this, $var_name ) ) {
             $this->$var_name = $value;
         }

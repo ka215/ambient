@@ -777,8 +777,8 @@ $BUTTON_PLAY.addEventListener('click', (evt) => {
     }
     if (AMP_STATUS.playertype === 'youtube' && player) {
         const YTPstate = player.getPlayerState()
-        //logger('"Play" the YouTube Player:', YTPstate)
-        if (YTPstate != 1) {
+        logger('"Play" the YouTube Player:', YTPstate)
+        if (YTPstate != -1) {
             player.playVideo()
         }
     } else
@@ -1280,7 +1280,6 @@ function onPlayerStateChange(event) {
  */
 function onPlayerError(event) {
     // Skip if media playback fails.
-    logger('error', 'onYTPlayerError:', event.data, mediaData, 'force')
     // from: flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-max h-max
     // to:   flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-full h-0 opacity-0
     $EMBED_WRAPPER.classList.add('w-full', 'h-0', 'opacity-0')
@@ -1303,7 +1302,11 @@ function onPlayerError(event) {
         mediaSrc = mediaData.videoid
         playerType = 'youtube'
         event.target.g.remove()
+        logger('error', 'onYTPlayerError:', event, 'force')
     }
+    abortSeeking()
+    abortFader('fadeout')
+    abortFader('fadein')
     updatePlayStatus(nextId)
     setupPlayer(playerType, mediaSrc, mediaData)
 }
@@ -2645,7 +2648,8 @@ function updateCookie(name, value, daysToExpire=null) {
     } else {
         expirationDate.setDate(expirationDate.getDate() + daysToExpire)
     }
-    const cookieString = `${name}=${value}; expires=${expirationDate.toUTCString()}; path=${window.location.pathname}; Secure; SameSite=Lax`
+    const secureAttribute = window.location.protocol === 'https:' ? 'Secure; ' : ''
+    const cookieString = `${name}=${value}; expires=${expirationDate.toUTCString()}; path=${window.location.pathname}; ${secureAttribute}SameSite=Lax`
     document.cookie = cookieString
 }
 

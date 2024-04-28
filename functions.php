@@ -1,7 +1,7 @@
 <?php
 // Functions for template of YouTube Player
 
-function amp_set_var( string $var_name, mixed $value ): void {
+function amp_set_var( string $var_name, $value ): void {
     if ( isset( $GLOBALS['ambient'] ) ) {
         $GLOBALS['ambient']->set_property( $var_name, $value );
     }

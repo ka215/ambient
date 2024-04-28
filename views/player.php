@@ -4,7 +4,7 @@
 >
     <?= amp_component( 'carousel' ); ?>
     <figure 
-      class="w-full flex flex-col items-center gap-1 mt-4 mb-16"
+      class="w-full flex flex-col items-center gap-1 mt-4 mb-16 select-none"
     >
         <figcaption 
           id="media-caption"
