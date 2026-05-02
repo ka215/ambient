@@ -47,3 +47,4 @@ custom.php
 src/_*.*
 package-lock.json
 refuges/
+.codex/
