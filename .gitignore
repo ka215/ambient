@@ -40,6 +40,10 @@ assets/*.json
 # User-specific extension files
 custom.php
 
+# Playwright
+test-results/
+playwright-report/
+
 # Others
 *.orig
 *.bak
