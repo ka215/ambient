@@ -66,31 +66,48 @@ export class AmbientPage {
     await this.page.waitForTimeout(300);
   }
 
+  async getYouTubeSignalSeq(): Promise<number> {
+    const seq = await this.page.locator('body').getAttribute('data-yt-seq');
+    const parsed = Number(seq ?? '0');
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
   /**
-   * Wait for the YouTube IFrame API to finish loading.
-   * Required before clicking a YouTube playlist item.
+   * Wait until YouTube API script is available and DOM signal attributes are initialised.
    */
   async waitForYouTubeApi(): Promise<void> {
     await this.page.waitForFunction(
       () => typeof (window as any).YT !== 'undefined' && typeof (window as any).YT.Player === 'function',
       { timeout: 20_000 }
     );
+    await this.page.waitForFunction(() => {
+      const body = document.body;
+      if (!body) return false;
+      return body.hasAttribute('data-yt-phase') && body.hasAttribute('data-yt-seq') && body.hasAttribute('data-yt-error');
+    }, { timeout: 20_000 });
   }
 
   /**
-   * Wait for the YouTube player instance to be fully ready (getPlayerState available).
-   * Call this after clicking a YouTube item and waiting for #btn-pause to appear.
+   * Wait for a specific YouTube phase by DOM signal attributes.
    */
-  async waitForYouTubePlayerReady(): Promise<void> {
-    // Poll until the YT iframe has been created and player.getPlayerState is a function
-    await this.page.waitForFunction(() => {
-      const iframe = document.querySelector('#embed-wrapper iframe, #ytplayer');
-      if (!iframe) return false;
-      // YT.get() is not available, so use the iframe src as a proxy for readiness
-      return !!iframe;
-    }, { timeout: 20_000 });
-    // Additional wait for YT player API to initialise on the iframe
-    await this.page.waitForTimeout(3000);
+  async waitForYouTubePhase(phases: string | string[], minSeq = 0): Promise<void> {
+    const expected = Array.isArray(phases) ? phases : [phases];
+    await this.page.waitForFunction(
+      ({ expectedPhases, expectedSeq }) => {
+        const phase = document.body.getAttribute('data-yt-phase') || '';
+        const seq = Number(document.body.getAttribute('data-yt-seq') || '0');
+        return expectedPhases.includes(phase) && seq >= expectedSeq;
+      },
+      { expectedPhases: expected, expectedSeq: minSeq },
+      { timeout: 20_000 }
+    );
+  }
+
+  /**
+   * Wait for the YouTube player instance to be fully ready via DOM signal.
+   */
+  async waitForYouTubePlayerReady(minSeq = 0): Promise<void> {
+    await this.waitForYouTubePhase(['player_ready', 'playing', 'paused'], minSeq);
   }
 }
 

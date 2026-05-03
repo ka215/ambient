@@ -77,6 +77,9 @@ export interface AMP_STATUS {
   loop?: boolean | null;
   shuffle?: MediaItem[] | null;
   fader?: boolean;
+  yt_phase?: string;
+  yt_seq?: number;
+  yt_error?: string;
 }
 
 /**

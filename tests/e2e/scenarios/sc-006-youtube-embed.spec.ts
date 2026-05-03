@@ -15,9 +15,11 @@ test.describe('SC-006 YouTube IFrame embed on track selection', () => {
     test.skip(!youtubeItem, 'No YouTube media item found in current playlist.');
 
     // Act
+    const seqBeforeSelect = await ambientPage.getYouTubeSignalSeq();
     await youtubeItem!.click();
+    await ambientPage.waitForYouTubePhase(['player_created', 'player_ready', 'playing'], seqBeforeSelect + 1);
 
-    // Assert – #ytplayer div/iframe is created in DOM without waiting for onPlayerReady
+    // Assert – #ytplayer div/iframe is created in DOM using DOM signal-driven wait
     const embedWrapper = page.locator('#embed-wrapper');
     await expect(embedWrapper).toBeVisible();
     await expect(page.locator('#ytplayer, #embed-wrapper iframe')).toBeAttached({ timeout: 10_000 });

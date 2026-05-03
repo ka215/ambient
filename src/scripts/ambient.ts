@@ -49,6 +49,9 @@ const init = function (): void {
       addtype: null,
       notice: null,
       loop: null,
+      yt_phase: 'idle',
+      yt_seq: 0,
+      yt_error: '',
     } as AMP_STATUS);
   }
 
@@ -63,11 +66,42 @@ const init = function (): void {
   const tag = document.createElement('script');
   tag.src = 'https://www.youtube.com/player_api';
   const firstScriptTag = document.getElementsByTagName('script')[0];
+
+  let player: YTPlayer | undefined;
+
+  /**
+   * Reflect YouTube signal states to body data attributes for DOM-driven waits.
+   */
+  function syncYouTubeSignalAttrs(): void {
+    const body = document.body;
+    if (!body) {
+      return;
+    }
+    body.setAttribute('data-yt-phase', String(AMP_STATUS.yt_phase || 'idle'));
+    body.setAttribute('data-yt-seq', String(AMP_STATUS.yt_seq || 0));
+    body.setAttribute('data-yt-error', String(AMP_STATUS.yt_error || ''));
+  }
+
+  /**
+   * Update YouTube signal states and emit attribute updates.
+   */
+  function emitYouTubeSignal(phase: string, error = ''): void {
+    AMP_STATUS.yt_phase = phase;
+    AMP_STATUS.yt_error = error;
+    AMP_STATUS.yt_seq = Number(AMP_STATUS.yt_seq || 0) + 1;
+    syncYouTubeSignalAttrs();
+  }
+
+  emitYouTubeSignal('api_loading');
+  tag.addEventListener('load', () => {
+    emitYouTubeSignal('api_loaded');
+  });
+  tag.addEventListener('error', () => {
+    emitYouTubeSignal('api_error', 'player_api_load_failed');
+  });
   if (firstScriptTag?.parentNode) {
     firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
   }
-
-  let player: YTPlayer | undefined;
 
   // seek container
   let seekId: ReturnType<typeof setInterval> | null = null;
@@ -143,6 +177,9 @@ const init = function (): void {
           break;
         case /^options$/i.test(prop):
           applyOptions();
+          break;
+        case /^yt_(phase|seq|error)$/i.test(prop):
+          syncYouTubeSignalAttrs();
           break;
       }
     };
@@ -1189,9 +1226,11 @@ const init = function (): void {
     switch (true) {
       case /^YouTube$/i.test(type || ''):
         AMP_STATUS.playertype = 'youtube';
+        AMP_STATUS.yt_error = '';
         createYTPlayer(mediaData);
         break;
       case /^HTML$/i.test(type || ''):
+        emitYouTubeSignal('inactive');
         const extension = getExt(src || '');
         if (/^(aac|midi?|mp3|m4a|ogg|opus|wav|weba|wma)$/i.test(extension)) {
           AMP_STATUS.playertype = 'audio';
@@ -1206,6 +1245,7 @@ const init = function (): void {
         break;
       default:
         AMP_STATUS.playertype = null;
+        emitYouTubeSignal('error', 'unsupported_player_specified');
         if (AMP_STATUS.next !== null) {
           playItem(null, AMP_STATUS.next);
         }
@@ -1217,6 +1257,7 @@ const init = function (): void {
    * Event handler that is called when the YouTube player is ready to play.
    */
   function onPlayerReady(event: any): void {
+    emitYouTubeSignal('player_ready');
     $EMBED_WRAPPER.classList.add('w-max', 'h-max');
     $EMBED_WRAPPER.classList.remove('w-full', 'h-0', 'opacity-0');
 
@@ -1271,6 +1312,7 @@ const init = function (): void {
     const YT_PAUSED = 2;
 
     if (event.data === YT_ENDED) {
+      emitYouTubeSignal('ended');
       abortSeeking();
       abortFader('fadeout');
 
@@ -1314,12 +1356,14 @@ const init = function (): void {
     }
 
     if (event.data === YT_PAUSED) {
+      emitYouTubeSignal('paused');
       // Toggle this button shown (Pause -> Play).
       $BUTTON_PAUSE.classList.add('hidden');
       $BUTTON_PLAY.classList.remove('hidden');
     }
 
     if (event.data === YT_PLAYING) {
+      emitYouTubeSignal('playing');
       // Toggle this button shown (Play -> Pause).
       $BUTTON_PLAY.classList.add('hidden');
       $BUTTON_PAUSE.classList.remove('hidden');
@@ -1352,6 +1396,7 @@ const init = function (): void {
     }
 
     if (event.data === -1 && getOption('autoplay')) {
+      emitYouTubeSignal('unstarted');
       // When playback unstarted.
       logger('onPlayerStateChange::unstarted.');
     }
@@ -1361,6 +1406,7 @@ const init = function (): void {
    * Event handler called when the YouTube player encounters an error.
    */
   function onPlayerError(event: any): void {
+    emitYouTubeSignal('error', `yt_error_${event && event.data !== undefined ? event.data : 'unknown'}`);
     // Skip if media playback fails.
     $EMBED_WRAPPER.classList.add('w-full', 'h-0', 'opacity-0');
     $EMBED_WRAPPER.classList.remove('w-max', 'h-max');
@@ -1405,6 +1451,7 @@ const init = function (): void {
    * Create a YouTube player.
    */
   function createYTPlayer(mediaData: MediaItem): void {
+    emitYouTubeSignal('player_creating');
     const playerElm = document.createElement('div');
     playerElm.id = 'ytplayer';
     while ($EMBED_WRAPPER.firstChild) {
@@ -1490,6 +1537,7 @@ const init = function (): void {
         onError: onPlayerError,
       },
     });
+    emitYouTubeSignal('player_created');
   }
 
   /**

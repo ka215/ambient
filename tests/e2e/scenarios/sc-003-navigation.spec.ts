@@ -11,9 +11,11 @@ test.describe('SC-003 Playlist navigation (next/prev)', () => {
     await ambientPage.selectPlaylist('mememori-youtube.json');
     await ambientPage.waitForYouTubeApi();
     // Open playlist drawer, click first item to start playback, then close drawer
+    const seqBeforePlay = await ambientPage.getYouTubeSignalSeq();
     await ambientPage.openPlaylistDrawer();
     await page.locator('#playlist-list-group a[data-playlist-item]').first().click();
     await ambientPage.closePlaylistDrawer();
+    await ambientPage.waitForYouTubePhase(['player_ready', 'playing'], seqBeforePlay + 1);
     // Re-open to read aria-current
     await ambientPage.openPlaylistDrawer();
     const initialCurrentId = await page
