@@ -2,11 +2,19 @@
   "name": "ambient",
   "version": "1.2.3",
   "scripts": {
+    "ts-dev": "tsc --watch",
+    "ts-build": "tsc",
     "tw-dev": "tailwindcss -i ./src/styles/tailwindcss.css -o ./dist/tailwindcss.css --watch",
-    "tw-build": "tailwindcss -i ./src/styles/tailwindcss.css -o ./dist/tailwindcss.min.css --minify"
+    "tw-build": "tailwindcss -i ./src/styles/tailwindcss.css -o ./dist/tailwindcss.min.css --minify",
+    "test:e2e": "playwright test",
+    "test:e2e:debug": "playwright test --headed --debug"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^20.10.0",
     "flowbite": "^1.8.1",
-    "tailwindcss": "^3.3.3"
+    "playwright": "^1.59.1",
+    "tailwindcss": "^3.3.3",
+    "typescript": "^5.9.3"
   }
 }

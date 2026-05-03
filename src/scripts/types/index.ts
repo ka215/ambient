@@ -161,17 +161,6 @@ export interface YTOnErrorEvent {
   target: YTPlayer;
 }
 
-export namespace YT {
-  interface PlayerState {
-    UNSTARTED: number;
-    ENDED: number;
-    PLAYING: number;
-    PAUSED: number;
-    BUFFERING: number;
-    CUED: number;
-  }
-}
-
 /**
  * Utility type for response wrapper
  */
@@ -189,7 +178,14 @@ declare global {
   var APP_KEY: string;
   var YT: {
     Player: new (elementId: string, options: YTPlayerOptions) => YTPlayer;
-    PlayerState: YT.PlayerState;
+    PlayerState: {
+      UNSTARTED: number;
+      ENDED: number;
+      PLAYING: number;
+      PAUSED: number;
+      BUFFERING: number;
+      CUED: number;
+    };
   };
   var player: YTPlayer | undefined;
 }
