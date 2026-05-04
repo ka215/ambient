@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 @layer base {
     html, body {
         overflow: hidden !important;
@@ -72,28 +74,28 @@
         @apply text-green-500 dark:text-green-400
     }
     .normal-input {
-        @apply bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:ring-blue-500 dark:focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-500 !important
+        @apply bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:ring-blue-500 dark:focus:ring-blue-500 focus:border-blue-500 dark:focus:border-blue-500
     }
     .error-input {
-        @apply bg-red-50 dark:bg-gray-700 border-red-500 dark:border-red-500 text-gray-900 dark:text-white placeholder-red-700 dark:placeholder-red-500 focus:ring-red-500 focus:border-red-500 !important
+        @apply bg-red-50 dark:bg-gray-700 border-red-500 dark:border-red-500 text-gray-900 dark:text-white placeholder-red-700 dark:placeholder-red-500 focus:ring-red-500 focus:border-red-500
     }
     .success-input {
-        @apply bg-green-50 dark:bg-gray-700 border-green-500 dark:border-green-500 text-gray-900 dark:text-white placeholder-green-700 dark:placeholder-green-500 focus:ring-green-500 focus:border-green-500 !important
+        @apply bg-green-50 dark:bg-gray-700 border-green-500 dark:border-green-500 text-gray-900 dark:text-white placeholder-green-700 dark:placeholder-green-500 focus:ring-green-500 focus:border-green-500
     }
     .normal-prefix {
-        @apply text-gray-700 dark:text-gray-400 border-gray-300 dark:border-gray-600 !important
+        @apply text-gray-700 dark:text-gray-400 border-gray-300 dark:border-gray-600
     }
     .error-prefix {
-        @apply text-red-900 dark:text-red-500 border-red-500 dark:border-red-500 !important
+        @apply text-red-900 dark:text-red-500 border-red-500 dark:border-red-500
     }
     .success-prefix {
-        @apply text-green-900 dark:text-green-500 border-green-500 dark:border-green-500 !important
+        @apply text-green-900 dark:text-green-500 border-green-500 dark:border-green-500
     }
     .lead-text {
-        @apply text-teal-900 dark:text-teal-100 bg-teal-100 dark:bg-teal-950 !important
+        @apply text-teal-900 dark:text-teal-100 bg-teal-100 dark:bg-teal-950
     }
     .lead-text-muted {
-        @apply text-gray-600 dark:text-gray-400 bg-gray-200 dark:bg-gray-700 !important
+        @apply text-gray-600 dark:text-gray-400 bg-gray-200 dark:bg-gray-700
     }
 
     @media (min-width: 1282px) {
@@ -110,6 +112,3 @@
     }
 }
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
