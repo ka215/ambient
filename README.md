@@ -78,6 +78,12 @@ git clone https://github.com/ka215/ambient.git ambient
 
 This will create the ambient directory and install the files within it. If you installed it using the above command directly under the document root, you can start it by entering `localhost/ambient` in the URL bar of your browser (if you have specified a virtual host name, it would be `http://<hostname>/ambient` ).
 
+After cloning, copy `.env.example` to `.env` and adjust the environment-specific values if needed. By default, Ambient reads the following settings from `.env`:
+
+- `DEBUG_MODE` - enable or disable debug logging in browser and PHP output
+- `ASSETS_DIR` - asset directory path relative to the project root
+- `LOGS_DIR` - log directory path relative to the project root
+
 Alternatively, you can download the ZIP files from each release version of [Ambient Release Packages](https://github.com/ka215/ambient/releases) and unzip them to the desired installation location.
 
 ## Creating Playlists

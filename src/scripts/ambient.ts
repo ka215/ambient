@@ -286,6 +286,8 @@ const init = function (): void {
   const $BUTTON_PLAY = document.getElementById('btn-play') as HTMLButtonElement;
   const $BUTTON_PAUSE = document.getElementById('btn-pause') as HTMLButtonElement;
   const $BUTTON_SETTINGS = document.getElementById('btn-settings') as HTMLButtonElement;
+  const $BUTTON_OPTIONS = document.getElementById('btn-options') as HTMLButtonElement;
+  const $BUTTON_CLOSE_OPTIONS = document.getElementById('btn-close-options') as HTMLButtonElement;
   const $MODAL_OPTIONS = document.getElementById('modal-options') as HTMLElement;
   const $COLLAPSE_MENU = document.getElementById('collapse-menu') as HTMLElement;
 
@@ -329,6 +331,36 @@ const init = function (): void {
   if (isElement($ALERT)) {
     toggleAlert('hide');
   }
+
+  /**
+   * Return focus to the options trigger when the modal is being hidden.
+   */
+  function restoreOptionsTriggerFocus(): void {
+    if (isElement($BUTTON_OPTIONS)) {
+      $BUTTON_OPTIONS.focus();
+    }
+  }
+
+  if (isElement($BUTTON_CLOSE_OPTIONS)) {
+    $BUTTON_CLOSE_OPTIONS.addEventListener('click', () => {
+      restoreOptionsTriggerFocus();
+    }, true);
+  }
+
+  watcher($MODAL_OPTIONS, (mutation: MutationRecord) => {
+    if (mutation.type !== 'attributes') {
+      return;
+    }
+
+    const modalElm = mutation.target as HTMLElement;
+    const activeElm = document.activeElement;
+    const isModalHidden = modalElm.getAttribute('aria-hidden') === 'true' || modalElm.classList.contains('hidden');
+    const isFocusInsideModal = activeElm instanceof HTMLElement && modalElm.contains(activeElm);
+
+    if (isModalHidden && isFocusInsideModal) {
+      restoreOptionsTriggerFocus();
+    }
+  }, { attributes: true, childList: false, subtree: false, attributeFilter: ['aria-hidden', 'class'] });
 
   /**
    * Monitors the state of the playlist drawer component and fires
