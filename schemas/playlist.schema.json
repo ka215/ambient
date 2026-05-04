@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ka2.org/schemas/ambient-playlist-v2.schema.json",
+  "title": "Ambient Playlist",
+  "type": "object",
+  "properties": {
+    "options": {
+      "type": "object",
+      "properties": {
+        "autoplay": { "type": "boolean" },
+        "random": { "type": "boolean" },
+        "shuffle": { "type": "boolean" },
+        "seek": { "type": "boolean" },
+        "volume": {
+          "oneOf": [
+            { "type": "number", "minimum": 0 },
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "fader": { "type": "boolean" },
+        "dark": { "type": "boolean" },
+        "background": { "type": "string" },
+        "caption": { "type": "string" },
+        "playlist": { "type": "string" },
+        "fs": { "type": "boolean" },
+        "cc": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "patternProperties": {
+    "^(?!options$).+": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mediaItem"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "mediaItem": {
+      "type": "object",
+      "properties": {
+        "disc": { "type": "integer" },
+        "track": { "type": "integer" },
+        "title": { "type": "string" },
+        "file": { "type": "string" },
+        "videoid": { "type": "string" },
+        "desc": { "type": "string" },
+        "artist": { "type": "string" },
+        "image": { "type": "string" },
+        "thumb": { "type": "string" },
+        "volume": {
+          "oneOf": [
+            { "type": "number", "minimum": 0 },
+            { "type": "string" },
+            { "type": "null" }
+          ]
+        },
+        "start": {
+          "oneOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "number", "minimum": 0 },
+            { "type": "string" }
+          ]
+        },
+        "end": {
+          "oneOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "number", "minimum": 0 },
+            { "type": "string" }
+          ]
+        },
+        "fadein": {
+          "oneOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "number", "minimum": 0 },
+            { "type": "string" }
+          ]
+        },
+        "fadeout": {
+          "oneOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "number", "minimum": 0 },
+            { "type": "string" }
+          ]
+        },
+        "fs": {
+          "oneOf": [
+            { "type": "boolean" },
+            { "type": "integer" }
+          ]
+        },
+        "cc": {
+          "oneOf": [
+            { "type": "boolean" },
+            { "type": "integer" }
+          ]
+        }
+      },
+      "required": ["title"],
+      "additionalProperties": true
+    }
+  }
+}
