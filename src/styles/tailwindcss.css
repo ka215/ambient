@@ -1,4 +1,8 @@
+@config "../../tailwind.config.js";
 @import "tailwindcss";
+
+/* Ensure class-based dark mode works in Tailwind v4 */
+@variant dark (&:is(.dark, .dark *));
 
 @layer base {
     html, body {
