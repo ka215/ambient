@@ -34,6 +34,9 @@ declare function getExt(path: string): string;
  * Return true if a number is in range, otherwise false.
  */
 declare function inRange(num: any, min: number, max: number): boolean;
+declare function inArray(contains: any | any[], targetArray: any[], at_least_one?: boolean): boolean;
+declare function snakeToCapital(str: string): string;
+declare function setValidated(targetElement: HTMLElement, result?: boolean | null): void;
 /**
  * Get cookie with specified name.
  */

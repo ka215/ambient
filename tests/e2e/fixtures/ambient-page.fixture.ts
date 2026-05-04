@@ -31,23 +31,44 @@ export class AmbientPage {
       () => !document.getElementById('drawer-playlist')?.classList.contains('-translate-x-full')
     );
     if (!isOpen) {
-      await this.page.locator('#btn-playlist').last().click();
+      await this.page.evaluate(() => {
+        const btn = document.getElementById('btn-playlist') as HTMLElement | null;
+        if (btn) btn.click();
+      });
     }
+    await this.page.waitForFunction(
+      () => !document.getElementById('drawer-playlist')?.classList.contains('-translate-x-full')
+    );
     // Wait until at least one item is in viewport
     await this.page.locator('#playlist-list-group a[data-playlist-item]').first().waitFor({ state: 'visible' });
   }
 
   async closePlaylistDrawer(): Promise<void> {
-    const isOpen = await this.page.evaluate(
-      () => !document.getElementById('drawer-playlist')?.classList.contains('-translate-x-full')
-    );
-    if (isOpen) {
-      await this.page.locator('#btn-close-playlist').click({ force: true });
+    const shouldClose = await this.page.evaluate(() => {
+      const drawer = document.getElementById('drawer-playlist');
+      const isOpen = !drawer?.classList.contains('-translate-x-full');
+      const isFullUi = window.innerWidth >= 1282;
+      return isOpen && !isFullUi;
+    });
+    if (shouldClose) {
+      await this.page.evaluate(() => {
+        const btn = document.getElementById('btn-close-playlist') as HTMLElement | null;
+        if (btn) btn.click();
+      });
+      await this.page.waitForFunction(
+        () => !!document.getElementById('drawer-playlist')?.classList.contains('-translate-x-full')
+      );
     }
   }
 
   async openSettingsDrawer(): Promise<void> {
-    await this.page.locator('#btn-settings').click();
+    await this.page.evaluate(() => {
+      const btn = document.getElementById('btn-settings') as HTMLElement | null;
+      if (btn) btn.click();
+    });
+    await this.page.waitForFunction(
+      () => !document.getElementById('drawer-settings')?.classList.contains('-translate-x-full')
+    );
   }
 
   /**

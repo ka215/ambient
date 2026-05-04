@@ -64,7 +64,7 @@ For this reason, the cloud version released for demonstration purposes does not 
 
 Now, to run the main feature, "Ambient," you'll need to prepare the PHP execution environment and set up a web server (Apache etc.) environment on your local PC so that you can access it via a web browser. Well, the easiest way to go about it would be to install "XAMPP" for Windows machines or "MAMP" for Mac. If you have the know-how, setting up a virtual environment with Docker or WSL is also an option, and you can use not only Apache but also Nginx for the web server (it will work as long as you configure URL rewriting).
 
-As for the PHP version, as long as it's PHP 7.4 or later, it should work without any issues. I developed "Ambient" in a PHP 8.2.4 environment, but I haven't included any code that only works in versions 8.x and later.
+As for the PHP version, PHP 8.4 or later is recommended. I currently develop and verify Ambient on PHP 8.4.2 locally and PHP 8.5 on the cloud runtime.
 
 Furthermore, the JavaScript and CSS installation packages have already been deployed, so there shouldn't be any issues with running it on the latest browsers.
 

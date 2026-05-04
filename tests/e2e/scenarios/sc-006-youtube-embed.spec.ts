@@ -10,6 +10,7 @@ test.describe('SC-006 YouTube IFrame embed on track selection', () => {
     await ambientPage.waitForBaseUi();
     await ambientPage.selectPlaylist('mememori-youtube.json');
     await ambientPage.waitForYouTubeApi();
+    await ambientPage.openPlaylistDrawer();
     const youtubeItem = await findYoutubePlaylistItem(page);
     // mememori-youtube.json guarantees YouTube items; skip only if somehow absent
     test.skip(!youtubeItem, 'No YouTube media item found in current playlist.');
@@ -17,6 +18,7 @@ test.describe('SC-006 YouTube IFrame embed on track selection', () => {
     // Act
     const seqBeforeSelect = await ambientPage.getYouTubeSignalSeq();
     await youtubeItem!.click();
+    await ambientPage.closePlaylistDrawer();
     await ambientPage.waitForYouTubePhase(['player_created', 'player_ready', 'playing'], seqBeforeSelect + 1);
 
     // Assert – #ytplayer div/iframe is created in DOM using DOM signal-driven wait

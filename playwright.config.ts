@@ -11,7 +11,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   use: {
-    baseURL: process.env.E2E_BASE_URL || 'http://dev2.ka2.org/amp/',
+    baseURL: process.env.E2E_BASE_URL || 'https://dev-amp.ka2.org/',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -21,7 +21,7 @@ export default defineConfig({
   reporter: [['list']],
   projects: [
     {
-      name: 'chromium',
+      name: 'chrome',
       use: { ...devices['Desktop Chrome'], viewport: { width: 1400, height: 800 } },
     },
     {
@@ -31,6 +31,18 @@ export default defineConfig({
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'], viewport: { width: 1400, height: 800 } },
+    },
+    {
+      name: 'ipad',
+      use: { ...devices['iPad Pro 11'] },
+    },
+    {
+      name: 'iphone',
+      use: { ...devices['iPhone 13'] },
+    },
+    {
+      name: 'android',
+      use: { ...devices['Pixel 5'] },
     },
   ],
 });

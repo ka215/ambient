@@ -22,13 +22,17 @@ test.describe('SC-003 Playlist navigation (next/prev)', () => {
       .locator('#playlist-list-group a[aria-current="true"]')
       .first()
       .getAttribute('data-playlist-item');
+    await ambientPage.closePlaylistDrawer();
 
     // Act
     await page.locator('#data-carousel-next').click();
+    await ambientPage.openPlaylistDrawer();
     const currentAfterNext = page.locator('#playlist-list-group a[aria-current="true"]');
     const nextCurrentId = await currentAfterNext.first().getAttribute('data-playlist-item');
+    await ambientPage.closePlaylistDrawer();
 
     await page.locator('#data-carousel-prev').click();
+    await ambientPage.openPlaylistDrawer();
     const currentAfterPrev = page.locator('#playlist-list-group a[aria-current="true"]');
     const prevCurrentId = await currentAfterPrev.first().getAttribute('data-playlist-item');
 

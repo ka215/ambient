@@ -1965,6 +1965,505 @@ const init = function (): void {
   resize();
 
   window.dispatchEvent(new Event('resize', { bubbles: true, cancelable: false }));
+
+  // ============================================================================
+  // MANAGEMENT FORMS (Media Management & Playlist Management)
+  // ============================================================================
+
+  const $MEDIA_MANAGE_FORM = document.querySelector('form[name="mediaManagement"]') as HTMLFormElement | null;
+  const $MEDIA_MANAGE_ELMS: HTMLElement[] = $MEDIA_MANAGE_FORM
+    ? (Array.from($MEDIA_MANAGE_FORM.elements) as HTMLElement[])
+    : [];
+  const $PLAYLIST_MANAGE_FORM = document.querySelector('form[name="playlistManagement"]') as HTMLFormElement | null;
+  const $PLAYLIST_MANAGE_ELMS: HTMLElement[] = $PLAYLIST_MANAGE_FORM
+    ? (Array.from($PLAYLIST_MANAGE_FORM.elements) as HTMLElement[])
+    : [];
+
+  async function getRelativeFilepath(basefile: string): Promise<boolean> {
+    const endpointURL = `${BASE_URL}filepath/${encodeURIComponent(basefile)}`;
+    const $LABEL_MEDIA_FILE = document.getElementById('note-error-local-media-file');
+    const $HIDDEN_FILEPATH = document.getElementById('local-media-filepath') as HTMLInputElement | null;
+    const response = await fetchData(endpointURL) as any;
+    if (response && response.code == 200) {
+      if ($HIDDEN_FILEPATH) $HIDDEN_FILEPATH.value = decodeURIComponent(response.data);
+      if ($LABEL_MEDIA_FILE) $LABEL_MEDIA_FILE.textContent = getAtts($LABEL_MEDIA_FILE as HTMLElement, 'data-default-message');
+    } else {
+      if ($HIDDEN_FILEPATH) $HIDDEN_FILEPATH.value = '';
+      if ($LABEL_MEDIA_FILE) $LABEL_MEDIA_FILE.textContent = response?.data || '';
+    }
+    logger('getRelativeFilepath:', endpointURL, response);
+    return response && response.code == 200;
+  }
+
+  function resetMediaManageForm(): void {
+    if (!$MEDIA_MANAGE_FORM) return;
+    $MEDIA_MANAGE_FORM.reset();
+    $MEDIA_MANAGE_ELMS.forEach((child: HTMLElement) => {
+      let event: string | null = null;
+      if (/^input$/i.test(child.nodeName)) {
+        const input = child as HTMLInputElement;
+        switch (input.type) {
+          case 'text':
+            event = 'input';
+            break;
+          case 'radio':
+            input.checked = input.value === (AMP_STATUS.addtype || 'youtube');
+            break;
+          case 'file':
+            event = 'change';
+            break;
+          default:
+            break;
+        }
+      } else if (/^textarea$/i.test(child.nodeName)) {
+        event = 'input';
+      } else if (/^select$/i.test(child.nodeName)) {
+        (child as HTMLSelectElement).selectedIndex = 0;
+        event = 'change';
+      }
+      if (event) {
+        child.dispatchEvent(new Event(event));
+      }
+    });
+  }
+
+  function addMediaData(payload: [string, string][]): boolean {
+    logger('addMediaData::before:', payload, AMP_STATUS.media?.length);
+    const mediaData: MediaItem = {
+      amId: 0,
+      catId: 0,
+      title: '',
+      artist: '',
+      desc: '',
+      file: '',
+      videoid: '',
+      volume: 50,
+      start: '',
+      end: '',
+    };
+    for (const [key, val] of payload) {
+      switch (key) {
+        case 'youtube_videoid':
+          mediaData.videoid = val;
+          break;
+        case 'media_filepath':
+          mediaData.file = val;
+          break;
+        case 'category':
+          mediaData.catId = Number(val);
+          break;
+        case 'title':
+        case 'artist':
+        case 'desc':
+          (mediaData as any)[key] = val;
+          break;
+        case 'volume': {
+          const numVolume = Number(val);
+          if (Number.isInteger(numVolume) && inRange(numVolume, 0, 100)) {
+            mediaData.volume = numVolume;
+          }
+          break;
+        }
+        case 'start':
+        case 'end':
+          if (val.indexOf(':') !== -1) {
+            const times = val.split(':');
+            let hours = 0, minutes = 0, seconds = 0;
+            if (times.length === 3) {
+              hours   = parseInt(times[0] ?? '0', 10);
+              minutes = parseInt(times[1] ?? '0', 10);
+              seconds = parseInt(times[2] ?? '0', 10);
+            } else if (times.length === 2) {
+              minutes = parseInt(times[0] ?? '0', 10);
+              seconds = parseInt(times[1] ?? '0', 10);
+            } else {
+              seconds = parseInt(times[times.length - 1] ?? '0', 10);
+            }
+            (mediaData as any)[key] = (hours * 60 * 60) + (minutes * 60) + seconds;
+          } else if (!Number.isInteger(Number(val))) {
+            (mediaData as any)[key] = '';
+          } else {
+            (mediaData as any)[key] = val;
+          }
+          break;
+        default:
+          break;
+      }
+    }
+    if (!Array.isArray(AMP_STATUS.media)) {
+      AMP_STATUS.media = [mediaData];
+    } else {
+      const lastAmId = Math.max(...AMP_STATUS.media.map((item: MediaItem) => item.amId));
+      mediaData.amId = lastAmId + 1;
+      AMP_STATUS.media.push(mediaData);
+    }
+    logger('addMediaData::after:', AMP_STATUS.media.length);
+    return true;
+  }
+
+  function generatePlaylistJson(seekFormat: boolean): string {
+    const convertHMS = (value: string | number | undefined): string => {
+      if (value === '' || value === undefined || Number(value) === 0) return '';
+      const totalSeconds = Number(value);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const remainingSeconds = totalSeconds % 60;
+      if (hours > 0) {
+        return `${hours}:${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+      } else if (minutes > 0) {
+        return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+      } else if (remainingSeconds > 0) {
+        return String(remainingSeconds);
+      }
+      return '';
+    };
+    const newPlaylist: Record<string, any> = {};
+    (AMP_STATUS.media || []).forEach((item: MediaItem) => {
+      const belongCategory = (AMP_STATUS.category || [])[item.catId] || '';
+      const oneData = {
+        file:    (item.file || '').replace('./assets/media/', ''),
+        title:   item.title,
+        desc:    item.desc,
+        artist:  item.artist,
+        videoid: item.videoid,
+        image:   item.image,
+        start:   seekFormat ? convertHMS(item.start) : item.start,
+        end:     seekFormat ? convertHMS(item.end) : item.end,
+      };
+      if (!Object.prototype.hasOwnProperty.call(newPlaylist, belongCategory)) {
+        newPlaylist[belongCategory] = [];
+      }
+      newPlaylist[belongCategory].push(oneData);
+    });
+    newPlaylist['options'] = AMP_STATUS.options;
+    logger('generatePlaylistJson::after:', newPlaylist);
+    return JSON.stringify(newPlaylist, null, 2);
+  }
+
+  function resetPlaylistManageForm(): void {
+    if (!$PLAYLIST_MANAGE_FORM) return;
+    $PLAYLIST_MANAGE_FORM.reset();
+    $PLAYLIST_MANAGE_ELMS.forEach((child: HTMLElement) => {
+      let event: string | null = null;
+      if (/^input$/i.test(child.nodeName)) {
+        const input = child as HTMLInputElement;
+        switch (input.type) {
+          case 'text':
+            event = 'input';
+            break;
+          case 'checkbox':
+            input.checked = false;
+            break;
+          default:
+            break;
+        }
+      }
+      if (event) {
+        logger('resetPlaylistManageForm:', child, event);
+        child.dispatchEvent(new Event(event));
+      }
+    });
+  }
+
+  if ($MEDIA_MANAGE_FORM) {
+    $MEDIA_MANAGE_ELMS.forEach((elm: HTMLElement) => {
+      const $MEDIA_URL_FIELD   = document.getElementById('media-management-field-media-url');
+      const $MEDIA_FILES_FIELD = document.getElementById('media-management-field-media-files');
+      const $INPUT_VIDEOID     = document.getElementById('youtube-videoid') as HTMLInputElement | null;
+      const $INPUT_FILEPATH    = document.getElementById('local-media-filepath') as HTMLInputElement | null;
+      const $INPUT_MEDIA_TITLE = document.getElementById('media-title') as HTMLInputElement | null;
+      const elmName = (elm as HTMLInputElement).name;
+
+      switch (elmName) {
+        case 'media_type':
+          elm.addEventListener('click', (evt: Event) => {
+            const target = evt.target as HTMLInputElement;
+            const prevType = AMP_STATUS.addtype ?? null;
+            if (target.value === 'youtube') {
+              if ($MEDIA_URL_FIELD)   toggleClass($MEDIA_URL_FIELD,   { hidden: false });
+              if ($MEDIA_FILES_FIELD) toggleClass($MEDIA_FILES_FIELD, { hidden: true  });
+            } else {
+              if ($MEDIA_URL_FIELD)   toggleClass($MEDIA_URL_FIELD,   { hidden: true  });
+              if ($MEDIA_FILES_FIELD) toggleClass($MEDIA_FILES_FIELD, { hidden: false });
+            }
+            AMP_STATUS.addtype = target.value;
+            if (prevType !== target.value) {
+              resetMediaManageForm();
+            }
+          });
+          break;
+        case 'youtube_url':
+          elm.addEventListener('input', (evt: Event) => {
+            const target = evt.target as HTMLInputElement;
+            const baseURL = 'https://www.youtube.com';
+            const value = target.value;
+            if (value.length < `${baseURL}/watch?v=.`.length) {
+              setValidated(elm, null);
+              if ($INPUT_VIDEOID) $INPUT_VIDEOID.value = '';
+              return;
+            }
+            try {
+              if (!/^(https:\/\/|)www\.youtube\.com/.test(value)) {
+                throw new Error('Invalid URL.');
+              }
+              const url = new URL(value, baseURL);
+              const params = url.searchParams;
+              const videoid = params.get('v');
+              if (url.origin !== baseURL || videoid === null || videoid === '') {
+                throw new Error('Invalid URL.');
+              } else {
+                if (/^https:\/\//.test(value)) {
+                  target.value = url.hostname + url.pathname + '?v=' + videoid;
+                }
+                setValidated(elm, true);
+                if ($INPUT_VIDEOID) $INPUT_VIDEOID.value = videoid;
+              }
+            } catch (err) {
+              logger('error', err, 'force');
+              setValidated(elm, false);
+            }
+          });
+          break;
+        case 'local_media_file':
+          elm.addEventListener('change', async (evt: Event) => {
+            const target = evt.target as HTMLInputElement;
+            const filelist = target.files;
+            logger('local_file:', filelist, [target]);
+            if (filelist && filelist.length > 0 && (filelist[0]?.size ?? 0) > 0) {
+              const filename = filelist[0]?.name ?? '';
+              setValidated(elm, await getRelativeFilepath(filename));
+              if ($INPUT_MEDIA_TITLE) {
+                $INPUT_MEDIA_TITLE.value = basename(filename);
+                target.blur();
+                $INPUT_MEDIA_TITLE.dispatchEvent(new Event('change'));
+              }
+            } else {
+              if ($INPUT_FILEPATH) $INPUT_FILEPATH.value = '';
+              if ($INPUT_MEDIA_TITLE) $INPUT_MEDIA_TITLE.value = '';
+              setValidated(elm, null);
+              if ($INPUT_MEDIA_TITLE) setValidated($INPUT_MEDIA_TITLE, null);
+            }
+          });
+          break;
+        case 'media_filepath':
+          elm.addEventListener('change', (evt: Event) => {
+            (evt.target as HTMLElement).focus();
+          });
+          break;
+        case 'category':
+          elm.addEventListener('change', (evt: Event) => {
+            const target = evt.target as HTMLSelectElement;
+            if (target.selectedIndex === 0) {
+              setValidated(elm, null);
+            } else {
+              setValidated(elm, target.value !== '');
+            }
+          });
+          break;
+        case 'title':
+          elm.addEventListener('input', (evt: Event) => {
+            if ((evt.target as HTMLInputElement).value === '') {
+              setValidated(elm, null);
+            }
+          });
+          elm.addEventListener('change', (evt: Event) => {
+            setValidated(elm, (evt.target as HTMLInputElement).value !== '');
+          });
+          break;
+        case 'volume':
+          elm.addEventListener('input', (evt: Event) => {
+            const $VOLUME_VALUE = document.getElementById('default-media-volume');
+            if ($VOLUME_VALUE) $VOLUME_VALUE.textContent = (evt.target as HTMLInputElement).value;
+          });
+          break;
+        case 'start':
+        case 'end':
+          elm.addEventListener('input', (evt: Event) => {
+            if ((evt.target as HTMLInputElement).value === '') {
+              setValidated(elm, null);
+            }
+          });
+          elm.addEventListener('change', (evt: Event) => {
+            const value = (evt.target as HTMLInputElement).value;
+            if (value === '') {
+              setValidated(elm, null);
+            } else {
+              const isValid = /^\d+$/.test(value) ||
+                (value.indexOf(':') > 0 && /^(\d+:)?([0-5]?[0-9]:)?[0-5]?[0-9]$/.test(value));
+              logger(value, isValid);
+              setValidated(elm, isValid);
+            }
+          });
+          break;
+        case 'fadein':
+        case 'fadeout':
+          break;
+        case 'add_media':
+          elm.addEventListener('click', (_evt: Event) => {
+            if (!$MEDIA_MANAGE_FORM) return;
+            const formData = new FormData($MEDIA_MANAGE_FORM);
+            const result = addMediaData(Array.from(formData.entries()) as [string, string][]);
+            logger(result, AMP_STATUS.media);
+            updateNotice({
+              type: result ? 'success' : 'error',
+              message: result
+                ? (elm as HTMLElement).dataset['messageSuccess'] || ''
+                : (elm as HTMLElement).dataset['messageFailure'] || '',
+              delay: 2000,
+            });
+            updatePlaylist();
+            resetMediaManageForm();
+          });
+          break;
+        default:
+          logger('Event undefined element:', elmName, elm);
+          break;
+      }
+    });
+
+    watcher($MEDIA_MANAGE_FORM, (mutation: MutationRecord) => {
+      if (mutation.type === 'attributes' && mutation.attributeName === 'data-validate') {
+        if (!$MEDIA_MANAGE_FORM) return;
+        const formData = new FormData($MEDIA_MANAGE_FORM);
+        const mediaType = formData.get('media_type') as string;
+        const valid_items: string[] = [];
+        if (getAtts(mutation.target as HTMLElement, 'data-validate')) {
+          $MEDIA_MANAGE_ELMS.forEach((elm: HTMLElement) => {
+            if (getAtts(elm, 'data-validate')) valid_items.push(elm.id);
+          });
+        }
+        const $BUTTON_ADD_MEDIA = document.getElementById('btn-add-media');
+        const contains = [mediaType === 'youtube' ? 'youtube-url' : 'local-media-file', 'media-category', 'media-title'];
+        const isContainAll = inArray(contains, valid_items, false);
+        logger(`Check valid items for "${mediaType}":`, valid_items, contains, isContainAll);
+        if ($BUTTON_ADD_MEDIA) setAtts($BUTTON_ADD_MEDIA, { disabled: '' }, isContainAll);
+      }
+    }, { childList: true, attributes: true, subtree: true });
+  }
+
+  if ($PLAYLIST_MANAGE_FORM) {
+    $PLAYLIST_MANAGE_ELMS.forEach((elm: HTMLElement) => {
+      const elmName = (elm as HTMLInputElement).name;
+
+      switch (elmName) {
+        case 'local_media_dir':
+        case 'symlink_name':
+        case 'category_name':
+          elm.addEventListener('input', (evt: Event) => {
+            if ((evt.target as HTMLInputElement).value === '') {
+              setValidated(elm, null);
+            }
+          });
+          elm.addEventListener('change', (evt: Event) => {
+            setValidated(elm, (evt.target as HTMLInputElement).value !== '');
+          });
+          break;
+        case 'create_symlink':
+        case 'create_category':
+        case 'download_playlist': {
+          const callback = {
+            getFormData(oneData: string | null = null): any {
+              if (!$PLAYLIST_MANAGE_FORM) return null;
+              const formData = new FormData($PLAYLIST_MANAGE_FORM);
+              return oneData ? formData.get(oneData) : Array.from(formData.entries());
+            },
+            async createSymlink(): Promise<void> {
+              const endpointURL = `${BASE_URL}symlink`;
+              const payload: Record<string, string> = {};
+              for (const pair of this.getFormData()) {
+                if (inArray(pair[0], ['local_media_dir', 'symlink_name'])) {
+                  payload[pair[0]] = pair[1];
+                }
+              }
+              const response = await fetchData(endpointURL, 'post', payload) as any;
+              logger('createSymlink:', endpointURL, payload, response);
+              updateNotice({
+                type: response?.state === 'ok' ? 'success' : 'error',
+                message: response?.data || '',
+                delay: 2000,
+              });
+            },
+            createCategory(): void {
+              const categoryName = this.getFormData('category_name') as string;
+              if (!Array.isArray(AMP_STATUS.category)) AMP_STATUS.category = [];
+              if (!inArray(categoryName, AMP_STATUS.category)) {
+                AMP_STATUS.category.push(categoryName);
+              } else {
+                const uniqueSet = new Set(AMP_STATUS.category);
+                let newValue = categoryName;
+                let count = 1;
+                while (uniqueSet.has(newValue)) {
+                  newValue = `${categoryName}_${count}`;
+                  count++;
+                }
+                AMP_STATUS.category.push(newValue);
+              }
+              const selfElm = document.getElementById('btn-create-category');
+              logger('createCategory:', categoryName, AMP_STATUS);
+              updateNotice({
+                type: 'success',
+                message: selfElm?.dataset['messageSuccess'] || '',
+                delay: 2000,
+              });
+              clearCategory();
+              updateCategory();
+            },
+            async downloadPlaylist(): Promise<void> {
+              const seek_format = Number(this.getFormData('seek_format')) === 1;
+              const jsonContent = generatePlaylistJson(seek_format);
+              const blob = new Blob([jsonContent], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = AMP_STATUS.playlist || 'playlist.json';
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+              const selfElm = document.getElementById('btn-download-playlist');
+              updateNotice({
+                type: 'success',
+                message: selfElm?.dataset['messageSuccess'] || '',
+                delay: 2000,
+              });
+            },
+          };
+          elm.addEventListener('click', (evt: Event) => {
+            const target = evt.target as HTMLInputElement;
+            (callback as any)[snakeToCapital(target.name)]();
+            logger('onClickButton::', target.name);
+            resetPlaylistManageForm();
+          });
+          break;
+        }
+        default:
+          logger('Event undefined element:', elmName, elm);
+          break;
+      }
+    });
+
+    watcher($PLAYLIST_MANAGE_FORM, (mutation: MutationRecord) => {
+      if (mutation.type === 'attributes' && mutation.attributeName === 'data-validate') {
+        const valid_items: string[] = [];
+        if (getAtts(mutation.target as HTMLElement, 'data-validate')) {
+          $PLAYLIST_MANAGE_ELMS.forEach((elm: HTMLElement) => {
+            if (getAtts(elm, 'data-validate')) valid_items.push(elm.id);
+          });
+        }
+        const $BUTTON_CREATE_SYMLINK = document.getElementById('btn-create-symlink');
+        const symlink_contains = ['local-media-directory', 'symlink-name'];
+        const isSymlinkContainAll = inArray(symlink_contains, valid_items, false);
+        logger('Check valid items for "Create Symlink":', valid_items, symlink_contains, isSymlinkContainAll);
+        if ($BUTTON_CREATE_SYMLINK) setAtts($BUTTON_CREATE_SYMLINK, { disabled: '' }, isSymlinkContainAll);
+
+        const $BUTTON_CREATE_CATEGORY = document.getElementById('btn-create-category');
+        const category_contains = ['category-name'];
+        const isCategoryContainAll = inArray(category_contains, valid_items, false);
+        logger('Check valid items for "Create Category":', valid_items, category_contains, isCategoryContainAll);
+        if ($BUTTON_CREATE_CATEGORY) setAtts($BUTTON_CREATE_CATEGORY, { disabled: '' }, isCategoryContainAll);
+      }
+    }, { childList: true, attributes: true, subtree: true });
+  }
 };
 
 // for debugging code
@@ -2050,6 +2549,43 @@ function inRange(num: any, min: number, max: number): boolean {
   } else {
     num = Number(num);
     return (num - min) * (num - max) <= 0;
+  }
+}
+
+function inArray(contains: any | any[], targetArray: any[], at_least_one: boolean = false): boolean {
+  if (!Array.isArray(targetArray)) return false;
+  const items = Array.isArray(contains) ? contains : [contains];
+  return at_least_one
+    ? items.some((item: any) => targetArray.includes(item))
+    : items.every((item: any) => targetArray.includes(item));
+}
+
+function snakeToCapital(str: string): string {
+  return str.replace(/_./g, (match: string) => match.charAt(1).toUpperCase());
+}
+
+function setValidated(targetElement: HTMLElement, result: boolean | null = null): void {
+  const elm = isElement(targetElement) ? targetElement : null;
+  if (!elm) return;
+  const baseId        = elm.id;
+  const $FIELD_LABEL  = document.getElementById(baseId + '-label');
+  const $FIELD_PREFIX = document.getElementById(baseId + '-prefix');
+  const $NOTE_ERROR   = document.getElementById('note-error-' + baseId);
+  const $NOTE_SUCCESS = document.getElementById('note-success-' + baseId);
+  if (result === null) {
+    toggleClass(elm, { 'normal-input': true, 'error-input': false, 'success-input': false });
+    if (isElement($FIELD_LABEL))  toggleClass($FIELD_LABEL  as HTMLElement, { 'normal-text':   true, 'error-text':   false, 'success-text':   false });
+    if (isElement($FIELD_PREFIX)) toggleClass($FIELD_PREFIX as HTMLElement, { 'normal-prefix': true, 'error-prefix': false, 'success-prefix': false });
+    if (isElement($NOTE_ERROR))   toggleClass($NOTE_ERROR   as HTMLElement, { hidden: true  });
+    if (isElement($NOTE_SUCCESS)) toggleClass($NOTE_SUCCESS as HTMLElement, { hidden: true  });
+    elm.setAttribute('data-validate', 'false');
+  } else {
+    toggleClass(elm, { 'normal-input': !result, 'error-input': !result, 'success-input': result });
+    if (isElement($FIELD_LABEL))  toggleClass($FIELD_LABEL  as HTMLElement, { 'normal-text':   !result, 'error-text':   !result, 'success-text':   result });
+    if (isElement($FIELD_PREFIX)) toggleClass($FIELD_PREFIX as HTMLElement, { 'normal-prefix': !result, 'error-prefix': !result, 'success-prefix': result });
+    if (isElement($NOTE_ERROR))   toggleClass($NOTE_ERROR   as HTMLElement, { hidden: result  });
+    if (isElement($NOTE_SUCCESS)) toggleClass($NOTE_SUCCESS as HTMLElement, { hidden: !result });
+    elm.setAttribute('data-validate', String(result));
   }
 }
 

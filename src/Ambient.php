@@ -100,8 +100,8 @@ class Ambient {
         $paths = explode( $relative_app_root, $current_path );
         $_paths = null;
         if ( isset( $paths[1] ) ) {
-            $request_name = strpos( $paths[1], '/' ) !== false ? strstr( $paths[1], '/', true ) : $paths[1];
-            $_paths = strpos( $paths[1], '/' ) !== false ? explode( '/', substr( $paths[1], strpos( $paths[1], '/' ) + 1 ) ) : null;
+            $request_name = str_contains( $paths[1], '/' ) ? strstr( $paths[1], '/', true ) : $paths[1];
+            $_paths = str_contains( $paths[1], '/' ) ? explode( '/', substr( $paths[1], strpos( $paths[1], '/' ) + 1 ) ) : null;
         }
         if ( count( $paths ) > 2 ) {
             $_paths = array_slice( $paths, 2 );
