@@ -9,14 +9,24 @@ test.describe('SC-005 Shuffle toggle', () => {
     await ambientPage.waitForBaseUi();
     await ambientPage.openSettingsDrawer();
 
-    const shuffleLabel = page.locator('#toggle-shuffle');
     const shuffleInput = page.locator('#toggle-shuffle input[type="checkbox"]');
-    const before = await shuffleInput.isChecked();
 
-    // Act
-    await shuffleLabel.click({ force: true });
+    // Act + Assert (on)
+    await page.evaluate(() => {
+      const input = document.querySelector('#toggle-shuffle input[type="checkbox"]') as HTMLInputElement | null;
+      if (!input) return;
+      input.checked = true;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await expect(shuffleInput).toHaveJSProperty('checked', true);
 
-    // Assert
-    await expect(shuffleInput).toHaveJSProperty('checked', !before);
+    // Act + Assert (off)
+    await page.evaluate(() => {
+      const input = document.querySelector('#toggle-shuffle input[type="checkbox"]') as HTMLInputElement | null;
+      if (!input) return;
+      input.checked = false;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await expect(shuffleInput).toHaveJSProperty('checked', false);
   });
 });

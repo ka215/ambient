@@ -1,17 +1,9 @@
 /**
+/**
  * Ambient Media Player v2 - TypeScript Frontend Application
  * Ported from ambient.js with full type safety
  */
-
-import {
-  MediaItem,
-  PlaylistData,
-  AMP_STATUS,
-  AmbientData,
-  NotificationPayload,
-  WindowSize,
-  YTPlayer,
-} from './types/index.js';
+/// <reference path="./types/index.ts" />
 
 // ============================================================================
 // INITIALIZATION
@@ -2062,28 +2054,6 @@ function inRange(num: any, min: number, max: number): boolean {
 }
 
 /**
- * Whether a given array contains multiple values.
- */
-export function inArray(contains: any, targetArray: any[], at_least_one: boolean = false): boolean {
-  if (!Array.isArray(targetArray)) {
-    return false;
-  }
-  contains = Array.isArray(contains) ? contains : [contains];
-  if (at_least_one) {
-    return contains.some((item: any) => targetArray.includes(item));
-  } else {
-    return contains.every((item: any) => targetArray.includes(item));
-  }
-}
-
-/**
- * Convert a string in snake case to capital case.
- */
-export function snakeToCapital(str: string): string {
-  return str.replace(/_./g, (match: string) => match.charAt(1).toUpperCase());
-}
-
-/**
  * Get cookie with specified name.
  */
 function getCookie(name: string): string | null {
@@ -2441,25 +2411,6 @@ function saveStge(key: string, data: any): boolean {
   }
 
   return false;
-}
-
-/**
- * Load user data from client-side storage.
- */
-export function loadStge(key: string): any {
-  const appKey = (window as any).APP_KEY;
-  const _data = (window as any)[(window as any).$ambient.useStorage].getItem(appKey);
-
-  try {
-    const userData = JSON.parse(_data);
-    if (isObject(userData) && userData.hasOwnProperty(key)) {
-      return userData[key];
-    }
-  } catch (error) {
-    logger(error, _data);
-  }
-
-  return null;
 }
 
 /**

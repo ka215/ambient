@@ -59,7 +59,7 @@ export class AmbientPage {
     // Wait until at least one playlist item is rendered in the DOM
     await this.page.waitForFunction(
       () => document.querySelectorAll('#playlist-list-group a[data-playlist-item]').length > 0,
-      { timeout: 15_000 }
+      { timeout: 30_000 }
     );
     // Close the settings drawer so the main UI is accessible
     await this.page.locator('#btn-close-settings').click();

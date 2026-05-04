@@ -50,7 +50,7 @@ function amp_footer(): string {
     //$output[] = '<script src="https://cdn.jsdelivr.net/npm/fs-js@1.0.6/index.min.js" type="module"></script>';
     $output[] = '<script src="./dist/flowbite.min.js"></script>';
 
-    $script_path = './src/scripts/ambient.js';
+    $script_path = './dist/scripts/ambient.js';
     if ( file_exists( $script_path ) ) {
         $script_path .= '?'. filemtime( $script_path );
         $output[] = '<script src="'. $script_path. '"></script>';

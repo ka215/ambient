@@ -1,12 +1,13 @@
 /**
  * Type definitions for Ambient Media Player v2
  * These types define the data structures and contracts used throughout the application
+ * NOTE: No import/export here — this is a global ambient script, not an ES module.
  */
 
 /**
  * Media item data structure
  */
-export interface MediaItem {
+interface MediaItem {
   amId: number;
   catId: number;
   title: string;
@@ -29,7 +30,7 @@ export interface MediaItem {
 /**
  * Playlist options configuration
  */
-export interface PlaylistOptions {
+interface PlaylistOptions {
   background?: string;
   random?: boolean;
   shuffle?: boolean;
@@ -50,7 +51,7 @@ export interface PlaylistOptions {
 /**
  * Playlist data structure (response from API)
  */
-export interface PlaylistData {
+interface PlaylistData {
   options?: PlaylistOptions;
   media?: {
     [category: string]: MediaItem[];
@@ -60,7 +61,7 @@ export interface PlaylistData {
 /**
  * Application status object - manages playback state
  */
-export interface AMP_STATUS {
+interface AMP_STATUS {
   prev: number | null;
   current: number | null;
   next: number | null;
@@ -85,7 +86,7 @@ export interface AMP_STATUS {
 /**
  * Global data passed from PHP to JavaScript
  */
-export interface AmbientData {
+interface AmbientData {
   debug?: boolean;
   imageDir?: string;
   currentPlaylist?: string;
@@ -98,7 +99,7 @@ export interface AmbientData {
 /**
  * Notification/alert payload
  */
-export interface NotificationPayload {
+interface NotificationPayload {
   type: 'info' | 'success' | 'warning' | 'error';
   message: string;
   delay?: number;
@@ -107,7 +108,7 @@ export interface NotificationPayload {
 /**
  * Window size configuration
  */
-export interface WindowSize {
+interface WindowSize {
   width: number;
   height: number;
   minFullUIWidth: number;
@@ -116,7 +117,7 @@ export interface WindowSize {
 /**
  * YouTube IFrame API types
  */
-export interface YTPlayerOptions {
+interface YTPlayerOptions {
   height: number;
   width: number;
   videoId: string;
@@ -136,7 +137,7 @@ export interface YTPlayerOptions {
   };
 }
 
-export interface YTPlayer {
+interface YTPlayer {
   playVideo: () => void;
   pauseVideo: () => void;
   stopVideo: () => void;
@@ -150,16 +151,16 @@ export interface YTPlayer {
   getIframe: () => HTMLIFrameElement;
 }
 
-export interface YTOnReadyEvent {
+interface YTOnReadyEvent {
   target: YTPlayer;
 }
 
-export interface YTOnStateChangeEvent {
+interface YTOnStateChangeEvent {
   data: number;
   target: YTPlayer;
 }
 
-export interface YTOnErrorEvent {
+interface YTOnErrorEvent {
   data: number;
   target: YTPlayer;
 }
@@ -167,30 +168,26 @@ export interface YTOnErrorEvent {
 /**
  * Utility type for response wrapper
  */
-export interface ApiResponse<T = any> {
+interface ApiResponse<T = any> {
   state: 'ok' | 'error';
   code: number;
   data: T;
 }
 
 /**
- * Declaretion for global AmbientData passed from PHP
+ * Global variables passed from PHP / YouTube IFrame API
  */
-declare global {
-  var AmbientData: AmbientData;
-  var APP_KEY: string;
-  var YT: {
-    Player: new (elementId: string, options: YTPlayerOptions) => YTPlayer;
-    PlayerState: {
-      UNSTARTED: number;
-      ENDED: number;
-      PLAYING: number;
-      PAUSED: number;
-      BUFFERING: number;
-      CUED: number;
-    };
+declare var AmbientData: AmbientData;
+declare var APP_KEY: string;
+declare var YT: {
+  Player: new (elementId: string, options: YTPlayerOptions) => YTPlayer;
+  PlayerState: {
+    UNSTARTED: number;
+    ENDED: number;
+    PLAYING: number;
+    PAUSED: number;
+    BUFFERING: number;
+    CUED: number;
   };
-  var player: YTPlayer | undefined;
-}
-
-export {};
+};
+declare var player: YTPlayer | undefined;

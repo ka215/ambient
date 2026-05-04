@@ -3,7 +3,7 @@
  * Ambient
  *
  * @package           Ambient
- * @version           1.0.0
+ * @version           2.0.0
  * @author            ka2
  * @copyright         2023 MAGIC METHODS
  * @license           MIT License

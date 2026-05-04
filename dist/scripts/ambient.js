@@ -1,7 +1,10 @@
+"use strict";
+/**
 /**
  * Ambient Media Player v2 - TypeScript Frontend Application
  * Ported from ambient.js with full type safety
  */
+/// <reference path="./types/index.ts" />
 // ============================================================================
 // INITIALIZATION
 // ============================================================================
@@ -34,6 +37,9 @@ const init = function () {
             addtype: null,
             notice: null,
             loop: null,
+            yt_phase: 'idle',
+            yt_seq: 0,
+            yt_error: '',
         });
     }
     // Window sizes container
@@ -46,10 +52,38 @@ const init = function () {
     const tag = document.createElement('script');
     tag.src = 'https://www.youtube.com/player_api';
     const firstScriptTag = document.getElementsByTagName('script')[0];
+    let player;
+    /**
+     * Reflect YouTube signal states to body data attributes for DOM-driven waits.
+     */
+    function syncYouTubeSignalAttrs() {
+        const body = document.body;
+        if (!body) {
+            return;
+        }
+        body.setAttribute('data-yt-phase', String(AMP_STATUS.yt_phase || 'idle'));
+        body.setAttribute('data-yt-seq', String(AMP_STATUS.yt_seq || 0));
+        body.setAttribute('data-yt-error', String(AMP_STATUS.yt_error || ''));
+    }
+    /**
+     * Update YouTube signal states and emit attribute updates.
+     */
+    function emitYouTubeSignal(phase, error = '') {
+        AMP_STATUS.yt_phase = phase;
+        AMP_STATUS.yt_error = error;
+        AMP_STATUS.yt_seq = Number(AMP_STATUS.yt_seq || 0) + 1;
+        syncYouTubeSignalAttrs();
+    }
+    emitYouTubeSignal('api_loading');
+    tag.addEventListener('load', () => {
+        emitYouTubeSignal('api_loaded');
+    });
+    tag.addEventListener('error', () => {
+        emitYouTubeSignal('api_error', 'player_api_load_failed');
+    });
     if (firstScriptTag?.parentNode) {
         firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
     }
-    let player;
     // seek container
     let seekId = null;
     /**
@@ -117,6 +151,9 @@ const init = function () {
                     break;
                 case /^options$/i.test(prop):
                     applyOptions();
+                    break;
+                case /^yt_(phase|seq|error)$/i.test(prop):
+                    syncYouTubeSignalAttrs();
                     break;
             }
         };
@@ -1090,9 +1127,11 @@ const init = function () {
         switch (true) {
             case /^YouTube$/i.test(type || ''):
                 AMP_STATUS.playertype = 'youtube';
+                AMP_STATUS.yt_error = '';
                 createYTPlayer(mediaData);
                 break;
             case /^HTML$/i.test(type || ''):
+                emitYouTubeSignal('inactive');
                 const extension = getExt(src || '');
                 if (/^(aac|midi?|mp3|m4a|ogg|opus|wav|weba|wma)$/i.test(extension)) {
                     AMP_STATUS.playertype = 'audio';
@@ -1109,6 +1148,7 @@ const init = function () {
                 break;
             default:
                 AMP_STATUS.playertype = null;
+                emitYouTubeSignal('error', 'unsupported_player_specified');
                 if (AMP_STATUS.next !== null) {
                     playItem(null, AMP_STATUS.next);
                 }
@@ -1119,6 +1159,7 @@ const init = function () {
      * Event handler that is called when the YouTube player is ready to play.
      */
     function onPlayerReady(event) {
+        emitYouTubeSignal('player_ready');
         $EMBED_WRAPPER.classList.add('w-max', 'h-max');
         $EMBED_WRAPPER.classList.remove('w-full', 'h-0', 'opacity-0');
         const mediaData = (AMP_STATUS.media || [])
@@ -1169,6 +1210,7 @@ const init = function () {
         const YT_PLAYING = 1;
         const YT_PAUSED = 2;
         if (event.data === YT_ENDED) {
+            emitYouTubeSignal('ended');
             abortSeeking();
             abortFader('fadeout');
             $EMBED_WRAPPER.classList.add('w-full', 'h-0', 'opacity-0');
@@ -1204,11 +1246,13 @@ const init = function () {
             setupPlayer(playerType, mediaSrc, mediaData);
         }
         if (event.data === YT_PAUSED) {
+            emitYouTubeSignal('paused');
             // Toggle this button shown (Pause -> Play).
             $BUTTON_PAUSE.classList.add('hidden');
             $BUTTON_PLAY.classList.remove('hidden');
         }
         if (event.data === YT_PLAYING) {
+            emitYouTubeSignal('playing');
             // Toggle this button shown (Play -> Pause).
             $BUTTON_PLAY.classList.add('hidden');
             $BUTTON_PAUSE.classList.remove('hidden');
@@ -1236,6 +1280,7 @@ const init = function () {
             }
         }
         if (event.data === -1 && getOption('autoplay')) {
+            emitYouTubeSignal('unstarted');
             // When playback unstarted.
             logger('onPlayerStateChange::unstarted.');
         }
@@ -1244,6 +1289,7 @@ const init = function () {
      * Event handler called when the YouTube player encounters an error.
      */
     function onPlayerError(event) {
+        emitYouTubeSignal('error', `yt_error_${event && event.data !== undefined ? event.data : 'unknown'}`);
         // Skip if media playback fails.
         $EMBED_WRAPPER.classList.add('w-full', 'h-0', 'opacity-0');
         $EMBED_WRAPPER.classList.remove('w-max', 'h-max');
@@ -1281,6 +1327,7 @@ const init = function () {
      * Create a YouTube player.
      */
     function createYTPlayer(mediaData) {
+        emitYouTubeSignal('player_creating');
         const playerElm = document.createElement('div');
         playerElm.id = 'ytplayer';
         while ($EMBED_WRAPPER.firstChild) {
@@ -1358,6 +1405,7 @@ const init = function () {
                 onError: onPlayerError,
             },
         });
+        emitYouTubeSignal('player_created');
     }
     /**
      * Create a media playback player using HTML.
@@ -1793,27 +1841,6 @@ function inRange(num, min, max) {
     }
 }
 /**
- * Whether a given array contains multiple values.
- */
-export function inArray(contains, targetArray, at_least_one = false) {
-    if (!Array.isArray(targetArray)) {
-        return false;
-    }
-    contains = Array.isArray(contains) ? contains : [contains];
-    if (at_least_one) {
-        return contains.some((item) => targetArray.includes(item));
-    }
-    else {
-        return contains.every((item) => targetArray.includes(item));
-    }
-}
-/**
- * Convert a string in snake case to capital case.
- */
-export function snakeToCapital(str) {
-    return str.replace(/_./g, (match) => match.charAt(1).toUpperCase());
-}
-/**
  * Get cookie with specified name.
  */
 function getCookie(name) {
@@ -2131,23 +2158,6 @@ function saveStge(key, data) {
         logger(error, _data);
     }
     return false;
-}
-/**
- * Load user data from client-side storage.
- */
-export function loadStge(key) {
-    const appKey = window.APP_KEY;
-    const _data = window[window.$ambient.useStorage].getItem(appKey);
-    try {
-        const userData = JSON.parse(_data);
-        if (isObject(userData) && userData.hasOwnProperty(key)) {
-            return userData[key];
-        }
-    }
-    catch (error) {
-        logger(error, _data);
-    }
-    return null;
 }
 /**
  * Removes specific properties from user data stored in client-side storage.

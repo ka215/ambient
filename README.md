@@ -5,6 +5,8 @@
   Ambient
 </h1>
 
+> Japanese README: [README-ja.md](README-ja.md)
+
 Ambient is a media player that runs on a web browser using YouTube IFrame Player API. It also supports playing media files on your local PC.<br>
 Ambient lets you create mixed playlists of your favorite YouTube videos and other media you own on your local PC, and play them seamlessly.<br>
 **Let's start your ambient media experience!**
