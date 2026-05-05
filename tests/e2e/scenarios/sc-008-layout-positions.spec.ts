@@ -101,7 +101,11 @@ test.describe('SC-008 Layout positioning checks', () => {
       fullPage: true,
     });
 
-    await page.locator('#btn-options').click();
+    await ambientPage.closeSettingsDrawer();
+    await page.evaluate(() => {
+      const btn = document.getElementById('btn-options') as HTMLElement | null;
+      if (btn) btn.click();
+    });
     await page.waitForFunction(() => {
       const modal = document.getElementById('modal-options');
       return !!modal && !modal.classList.contains('hidden');

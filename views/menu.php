@@ -3,10 +3,10 @@ if ( $this->menu_type == 1 ) {
 ?>
 <div 
   id="menu-container"
-  class="fixed bottom-0 left-0 right-0 mx-auto z-40 w-96 max-w-full h-16 bg-white border-t border-gray-200 dark:bg-gray-700 dark:border-gray-600"
+  class="fixed bottom-0 left-0 right-0 mx-auto z-40 w-96 max-w-full h-16 bg-white border-t border-gray-200 dark:bg-gray-700 dark:border-gray-600 transition-all duration-200 ease-out"
 >
     <div
-      class="grid h-full w-full grid-cols-5 mx-auto font-medium"
+      class="grid h-full w-full grid-cols-7 mx-auto font-medium"
     >
         <button 
           id="btn-playlist"
@@ -33,6 +33,20 @@ if ( $this->menu_type == 1 ) {
             </svg>
             <span class="text-sm text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500"><?= __( 'Refresh' ) ?></span>
         </button>
+          <button 
+            id="btn-window-full"
+            type="button"
+            class="inline-flex flex-col items-center justify-center px-5 border-r border-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 group dark:border-gray-600"
+            aria-pressed="false"
+          >
+            <svg class="icon-window-expand w-5 h-5 mb-2 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500" aria-hidden="true" aria-label="window-expand" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4H4m0 0v4m0-4 5 5m7-5h4m0 0v4m0-4-5 5M8 20H4m0 0v-4m0 4 5-5m7 5h4m0 0v-4m0 4-5-5"/>
+            </svg>
+            <svg class="icon-window-minimize hidden w-5 h-5 mb-2 text-blue-600 dark:text-blue-500" aria-hidden="true" aria-label="window-minimize" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 9h4m0 0V5m0 4L4 4m15 5h-4m0 0V5m0 4 5-5M5 15h4m0 0v4m0-4-5 5m15-5h-4m0 0v4m0-4 5 5"/>
+            </svg>
+            <span class="text-sm text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500"><?= __( 'Window' ) ?></span>
+          </button>
         <button 
           id="btn-play"
           type="button" 
@@ -55,6 +69,20 @@ if ( $this->menu_type == 1 ) {
             </svg>
             <span class="text-sm text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500"><?= __( 'Pause' ) ?></span>
         </button>
+          <button 
+            id="btn-menu-collapse"
+            type="button"
+            class="inline-flex flex-col items-center justify-center px-5 border-r border-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 group dark:border-gray-600"
+            aria-pressed="false"
+          >
+            <svg class="icon-menu-compress w-5 h-5 mb-2 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500" aria-hidden="true" aria-label="menu-compress" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h4V4m12 4h-4V4M4 16h4v4m12-4h-4v4"/>
+            </svg>
+            <svg class="icon-menu-expand hidden w-5 h-5 mb-2 text-blue-600 dark:text-blue-500" aria-hidden="true" aria-label="menu-expand" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 7h6m0 0V1m0 6L1 1m16 10h-6m0 0v6m0-6 6 6"/>
+            </svg>
+            <span class="text-sm text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500"><?= __( 'Menu' ) ?></span>
+          </button>
         <button 
           id="btn-settings"
           type="button"
@@ -88,9 +116,9 @@ if ( $this->menu_type == 1 ) {
 ?>
 <div 
   id="menu-container"
-  class="fixed z-40 w-full h-16 max-w-lg left-0 right-0 mx-auto bg-white border border-gray-200 rounded-full bottom-4 dark:bg-gray-700 dark:border-gray-600"
+  class="fixed z-40 w-full h-16 max-w-lg left-0 right-0 mx-auto bg-white border border-gray-200 rounded-full bottom-4 dark:bg-gray-700 dark:border-gray-600 transition-all duration-200 ease-out"
 >
-    <div class="grid h-full max-w-lg grid-cols-5 mx-auto">
+    <div class="grid h-full max-w-lg grid-cols-7 mx-auto">
         <button 
           id="btn-playlist"
           type="button" 
@@ -134,6 +162,29 @@ if ( $this->menu_type == 1 ) {
             <?= __( 'Refresh' ) ?>
             <div class="tooltip-arrow" data-popper-arrow></div>
         </div>
+          <button 
+            id="btn-window-full"
+            type="button" 
+            class="inline-flex flex-col items-center justify-center px-5 hover:bg-gray-50 dark:hover:bg-gray-800 group"
+            data-tooltip-target="tooltip-window-full" 
+            aria-pressed="false"
+          >
+            <svg class="icon-window-expand w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500" aria-hidden="true" aria-label="window-expand" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4H4m0 0v4m0-4 5 5m7-5h4m0 0v4m0-4-5 5M8 20H4m0 0v-4m0 4 5-5m7 5h4m0 0v-4m0 4-5-5"/>
+            </svg>
+            <svg class="icon-window-minimize hidden w-5 h-5 mb-1 text-blue-600 dark:text-blue-500" aria-hidden="true" aria-label="window-minimize" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 9h4m0 0V5m0 4L4 4m15 5h-4m0 0V5m0 4 5-5M5 15h4m0 0v4m0-4-5 5m15-5h-4m0 0v4m0-4 5 5"/>
+            </svg>
+            <span class="sr-only"><?= __( 'Window Fullscreen' ) ?></span>
+          </button>
+          <div 
+            id="tooltip-window-full" 
+            role="tooltip" 
+            class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white transition-opacity duration-300 bg-gray-900 rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-700"
+          >
+            <?= __( 'Window フル表示' ) ?>
+            <div class="tooltip-arrow" data-popper-arrow></div>
+          </div>
         <div class="flex items-center justify-center">
             <button 
               id="btn-play"
@@ -174,6 +225,29 @@ if ( $this->menu_type == 1 ) {
           class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white transition-opacity duration-300 bg-gray-900 rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-700"
         >
             <?= __( 'Pause' ) ?>
+            <div class="tooltip-arrow" data-popper-arrow></div>
+        </div>
+        <button 
+          id="btn-menu-collapse"
+          type="button" 
+          class="inline-flex flex-col items-center justify-center px-5 hover:bg-gray-50 dark:hover:bg-gray-800 group"
+          data-tooltip-target="tooltip-menu-collapse" 
+          aria-pressed="false"
+        >
+            <svg class="icon-menu-compress w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500" aria-hidden="true" aria-label="menu-compress" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h4V4m12 4h-4V4M4 16h4v4m12-4h-4v4"/>
+            </svg>
+            <svg class="icon-menu-expand hidden w-5 h-5 mb-1 text-blue-600 dark:text-blue-500" aria-hidden="true" aria-label="menu-expand" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
+                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 7h6m0 0V1m0 6L1 1m16 10h-6m0 0v6m0-6 6 6"/>
+            </svg>
+            <span class="sr-only"><?= __( 'Minimize Menu' ) ?></span>
+        </button>
+        <div 
+          id="tooltip-menu-collapse" 
+          role="tooltip" 
+          class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white transition-opacity duration-300 bg-gray-900 rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-700"
+        >
+            <?= __( 'Menu Minimize' ) ?>
             <div class="tooltip-arrow" data-popper-arrow></div>
         </div>
         <button 

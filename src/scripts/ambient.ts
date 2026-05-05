@@ -266,6 +266,7 @@ const init = function (): void {
   const $TOGGLE_RANDOMLY = document.getElementById('toggle-randomly') as HTMLElement;
   const $TOGGLE_SHUFFLE = document.getElementById('toggle-shuffle') as HTMLElement;
   const $TOGGLE_SEEKPLAY = document.getElementById('toggle-seekplay') as HTMLElement;
+  const $TOGGLE_WINDOW_FULL = document.getElementById('toggle-window-full') as HTMLElement;
   const $TOGGLE_FADER = document.getElementById('toggle-fader') as HTMLElement;
   const $RANGE_VOLUME = document.getElementById('default-volume') as HTMLInputElement;
   const $TOGGLE_DARKMODE = document.getElementById('toggle-darkmode') as HTMLElement;
@@ -283,8 +284,10 @@ const init = function (): void {
   const $MENU = document.getElementById('menu-container') as HTMLElement;
   const $BUTTON_PLAYLIST = document.getElementById('btn-playlist') as HTMLButtonElement;
   const $BUTTON_REFRESH = document.getElementById('btn-refresh') as HTMLButtonElement;
+  const $BUTTON_WINDOW_FULL = document.getElementById('btn-window-full') as HTMLButtonElement;
   const $BUTTON_PLAY = document.getElementById('btn-play') as HTMLButtonElement;
   const $BUTTON_PAUSE = document.getElementById('btn-pause') as HTMLButtonElement;
+  const $BUTTON_MENU_COLLAPSE = document.getElementById('btn-menu-collapse') as HTMLButtonElement;
   const $BUTTON_SETTINGS = document.getElementById('btn-settings') as HTMLButtonElement;
   const $BUTTON_OPTIONS = document.getElementById('btn-options') as HTMLButtonElement;
   const $BUTTON_CLOSE_OPTIONS = document.getElementById('btn-close-options') as HTMLButtonElement;
@@ -627,6 +630,9 @@ const init = function (): void {
     }
 
     changeToggleDarkmode();
+
+    const isFullWindow = getOption('fullwindow');
+    setFullWindowMode(!!isFullWindow, false);
   }
 
   /**
@@ -745,6 +751,9 @@ const init = function (): void {
    * Toggle caption marqueeing depending on window size.
    */
   function toggleMarqueeCaption(): void {
+    if ($BODY.classList.contains('amp-full-window')) {
+      return;
+    }
     const $MARQUEE_NODE = $MEDIA_CAPTION.querySelector('.marquee-inner') as HTMLElement | null;
     if (!isElement($MARQUEE_NODE)) {
       return;
@@ -773,6 +782,95 @@ const init = function (): void {
       }
       $MEDIA_CAPTION.appendChild($MARQUEE_CLONE);
     }
+  }
+
+  /**
+   * Returns true when player is shown as full-window.
+   */
+  function isFullWindowMode(): boolean {
+    return $BODY.classList.contains('amp-full-window');
+  }
+
+  /**
+   * Sync icon pair of full-window toggle button.
+   */
+  function syncWindowFullButtonIcons(enabled: boolean): void {
+    if (!isElement($BUTTON_WINDOW_FULL)) {
+      return;
+    }
+    const $ICON_EXPAND = $BUTTON_WINDOW_FULL.querySelector('.icon-window-expand') as HTMLElement | null;
+    const $ICON_MINIMIZE = $BUTTON_WINDOW_FULL.querySelector('.icon-window-minimize') as HTMLElement | null;
+    if (isElement($ICON_EXPAND)) {
+      $ICON_EXPAND.classList.toggle('hidden', enabled);
+    }
+    if (isElement($ICON_MINIMIZE)) {
+      $ICON_MINIMIZE.classList.toggle('hidden', !enabled);
+    }
+    $BUTTON_WINDOW_FULL.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+  }
+
+  /**
+   * Toggle full-window mode and synchronize controls from drawer and bottom menu.
+   * @param closeDrawers When true, auto-close any open drawers (only for bottom-menu trigger).
+   */
+  function setFullWindowMode(enabled: boolean, syncOption = true, closeDrawers = false): void {
+    $BODY.classList.toggle('amp-full-window', enabled);
+
+    const $TOGGLE = $TOGGLE_WINDOW_FULL?.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+    if (isElement($TOGGLE)) {
+      $TOGGLE.checked = enabled;
+    }
+
+    if (syncOption) {
+      if (!isObject(AMP_STATUS.options)) {
+        AMP_STATUS.options = { fullwindow: enabled };
+      } else {
+        AMP_STATUS.options.fullwindow = enabled;
+      }
+    }
+
+    if (enabled && closeDrawers) {
+      const shownLeft  = !$DRAWER_PLAYLIST.classList.contains('-translate-x-full');
+      const shownRight = !$DRAWER_SETTINGS.classList.contains('translate-x-full');
+      if (shownLeft) {
+        (document.getElementById('btn-close-playlist') as HTMLElement | null)?.click();
+      }
+      if (shownRight) {
+        (document.getElementById('btn-close-settings') as HTMLElement | null)?.click();
+      }
+    }
+
+    syncWindowFullButtonIcons(enabled);
+    updateWindowSize();
+  }
+
+  /**
+   * Synchronize the bottom menu minimize button icon and state.
+   */
+  function syncMenuCollapseButton(minimized: boolean): void {
+    if (!isElement($BUTTON_MENU_COLLAPSE)) {
+      return;
+    }
+    const $ICON_COMPRESS = $BUTTON_MENU_COLLAPSE.querySelector('.icon-menu-compress') as HTMLElement | null;
+    const $ICON_EXPAND = $BUTTON_MENU_COLLAPSE.querySelector('.icon-menu-expand') as HTMLElement | null;
+    if (isElement($ICON_COMPRESS)) {
+      $ICON_COMPRESS.classList.toggle('hidden', minimized);
+    }
+    if (isElement($ICON_EXPAND)) {
+      $ICON_EXPAND.classList.toggle('hidden', !minimized);
+    }
+    $BUTTON_MENU_COLLAPSE.setAttribute('aria-pressed', minimized ? 'true' : 'false');
+  }
+
+  /**
+   * Toggle bottom menu minimized state.
+   */
+  function setMenuMinimized(minimized: boolean): void {
+    if (!isElement($MENU)) {
+      return;
+    }
+    $MENU.classList.toggle('menu-minimized', minimized);
+    syncMenuCollapseButton(minimized);
   }
 
   /**
@@ -859,6 +957,24 @@ const init = function (): void {
   $BUTTON_REFRESH.addEventListener('click', (_evt: Event) => {
     reloadPage();
   });
+
+  if (isElement($BUTTON_WINDOW_FULL)) {
+    $BUTTON_WINDOW_FULL.addEventListener('click', (_evt: Event) => {
+      setFullWindowMode(!isFullWindowMode(), true, true);
+    });
+  }
+
+  if (isElement($TOGGLE_WINDOW_FULL)) {
+    ($TOGGLE_WINDOW_FULL.querySelector('input[type="checkbox"]') as HTMLInputElement).addEventListener('change', (evt: Event) => {
+      setFullWindowMode((evt.target as HTMLInputElement).checked);
+    });
+  }
+
+  if (isElement($BUTTON_MENU_COLLAPSE)) {
+    $BUTTON_MENU_COLLAPSE.addEventListener('click', (_evt: Event) => {
+      setMenuMinimized(!$MENU.classList.contains('menu-minimized'));
+    });
+  }
 
   /**
    * Toggle the display of player controls button after media loaded.
@@ -1544,11 +1660,12 @@ const init = function (): void {
     }
 
     // aspect: 16:9 = w:h -> h = 9w/16
+    const isFullWindow = isFullWindowMode();
     const adjustSize = {
-      width: currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2,
-      height: Math.floor(
-        (9 * (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2)) / 16
-      ),
+      width: isFullWindow ? currentWindowSize.width : (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2),
+      height: isFullWindow
+        ? currentWindowSize.height
+        : Math.floor((9 * (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2)) / 16),
     };
 
     player = new (window as any).YT.Player('ytplayer', {
@@ -1735,7 +1852,10 @@ const init = function (): void {
         if (!self.videoHeight || !self.videoWidth) {
           self.setAttribute('poster', './views/images/no-media-placeholder.svg');
         }
-        if (currentWindowSize.width >= 640) {
+        if (isFullWindowMode()) {
+          self.width = currentWindowSize.width;
+          self.height = currentWindowSize.height;
+        } else if (currentWindowSize.width >= 640) {
           self.width = 640;
           self.height = Math.floor((640 * self.videoHeight) / self.videoWidth);
         } else {
@@ -1930,13 +2050,14 @@ const init = function (): void {
   function updateWindowSize(): void {
     currentWindowSize.width = window.innerWidth;
     currentWindowSize.height = window.innerHeight;
+    const isFullWindow = isFullWindowMode();
 
     // aspect: 16:9 = w:h -> h = 9w/16
     const adjustPlayerSize = {
-      width: currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2,
-      height: Math.floor(
-        (9 * (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2)) / 16
-      ),
+      width: isFullWindow ? currentWindowSize.width : (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2),
+      height: isFullWindow
+        ? currentWindowSize.height
+        : Math.floor((9 * (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2)) / 16),
     };
 
     if (player && typeof player === 'object' && typeof player.getIframe === 'function') {
@@ -1947,8 +2068,14 @@ const init = function (): void {
 
     const $HTMLPlayer = document.getElementById('html-player') as HTMLVideoElement;
     if (isElement($HTMLPlayer)) {
-      $HTMLPlayer.width = adjustPlayerSize.width;
-      $HTMLPlayer.height = adjustPlayerSize.height;
+      if ($HTMLPlayer.tagName === 'VIDEO') {
+        $HTMLPlayer.width = adjustPlayerSize.width;
+        $HTMLPlayer.height = adjustPlayerSize.height;
+      }
+    }
+
+    if (isFullWindow) {
+      return;
     }
 
     const shownLeftDrawer = getAtts($DRAWER_PLAYLIST, 'aria-modal') || false;
@@ -1994,6 +2121,8 @@ const init = function (): void {
       false
     );
   };
+
+  setMenuMinimized(false);
 
   resize();
 
