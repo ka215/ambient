@@ -63,6 +63,13 @@ git clone https://github.com/ka215/ambient.git ambient
 ```
 
 たとえばドキュメントルート直下に配置した場合、`http://localhost/ambient` などでアクセスできます。
+clone 後は `.env.example` を `.env` にコピーし、必要に応じて環境依存値を調整してください。
+Ambient は現在、以下の設定を `.env` から読み込みます。
+
+- `DEBUG_MODE`: ブラウザおよび PHP のデバッグログ出力の有効/無効
+- `ASSETS_DIR`: プロジェクトルートからのアセットディレクトリ
+- `LOGS_DIR`: プロジェクトルートからのログディレクトリ
+
 リリースページの ZIP を展開して導入する方法でも問題ありません。
 
 ## プレイリストの作成

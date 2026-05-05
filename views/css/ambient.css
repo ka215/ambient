@@ -2,7 +2,7 @@
 @font-face {
   font-family: "mplus-1p-regular";
   src: url("../fonts/mplus-1p-regular.eot");
-  src: url("../fonts/mplus-1p-regular.eot?#iefix") format("embedded-opentype"), url("../fontsmplus-1p-regular.woff") format("woff"), url("../fonts/mplus-1p-regular.ttf") format("truetype");
+  src: url("../fonts/mplus-1p-regular.eot?#iefix") format("embedded-opentype"), url("../fonts/mplus-1p-regular.woff") format("woff"), url("../fonts/mplus-1p-regular.ttf") format("truetype");
 }
 .font-sans {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, mplus-1p-regular, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
@@ -125,4 +125,116 @@ a[aria-current=true] .playlist-subtitle {
 .text-rotate-0 {
   -webkit-transform: rotate(0.03deg);
           transform: rotate(0.03deg);
-}/*# sourceMappingURL=ambient.css.map */
+}
+
+#carousel-wrapper [id^=carousel-item-] {
+  height: 100%;
+}
+
+#carousel-wrapper [id^=carousel-item-]:not(.hidden) {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+    -ms-flex-align: center;
+      align-items: center;
+  -webkit-box-pack: center;
+    -ms-flex-pack: center;
+      justify-content: center;
+}
+
+#carousel-wrapper [id^=carousel-item-] > img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  -o-object-fit: contain;
+     object-fit: contain;
+  -o-object-position: center;
+     object-position: center;
+}
+
+#drawer-settings label[id^=toggle-] > div {
+  position: relative;
+  overflow: hidden;
+}
+
+/* ON時: ノブをleft:22pxに固定してコンテナ内に収める（left: 2px→22px アニメーション維持） */
+#drawer-settings input:checked ~ .toggle-track::after {
+  left: 22px;
+  -webkit-transform: none;
+          transform: none;
+  translate: none;
+}
+
+/* GPUレイヤーを事前生成してトランジション初回のカクつきを防止 */
+#drawer-settings .toggle-track::after {
+  will-change: left;
+}
+
+#collapse-menu [data-accordion-target] .accordion-caret {
+  display: inline-flex;
+  min-width: 0.875rem;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+}
+
+#collapse-menu [data-accordion-target] .accordion-caret .caret-up {
+  display: none;
+}
+
+#collapse-menu [data-accordion-target][aria-expanded=true] .accordion-caret .caret-down {
+  display: none;
+}
+
+#collapse-menu [data-accordion-target][aria-expanded=true] .accordion-caret .caret-up {
+  display: block;
+}
+
+.dark #modal-options .normal-text {
+  color: #d1d5db;
+}
+
+.dark #modal-options .normal-input {
+  background-color: #111827;
+  border-color: #374151;
+  color: #e5e7eb;
+}
+
+.dark #modal-options .normal-input::-webkit-input-placeholder {
+  color: #9ca3af;
+}
+
+.dark #modal-options .normal-input::-moz-placeholder {
+  color: #9ca3af;
+}
+
+.dark #modal-options .normal-input:-ms-input-placeholder {
+  color: #9ca3af;
+}
+
+.dark #modal-options .normal-input::-ms-input-placeholder {
+  color: #9ca3af;
+}
+
+.dark #modal-options .normal-input::placeholder {
+  color: #9ca3af;
+}
+
+.dark #modal-options .normal-prefix {
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #9ca3af;
+}
+
+.dark #drawer-settings #current-playlist,
+.dark #drawer-settings #target-category,
+.dark #drawer-settings #language {
+  background-color: #1f2937;
+  border-color: #4b5563;
+  color: #f3f4f6;
+}
+/*# sourceMappingURL=ambient.css.map */

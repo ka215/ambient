@@ -52,9 +52,11 @@ class Ambient {
             $this->set_warn( $this->__( 'Playlist not found. Please create a new playlist.' ) );
         } else {
             // Pass all playlist data to JavaScript of view.
+            // Normalize separators to forward slashes for cross-platform path replacement.
+            $app_root_normalized = str_replace( '\\', '/', APP_ROOT );
             $relative_playlists = [];
             foreach ( $this->playlists as $_k => $_v ) {
-                $relative_playlists[$_k] = str_replace( APP_ROOT, '.', $_v );
+                $relative_playlists[$_k] = str_replace( $app_root_normalized, '.', str_replace( '\\', '/', $_v ) );
             }
             $localize_data = [
                 'playlists' => $relative_playlists,
@@ -68,7 +70,7 @@ class Ambient {
             }
             $has_images = count( glob( IMAGES_DIR . '{*.jpg,*.jpeg,*.png,*.webp,*.bmp,*.gif}', GLOB_BRACE) ) > 0;
             if ( $has_images ) {
-                $localize_data['imageDir'] = str_replace( APP_ROOT, './', IMAGES_DIR );
+                $localize_data['imageDir'] = str_replace( $app_root_normalized, './', str_replace( '\\', '/', IMAGES_DIR ) );
             }
             if ( defined( 'DEBUG_MODE' ) && DEBUG_MODE ) {
                 $localize_data['debug'] = true;
