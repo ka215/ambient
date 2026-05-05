@@ -125,4 +125,112 @@ a[aria-current=true] .playlist-subtitle {
 .text-rotate-0 {
   -webkit-transform: rotate(0.03deg);
           transform: rotate(0.03deg);
-}/*# sourceMappingURL=ambient.css.map */
+}
+
+#carousel-wrapper [id^=carousel-item-] {
+  height: 100%;
+}
+
+#carousel-wrapper [id^=carousel-item-]:not(.hidden) {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+    -ms-flex-align: center;
+      align-items: center;
+  -webkit-box-pack: center;
+    -ms-flex-pack: center;
+      justify-content: center;
+}
+
+#carousel-wrapper [id^=carousel-item-] > img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  -o-object-fit: contain;
+     object-fit: contain;
+  -o-object-position: center;
+     object-position: center;
+}
+
+#drawer-settings label[id^=toggle-] > div {
+  position: relative;
+  overflow: hidden;
+}
+
+#collapse-menu [data-accordion-target] .accordion-caret {
+  display: inline-flex;
+  min-width: 0.875rem;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: 600;
+}
+
+#collapse-menu [data-accordion-target] .accordion-caret::before {
+  font-family: "Material Symbols Outlined", sans-serif;
+  font-weight: 700;
+  font-style: normal;
+  font-size: 1.1rem;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-feature-settings: "liga";
+  content: "expand_more";
+}
+
+#collapse-menu [data-accordion-target][aria-expanded=true] .accordion-caret::before {
+  content: "expand_less";
+}
+
+.dark #modal-options .normal-text {
+  color: #d1d5db;
+}
+
+.dark #modal-options .normal-input {
+  background-color: #111827;
+  border-color: #374151;
+  color: #e5e7eb;
+}
+
+.dark #modal-options .normal-input::-webkit-input-placeholder {
+  color: #9ca3af;
+}
+
+.dark #modal-options .normal-input::-moz-placeholder {
+  color: #9ca3af;
+}
+
+.dark #modal-options .normal-input:-ms-input-placeholder {
+  color: #9ca3af;
+}
+
+.dark #modal-options .normal-input::-ms-input-placeholder {
+  color: #9ca3af;
+}
+
+.dark #modal-options .normal-input::placeholder {
+  color: #9ca3af;
+}
+
+.dark #modal-options .normal-prefix {
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #9ca3af;
+}
+
+.dark #drawer-settings #current-playlist,
+.dark #drawer-settings #target-category,
+.dark #drawer-settings #language {
+  background-color: #1f2937;
+  border-color: #4b5563;
+  color: #f3f4f6;
+}
+/*# sourceMappingURL=ambient.css.map */

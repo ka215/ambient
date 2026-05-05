@@ -12,9 +12,7 @@
           aria-controls="collapse-item-body-media"
         >
             <span><?= __( 'Media Management' ); ?></span>
-            <svg data-accordion-icon class="w-3 h-3 rotate-180 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5 5 1 1 5"/>
-            </svg>
+          <span class="accordion-caret" aria-hidden="true"></span>
         </button>
     </h2>
     <div 
@@ -411,9 +409,7 @@
           aria-controls="collapse-item-body-playlist"
         >
             <span><?= __( 'Playlist Management' ); ?></span>
-            <svg data-accordion-icon class="w-3 h-3 rotate-180 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5 5 1 1 5"/>
-            </svg>
+          <span class="accordion-caret" aria-hidden="true"></span>
         </button>
     </h2>
     <div 
@@ -524,7 +520,7 @@
                   id="playlist-management-field-category"
                   class="mb-8"
                 >
-                    <h3 class="text-base font-semibold mb-2 -mx-5 px-5 text-teal-900 dark:text-teal-100 bg-teal-100 dark:bg-teal-950"><?= __( 'Add New Category' ) ?></h3>
+                    <h3 class="text-base font-semibold mb-2 -mx-5 px-5 lead-text"><?= __( 'Add New Category' ) ?></h3>
                     <p class="mb-2 text-gray-500 dark:text-gray-400"><?= __( 'Adds a new category to the currently active playlist.' ) ?></p>
                     <div
                       class="grid gap-4 mb-4 md:grid-cols-2"
@@ -577,7 +573,7 @@
                   id="playlist-management-field-download"
                   class="mb-4"
                 >
-                    <h3 class="text-base font-semibold mb-2 -mx-5 px-5 text-teal-900 dark:text-teal-100 bg-teal-100 dark:bg-teal-950"><?= __( 'Download Playlist' ) ?></h3>
+                    <h3 class="text-base font-semibold mb-2 -mx-5 px-5 lead-text"><?= __( 'Download Playlist' ) ?></h3>
                     <p class="mb-2 text-gray-500 dark:text-gray-400"><?= __( 'Download the currently active playlist in JSON format.' ) ?></p>
                     <div
                       class="flex mb-4"
@@ -627,9 +623,7 @@
           aria-controls="collapse-item-body-issue"
         >
             <span><?= __( 'Report an issue' ); ?></span>
-            <svg data-accordion-icon class="w-3 h-3 rotate-180 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5 5 1 1 5"/>
-            </svg>
+          <span class="accordion-caret" aria-hidden="true"></span>
         </button>
     </h2>
     <div 
@@ -656,9 +650,7 @@
           aria-controls="collapse-item-body-about"
         >
             <span><?= __( 'About Ambient' ); ?></span>
-            <svg data-accordion-icon class="w-3 h-3 rotate-180 shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5 5 1 1 5"/>
-            </svg>
+          <span class="accordion-caret" aria-hidden="true"></span>
         </button>
     </h2>
     <div 

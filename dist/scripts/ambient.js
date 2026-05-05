@@ -580,11 +580,11 @@ const init = function () {
     function clearCarousel() {
         const $CAROUSEL_NO_MEDIA = document.createElement('div');
         $CAROUSEL_NO_MEDIA.id = 'carousel-item-1';
-        $CAROUSEL_NO_MEDIA.classList.add('hidden', 'duration-700', 'ease-in-out');
+        $CAROUSEL_NO_MEDIA.classList.add('hidden', 'h-full', 'items-center', 'justify-center', 'duration-700', 'ease-in-out');
         $CAROUSEL_NO_MEDIA.setAttribute('data-carousel-item', '');
         const $NO_MEDIA_IMAGE = document.createElement('img');
         $NO_MEDIA_IMAGE.src = './views/images/no-media-placeholder.svg';
-        $NO_MEDIA_IMAGE.setAttribute('class', 'absolute block h-full -translate-x-1/2 -translate-y-1/2 top-1/2 left-1/2');
+        $NO_MEDIA_IMAGE.setAttribute('class', 'block h-full max-w-full object-contain');
         $NO_MEDIA_IMAGE.setAttribute('alt', 'No media available');
         $CAROUSEL_NO_MEDIA.appendChild($NO_MEDIA_IMAGE);
         const clone = $CAROUSEL_NO_MEDIA.cloneNode(true);
@@ -624,10 +624,10 @@ const init = function () {
             const $COROUSEL_ITEM = document.createElement('div');
             $COROUSEL_ITEM.id = 'carousel-item-' + (index + 1);
             if (amId === AMP_STATUS.current) {
-                $COROUSEL_ITEM.classList.add('duration-700', 'ease-in-out');
+                $COROUSEL_ITEM.classList.add('h-full', 'items-center', 'justify-center', 'duration-700', 'ease-in-out');
             }
             else {
-                $COROUSEL_ITEM.classList.add('hidden', 'duration-700', 'ease-in-out');
+                $COROUSEL_ITEM.classList.add('hidden', 'h-full', 'items-center', 'justify-center', 'duration-700', 'ease-in-out');
             }
             $COROUSEL_ITEM.setAttribute('data-carousel-item', amId === AMP_STATUS.current ? 'active' : '');
             const $COROUSEL_ITEM_IMAGE = document.createElement('img');
@@ -642,10 +642,10 @@ const init = function () {
             }
             else if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== null && mediaData.videoid !== '') {
                 mediaImage = getYoutubeThumbnailURL(mediaData.videoid ?? '');
-                base_aspect = 'w-full';
+                base_aspect = 'max-h-full';
             }
             $COROUSEL_ITEM_IMAGE.src = mediaImage;
-            $COROUSEL_ITEM_IMAGE.classList.add('absolute', 'block', base_aspect, '-translate-x-1/2', '-translate-y-1/2', 'top-1/2', 'left-1/2');
+            $COROUSEL_ITEM_IMAGE.classList.add('block', base_aspect, 'max-w-full', 'object-contain');
             $COROUSEL_ITEM_IMAGE.setAttribute('alt', mediaData.title);
             if (basename(mediaImage) === 'no-media-placeholder' && isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark) {
                 $COROUSEL_ITEM_IMAGE.setAttribute('style', 'opacity: .7');

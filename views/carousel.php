@@ -21,11 +21,11 @@
       id="carousel-wrapper" 
       class="relative h-56 max-w-sm w-96 overflow-hidden rounded-lg md:h-64"
     >
-        <div id="carousel-item-1" class="hidden duration-700 ease-in-out" data-carousel-item>
-            <img src="views/images/ambient-placeholder.svg" class="absolute block h-full -translate-x-1/2 -translate-y-1/2 top-1/2 left-1/2" alt="NO IMAGE">
+        <div id="carousel-item-1" class="hidden h-full items-center justify-center duration-700 ease-in-out" data-carousel-item>
+            <img src="views/images/ambient-placeholder.svg" class="block h-full max-w-full object-contain" alt="NO IMAGE">
         </div>
-        <div id="carousel-item-2" class="hidden duration-700 ease-in-out" data-carousel-item>
-            <img src="views/images/ambient-placeholder.svg" class="absolute block h-full -translate-x-1/2 -translate-y-1/2 top-1/2 left-1/2" alt="NO IMAGE">
+        <div id="carousel-item-2" class="hidden h-full items-center justify-center duration-700 ease-in-out" data-carousel-item>
+            <img src="views/images/ambient-placeholder.svg" class="block h-full max-w-full object-contain" alt="NO IMAGE">
         </div>
     </div>
     <button 
