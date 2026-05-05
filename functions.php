@@ -25,7 +25,15 @@ function amp_head(): string {
     $add_styles = implode( "\n", $styles );
 
     $output = [];
-    $output[] = '<link href="./dist/tailwindcss.css?20231005" rel="stylesheet" />';
+    $tailwind_min = './dist/tailwindcss.min.css';
+    $tailwind_css = './dist/tailwindcss.css';
+    if ( file_exists( $tailwind_min ) ) {
+        $output[] = '<link href="' . $tailwind_min . '?'. filemtime( $tailwind_min ) . '" rel="stylesheet" />';
+    } elseif ( file_exists( $tailwind_css ) ) {
+        $output[] = '<link href="' . $tailwind_css . '?'. filemtime( $tailwind_css ) . '" rel="stylesheet" />';
+    } else {
+        $output[] = '<link href="./dist/tailwindcss.css?20231005" rel="stylesheet" />';
+    }
     $output[] = '<link href="./dist/flowbite.min.css" rel="stylesheet" />';
     $output[] = '<link rel="preload" href="https://www.youtube.com/player_api" as="script" />';
     //$output[] = '<script src="https://www.youtube.com/iframe_api"></script>';
@@ -50,7 +58,7 @@ function amp_footer(): string {
     //$output[] = '<script src="https://cdn.jsdelivr.net/npm/fs-js@1.0.6/index.min.js" type="module"></script>';
     $output[] = '<script src="./dist/flowbite.min.js"></script>';
 
-    $script_path = './src/scripts/ambient.js';
+    $script_path = './dist/scripts/ambient.js';
     if ( file_exists( $script_path ) ) {
         $script_path .= '?'. filemtime( $script_path );
         $output[] = '<script src="'. $script_path. '"></script>';

@@ -1,0 +1,22 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "tailwind: dev watch",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "tw-dev"],
+      "isBackground": true,
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "tailwind: production build",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "tw-build"],
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}

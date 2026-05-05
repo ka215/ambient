@@ -40,6 +40,13 @@ assets/*.json
 # User-specific extension files
 custom.php
 
+# Playwright
+test-results/
+playwright-report/
+
+# Ignore built minified CSS if generated locally (keep source-controlled CSS if desired)
+dist/*.min.css
+
 # Others
 *.orig
 *.bak
@@ -47,3 +54,4 @@ custom.php
 src/_*.*
 package-lock.json
 refuges/
+.codex/

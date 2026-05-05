@@ -120,7 +120,7 @@ trait api {
             $extension = pathinfo( $filename, PATHINFO_EXTENSION );
             $files = $this->recursive_glob( MEDIA_DIR .'*.'. $extension );
             $files = array_values( array_filter( $files, function( $filepath ) use( $filename ) {
-                return strpos( $filepath, $filename ) !== false;
+                return str_contains( $filepath, $filename );
             } ) );
         } else {
             $files = $this->recursive_glob( MEDIA_DIR .'*'. $filename );
@@ -203,6 +203,73 @@ trait api {
                 //'cmd'   => $exec_command,
             ];
         }
+    }
+
+    /**
+     * This is an API endpoint that saves (upserts) playlist JSON data to the specified file.
+     * Accepts JSON body in POST request and writes it to the playlist file.
+     *
+     * @param  string $playlist_file
+     * @return void                    At post-processing returns an array for the response.
+     */
+    private function upsert_playlist( string $playlist_file ): void {
+        $this->find_playlist();
+
+        if ( !array_key_exists( $playlist_file, $this->playlists ) ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 404,
+                'data'  => [
+                    'message' => $this->__( 'Specified playlist could not be found.' ),
+                ],
+            ];
+            return;
+        }
+
+        $raw_input = file_get_contents( 'php://input' );
+        if ( strlen( $raw_input ) > 10 * 1024 * 1024 ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 400,
+                'data'  => [
+                    'message' => $this->__( 'Request body too large.' ),
+                ],
+            ];
+            return;
+        }
+
+        $data = json_decode( $raw_input, true );
+        if ( json_last_error() !== JSON_ERROR_NONE || !is_array( $data ) ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 400,
+                'data'  => [
+                    'message' => $this->__( 'Invalid JSON data.' ),
+                ],
+            ];
+            return;
+        }
+
+        $json_content = json_encode( $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE );
+        $result = file_put_contents( $this->playlists[$playlist_file], $json_content );
+        if ( $result === false ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 500,
+                'data'  => [
+                    'message' => $this->__( 'Failed to write playlist file.' ),
+                ],
+            ];
+            return;
+        }
+
+        $this->api_response = [
+            'state' => 'ok',
+            'code'  => 200,
+            'data'  => [
+                'message' => $this->__( 'Playlist saved successfully.' ),
+            ],
+        ];
     }
 
     /**

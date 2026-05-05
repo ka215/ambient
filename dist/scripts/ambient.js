@@ -1,0 +1,2857 @@
+"use strict";
+/**
+/**
+ * Ambient Media Player v2 - TypeScript Frontend Application
+ * Ported from ambient.js with full type safety
+ */
+/// <reference path="./types/index.ts" />
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+const init = function () {
+    const selfURL = new URL(window.location.href);
+    const BASE_URL = selfURL.origin + selfURL.pathname;
+    if (!window.hasOwnProperty('APP_KEY')) {
+        window.APP_KEY = 'AmbientUserData';
+    }
+    useStge();
+    const AMP_STATUS = initStatus();
+    /**
+     * Initialize AMP_STATUS object.
+     */
+    function initStatus() {
+        removeStge();
+        const baseObj = window.$ambient || {};
+        return Object.assign(baseObj, {
+            prev: null,
+            current: null,
+            next: null,
+            ctg: -1,
+            category: null,
+            playlist: null,
+            media: null,
+            order: 'normal',
+            playertype: null,
+            volume: null,
+            options: null,
+            addtype: null,
+            notice: null,
+            loop: null,
+            yt_phase: 'idle',
+            yt_seq: 0,
+            yt_error: '',
+        });
+    }
+    // Window sizes container
+    const currentWindowSize = {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        minFullUIWidth: 1282, // = 320 + 1 + 640 + 1 + 320
+    };
+    // Advance preparation for using YouTube players.
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/player_api';
+    const firstScriptTag = document.getElementsByTagName('script')[0];
+    let player;
+    /**
+     * Reflect YouTube signal states to body data attributes for DOM-driven waits.
+     */
+    function syncYouTubeSignalAttrs() {
+        const body = document.body;
+        if (!body) {
+            return;
+        }
+        body.setAttribute('data-yt-phase', String(AMP_STATUS.yt_phase || 'idle'));
+        body.setAttribute('data-yt-seq', String(AMP_STATUS.yt_seq || 0));
+        body.setAttribute('data-yt-error', String(AMP_STATUS.yt_error || ''));
+    }
+    /**
+     * Update YouTube signal states and emit attribute updates.
+     */
+    function emitYouTubeSignal(phase, error = '') {
+        AMP_STATUS.yt_phase = phase;
+        AMP_STATUS.yt_error = error;
+        AMP_STATUS.yt_seq = Number(AMP_STATUS.yt_seq || 0) + 1;
+        syncYouTubeSignalAttrs();
+    }
+    emitYouTubeSignal('api_loading');
+    tag.addEventListener('load', () => {
+        emitYouTubeSignal('api_loaded');
+    });
+    tag.addEventListener('error', () => {
+        emitYouTubeSignal('api_error', 'player_api_load_failed');
+    });
+    if (firstScriptTag?.parentNode) {
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    }
+    // seek container
+    let seekId = null;
+    /**
+     * Abort seek for playback media.
+     */
+    function abortSeeking() {
+        if (seekId) {
+            clearInterval(seekId);
+            seekId = null;
+        }
+    }
+    // fader container
+    let fadeinId = null;
+    let fadeoutId = null;
+    /**
+     * Abort fader for playback media.
+     * @param type Either `fadein` or `fadeout`
+     */
+    function abortFader(type) {
+        if (type === 'fadein') {
+            if (fadeinId) {
+                clearInterval(fadeinId);
+                fadeinId = null;
+            }
+        }
+        else {
+            if (fadeoutId) {
+                clearInterval(fadeoutId);
+                fadeoutId = null;
+            }
+        }
+    }
+    /**
+     * Watcher for AMP_STATUS object.
+     */
+    function watchState() {
+        const callback = function (prop, _oldValue, newValue) {
+            switch (true) {
+                case /^(prev|current|next|ctg|order|loop)$/i.test(prop):
+                    // Synchronize to the saved data of web storage when specific properties of AMP_STATUS object are changed.
+                    saveStge(prop, newValue);
+                    if ('current' === prop) {
+                        changePlaylistFocus();
+                    }
+                    if ('order' === prop) {
+                        changeToggleRandomly();
+                    }
+                    break;
+                case /^media$/i.test(prop):
+                    togglePlayerControllButtons();
+                    break;
+                case /^category$/i.test(prop):
+                    updateCategory();
+                    break;
+                case /^shuffle$/i.test(prop):
+                    changeToggleShuffle();
+                    break;
+                case /^volume$/i.test(prop):
+                    changeRangeVolume();
+                    break;
+                case /^notice$/i.test(prop):
+                    if (newValue) {
+                        updateNotice(newValue);
+                    }
+                    break;
+                case /^options$/i.test(prop):
+                    applyOptions();
+                    break;
+                case /^yt_(phase|seq|error)$/i.test(prop):
+                    syncYouTubeSignalAttrs();
+                    break;
+            }
+        };
+        Object.keys(AMP_STATUS).forEach((propName) => {
+            let value = AMP_STATUS[propName];
+            Object.defineProperty(AMP_STATUS, propName, {
+                get: () => value,
+                set: (newValue) => {
+                    const oldValue = value;
+                    value = newValue;
+                    if (oldValue !== newValue) {
+                        callback(propName, oldValue, value);
+                    }
+                },
+                enumerable: true,
+                configurable: true,
+            });
+        });
+    }
+    watchState();
+    // Process global data passed by the system.
+    if (window.AmbientData) {
+        const ambientData = window.AmbientData;
+        if (ambientData.hasOwnProperty('currentPlaylist')) {
+            // If there is only one playlist, load immediately.
+            const currentPlaylist = ambientData.currentPlaylist;
+            AMP_STATUS.playlist = currentPlaylist;
+            getPlaylistData(currentPlaylist);
+        }
+        else if (ambientData.hasOwnProperty('playlists') &&
+            Object.keys(ambientData.playlists || {}).length > 1) {
+            // If there are multiple playlists, do nothing yet.
+        }
+    }
+    /**
+     * Fetch data of specific playlist.
+     */
+    async function getPlaylistData(playlist) {
+        initStatus();
+        const endpointURL = `${BASE_URL}playlist/${playlist}`;
+        const response = await fetchData(endpointURL);
+        if (response && typeof response === 'object' && 'data' in response) {
+            const data = response.data;
+            if (data && data.hasOwnProperty('options')) {
+                AMP_STATUS.options = data.options || null;
+            }
+            if (data && data.hasOwnProperty('media')) {
+                let media = [];
+                if (data.media && Object.keys(data.media).length > 0) {
+                    const categories = Object.keys(data.media);
+                    categories.forEach((category, cid) => {
+                        // Assign index number of category to media item.
+                        if (data.media && data.media[category] && data.media[category].length > 0) {
+                            media = media.concat(data.media[category].map((item) => {
+                                item.catId = cid; // Index number of category starting at 0
+                                return item;
+                            }));
+                        }
+                    });
+                    AMP_STATUS.category = categories;
+                }
+                if (media.length > 0) {
+                    // Filters available media only then Assign unique index number to media item.
+                    let amid = 0;
+                    media = media
+                        .filter((item) => item.hasOwnProperty('title') && item.title !== '')
+                        .map((item) => {
+                        item.amId = amid; // Index number of media starting at 0
+                        amid++;
+                        return item;
+                    });
+                }
+                AMP_STATUS.media = media;
+                updatePlaylist();
+            }
+        }
+    }
+    // DOM Elements
+    const $BODY = document.body;
+    const $ALERT = document.getElementById('alert-notification');
+    const $SELECT_PLAYLIST = document.getElementById('current-playlist');
+    const $SELECT_CATEGORY = document.getElementById('target-category');
+    const $TOGGLE_LOOP = document.getElementById('toggle-loop');
+    const $TOGGLE_RANDOMLY = document.getElementById('toggle-randomly');
+    const $TOGGLE_SHUFFLE = document.getElementById('toggle-shuffle');
+    const $TOGGLE_SEEKPLAY = document.getElementById('toggle-seekplay');
+    const $TOGGLE_FADER = document.getElementById('toggle-fader');
+    const $RANGE_VOLUME = document.getElementById('default-volume');
+    const $TOGGLE_DARKMODE = document.getElementById('toggle-darkmode');
+    const $SELECT_LANGUAGE = document.getElementById('language');
+    const $DRAWER_PLAYLIST = document.getElementById('drawer-playlist');
+    const $DRAWER_SETTINGS = document.getElementById('drawer-settings');
+    const $LIST_PLAYLIST = document.getElementById('playlist-list-group');
+    const $CAROUSEL_WRAPPER = document.getElementById('carousel-wrapper');
+    const $CAROUSEL_PREV = document.getElementById('data-carousel-prev');
+    const $CAROUSEL_NEXT = document.getElementById('data-carousel-next');
+    const $MEDIA_CAPTION = document.getElementById('media-caption');
+    const $EMBED_WRAPPER = document.getElementById('embed-wrapper');
+    const $OPTIONAL_CONTAINER = document.getElementById('optional-container');
+    const $BUTTON_WATCH_TY = document.getElementById('btn-watch-origin');
+    const $MENU = document.getElementById('menu-container');
+    const $BUTTON_PLAYLIST = document.getElementById('btn-playlist');
+    const $BUTTON_REFRESH = document.getElementById('btn-refresh');
+    const $BUTTON_PLAY = document.getElementById('btn-play');
+    const $BUTTON_PAUSE = document.getElementById('btn-pause');
+    const $BUTTON_SETTINGS = document.getElementById('btn-settings');
+    const $BUTTON_OPTIONS = document.getElementById('btn-options');
+    const $BUTTON_CLOSE_OPTIONS = document.getElementById('btn-close-options');
+    const $MODAL_OPTIONS = document.getElementById('modal-options');
+    const $COLLAPSE_MENU = document.getElementById('collapse-menu');
+    // Add elements since v1.1.0
+    const $MEDIA_CATEGORY_SELECT = document.getElementById('media-category');
+    /**
+     * Method for switching display of alert component.
+     */
+    function toggleAlert(state = null, auto_close = null) {
+        let shown;
+        switch (true) {
+            case /^show(|n)$/i.test(state || ''):
+                shown = true;
+                break;
+            case /^hid(e|den)$/i.test(state || ''):
+                shown = false;
+                break;
+            default:
+                shown = $ALERT.classList.contains('opacity-0');
+                break;
+        }
+        toggleClass($ALERT, { 'opacity-0': !shown });
+        // auto dismiss
+        if (shown && auto_close && auto_close > 0) {
+            new Promise((resolve) => {
+                setTimeout(() => {
+                    // start fadeout after delay time
+                    toggleClass($ALERT, { 'opacity-0': true });
+                    resolve();
+                }, auto_close);
+            }).then(() => {
+                setTimeout(() => {
+                    // finally hiding after has been fadeout duration
+                    toggleClass($ALERT, { hidden: true });
+                }, 1000);
+            });
+        }
+    }
+    if (isElement($ALERT)) {
+        toggleAlert('hide');
+    }
+    /**
+     * Return focus to the options trigger when the modal is being hidden.
+     */
+    function restoreOptionsTriggerFocus() {
+        if (isElement($BUTTON_OPTIONS)) {
+            $BUTTON_OPTIONS.focus();
+        }
+    }
+    if (isElement($BUTTON_CLOSE_OPTIONS)) {
+        $BUTTON_CLOSE_OPTIONS.addEventListener('click', () => {
+            restoreOptionsTriggerFocus();
+        }, true);
+    }
+    watcher($MODAL_OPTIONS, (mutation) => {
+        if (mutation.type !== 'attributes') {
+            return;
+        }
+        const modalElm = mutation.target;
+        const activeElm = document.activeElement;
+        const isModalHidden = modalElm.getAttribute('aria-hidden') === 'true' || modalElm.classList.contains('hidden');
+        const isFocusInsideModal = activeElm instanceof HTMLElement && modalElm.contains(activeElm);
+        if (isModalHidden && isFocusInsideModal) {
+            restoreOptionsTriggerFocus();
+        }
+    }, { attributes: true, childList: false, subtree: false, attributeFilter: ['aria-hidden', 'class'] });
+    /**
+     * Monitors the state of the playlist drawer component and fires
+     * an event when it is displayed.
+     */
+    watcher($DRAWER_PLAYLIST, (mutation) => {
+        if (mutation.attributeName === 'aria-modal' && mutation.target.ariaModal === 'true') {
+            scrollToFocusItem();
+        }
+    }, { attributes: true, childList: false, subtree: true, attributeFilter: ['aria-modal'] });
+    /**
+     * Monitors the state of the collapse menu component and fires
+     * an event when it is opened.
+     */
+    watcher($COLLAPSE_MENU, (mutation) => {
+        if (mutation.attributeName === 'aria-expanded' && mutation.target.ariaExpanded === 'true') {
+            const is_collapse_open = mutation.target.ariaExpanded === 'true';
+            const collapse_item_id = mutation.target.getAttribute('aria-controls');
+            if (is_collapse_open && collapse_item_id) {
+                const $COLLAPSE_ITEM = document.getElementById(collapse_item_id);
+                if ($COLLAPSE_ITEM?.firstElementChild) {
+                    $COLLAPSE_ITEM.firstElementChild.setAttribute('style', 'max-height: calc(100vh - 420px)');
+                }
+            }
+        }
+    }, { attributes: true, childList: false, subtree: true, attributeFilter: ['aria-expanded'] });
+    /**
+     * Empty the playlist.
+     */
+    function clearPlaylist() {
+        // Clear all items of playlist
+        const $NO_MEDIA = document.getElementById('no-media');
+        const clone = $NO_MEDIA?.cloneNode(true);
+        while ($LIST_PLAYLIST.firstChild) {
+            $LIST_PLAYLIST.removeChild($LIST_PLAYLIST.firstChild);
+        }
+        if (clone) {
+            $LIST_PLAYLIST.appendChild(clone);
+        }
+    }
+    /**
+     * Create a playlist from the data of the AMP_STATUS object.
+     */
+    function updatePlaylist() {
+        clearPlaylist();
+        const $LIST_NO_MEDIA = document.getElementById('no-media');
+        let is_no_media = AMP_STATUS.media && AMP_STATUS.media.length === 0;
+        let items = [];
+        if (!AMP_STATUS.hasOwnProperty('ctg') || AMP_STATUS.ctg === null || Number(AMP_STATUS.ctg) === -1) {
+            items = AMP_STATUS.media || [];
+        }
+        else {
+            items = (AMP_STATUS.media || []).filter((item) => item.catId === AMP_STATUS.ctg);
+        }
+        is_no_media = items.length === 0;
+        // Enable playlist download
+        const $BUTTON_DOWNLOAD_PLAYLIST = document.getElementById('btn-download-playlist');
+        setAtts($BUTTON_DOWNLOAD_PLAYLIST, { disabled: '' }, true);
+        if (is_no_media) {
+            // no playable media
+            $LIST_NO_MEDIA.classList.remove('hidden');
+            return;
+        }
+        else {
+            $LIST_NO_MEDIA.classList.add('hidden');
+        }
+        const isShuffle = getOption('shuffle') || false;
+        if (isShuffle) {
+            // Shuffle (evenly mix) the items array
+            AMP_STATUS.shuffle = items
+                .map((value) => ({ value, random: Math.random() }))
+                .sort((a, b) => a.random - b.random)
+                .map(({ value }) => value);
+            logger('updatePlaylist::createShufflePlaylist:', AMP_STATUS.shuffle);
+        }
+        items.forEach((item) => {
+            const itemElm = document.createElement('a');
+            itemElm.href = '#';
+            if (AMP_STATUS.current && AMP_STATUS.current !== null && AMP_STATUS.current === item.amId) {
+                itemElm.setAttribute('aria-current', 'true');
+                itemElm.setAttribute('class', 'flex items-center gap-2 w-full px-4 py-2 text-white bg-blue-500 border-b border-gray-200 cursor-pointer dark:bg-gray-800 dark:border-gray-600');
+            }
+            else {
+                itemElm.setAttribute('class', 'flex items-center gap-2 w-full px-4 py-2 border-b border-gray-200 cursor-pointer hover:bg-gray-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-500 dark:focus:text-white');
+            }
+            itemElm.setAttribute('data-playlist-item', String(item.amId));
+            let imageSrc = './views/images/no-media-thumb.svg';
+            if ((item.image && item.image !== '') || (item.thumb && item.thumb !== '')) {
+                const ambientData = window.AmbientData;
+                if (ambientData && ambientData.imageDir) {
+                    imageSrc = ambientData.imageDir + (item.thumb && item.thumb !== '' ? item.thumb : item.image);
+                }
+            }
+            else if (item.videoid && item.videoid !== '') {
+                imageSrc = getYoutubeThumbnailURL(item.videoid);
+            }
+            // Set thumbnail image.
+            const imgElm = document.createElement('img');
+            imgElm.setAttribute('src', imageSrc);
+            imgElm.classList.add('block', 'h-8', 'w-8', 'rounded', 'object-cover');
+            imgElm.setAttribute('alt', mb_strimwidth(item.title, 0, 50, '...'));
+            itemElm.appendChild(imgElm);
+            let labelText = item.title;
+            const format = getOption('playlist');
+            if (format) {
+                labelText = filterText(format, item);
+            }
+            if (/<.*?[!^<].*?>/gi.test(labelText)) {
+                itemElm.insertAdjacentHTML('beforeend', labelText);
+            }
+            else {
+                itemElm.append(document.createTextNode(labelText));
+            }
+            $LIST_PLAYLIST.appendChild(itemElm);
+        });
+        Array.from($LIST_PLAYLIST.querySelectorAll('a')).forEach((elm) => {
+            elm.addEventListener('click', (evt) => {
+                const target = evt.target;
+                playItem(target);
+                // Toggle player control buttons shown.
+                $BUTTON_PLAY.classList.add('hidden');
+                $BUTTON_PAUSE.classList.remove('hidden');
+            });
+        });
+        // For debugging code
+        const ambientData = window.AmbientData;
+        if (ambientData.hasOwnProperty('debug') && ambientData.debug) {
+            execDebug();
+        }
+    }
+    /**
+     * Get the URL of the thumbnail image of YouTube media.
+     */
+    function getYoutubeThumbnailURL(videoid) {
+        return 'https://img.youtube.com/vi/' + videoid + '/hqdefault.jpg';
+    }
+    /**
+     * Clears items in the category selection field in the settings menu.
+     */
+    function clearCategory() {
+        const $ALL_CATEGORY = document.getElementById('all-category');
+        const clone = $ALL_CATEGORY?.cloneNode(true);
+        while ($SELECT_CATEGORY.firstChild) {
+            $SELECT_CATEGORY.removeChild($SELECT_CATEGORY.firstChild);
+        }
+        if (clone) {
+            $SELECT_CATEGORY.appendChild(clone);
+            $SELECT_CATEGORY.firstElementChild?.setAttribute('disabled', '');
+            $SELECT_CATEGORY.setAttribute('disabled', '');
+        }
+        // add since v1.1.0
+        while ($MEDIA_CATEGORY_SELECT.firstChild) {
+            $MEDIA_CATEGORY_SELECT.removeChild($MEDIA_CATEGORY_SELECT.firstChild);
+        }
+        const $MEDIA_CATEGORY_SELECT_FIRST_CHILD = document.createElement('option');
+        $MEDIA_CATEGORY_SELECT_FIRST_CHILD.setAttribute('value', '');
+        $MEDIA_CATEGORY_SELECT_FIRST_CHILD.textContent =
+            $MEDIA_CATEGORY_SELECT.getAttribute('data-placeholder') || '';
+        $MEDIA_CATEGORY_SELECT.appendChild($MEDIA_CATEGORY_SELECT_FIRST_CHILD);
+    }
+    /**
+     * Update the items in the category selection field of the settings menu.
+     */
+    function updateCategory() {
+        if (AMP_STATUS.category && AMP_STATUS.category.length > 0) {
+            AMP_STATUS.category.forEach((catName, catId) => {
+                const optElm = document.createElement('option');
+                optElm.value = String(catId);
+                optElm.textContent = catName;
+                if (AMP_STATUS.category && AMP_STATUS.category.length === 1) {
+                    optElm.setAttribute('selected', 'selected');
+                }
+                $SELECT_CATEGORY.appendChild(optElm);
+                // add since v1.1.0
+                const cloneOpt = optElm.cloneNode(true);
+                $MEDIA_CATEGORY_SELECT.appendChild(cloneOpt);
+            });
+        }
+        $SELECT_CATEGORY.firstElementChild?.removeAttribute('disabled');
+        $SELECT_CATEGORY.removeAttribute('disabled');
+    }
+    /**
+     * Getter for optional data of the AMP_STATUS object.
+     */
+    function getOption(key) {
+        if (AMP_STATUS.hasOwnProperty('options') && AMP_STATUS.options !== null) {
+            if (!AMP_STATUS.options.hasOwnProperty(key) || AMP_STATUS.options[key] === null || AMP_STATUS.options[key] === '') {
+                return null;
+            }
+            else {
+                return AMP_STATUS.options[key];
+            }
+        }
+        else {
+            return null;
+        }
+    }
+    /**
+     * Causes the application to apply specific option contents of the AMP_STATUS object.
+     */
+    function applyOptions() {
+        // Applies if a background image is specified.
+        const bgImage = getOption('background');
+        const ambientData = window.AmbientData;
+        if (bgImage && ambientData && ambientData.hasOwnProperty('imageDir')) {
+            const bgSrc = ambientData.imageDir + bgImage;
+            $BODY.setAttribute('style', `background-image: url('${bgSrc}');`);
+            $BODY.classList.add('bg-no-repeat', 'bg-bottom', 'bg-cover');
+            $MENU.setAttribute('style', 'background: linear-gradient(to bottom, rgba(255,255,255,.3), 50%, rgba(255,255,255,1));');
+        }
+        else {
+            $BODY.removeAttribute('style');
+            $BODY.classList.remove('bg-no-repeat', 'bg-bottom', 'bg-cover');
+            $MENU.removeAttribute('style');
+        }
+        // Applies if a randomly playback is specified.
+        const isRandom = getOption('random');
+        if (isRandom !== null) {
+            AMP_STATUS.order = isRandom ? 'random' : 'normal';
+        }
+        // Applies if a shuffle playback is specified.
+        const isShuffle = getOption('shuffle');
+        if (isShuffle !== null && isShuffle) {
+            AMP_STATUS.shuffle = [];
+            changeToggleShuffle();
+        }
+        // Applies if a seeking playback is specified.
+        const isSeekplay = getOption('seek');
+        if (isSeekplay !== null) {
+            changeToggleSeekplay();
+        }
+        // Applies if a pseudo fader is specified, since v1.2.0
+        const isFader = getOption('fader');
+        if (isFader !== null) {
+            changeToggleFader();
+        }
+        // Applies if a default volume is specified.
+        AMP_STATUS.volume = getOption('volume') || 100;
+        changeRangeVolume();
+        // Applies if a dark mode is specified.
+        const isDarkMode = getOption('dark');
+        if (isDarkMode !== null) {
+            if (AMP_STATUS.options) {
+                AMP_STATUS.options.dark = isDarkMode;
+            }
+        }
+        changeToggleDarkmode();
+    }
+    /**
+     * Clear and initialize the carousel display.
+     */
+    function clearCarousel() {
+        const $CAROUSEL_NO_MEDIA = document.createElement('div');
+        $CAROUSEL_NO_MEDIA.id = 'carousel-item-1';
+        $CAROUSEL_NO_MEDIA.classList.add('hidden', 'h-full', 'items-center', 'justify-center', 'duration-700', 'ease-in-out');
+        $CAROUSEL_NO_MEDIA.setAttribute('data-carousel-item', '');
+        const $NO_MEDIA_IMAGE = document.createElement('img');
+        $NO_MEDIA_IMAGE.src = './views/images/no-media-placeholder.svg';
+        $NO_MEDIA_IMAGE.setAttribute('class', 'block h-full max-w-full object-contain');
+        $NO_MEDIA_IMAGE.setAttribute('alt', 'No media available');
+        $CAROUSEL_NO_MEDIA.appendChild($NO_MEDIA_IMAGE);
+        const clone = $CAROUSEL_NO_MEDIA.cloneNode(true);
+        clone.id = 'carousel-item-2';
+        while ($CAROUSEL_WRAPPER.firstChild) {
+            $CAROUSEL_WRAPPER.removeChild($CAROUSEL_WRAPPER.firstChild);
+        }
+        $CAROUSEL_WRAPPER.appendChild($CAROUSEL_NO_MEDIA);
+        $CAROUSEL_WRAPPER.appendChild(clone);
+        $CAROUSEL_PREV.setAttribute('disabled', '');
+        $CAROUSEL_NEXT.setAttribute('disabled', '');
+    }
+    /**
+     * Update the carousel display.
+     */
+    function updateCarousel() {
+        const items = [];
+        let is_show = false;
+        if (AMP_STATUS.hasOwnProperty('prev') && AMP_STATUS.prev !== null) {
+            items.push(AMP_STATUS.prev);
+        }
+        if (AMP_STATUS.hasOwnProperty('current') && AMP_STATUS.current !== null) {
+            items.push(AMP_STATUS.current);
+            is_show = true;
+        }
+        if (AMP_STATUS.hasOwnProperty('next') && AMP_STATUS.next !== null) {
+            items.push(AMP_STATUS.next);
+        }
+        if (!is_show) {
+            clearCarousel();
+            return;
+        }
+        while ($CAROUSEL_WRAPPER.firstChild) {
+            $CAROUSEL_WRAPPER.removeChild($CAROUSEL_WRAPPER.firstChild);
+        }
+        items.forEach((amId, index) => {
+            const $COROUSEL_ITEM = document.createElement('div');
+            $COROUSEL_ITEM.id = 'carousel-item-' + (index + 1);
+            if (amId === AMP_STATUS.current) {
+                $COROUSEL_ITEM.classList.add('h-full', 'items-center', 'justify-center', 'duration-700', 'ease-in-out');
+            }
+            else {
+                $COROUSEL_ITEM.classList.add('hidden', 'h-full', 'items-center', 'justify-center', 'duration-700', 'ease-in-out');
+            }
+            $COROUSEL_ITEM.setAttribute('data-carousel-item', amId === AMP_STATUS.current ? 'active' : '');
+            const $COROUSEL_ITEM_IMAGE = document.createElement('img');
+            let mediaImage = './views/images/no-media-placeholder.svg';
+            const mediaData = (AMP_STATUS.media || []).filter((item) => item.amId === amId).shift();
+            if (!mediaData)
+                return;
+            let base_aspect = 'h-full';
+            if (mediaData.hasOwnProperty('image') && mediaData.image !== null && mediaData.image !== '') {
+                const ambientData = window.AmbientData;
+                mediaImage = (ambientData.imageDir ?? '') + (mediaData.image ?? '');
+            }
+            else if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== null && mediaData.videoid !== '') {
+                mediaImage = getYoutubeThumbnailURL(mediaData.videoid ?? '');
+                base_aspect = 'max-h-full';
+            }
+            $COROUSEL_ITEM_IMAGE.src = mediaImage;
+            $COROUSEL_ITEM_IMAGE.classList.add('block', base_aspect, 'max-w-full', 'object-contain');
+            $COROUSEL_ITEM_IMAGE.setAttribute('alt', mediaData.title);
+            if (basename(mediaImage) === 'no-media-placeholder' && isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark) {
+                $COROUSEL_ITEM_IMAGE.setAttribute('style', 'opacity: .7');
+            }
+            $COROUSEL_ITEM.appendChild($COROUSEL_ITEM_IMAGE);
+            $CAROUSEL_WRAPPER.appendChild($COROUSEL_ITEM);
+        });
+        $CAROUSEL_PREV.removeAttribute('disabled');
+        $CAROUSEL_NEXT.removeAttribute('disabled');
+    }
+    /**
+     * Update the media caption display.
+     */
+    function updateMediaCaption(mediaData) {
+        const format = getOption('caption') || '%artist% - %title%';
+        const labelText = filterText(format, mediaData);
+        while ($MEDIA_CAPTION.firstChild) {
+            $MEDIA_CAPTION.removeChild($MEDIA_CAPTION.firstChild);
+        }
+        const $textWrap = document.createElement('div');
+        $textWrap.classList.add('marquee-inner');
+        if (/<.*?[!^<].*?>/gi.test(labelText)) {
+            $textWrap.innerHTML = labelText;
+        }
+        else {
+            $textWrap.appendChild(document.createTextNode(labelText));
+        }
+        $MEDIA_CAPTION.appendChild($textWrap);
+        toggleMarqueeCaption();
+    }
+    /**
+     * Toggle caption marqueeing depending on window size.
+     */
+    function toggleMarqueeCaption() {
+        const $MARQUEE_NODE = $MEDIA_CAPTION.querySelector('.marquee-inner');
+        if (!isElement($MARQUEE_NODE)) {
+            return;
+        }
+        const $MARQUEE_CLONE = $MARQUEE_NODE.cloneNode(true);
+        const marqueeDuration = Math.floor(($MARQUEE_NODE.clientWidth || 0) / 32); // 16px = 1rem
+        if (($MARQUEE_NODE.clientWidth || 0) > currentWindowSize.width || ($MARQUEE_NODE.clientWidth || 0) > 640) {
+            // Turn overflow text into a marquee.
+            $MARQUEE_CLONE.setAttribute('aria-hidden', 'true');
+            $MEDIA_CAPTION.appendChild($MARQUEE_CLONE);
+            $MEDIA_CAPTION.querySelectorAll('.marquee-inner').forEach((elm) => {
+                elm.animate({
+                    // .gap-2 = 0.5rem = 8px
+                    translate: ['0px', 'calc(-100% - 8px)'],
+                }, {
+                    duration: marqueeDuration * 1000,
+                    iterations: Infinity,
+                });
+            });
+        }
+        else {
+            while ($MEDIA_CAPTION.firstChild) {
+                $MEDIA_CAPTION.removeChild($MEDIA_CAPTION.firstChild);
+            }
+            $MEDIA_CAPTION.appendChild($MARQUEE_CLONE);
+        }
+    }
+    /**
+     * Filters text to the specified format.
+     */
+    function filterText(format, mediaData) {
+        const patterns = format.match(/%(.+?)%/gi);
+        let text = format;
+        if (patterns && patterns.length > 0) {
+            patterns.forEach((pattern) => {
+                const property = pattern.replaceAll('%', '');
+                const replacer = (mediaData.hasOwnProperty(property) && mediaData[property])
+                    ? mediaData[property]
+                    : '';
+                text = text.replaceAll(`%${property}%`, replacer);
+            });
+            text = text
+                .trim()
+                .replace(/^[-_‐–−—ー]?(.*)[-_‐–−—ー]?$/, '$1')
+                .trim();
+        }
+        return text;
+    }
+    // ============================================================================
+    // EVENT HANDLERS
+    // ============================================================================
+    /**
+     * Event listener when the playlist selection field in the settings menu is changed.
+     */
+    $SELECT_PLAYLIST.addEventListener('change', (evt) => {
+        const newPlaylist = evt.target.value;
+        let oldPlaylist = null;
+        if (AMP_STATUS.hasOwnProperty('playlist')) {
+            oldPlaylist = AMP_STATUS.playlist;
+        }
+        if (oldPlaylist !== newPlaylist) {
+            getPlaylistData(newPlaylist);
+            clearCategory();
+        }
+        AMP_STATUS.playlist = newPlaylist;
+    });
+    /**
+     * Event listener when the category selection field in the settings menu is changed.
+     */
+    $SELECT_CATEGORY.addEventListener('change', (evt) => {
+        let oldCtgId = null;
+        if (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null) {
+            oldCtgId = AMP_STATUS.ctg;
+        }
+        const newCtgId = Number(evt.target.value);
+        if (oldCtgId !== newCtgId) {
+            AMP_STATUS.ctg = newCtgId;
+            AMP_STATUS.prev = null;
+            AMP_STATUS.current = null;
+            AMP_STATUS.next = null;
+        }
+        updatePlaylist();
+    });
+    /**
+     * Event listener when the button of "previous" for carousel has been clicked.
+     */
+    $CAROUSEL_PREV.addEventListener('click', (_evt) => {
+        if (AMP_STATUS.prev !== null) {
+            playItem(null, AMP_STATUS.prev);
+        }
+    });
+    /**
+     * Event listener when the button of "next" for carousel has been clicked.
+     */
+    $CAROUSEL_NEXT.addEventListener('click', (_evt) => {
+        if (AMP_STATUS.next !== null) {
+            playItem(null, AMP_STATUS.next);
+        }
+    });
+    /**
+     * Event listener when the button of "refresh" in bottom menu has been clicked.
+     */
+    $BUTTON_REFRESH.addEventListener('click', (_evt) => {
+        reloadPage();
+    });
+    /**
+     * Toggle the display of player controls button after media loaded.
+     */
+    function togglePlayerControllButtons() {
+        if (AMP_STATUS.media !== null && AMP_STATUS.media.length > 0) {
+            // There are activated when available media are set.
+            $BUTTON_PLAY.removeAttribute('disabled');
+            $BUTTON_PAUSE.removeAttribute('disabled');
+        }
+        else {
+            // There are deactivated when no available media.
+            $BUTTON_PLAY.setAttribute('disabled', '');
+            $BUTTON_PLAY.classList.remove('hidden');
+            $BUTTON_PAUSE.setAttribute('disabled', '');
+            $BUTTON_PAUSE.classList.add('hidden');
+        }
+    }
+    /**
+     * Event listener when the "play" button in bottom menu has been clicked.
+     */
+    $BUTTON_PLAY.addEventListener('click', (_evt) => {
+        let playableIds = (AMP_STATUS.media || []).map((item) => item.amId);
+        if (AMP_STATUS.ctg > -1) {
+            playableIds = (AMP_STATUS.media || [])
+                .filter((item) => item.catId === AMP_STATUS.ctg)
+                .map((item) => item.amId);
+        }
+        const isShuffle = getOption('shuffle') || false;
+        if (isShuffle && AMP_STATUS.hasOwnProperty('shuffle') && (AMP_STATUS.shuffle || []).length > 0) {
+            playableIds = (AMP_STATUS.shuffle || []).map((item) => item.amId);
+        }
+        let playId;
+        if (AMP_STATUS.current !== null) {
+            playId = AMP_STATUS.current;
+        }
+        else {
+            if (AMP_STATUS.order === 'random') {
+                playId = playableIds[Math.floor(Math.random() * playableIds.length)] ?? 0;
+            }
+            else {
+                playId = playableIds.shift() || 0;
+            }
+        }
+        if (AMP_STATUS.playertype === 'youtube' && player) {
+            const YTPstate = player.getPlayerState();
+            logger('"Play" the YouTube Player:', YTPstate);
+            if (YTPstate !== -1) {
+                player.playVideo();
+            }
+        }
+        else if (/^(audio|video)$/i.test(AMP_STATUS.playertype || '')) {
+            const _elms = document.getElementsByTagName(AMP_STATUS.playertype);
+            const playerElm = _elms[0];
+            playerElm.play();
+        }
+        else {
+            playItem(null, playId);
+        }
+        // Toggle this button shown.
+        $BUTTON_PLAY.classList.add('hidden');
+        $BUTTON_PAUSE.classList.remove('hidden');
+    });
+    /**
+     * Event listener when the "pause" button in bottom menu has been clicked.
+     */
+    $BUTTON_PAUSE.addEventListener('click', (_evt) => {
+        if (!AMP_STATUS.hasOwnProperty('playertype') || AMP_STATUS.playertype === null) {
+            return;
+        }
+        if (AMP_STATUS.playertype === 'youtube' && player) {
+            if (player.getPlayerState() === 1) {
+                player.pauseVideo();
+            }
+            else {
+                player.stopVideo();
+            }
+        }
+        else if (/^(audio|video)$/i.test(AMP_STATUS.playertype)) {
+            const _elms = document.getElementsByTagName(AMP_STATUS.playertype);
+            const playerElm = _elms[0];
+            playerElm.pause();
+        }
+        else {
+            // Deactivate their player control buttons.
+            $BUTTON_PLAY.setAttribute('disabled', '');
+            $BUTTON_PLAY.classList.remove('hidden');
+            $BUTTON_PAUSE.setAttribute('disabled', '');
+            $BUTTON_PAUSE.classList.add('hidden');
+        }
+        // Toggle this button shown.
+        $BUTTON_PAUSE.classList.add('hidden');
+        $BUTTON_PLAY.classList.remove('hidden');
+    });
+    /**
+     * Toggle style to focus the active item in a playlist.
+     */
+    function changePlaylistFocus() {
+        // Change the focus of playlist.
+        Array.from($LIST_PLAYLIST.querySelectorAll('a')).forEach((elm) => {
+            if (AMP_STATUS.current !== null && elm.dataset.playlistItem === String(AMP_STATUS.current)) {
+                elm.setAttribute('aria-current', 'true');
+                elm.setAttribute('class', 'flex items-center gap-2 w-full px-4 py-2 text-white bg-blue-500 border-b border-gray-200 cursor-pointer dark:bg-gray-800 dark:border-gray-600');
+            }
+            else {
+                elm.removeAttribute('aria-current');
+                elm.setAttribute('class', 'flex items-center gap-2 w-full px-4 py-2 border-b border-gray-200 cursor-pointer hover:bg-gray-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-500 dark:focus:text-white');
+            }
+        });
+        scrollToFocusItem();
+    }
+    /**
+     * Auto-scroll to active item in playlist.
+     */
+    function scrollToFocusItem() {
+        const targetElm = $LIST_PLAYLIST.querySelector('a[aria-current="true"]');
+        if (!targetElm)
+            return;
+        const elmRect = getRect(targetElm);
+        if (elmRect) {
+            const move = targetElm.offsetTop > $LIST_PLAYLIST.clientHeight
+                ? Math.abs($LIST_PLAYLIST.clientHeight - targetElm.offsetTop) + elmRect.height
+                : 0;
+            $LIST_PLAYLIST.scrollTo({ top: move, behavior: 'smooth' });
+        }
+    }
+    /**
+     * Event listener when changing the loop play of settings menu toggle button.
+     */
+    $TOGGLE_LOOP.querySelector('input[type="checkbox"]').addEventListener('change', (evt) => {
+        AMP_STATUS.loop = evt.target.checked;
+    });
+    /**
+     * Event listener when changing the randomly of settings menu toggle button.
+     */
+    $TOGGLE_RANDOMLY.querySelector('input[type="checkbox"]').addEventListener('change', (evt) => {
+        AMP_STATUS.order = evt.target.checked ? 'random' : 'normal';
+    });
+    /**
+     * Toggle the randomly of settings menu toggle button.
+     */
+    function changeToggleRandomly() {
+        const toggleElm = $TOGGLE_RANDOMLY.querySelector('input[type="checkbox"]');
+        toggleElm.checked = AMP_STATUS.order === 'random';
+    }
+    /**
+     * Event listener when changing the shuffle play of settings menu toggle button.
+     */
+    $TOGGLE_SHUFFLE.querySelector('input[type="checkbox"]').addEventListener('change', (evt) => {
+        if (isObject(AMP_STATUS.options)) {
+            if (AMP_STATUS.options.hasOwnProperty('shuffle')) {
+                AMP_STATUS.options.shuffle = evt.target.checked;
+            }
+            else {
+                AMP_STATUS.options['shuffle'] = evt.target.checked;
+            }
+        }
+        else {
+            AMP_STATUS.options = { shuffle: evt.target.checked };
+        }
+        AMP_STATUS.shuffle = shufflePlaylist();
+    });
+    /**
+     * Toggle the shuffle play of settings menu toggle button.
+     */
+    function changeToggleShuffle() {
+        const toggleElm = $TOGGLE_SHUFFLE.querySelector('input[type="checkbox"]');
+        toggleElm.checked = !!(AMP_STATUS.options && AMP_STATUS.options.shuffle);
+        AMP_STATUS.shuffle = shufflePlaylist();
+    }
+    /**
+     * Shuffle playlist.
+     */
+    function shufflePlaylist() {
+        const newList = [];
+        if (isObject(AMP_STATUS.options) && AMP_STATUS.options?.shuffle) {
+            let items = AMP_STATUS.media || [];
+            if (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null && Number(AMP_STATUS.ctg) !== -1) {
+                items = (AMP_STATUS.media || []).filter((item) => item.catId === AMP_STATUS.ctg);
+            }
+            if (items.length > 0) {
+                // Shuffle (evenly mix) the items array
+                const shuffled = items
+                    .map((value) => ({ value, random: Math.random() }))
+                    .sort((a, b) => a.random - b.random)
+                    .map(({ value }) => value);
+                logger('shufflePlaylist:', shuffled);
+                return shuffled;
+            }
+        }
+        return newList;
+    }
+    /**
+     * Event listener when changing the seekplay of settings menu toggle button.
+     */
+    $TOGGLE_SEEKPLAY.querySelector('input[type="checkbox"]').addEventListener('change', (evt) => {
+        if (isObject(AMP_STATUS.options) && AMP_STATUS.options?.hasOwnProperty('seek')) {
+            AMP_STATUS.options.seek = evt.target.checked;
+        }
+    });
+    /**
+     * Toggle the seekplay of settings menu toggle button.
+     */
+    function changeToggleSeekplay() {
+        const toggleElm = $TOGGLE_SEEKPLAY.querySelector('input[type="checkbox"]');
+        toggleElm.checked = !!(AMP_STATUS.options && AMP_STATUS.options.seek);
+    }
+    /**
+     * Event listener when changing the pseudo fader of settings menu toggle button.
+     */
+    $TOGGLE_FADER.querySelector('input[type="checkbox"]').addEventListener('change', (evt) => {
+        if (isObject(AMP_STATUS.options) && AMP_STATUS.options?.hasOwnProperty('fader')) {
+            AMP_STATUS.options.fader = evt.target.checked;
+        }
+    });
+    /**
+     * Toggle the pseudo fader of settings menu toggle button.
+     */
+    function changeToggleFader() {
+        const toggleElm = $TOGGLE_FADER.querySelector('input[type="checkbox"]');
+        toggleElm.checked = !!(AMP_STATUS.options && AMP_STATUS.options.fader);
+    }
+    /**
+     * Event listener when inputting the volume of settings menu range slider.
+     */
+    $RANGE_VOLUME.addEventListener('input', (evt) => {
+        const currentVolume = Number(evt.target.value);
+        const displayVolume = document.getElementById('default-volume-value');
+        displayVolume.textContent = String(currentVolume);
+    });
+    /**
+     * Fires an input event of range slider when was changed default playback volume.
+     */
+    function changeRangeVolume() {
+        $RANGE_VOLUME.value = inRange(Number(AMP_STATUS.volume), 0, 100) ? String(Number(AMP_STATUS.volume)) : '100';
+        $RANGE_VOLUME.dispatchEvent(new Event('input'));
+    }
+    /**
+     * Event listener when changing the darkmode of settings menu toggle button.
+     */
+    $TOGGLE_DARKMODE.querySelector('input[type="checkbox"]').addEventListener('change', (evt) => {
+        if (!isObject(AMP_STATUS.options)) {
+            AMP_STATUS.options = { dark: evt.target.checked };
+        }
+        else {
+            if (AMP_STATUS.options?.hasOwnProperty('dark')) {
+                AMP_STATUS.options.dark = evt.target.checked;
+            }
+            else {
+                AMP_STATUS.options = Object.assign(AMP_STATUS.options, { dark: evt.target.checked });
+            }
+        }
+        // Delay dark class toggle to let the knob slide animation complete (~150ms)
+        setTimeout(() => changeToggleDarkmode(), 200);
+    });
+    /**
+     * Toggle the darkmode of settings menu toggle button.
+     */
+    function changeToggleDarkmode() {
+        const toggleElm = $TOGGLE_DARKMODE.querySelector('input[type="checkbox"]');
+        const isDarkmode = isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark ? !!AMP_STATUS.options.dark : false;
+        toggleElm.checked = isDarkmode;
+        if (isDarkmode) {
+            document.documentElement.classList.add('dark');
+        }
+        else {
+            document.documentElement.classList.remove('dark');
+        }
+        const $CAROUSEL_ITEMS = Array.from(document.querySelectorAll('[id^="carousel-item-"]'));
+        $CAROUSEL_ITEMS.forEach((item) => {
+            if (isDarkmode) {
+                setStyles(item, 'opacity: .7');
+            }
+            else {
+                setStyles(item);
+            }
+        });
+        const $AUDIO_PLAYER = document.getElementsByTagName('audio');
+        if ($AUDIO_PLAYER.length === 1 && isElement($AUDIO_PLAYER[0])) {
+            if (isDarkmode) {
+                setStyles($AUDIO_PLAYER[0], 'opacity: .7');
+            }
+            else {
+                setStyles($AUDIO_PLAYER[0]);
+            }
+        }
+    }
+    $SELECT_LANGUAGE.addEventListener('change', (evt) => {
+        const currentLanguage = getCookie('lang');
+        const newLanguage = evt.target.value;
+        logger('changeLanguage::', currentLanguage, newLanguage);
+        if (currentLanguage !== newLanguage) {
+            updateCookie('lang', newLanguage);
+            reloadPage();
+        }
+    });
+    /**
+     * Updates the user's media playback state.
+     */
+    function updatePlayStatus(currentAmId) {
+        // Set looking ahead to the next index.
+        const targetData = AMP_STATUS.ctg !== null && AMP_STATUS.ctg !== -1
+            ? (AMP_STATUS.media || []).filter((item) => item.catId === AMP_STATUS.ctg)
+            : AMP_STATUS.media || [];
+        const isShuffle = getOption('shuffle') || false;
+        let idCandidates = [];
+        if (isShuffle && AMP_STATUS.hasOwnProperty('shuffle') && (AMP_STATUS.shuffle || []).length > 0) {
+            idCandidates = (AMP_STATUS.shuffle || []).map((item) => item.amId);
+        }
+        else {
+            idCandidates = targetData.map((item) => item.amId);
+        }
+        AMP_STATUS.current = currentAmId;
+        let prevId = null;
+        let nextId = null;
+        if (AMP_STATUS.order === 'random') {
+            if (idCandidates.length > 1) {
+                idCandidates = idCandidates.filter((v) => v !== currentAmId);
+            }
+            prevId = idCandidates[Math.floor(Math.random() * idCandidates.length)] ?? null;
+            nextId = idCandidates[Math.floor(Math.random() * idCandidates.length)] ?? null;
+        }
+        else {
+            idCandidates.forEach((_v, _i) => {
+                if (_v === currentAmId) {
+                    prevId = (_i === 0 ? idCandidates[idCandidates.length - 1] : idCandidates[_i - 1]) ?? null;
+                    nextId = (idCandidates.length === _i + 1 ? idCandidates[0] : idCandidates[_i + 1]) ?? null;
+                }
+            });
+        }
+        AMP_STATUS.prev = prevId || null;
+        AMP_STATUS.next = nextId || null;
+        updateCarousel();
+    }
+    /**
+     * Commit a media item to play.
+     */
+    function playItem(object = null, id = null) {
+        const thisElm = isElement(object) ? object : null;
+        const amId = id !== null ? id : Number(thisElm?.dataset?.playlistItem || 0);
+        const mediaData = (AMP_STATUS.media || []).filter((item) => item.amId === amId).shift();
+        if (!mediaData)
+            return;
+        let mediaSrc = null;
+        let playerType = null;
+        if (mediaData.hasOwnProperty('file') && mediaData.file !== '') {
+            mediaSrc = mediaData.file ?? null;
+            playerType = 'html';
+        }
+        if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== '') {
+            mediaSrc = mediaData.videoid ?? null;
+            playerType = 'youtube';
+        }
+        logger('playItem:', amId, mediaSrc, playerType);
+        updatePlayStatus(amId);
+        if (currentWindowSize.width < currentWindowSize.minFullUIWidth) {
+            // Hide drawers
+            document.getElementById('btn-close-playlist')?.click();
+            document.getElementById('btn-close-settings')?.click();
+        }
+        setupPlayer(playerType, mediaSrc, mediaData);
+    }
+    /**
+     * Handle the player to prepare depending on the type of media to play.
+     */
+    function setupPlayer(type, src, mediaData) {
+        // update media caption.
+        updateMediaCaption(mediaData);
+        switch (true) {
+            case /^YouTube$/i.test(type || ''):
+                AMP_STATUS.playertype = 'youtube';
+                AMP_STATUS.yt_error = '';
+                createYTPlayer(mediaData);
+                break;
+            case /^HTML$/i.test(type || ''):
+                emitYouTubeSignal('inactive');
+                const extension = getExt(src || '');
+                if (/^(aac|midi?|mp3|m4a|ogg|opus|wav|weba|wma)$/i.test(extension)) {
+                    AMP_STATUS.playertype = 'audio';
+                    createPlayerTag('audio', mediaData);
+                }
+                else if (/^(avi|mpe?g|mp4|ogv|ts|webm|3g(p|2))$/i.test(extension)) {
+                    AMP_STATUS.playertype = 'video';
+                    createPlayerTag('video', mediaData);
+                }
+                else {
+                    AMP_STATUS.playertype = null;
+                    throw new Error('Unsupported file format');
+                }
+                break;
+            default:
+                AMP_STATUS.playertype = null;
+                emitYouTubeSignal('error', 'unsupported_player_specified');
+                if (AMP_STATUS.next !== null) {
+                    playItem(null, AMP_STATUS.next);
+                }
+                throw new Error('Unsupported player specified.');
+        }
+    }
+    /**
+     * Event handler that is called when the YouTube player is ready to play.
+     */
+    function onPlayerReady(event) {
+        emitYouTubeSignal('player_ready');
+        $EMBED_WRAPPER.classList.add('w-max', 'h-max');
+        $EMBED_WRAPPER.classList.remove('w-full', 'h-0', 'opacity-0');
+        const mediaData = (AMP_STATUS.media || [])
+            .filter((item) => item.amId === AMP_STATUS.current)
+            .shift();
+        if (!mediaData)
+            return;
+        const youtubeURL = event.target.getVideoUrl();
+        if (youtubeURL) {
+            $BUTTON_WATCH_TY.href = youtubeURL;
+        }
+        else {
+            $BUTTON_WATCH_TY.href = 'https://www.youtube.com/watch?v=' + mediaData.videoid;
+        }
+        setTimeout(() => {
+            $BUTTON_WATCH_TY.removeAttribute('disabled');
+            $OPTIONAL_CONTAINER.classList.remove('hidden', 'opacity-0');
+        }, 500);
+        if (getOption('autoplay')) {
+            // Force play if playback does not start after (wait * 100) milliseconds.
+            const wait = 15;
+            let elapsed = 0;
+            const intervalID = setInterval(() => {
+                elapsed++;
+                if (event.target.getPlayerState() === window.YT.PlayerState.PLAYING) {
+                    clearInterval(intervalID);
+                    logger(`onPlayerReady::elapsed ${elapsed * 100}ms:`, 'Playback has started!');
+                }
+                else if (elapsed > wait) {
+                    document.getElementById('btn-play').dispatchEvent(new Event('click'));
+                }
+            }, 100);
+        }
+        // Add since v1.2.0
+        if (AMP_STATUS.fader && mediaData.hasOwnProperty('fadein') && mediaData.fadein !== '') {
+            event.target.setVolume(0);
+        }
+        else {
+            event.target.setVolume(AMP_STATUS.volume || 100);
+        }
+        event.target.playVideo();
+    }
+    /**
+     * Event handler called when the state of the YouTube player changes.
+     */
+    function onPlayerStateChange(event) {
+        const YT_ENDED = 0;
+        const YT_PLAYING = 1;
+        const YT_PAUSED = 2;
+        if (event.data === YT_ENDED) {
+            emitYouTubeSignal('ended');
+            abortSeeking();
+            abortFader('fadeout');
+            $EMBED_WRAPPER.classList.add('w-full', 'h-0', 'opacity-0');
+            $EMBED_WRAPPER.classList.remove('w-max', 'h-max');
+            $BUTTON_WATCH_TY.href = '#';
+            $BUTTON_WATCH_TY.setAttribute('disabled', '');
+            $OPTIONAL_CONTAINER.classList.add('hidden', 'opacity-0');
+            let nextId = 0;
+            if (AMP_STATUS.loop) {
+                nextId = AMP_STATUS.current || 0;
+            }
+            else {
+                nextId = AMP_STATUS.next || 0;
+            }
+            const mediaData = (AMP_STATUS.media || [])
+                .filter((item) => item.amId === nextId)
+                .shift();
+            if (!mediaData)
+                return;
+            let mediaSrc = null;
+            let playerType = null;
+            if (mediaData.hasOwnProperty('file') && mediaData.file !== '') {
+                mediaSrc = mediaData.file ?? null;
+                playerType = 'html';
+                event.target.destroy?.();
+            }
+            if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== '') {
+                mediaSrc = mediaData.videoid ?? null;
+                playerType = 'youtube';
+                event.target.g?.remove();
+            }
+            updatePlayStatus(nextId);
+            setupPlayer(playerType, mediaSrc, mediaData);
+        }
+        if (event.data === YT_PAUSED) {
+            emitYouTubeSignal('paused');
+            // Toggle this button shown (Pause -> Play).
+            $BUTTON_PAUSE.classList.add('hidden');
+            $BUTTON_PLAY.classList.remove('hidden');
+        }
+        if (event.data === YT_PLAYING) {
+            emitYouTubeSignal('playing');
+            // Toggle this button shown (Play -> Pause).
+            $BUTTON_PLAY.classList.add('hidden');
+            $BUTTON_PAUSE.classList.remove('hidden');
+            // Add since v1.2.0, fade-in by the fader option.
+            if (AMP_STATUS.fader) {
+                const currentMedia = (AMP_STATUS.media || [])
+                    .filter((item) => item.amId === AMP_STATUS.current)
+                    .shift();
+                if (!currentMedia)
+                    return;
+                if (currentMedia.hasOwnProperty('fadeout') && currentMedia.fadeout !== '') {
+                    const seekEnd = currentMedia.hasOwnProperty('end') && currentMedia.end !== ''
+                        ? parseFloat(String(currentMedia.end))
+                        : event.target.getDuration();
+                    event.target.setVolume(AMP_STATUS.volume || 100);
+                    fadeOut(event.target, parseFloat(String(currentMedia.fadeout)), seekEnd);
+                }
+                if (currentMedia.hasOwnProperty('fadein') && currentMedia.fadein !== '') {
+                    const seekStart = currentMedia.hasOwnProperty('start') && currentMedia.start !== ''
+                        ? parseFloat(String(currentMedia.start))
+                        : 0;
+                    event.target.setVolume(0);
+                    fadeIn(event.target, parseFloat(String(currentMedia.fadein)), seekStart);
+                }
+            }
+        }
+        if (event.data === -1 && getOption('autoplay')) {
+            emitYouTubeSignal('unstarted');
+            // When playback unstarted.
+            logger('onPlayerStateChange::unstarted.');
+        }
+    }
+    /**
+     * Event handler called when the YouTube player encounters an error.
+     */
+    function onPlayerError(event) {
+        emitYouTubeSignal('error', `yt_error_${event && event.data !== undefined ? event.data : 'unknown'}`);
+        // Skip if media playback fails.
+        $EMBED_WRAPPER.classList.add('w-full', 'h-0', 'opacity-0');
+        $EMBED_WRAPPER.classList.remove('w-max', 'h-max');
+        $BUTTON_WATCH_TY.href = '#';
+        $BUTTON_WATCH_TY.setAttribute('disabled', '');
+        $OPTIONAL_CONTAINER.classList.add('hidden', 'opacity-0');
+        const nextId = AMP_STATUS.next;
+        if (nextId === null)
+            return;
+        const mediaData = (AMP_STATUS.media || [])
+            .filter((item) => item.amId === nextId)
+            .shift();
+        if (!mediaData)
+            return;
+        let mediaSrc = null;
+        let playerType = null;
+        if (mediaData.hasOwnProperty('file') && mediaData.file !== '') {
+            mediaSrc = mediaData.file ?? null;
+            playerType = 'html';
+            event.target.destroy?.();
+        }
+        if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== '') {
+            mediaSrc = mediaData.videoid ?? null;
+            playerType = 'youtube';
+            event.target.g?.remove();
+            logger('error', 'onYTPlayerError:', event, 'force');
+        }
+        abortSeeking();
+        abortFader('fadeout');
+        abortFader('fadein');
+        updatePlayStatus(nextId);
+        setupPlayer(playerType, mediaSrc, mediaData);
+    }
+    /**
+     * Create a YouTube player.
+     */
+    function createYTPlayer(mediaData) {
+        emitYouTubeSignal('player_creating');
+        const playerElm = document.createElement('div');
+        playerElm.id = 'ytplayer';
+        while ($EMBED_WRAPPER.firstChild) {
+            $EMBED_WRAPPER.removeChild($EMBED_WRAPPER.firstChild);
+        }
+        $EMBED_WRAPPER.appendChild(playerElm);
+        const playerOptions = {
+            autoplay: 1,
+            controls: 1,
+            fs: 0,
+            cc_load_policy: 0,
+            rel: 0,
+        };
+        if (getOption('autoplay')) {
+            playerOptions.autoplay = Number(getOption('autoplay'));
+        }
+        if (getOption('controls')) {
+            playerOptions.controls = Number(getOption('controls'));
+        }
+        if (mediaData.hasOwnProperty('controls') && mediaData.controls !== '') {
+            // Add since v1.2.0
+            playerOptions.controls = Number(Boolean(mediaData.controls));
+        }
+        if (getOption('fs')) {
+            playerOptions.fs = Number(getOption('fs'));
+        }
+        if (mediaData.hasOwnProperty('fs') && mediaData.fs !== '') {
+            // Add since v1.2.0
+            playerOptions.fs = Number(Boolean(mediaData.fs));
+        }
+        if (getOption('cc_load_policy')) {
+            playerOptions.cc_load_policy = Number(getOption('cc_load_policy'));
+        }
+        if (mediaData.hasOwnProperty('cc') && mediaData.cc !== '') {
+            // Add since v1.2.0
+            playerOptions.cc_load_policy = Number(Boolean(mediaData.cc));
+        }
+        if (getOption('rel')) {
+            playerOptions.rel = Number(getOption('rel'));
+        }
+        if (getOption('seek') && mediaData.hasOwnProperty('start') && mediaData.start !== '') {
+            playerOptions.start = mediaData.start;
+        }
+        if (getOption('seek') && mediaData.hasOwnProperty('end') && mediaData.end !== '') {
+            playerOptions.end = mediaData.end;
+        }
+        // Add since v1.2.0, the following fader option:
+        if (getOption('fader')) {
+            AMP_STATUS.fader = Boolean(getOption('fader'));
+        }
+        else {
+            AMP_STATUS.fader = false;
+        }
+        if (mediaData.hasOwnProperty('volume') &&
+            mediaData.volume !== undefined &&
+            inRange(Number(mediaData.volume), 0, 100)) {
+            AMP_STATUS.volume = Number(mediaData.volume);
+        }
+        else {
+            AMP_STATUS.volume = getOption('volume') || 100;
+        }
+        // aspect: 16:9 = w:h -> h = 9w/16
+        const adjustSize = {
+            width: currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2,
+            height: Math.floor((9 * (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2)) / 16),
+        };
+        player = new window.YT.Player('ytplayer', {
+            height: adjustSize.height,
+            width: adjustSize.width,
+            videoId: mediaData.videoid,
+            playerVars: playerOptions,
+            events: {
+                onReady: onPlayerReady,
+                onStateChange: onPlayerStateChange,
+                onError: onPlayerError,
+            },
+        });
+        emitYouTubeSignal('player_created');
+    }
+    /**
+     * Create a media playback player using HTML.
+     */
+    function createPlayerTag(tagname, mediaData) {
+        const playerElm = document.createElement(tagname);
+        const sourceElm = document.createElement('source');
+        playerElm.id = 'html-player';
+        playerElm.setAttribute('controls', String(getOption('controls') || ''));
+        playerElm.setAttribute('controlslist', 'nodownload');
+        playerElm.setAttribute('autoplay', String(getOption('autoplay') || ''));
+        // Add since v1.2.0, the following fader option:
+        if (getOption('fader')) {
+            AMP_STATUS.fader = Boolean(getOption('fader'));
+        }
+        else {
+            AMP_STATUS.fader = false;
+        }
+        if (mediaData.hasOwnProperty('volume') &&
+            mediaData.volume !== undefined &&
+            inRange(Number(mediaData.volume), 0, 100)) {
+            AMP_STATUS.volume = Number(mediaData.volume);
+        }
+        else {
+            AMP_STATUS.volume = getOption('volume') || 100;
+        }
+        if (AMP_STATUS.fader && mediaData.hasOwnProperty('fadein') && mediaData.fadein !== '') {
+            playerElm.volume = 0;
+        }
+        else {
+            playerElm.volume = (AMP_STATUS.volume || 100) / 100;
+        }
+        if (tagname === 'audio' && isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark) {
+            setStyles(playerElm, 'opacity: .7');
+        }
+        if (getOption('seek') && mediaData.hasOwnProperty('start') && mediaData.start !== '') {
+            playerElm.currentTime = Number(mediaData.start);
+        }
+        sourceElm.src = mediaData.file || '';
+        sourceElm.setAttribute('type', `audio/${getExt(mediaData.file || '')}`);
+        playerElm.appendChild(sourceElm);
+        while ($EMBED_WRAPPER.firstChild) {
+            $EMBED_WRAPPER.removeChild($EMBED_WRAPPER.firstChild);
+        }
+        $EMBED_WRAPPER.appendChild(playerElm);
+        $EMBED_WRAPPER.classList.add('max-w-2xl', 'w-max', 'h-max', 'border-0');
+        $EMBED_WRAPPER.classList.remove('border', 'w-full', 'h-0', 'opacity-0');
+        $BUTTON_WATCH_TY.href = '#';
+        $BUTTON_WATCH_TY.setAttribute('disabled', '');
+        $OPTIONAL_CONTAINER.classList.add('hidden', 'opacity-0');
+        playerElm.addEventListener('play', (_evt) => {
+            if (getOption('seek') &&
+                mediaData.hasOwnProperty('end') &&
+                mediaData.end !== '') {
+                // When the seek end time is reached, forcibly seeks to the end of the media and ends playback.
+                if (!seekId) {
+                    seekId = setInterval(() => {
+                        if (playerElm.currentTime >= Number(mediaData.end)) {
+                            playerElm.currentTime = playerElm.duration;
+                            abortSeeking();
+                            abortFader('fadeout');
+                        }
+                    }, 500);
+                }
+            }
+        });
+        playerElm.addEventListener('playing', (_evt) => {
+            // Toggle this button shown (Play -> Pause).
+            $BUTTON_PLAY.classList.add('hidden');
+            $BUTTON_PAUSE.classList.remove('hidden');
+            if (AMP_STATUS.fader) {
+                if (mediaData.hasOwnProperty('fadeout') && mediaData.fadeout !== '') {
+                    const seekEnd = mediaData.hasOwnProperty('end') && mediaData.end !== ''
+                        ? parseFloat(String(mediaData.end))
+                        : playerElm.duration;
+                    playerElm.volume = (AMP_STATUS.volume || 100) / 100;
+                    fadeOut(playerElm, parseFloat(String(mediaData.fadeout)), seekEnd);
+                }
+                if (mediaData.hasOwnProperty('fadein') && mediaData.fadein !== '') {
+                    const seekStart = mediaData.hasOwnProperty('start') && mediaData.start !== ''
+                        ? parseFloat(String(mediaData.start))
+                        : 0;
+                    playerElm.volume = 0;
+                    fadeIn(playerElm, parseFloat(String(mediaData.fadein)), seekStart);
+                }
+            }
+        });
+        playerElm.addEventListener('pause', (_evt) => {
+            // Toggle this button shown (Pause -> Play).
+            $BUTTON_PAUSE.classList.add('hidden');
+            $BUTTON_PLAY.classList.remove('hidden');
+        });
+        playerElm.addEventListener('volumechange', (_evt) => {
+            logger('playerVolumeChange:', playerElm.volume, AMP_STATUS.volume);
+        });
+        playerElm.addEventListener('ended', (_evt) => {
+            $EMBED_WRAPPER.classList.remove('max-w-2xl', 'w-max', 'h-max', 'border-0');
+            // add since v1.2.2
+            let nextId = 0;
+            if (AMP_STATUS.loop) {
+                nextId = AMP_STATUS.current || 0;
+            }
+            else {
+                nextId = AMP_STATUS.next || 0;
+                logger('ended:', AMP_STATUS, nextId);
+            }
+            const mediaData = (AMP_STATUS.media || [])
+                .filter((item) => item.amId === nextId)
+                .shift();
+            if (!mediaData)
+                return;
+            let mediaSrc = null;
+            let playerType = null;
+            if (mediaData.hasOwnProperty('file') && mediaData.file !== '') {
+                mediaSrc = mediaData.file ?? null;
+                playerType = 'html';
+            }
+            if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== '') {
+                mediaSrc = mediaData.videoid ?? null;
+                playerType = 'youtube';
+                playerElm.remove();
+            }
+            updatePlayStatus(nextId);
+            setupPlayer(playerType, mediaSrc, mediaData);
+        });
+        playerElm.addEventListener('error', (evt) => {
+            logger('error', 'Player Error:', mediaData, evt, 'force');
+        });
+        playerElm.addEventListener('loadstart', (evt) => {
+            // If the readyState does not change 1 second after the start of loading,
+            // it is skipped as an unsupported medium.
+            setTimeout(() => {
+                if (evt.target.readyState === 0) {
+                    logger('warn', `The player will treat this media (${mediaData.file}) as unsupported and will skip it.`, 'force');
+                    evt.target.dispatchEvent(new Event('ended'));
+                }
+            }, 1500);
+        });
+        playerElm.addEventListener('loadedmetadata', (evt) => {
+            const self = evt.target;
+            if (self.tagName === 'VIDEO') {
+                if (!self.videoHeight || !self.videoWidth) {
+                    self.setAttribute('poster', './views/images/no-media-placeholder.svg');
+                }
+                if (currentWindowSize.width >= 640) {
+                    self.width = 640;
+                    self.height = Math.floor((640 * self.videoHeight) / self.videoWidth);
+                }
+                else {
+                    self.width = currentWindowSize.width - 2;
+                    self.height = Math.floor(((currentWindowSize.width - 2) * self.videoHeight) / self.videoWidth);
+                }
+            }
+        });
+        // Add since v1.2.2
+        let allowFullScreen = Boolean(getOption('fs'));
+        if (mediaData.hasOwnProperty('fs') && mediaData.fs !== '') {
+            allowFullScreen = Boolean(mediaData.fs);
+        }
+        if (allowFullScreen) {
+            playerElm.addEventListener('click', (evt) => {
+                const target = evt.target;
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                }
+                else {
+                    target.requestFullscreen?.();
+                }
+                setTimeout(() => {
+                    if (playerElm.paused) {
+                        playerElm.play();
+                    }
+                }, 10);
+            });
+        }
+    }
+    /**
+     * Fade in the volume of the specified media.
+     */
+    function fadeIn(media, period, start) {
+        const mediaType = isElement(media) ? 'local' : 'youtube';
+        const fadeEnd = (start + period) * 1000; // unit milliseconds
+        const steps = period * 10;
+        const stepVolume = (AMP_STATUS.volume || 100) / steps;
+        logger('fadeIn::', mediaType === 'youtube' ? media.getDuration() : media.duration, mediaType === 'youtube' ? media.getVolume() : media.volume, period, start, fadeEnd, steps, stepVolume, AMP_STATUS.volume);
+        let elapsed = 0;
+        let incrementVolume = 0;
+        fadeinId = setInterval(() => {
+            const currentTime = (mediaType === 'youtube' ? media.getCurrentTime() : media.currentTime) * 1000; // unit milliseconds
+            if (inRange(currentTime, start * 1000, fadeEnd)) {
+                elapsed = Math.floor((currentTime - start * 1000) / 100);
+                incrementVolume = elapsed > 0 ? (stepVolume * elapsed * elapsed) / steps : 0;
+                if (mediaType === 'youtube') {
+                    media.setVolume(incrementVolume);
+                }
+                else {
+                    media.volume = incrementVolume / 100;
+                }
+            }
+            else if (currentTime >= fadeEnd) {
+                if (mediaType === 'youtube') {
+                    media.setVolume(AMP_STATUS.volume || 100);
+                }
+                abortFader('fadein');
+            }
+            else {
+                if (mediaType === 'youtube') {
+                    media.setVolume(0);
+                }
+                else {
+                    media.volume = 0;
+                }
+            }
+            logger(`fadeIn:: ${currentTime}ms from ${start}; elapsed: ${elapsed}`, incrementVolume, mediaType === 'youtube' ? media.getVolume() : media.volume);
+        }, 100);
+    }
+    /**
+     * Fade out the volume of the specified media.
+     */
+    function fadeOut(media, period, end) {
+        const mediaType = isElement(media) ? 'local' : 'youtube';
+        const fadeStart = (end - period) * 1000; // unit milliseconds
+        const steps = period * 10;
+        const stepVolume = ((mediaType === 'youtube' ? AMP_STATUS.volume : media.volume * 100) || 100) / steps;
+        logger('fadeOut::', mediaType === 'youtube' ? media.getDuration() : media.duration, mediaType === 'youtube' ? media.getVolume() : media.volume, period, end, fadeStart, steps, stepVolume, AMP_STATUS.volume);
+        let elapsed = 0;
+        let decrementVolume = 0;
+        fadeoutId = setInterval(() => {
+            const currentTime = (mediaType === 'youtube' ? media.getCurrentTime() : media.currentTime) * 1000; // unit milliseconds
+            if (inRange(currentTime, fadeStart, end * 1000)) {
+                elapsed = Math.floor((end * 1000 - currentTime) / 100);
+                decrementVolume = elapsed > 0 ? stepVolume * elapsed : 0;
+                if (mediaType === 'youtube') {
+                    media.setVolume(decrementVolume);
+                }
+                else {
+                    media.volume = decrementVolume / 100;
+                }
+                logger(`fadeOut:: ${currentTime}ms until ${end * 1000}ms; elapsed: ${elapsed}`, decrementVolume, mediaType === 'youtube' ? media.getVolume() : media.volume);
+            }
+            else if (currentTime < fadeStart) {
+                // continue
+            }
+            else {
+                if (mediaType === 'youtube') {
+                    media.setVolume(0);
+                    abortFader('fadeout');
+                    logger([media]);
+                }
+                else {
+                    media.volume = 0;
+                    abortFader('fadeout');
+                    media.dispatchEvent(new Event('ended'));
+                }
+            }
+        }, 100);
+    }
+    // ============================================================================
+    // UTILITY FUNCTIONS
+    // ============================================================================
+    /**
+     * Restart this application.
+     */
+    function reloadPage() {
+        window.location.reload();
+    }
+    /**
+     * Toggle the display of backdrop for drawer or modal.
+     */
+    watcher([$DRAWER_PLAYLIST, $DRAWER_SETTINGS, $MODAL_OPTIONS], (mutation) => {
+        if (mutation.attributeName === 'aria-modal' && mutation.target.ariaModal === 'true') {
+            const $DRAWER_BACKDROP = Array.from(document.querySelectorAll('div[drawer-backdrop]'));
+            const $MODAL_BACKDROP = document.querySelector('div[modal-backdrop]');
+            if ($DRAWER_BACKDROP.length > 0) {
+                $DRAWER_BACKDROP.forEach((elm) => {
+                    if (currentWindowSize.width >= currentWindowSize.minFullUIWidth) {
+                        elm.classList.add('hidden');
+                    }
+                    else {
+                        elm.classList.remove('hidden');
+                    }
+                });
+            }
+            if (isElement($MODAL_BACKDROP)) {
+                if (currentWindowSize.width >= currentWindowSize.minFullUIWidth) {
+                    $MODAL_BACKDROP.classList.remove('z-40');
+                    $MODAL_BACKDROP.classList.add('z-[59]');
+                }
+                else {
+                    $MODAL_BACKDROP.classList.remove('z-[59]');
+                    $MODAL_BACKDROP.classList.add('z-40');
+                }
+            }
+        }
+    });
+    /**
+     * Event handler when the window size is resized.
+     */
+    function updateWindowSize() {
+        currentWindowSize.width = window.innerWidth;
+        currentWindowSize.height = window.innerHeight;
+        // aspect: 16:9 = w:h -> h = 9w/16
+        const adjustPlayerSize = {
+            width: currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2,
+            height: Math.floor((9 * (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2)) / 16),
+        };
+        if (player && typeof player === 'object' && typeof player.getIframe === 'function') {
+            const YTPlayer = player.getIframe();
+            YTPlayer.width = String(adjustPlayerSize.width);
+            YTPlayer.height = String(adjustPlayerSize.height);
+        }
+        const $HTMLPlayer = document.getElementById('html-player');
+        if (isElement($HTMLPlayer)) {
+            $HTMLPlayer.width = adjustPlayerSize.width;
+            $HTMLPlayer.height = adjustPlayerSize.height;
+        }
+        const shownLeftDrawer = getAtts($DRAWER_PLAYLIST, 'aria-modal') || false;
+        const shownRightDrawer = getAtts($DRAWER_SETTINGS, 'aria-modal') || false;
+        if (currentWindowSize.width < currentWindowSize.minFullUIWidth) {
+            if (shownLeftDrawer) {
+                document.getElementById('btn-close-playlist')?.click();
+                $BUTTON_PLAYLIST.setAttribute('data-drawer-backdrop', 'true');
+            }
+            if (shownRightDrawer) {
+                document.getElementById('btn-close-settings')?.click();
+                $BUTTON_SETTINGS.setAttribute('data-drawer-backdrop', 'true');
+            }
+        }
+        else {
+            if (!shownLeftDrawer) {
+                $BUTTON_PLAYLIST.setAttribute('data-drawer-backdrop', 'false');
+                $BUTTON_PLAYLIST.click();
+            }
+            if (!shownRightDrawer) {
+                $BUTTON_SETTINGS.setAttribute('data-drawer-backdrop', 'false');
+                $BUTTON_SETTINGS.click();
+            }
+        }
+        toggleMarqueeCaption();
+    }
+    /**
+     * Window resize event listener with throttling.
+     */
+    const resize = () => {
+        let timeoutID = 0;
+        const delay = 300;
+        window.addEventListener('resize', () => {
+            clearTimeout(timeoutID);
+            timeoutID = window.setTimeout(() => {
+                updateWindowSize();
+            }, delay);
+        }, false);
+    };
+    resize();
+    window.dispatchEvent(new Event('resize', { bubbles: true, cancelable: false }));
+    // ============================================================================
+    // MANAGEMENT FORMS (Media Management & Playlist Management)
+    // ============================================================================
+    const $MEDIA_MANAGE_FORM = document.querySelector('form[name="mediaManagement"]');
+    const $MEDIA_MANAGE_ELMS = $MEDIA_MANAGE_FORM
+        ? Array.from($MEDIA_MANAGE_FORM.elements)
+        : [];
+    const $PLAYLIST_MANAGE_FORM = document.querySelector('form[name="playlistManagement"]');
+    const $PLAYLIST_MANAGE_ELMS = $PLAYLIST_MANAGE_FORM
+        ? Array.from($PLAYLIST_MANAGE_FORM.elements)
+        : [];
+    async function getRelativeFilepath(basefile) {
+        const endpointURL = `${BASE_URL}filepath/${encodeURIComponent(basefile)}`;
+        const $LABEL_MEDIA_FILE = document.getElementById('note-error-local-media-file');
+        const $HIDDEN_FILEPATH = document.getElementById('local-media-filepath');
+        const response = await fetchData(endpointURL);
+        if (response && response.code == 200) {
+            if ($HIDDEN_FILEPATH)
+                $HIDDEN_FILEPATH.value = decodeURIComponent(response.data);
+            if ($LABEL_MEDIA_FILE)
+                $LABEL_MEDIA_FILE.textContent = getAtts($LABEL_MEDIA_FILE, 'data-default-message');
+        }
+        else {
+            if ($HIDDEN_FILEPATH)
+                $HIDDEN_FILEPATH.value = '';
+            if ($LABEL_MEDIA_FILE)
+                $LABEL_MEDIA_FILE.textContent = response?.data || '';
+        }
+        logger('getRelativeFilepath:', endpointURL, response);
+        return response && response.code == 200;
+    }
+    function resetMediaManageForm() {
+        if (!$MEDIA_MANAGE_FORM)
+            return;
+        $MEDIA_MANAGE_FORM.reset();
+        $MEDIA_MANAGE_ELMS.forEach((child) => {
+            let event = null;
+            if (/^input$/i.test(child.nodeName)) {
+                const input = child;
+                switch (input.type) {
+                    case 'text':
+                        event = 'input';
+                        break;
+                    case 'radio':
+                        input.checked = input.value === (AMP_STATUS.addtype || 'youtube');
+                        break;
+                    case 'file':
+                        event = 'change';
+                        break;
+                    default:
+                        break;
+                }
+            }
+            else if (/^textarea$/i.test(child.nodeName)) {
+                event = 'input';
+            }
+            else if (/^select$/i.test(child.nodeName)) {
+                child.selectedIndex = 0;
+                event = 'change';
+            }
+            if (event) {
+                child.dispatchEvent(new Event(event));
+            }
+        });
+    }
+    function addMediaData(payload) {
+        logger('addMediaData::before:', payload, AMP_STATUS.media?.length);
+        const mediaData = {
+            amId: 0,
+            catId: 0,
+            title: '',
+            artist: '',
+            desc: '',
+            file: '',
+            videoid: '',
+            volume: 50,
+            start: '',
+            end: '',
+        };
+        for (const [key, val] of payload) {
+            switch (key) {
+                case 'youtube_videoid':
+                    mediaData.videoid = val;
+                    break;
+                case 'media_filepath':
+                    mediaData.file = val;
+                    break;
+                case 'category':
+                    mediaData.catId = Number(val);
+                    break;
+                case 'title':
+                case 'artist':
+                case 'desc':
+                    mediaData[key] = val;
+                    break;
+                case 'volume': {
+                    const numVolume = Number(val);
+                    if (Number.isInteger(numVolume) && inRange(numVolume, 0, 100)) {
+                        mediaData.volume = numVolume;
+                    }
+                    break;
+                }
+                case 'start':
+                case 'end':
+                    if (val.indexOf(':') !== -1) {
+                        const times = val.split(':');
+                        let hours = 0, minutes = 0, seconds = 0;
+                        if (times.length === 3) {
+                            hours = parseInt(times[0] ?? '0', 10);
+                            minutes = parseInt(times[1] ?? '0', 10);
+                            seconds = parseInt(times[2] ?? '0', 10);
+                        }
+                        else if (times.length === 2) {
+                            minutes = parseInt(times[0] ?? '0', 10);
+                            seconds = parseInt(times[1] ?? '0', 10);
+                        }
+                        else {
+                            seconds = parseInt(times[times.length - 1] ?? '0', 10);
+                        }
+                        mediaData[key] = (hours * 60 * 60) + (minutes * 60) + seconds;
+                    }
+                    else if (!Number.isInteger(Number(val))) {
+                        mediaData[key] = '';
+                    }
+                    else {
+                        mediaData[key] = val;
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+        if (!Array.isArray(AMP_STATUS.media)) {
+            AMP_STATUS.media = [mediaData];
+        }
+        else {
+            const lastAmId = Math.max(...AMP_STATUS.media.map((item) => item.amId));
+            mediaData.amId = lastAmId + 1;
+            AMP_STATUS.media.push(mediaData);
+        }
+        logger('addMediaData::after:', AMP_STATUS.media.length);
+        return true;
+    }
+    function generatePlaylistJson(seekFormat) {
+        const convertHMS = (value) => {
+            if (value === '' || value === undefined || Number(value) === 0)
+                return '';
+            const totalSeconds = Number(value);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const remainingSeconds = totalSeconds % 60;
+            if (hours > 0) {
+                return `${hours}:${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+            }
+            else if (minutes > 0) {
+                return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+            }
+            else if (remainingSeconds > 0) {
+                return String(remainingSeconds);
+            }
+            return '';
+        };
+        const newPlaylist = {};
+        (AMP_STATUS.media || []).forEach((item) => {
+            const belongCategory = (AMP_STATUS.category || [])[item.catId] || '';
+            const oneData = {
+                file: (item.file || '').replace('./assets/media/', ''),
+                title: item.title,
+                desc: item.desc,
+                artist: item.artist,
+                videoid: item.videoid,
+                image: item.image,
+                start: seekFormat ? convertHMS(item.start) : item.start,
+                end: seekFormat ? convertHMS(item.end) : item.end,
+            };
+            if (!Object.prototype.hasOwnProperty.call(newPlaylist, belongCategory)) {
+                newPlaylist[belongCategory] = [];
+            }
+            newPlaylist[belongCategory].push(oneData);
+        });
+        newPlaylist['options'] = AMP_STATUS.options;
+        logger('generatePlaylistJson::after:', newPlaylist);
+        return JSON.stringify(newPlaylist, null, 2);
+    }
+    function resetPlaylistManageForm() {
+        if (!$PLAYLIST_MANAGE_FORM)
+            return;
+        $PLAYLIST_MANAGE_FORM.reset();
+        $PLAYLIST_MANAGE_ELMS.forEach((child) => {
+            let event = null;
+            if (/^input$/i.test(child.nodeName)) {
+                const input = child;
+                switch (input.type) {
+                    case 'text':
+                        event = 'input';
+                        break;
+                    case 'checkbox':
+                        input.checked = false;
+                        break;
+                    default:
+                        break;
+                }
+            }
+            if (event) {
+                logger('resetPlaylistManageForm:', child, event);
+                child.dispatchEvent(new Event(event));
+            }
+        });
+    }
+    if ($MEDIA_MANAGE_FORM) {
+        $MEDIA_MANAGE_ELMS.forEach((elm) => {
+            const $MEDIA_URL_FIELD = document.getElementById('media-management-field-media-url');
+            const $MEDIA_FILES_FIELD = document.getElementById('media-management-field-media-files');
+            const $INPUT_VIDEOID = document.getElementById('youtube-videoid');
+            const $INPUT_FILEPATH = document.getElementById('local-media-filepath');
+            const $INPUT_MEDIA_TITLE = document.getElementById('media-title');
+            const elmName = elm.name;
+            switch (elmName) {
+                case 'media_type':
+                    elm.addEventListener('click', (evt) => {
+                        const target = evt.target;
+                        const prevType = AMP_STATUS.addtype ?? null;
+                        if (target.value === 'youtube') {
+                            if ($MEDIA_URL_FIELD)
+                                toggleClass($MEDIA_URL_FIELD, { hidden: false });
+                            if ($MEDIA_FILES_FIELD)
+                                toggleClass($MEDIA_FILES_FIELD, { hidden: true });
+                        }
+                        else {
+                            if ($MEDIA_URL_FIELD)
+                                toggleClass($MEDIA_URL_FIELD, { hidden: true });
+                            if ($MEDIA_FILES_FIELD)
+                                toggleClass($MEDIA_FILES_FIELD, { hidden: false });
+                        }
+                        AMP_STATUS.addtype = target.value;
+                        if (prevType !== target.value) {
+                            resetMediaManageForm();
+                        }
+                    });
+                    break;
+                case 'youtube_url':
+                    elm.addEventListener('input', (evt) => {
+                        const target = evt.target;
+                        const baseURL = 'https://www.youtube.com';
+                        const value = target.value;
+                        if (value.length < `${baseURL}/watch?v=.`.length) {
+                            setValidated(elm, null);
+                            if ($INPUT_VIDEOID)
+                                $INPUT_VIDEOID.value = '';
+                            return;
+                        }
+                        try {
+                            if (!/^(https:\/\/|)www\.youtube\.com/.test(value)) {
+                                throw new Error('Invalid URL.');
+                            }
+                            const url = new URL(value, baseURL);
+                            const params = url.searchParams;
+                            const videoid = params.get('v');
+                            if (url.origin !== baseURL || videoid === null || videoid === '') {
+                                throw new Error('Invalid URL.');
+                            }
+                            else {
+                                if (/^https:\/\//.test(value)) {
+                                    target.value = url.hostname + url.pathname + '?v=' + videoid;
+                                }
+                                setValidated(elm, true);
+                                if ($INPUT_VIDEOID)
+                                    $INPUT_VIDEOID.value = videoid;
+                            }
+                        }
+                        catch (err) {
+                            logger('error', err, 'force');
+                            setValidated(elm, false);
+                        }
+                    });
+                    break;
+                case 'local_media_file':
+                    elm.addEventListener('change', async (evt) => {
+                        const target = evt.target;
+                        const filelist = target.files;
+                        logger('local_file:', filelist, [target]);
+                        if (filelist && filelist.length > 0 && (filelist[0]?.size ?? 0) > 0) {
+                            const filename = filelist[0]?.name ?? '';
+                            setValidated(elm, await getRelativeFilepath(filename));
+                            if ($INPUT_MEDIA_TITLE) {
+                                $INPUT_MEDIA_TITLE.value = basename(filename);
+                                target.blur();
+                                $INPUT_MEDIA_TITLE.dispatchEvent(new Event('change'));
+                            }
+                        }
+                        else {
+                            if ($INPUT_FILEPATH)
+                                $INPUT_FILEPATH.value = '';
+                            if ($INPUT_MEDIA_TITLE)
+                                $INPUT_MEDIA_TITLE.value = '';
+                            setValidated(elm, null);
+                            if ($INPUT_MEDIA_TITLE)
+                                setValidated($INPUT_MEDIA_TITLE, null);
+                        }
+                    });
+                    break;
+                case 'media_filepath':
+                    elm.addEventListener('change', (evt) => {
+                        evt.target.focus();
+                    });
+                    break;
+                case 'category':
+                    elm.addEventListener('change', (evt) => {
+                        const target = evt.target;
+                        if (target.selectedIndex === 0) {
+                            setValidated(elm, null);
+                        }
+                        else {
+                            setValidated(elm, target.value !== '');
+                        }
+                    });
+                    break;
+                case 'title':
+                    elm.addEventListener('input', (evt) => {
+                        if (evt.target.value === '') {
+                            setValidated(elm, null);
+                        }
+                    });
+                    elm.addEventListener('change', (evt) => {
+                        setValidated(elm, evt.target.value !== '');
+                    });
+                    break;
+                case 'volume':
+                    elm.addEventListener('input', (evt) => {
+                        const $VOLUME_VALUE = document.getElementById('default-media-volume');
+                        if ($VOLUME_VALUE)
+                            $VOLUME_VALUE.textContent = evt.target.value;
+                    });
+                    break;
+                case 'start':
+                case 'end':
+                    elm.addEventListener('input', (evt) => {
+                        if (evt.target.value === '') {
+                            setValidated(elm, null);
+                        }
+                    });
+                    elm.addEventListener('change', (evt) => {
+                        const value = evt.target.value;
+                        if (value === '') {
+                            setValidated(elm, null);
+                        }
+                        else {
+                            const isValid = /^\d+$/.test(value) ||
+                                (value.indexOf(':') > 0 && /^(\d+:)?([0-5]?[0-9]:)?[0-5]?[0-9]$/.test(value));
+                            logger(value, isValid);
+                            setValidated(elm, isValid);
+                        }
+                    });
+                    break;
+                case 'fadein':
+                case 'fadeout':
+                    break;
+                case 'add_media':
+                    elm.addEventListener('click', (_evt) => {
+                        if (!$MEDIA_MANAGE_FORM)
+                            return;
+                        const formData = new FormData($MEDIA_MANAGE_FORM);
+                        const result = addMediaData(Array.from(formData.entries()));
+                        logger(result, AMP_STATUS.media);
+                        updateNotice({
+                            type: result ? 'success' : 'error',
+                            message: result
+                                ? elm.dataset['messageSuccess'] || ''
+                                : elm.dataset['messageFailure'] || '',
+                            delay: 2000,
+                        });
+                        updatePlaylist();
+                        resetMediaManageForm();
+                    });
+                    break;
+                default:
+                    logger('Event undefined element:', elmName, elm);
+                    break;
+            }
+        });
+        watcher($MEDIA_MANAGE_FORM, (mutation) => {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'data-validate') {
+                if (!$MEDIA_MANAGE_FORM)
+                    return;
+                const formData = new FormData($MEDIA_MANAGE_FORM);
+                const mediaType = formData.get('media_type');
+                const valid_items = [];
+                if (getAtts(mutation.target, 'data-validate')) {
+                    $MEDIA_MANAGE_ELMS.forEach((elm) => {
+                        if (getAtts(elm, 'data-validate'))
+                            valid_items.push(elm.id);
+                    });
+                }
+                const $BUTTON_ADD_MEDIA = document.getElementById('btn-add-media');
+                const contains = [mediaType === 'youtube' ? 'youtube-url' : 'local-media-file', 'media-category', 'media-title'];
+                const isContainAll = inArray(contains, valid_items, false);
+                logger(`Check valid items for "${mediaType}":`, valid_items, contains, isContainAll);
+                if ($BUTTON_ADD_MEDIA)
+                    setAtts($BUTTON_ADD_MEDIA, { disabled: '' }, isContainAll);
+            }
+        }, { childList: true, attributes: true, subtree: true });
+    }
+    if ($PLAYLIST_MANAGE_FORM) {
+        $PLAYLIST_MANAGE_ELMS.forEach((elm) => {
+            const elmName = elm.name;
+            switch (elmName) {
+                case 'local_media_dir':
+                case 'symlink_name':
+                case 'category_name':
+                    elm.addEventListener('input', (evt) => {
+                        if (evt.target.value === '') {
+                            setValidated(elm, null);
+                        }
+                    });
+                    elm.addEventListener('change', (evt) => {
+                        setValidated(elm, evt.target.value !== '');
+                    });
+                    break;
+                case 'create_symlink':
+                case 'create_category':
+                case 'download_playlist': {
+                    const callback = {
+                        getFormData(oneData = null) {
+                            if (!$PLAYLIST_MANAGE_FORM)
+                                return null;
+                            const formData = new FormData($PLAYLIST_MANAGE_FORM);
+                            return oneData ? formData.get(oneData) : Array.from(formData.entries());
+                        },
+                        async createSymlink() {
+                            const endpointURL = `${BASE_URL}symlink`;
+                            const payload = {};
+                            for (const pair of this.getFormData()) {
+                                if (inArray(pair[0], ['local_media_dir', 'symlink_name'])) {
+                                    payload[pair[0]] = pair[1];
+                                }
+                            }
+                            const response = await fetchData(endpointURL, 'post', payload);
+                            logger('createSymlink:', endpointURL, payload, response);
+                            updateNotice({
+                                type: response?.state === 'ok' ? 'success' : 'error',
+                                message: response?.data || '',
+                                delay: 2000,
+                            });
+                        },
+                        createCategory() {
+                            const categoryName = this.getFormData('category_name');
+                            if (!Array.isArray(AMP_STATUS.category))
+                                AMP_STATUS.category = [];
+                            if (!inArray(categoryName, AMP_STATUS.category)) {
+                                AMP_STATUS.category.push(categoryName);
+                            }
+                            else {
+                                const uniqueSet = new Set(AMP_STATUS.category);
+                                let newValue = categoryName;
+                                let count = 1;
+                                while (uniqueSet.has(newValue)) {
+                                    newValue = `${categoryName}_${count}`;
+                                    count++;
+                                }
+                                AMP_STATUS.category.push(newValue);
+                            }
+                            const selfElm = document.getElementById('btn-create-category');
+                            logger('createCategory:', categoryName, AMP_STATUS);
+                            updateNotice({
+                                type: 'success',
+                                message: selfElm?.dataset['messageSuccess'] || '',
+                                delay: 2000,
+                            });
+                            clearCategory();
+                            updateCategory();
+                        },
+                        async downloadPlaylist() {
+                            const seek_format = Number(this.getFormData('seek_format')) === 1;
+                            const jsonContent = generatePlaylistJson(seek_format);
+                            const blob = new Blob([jsonContent], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = AMP_STATUS.playlist || 'playlist.json';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                            const selfElm = document.getElementById('btn-download-playlist');
+                            updateNotice({
+                                type: 'success',
+                                message: selfElm?.dataset['messageSuccess'] || '',
+                                delay: 2000,
+                            });
+                        },
+                    };
+                    elm.addEventListener('click', (evt) => {
+                        const target = evt.target;
+                        callback[snakeToCapital(target.name)]();
+                        logger('onClickButton::', target.name);
+                        resetPlaylistManageForm();
+                    });
+                    break;
+                }
+                default:
+                    logger('Event undefined element:', elmName, elm);
+                    break;
+            }
+        });
+        watcher($PLAYLIST_MANAGE_FORM, (mutation) => {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'data-validate') {
+                const valid_items = [];
+                if (getAtts(mutation.target, 'data-validate')) {
+                    $PLAYLIST_MANAGE_ELMS.forEach((elm) => {
+                        if (getAtts(elm, 'data-validate'))
+                            valid_items.push(elm.id);
+                    });
+                }
+                const $BUTTON_CREATE_SYMLINK = document.getElementById('btn-create-symlink');
+                const symlink_contains = ['local-media-directory', 'symlink-name'];
+                const isSymlinkContainAll = inArray(symlink_contains, valid_items, false);
+                logger('Check valid items for "Create Symlink":', valid_items, symlink_contains, isSymlinkContainAll);
+                if ($BUTTON_CREATE_SYMLINK)
+                    setAtts($BUTTON_CREATE_SYMLINK, { disabled: '' }, isSymlinkContainAll);
+                const $BUTTON_CREATE_CATEGORY = document.getElementById('btn-create-category');
+                const category_contains = ['category-name'];
+                const isCategoryContainAll = inArray(category_contains, valid_items, false);
+                logger('Check valid items for "Create Category":', valid_items, category_contains, isCategoryContainAll);
+                if ($BUTTON_CREATE_CATEGORY)
+                    setAtts($BUTTON_CREATE_CATEGORY, { disabled: '' }, isCategoryContainAll);
+            }
+        }, { childList: true, attributes: true, subtree: true });
+    }
+};
+// for debugging code
+function execDebug() {
+    /*
+    const f1 = document.getElementById('youtube-url'),
+          f2 = document.getElementById('media-category'),
+          f3 = document.getElementById('media-title'),
+          f4 = document.getElementById('media-artist'),
+          f5 = document.getElementById('media-desc'),
+          f6 = document.getElementById('media-volume'),
+          f7 = document.getElementById('seek-start'),
+          f8 = document.getElementById('seek-end')
+    f1.value  = 'www.youtube.com/watch?v=gu7T0D50wFk'
+    if (f2.length > 1 && f2.value === '') {
+      f2.selectedIndex = 3
+    }
+    f3.value = 'Allure of the Dark'
+    f4.value = 'MementMori'
+    f5.value = "Illya (God's Curse)"
+    f6.value = 85
+    f8.value = '4:11'
+    // fire!
+    f1.dispatchEvent(new Event('input'))
+    f2.dispatchEvent(new Event('change'))
+    f3.dispatchEvent(new Event('change'))
+    */
+}
+// ============================================================================
+// UTILITY FUNCTIONS (SHARED LIBRARY)
+// ============================================================================
+/**
+ * Finds whether the given variable is an object.
+ */
+function isObject(value) {
+    return value !== null && typeof value === 'object';
+}
+/**
+ * Finds whether the given variable is an element of HTML.
+ */
+function isElement(node) {
+    return !(!node || !(node.nodeName || (node.prop && node.attr && node.find)));
+}
+/**
+ * Determines if the given variable is a numeric string.
+ */
+function isNumberString(numstr) {
+    return typeof numstr === 'string' && numstr !== '' && !isNaN(Number(numstr));
+}
+/**
+ * Determines if the given variable is a boolean string.
+ */
+function isBooleanString(boolstr) {
+    return typeof boolstr === 'string' && boolstr !== '' && /^(true|false)$/i.test(boolstr);
+}
+/**
+ * Given a string containing the path to a file or directory,
+ * this function will return the trailing name component.
+ */
+function basename(path) {
+    return path.split(/[\/\\]/).pop()?.split('.').shift() || '';
+}
+/**
+ * Gets the extension from the given file path.
+ */
+function getExt(path) {
+    return path.split('.').pop() || '';
+}
+/**
+ * Return true if a number is in range, otherwise false.
+ */
+function inRange(num, min, max) {
+    if (isNaN(Number(num))) {
+        return false;
+    }
+    else {
+        num = Number(num);
+        return (num - min) * (num - max) <= 0;
+    }
+}
+function inArray(contains, targetArray, at_least_one = false) {
+    if (!Array.isArray(targetArray))
+        return false;
+    const items = Array.isArray(contains) ? contains : [contains];
+    return at_least_one
+        ? items.some((item) => targetArray.includes(item))
+        : items.every((item) => targetArray.includes(item));
+}
+function snakeToCapital(str) {
+    return str.replace(/_./g, (match) => match.charAt(1).toUpperCase());
+}
+function setValidated(targetElement, result = null) {
+    const elm = isElement(targetElement) ? targetElement : null;
+    if (!elm)
+        return;
+    const baseId = elm.id;
+    const $FIELD_LABEL = document.getElementById(baseId + '-label');
+    const $FIELD_PREFIX = document.getElementById(baseId + '-prefix');
+    const $NOTE_ERROR = document.getElementById('note-error-' + baseId);
+    const $NOTE_SUCCESS = document.getElementById('note-success-' + baseId);
+    if (result === null) {
+        toggleClass(elm, { 'normal-input': true, 'error-input': false, 'success-input': false });
+        if (isElement($FIELD_LABEL))
+            toggleClass($FIELD_LABEL, { 'normal-text': true, 'error-text': false, 'success-text': false });
+        if (isElement($FIELD_PREFIX))
+            toggleClass($FIELD_PREFIX, { 'normal-prefix': true, 'error-prefix': false, 'success-prefix': false });
+        if (isElement($NOTE_ERROR))
+            toggleClass($NOTE_ERROR, { hidden: true });
+        if (isElement($NOTE_SUCCESS))
+            toggleClass($NOTE_SUCCESS, { hidden: true });
+        elm.setAttribute('data-validate', 'false');
+    }
+    else {
+        toggleClass(elm, { 'normal-input': !result, 'error-input': !result, 'success-input': result });
+        if (isElement($FIELD_LABEL))
+            toggleClass($FIELD_LABEL, { 'normal-text': !result, 'error-text': !result, 'success-text': result });
+        if (isElement($FIELD_PREFIX))
+            toggleClass($FIELD_PREFIX, { 'normal-prefix': !result, 'error-prefix': !result, 'success-prefix': result });
+        if (isElement($NOTE_ERROR))
+            toggleClass($NOTE_ERROR, { hidden: result });
+        if (isElement($NOTE_SUCCESS))
+            toggleClass($NOTE_SUCCESS, { hidden: !result });
+        elm.setAttribute('data-validate', String(result));
+    }
+}
+/**
+ * Get cookie with specified name.
+ */
+function getCookie(name) {
+    const getCookiePath = (cookie) => {
+        const pathMatch = cookie.match(/(?:^|;\s*)path=([^;]*)/);
+        return pathMatch?.[1] ?? '/';
+    };
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+        const cookie = (cookies[i] ?? '').trim();
+        const keyValue = cookie.split('=');
+        const cookieName = keyValue[0];
+        const cookieValue = keyValue[1];
+        if (cookieName === name) {
+            const cookiePath = getCookiePath(cookie);
+            const currentPath = window.location.pathname;
+            if (currentPath.startsWith(cookiePath)) {
+                return cookieValue || null;
+            }
+            else {
+                return null;
+            }
+        }
+    }
+    return null;
+}
+/**
+ * Update the value of the cookie with the specified name.
+ */
+function updateCookie(name, value, daysToExpire = null) {
+    const expirationDate = new Date();
+    if (!daysToExpire) {
+        expirationDate.setFullYear(expirationDate.getFullYear() + 1);
+    }
+    else {
+        expirationDate.setDate(expirationDate.getDate() + daysToExpire);
+    }
+    const secureAttribute = window.location.protocol === 'https:' ? 'Secure; ' : '';
+    const cookieString = `${name}=${value}; expires=${expirationDate.toUTCString()}; path=${window.location.pathname}; ${secureAttribute}SameSite=Lax`;
+    document.cookie = cookieString;
+}
+/**
+ * Retrieves a DOMRect object providing information about the size
+ * of given an element and its position relative to the viewport.
+ */
+function getRect(targetElement, property = '') {
+    if (isElement(targetElement)) {
+        const _RECT_OBJ = targetElement.getBoundingClientRect();
+        if (property === '') {
+            return _RECT_OBJ;
+        }
+        if (property in _RECT_OBJ) {
+            return _RECT_OBJ[property];
+        }
+    }
+    return false;
+}
+/**
+ * Toggle classes on element.
+ */
+function toggleClass(targetElement, classes, force) {
+    if (!isElement(targetElement))
+        return false;
+    const classArray = Array.isArray(classes) ? classes : [classes];
+    classArray.forEach((oneClass) => {
+        if (typeof oneClass === 'object') {
+            for (const property in oneClass) {
+                if (typeof oneClass[property] === 'boolean') {
+                    targetElement.classList.toggle(property, oneClass[property]);
+                }
+            }
+        }
+        else if (typeof oneClass === 'string') {
+            if (force === undefined) {
+                targetElement.classList.toggle(oneClass);
+            }
+            else {
+                targetElement.classList.toggle(oneClass, force);
+            }
+        }
+    });
+    return false;
+}
+/**
+ * Set styles on element.
+ */
+function setStyles(targetElements, styles = '') {
+    const _ELMS = targetElements instanceof Array ? targetElements : [targetElements];
+    _ELMS.forEach((elm) => {
+        if (styles instanceof Object) {
+            for (const _prop in styles) {
+                elm.style[_prop] = styles[_prop];
+            }
+        }
+        else {
+            elm.style.cssText = String(styles);
+        }
+    });
+}
+/**
+ * Get attributes from element.
+ */
+function getAtts(targetElement, attribute = '') {
+    const _ATTS = targetElement.getAttributeNames();
+    if (_ATTS.length !== 0) {
+        if (attribute === '') {
+            const _obj = {};
+            _ATTS.forEach((item) => {
+                const _val = targetElement.getAttribute(item);
+                _obj[item] = isNumberString(_val) ? Number(_val) : isBooleanString(_val) ? /^true$/i.test(_val) : _val;
+            });
+            return _obj;
+        }
+        if (_ATTS.includes(attribute)) {
+            const _val = targetElement.getAttribute(attribute);
+            return isNumberString(_val) ? Number(_val) : isBooleanString(_val) ? /^true$/i.test(_val) : _val;
+        }
+    }
+}
+/**
+ * Set or remove attributes on the specified element.
+ */
+function setAtts(targetElements, attributes = {}, remove = false) {
+    const _ELMS = targetElements instanceof Array ? targetElements : [targetElements];
+    _ELMS.forEach((elm) => {
+        for (const _key in attributes) {
+            const val = attributes[_key];
+            if (val === undefined)
+                continue;
+            if (!remove) {
+                elm.setAttribute(_key, val);
+            }
+            else {
+                elm.removeAttribute(_key);
+            }
+        }
+    });
+}
+/**
+ * Returns the width of string, where halfwidth characters count as 1,
+ * and fullwidth characters count as 2.
+ */
+function mb_strwidth(str) {
+    let i = 0;
+    const l = str.length;
+    let length = 0;
+    for (; i < l; i++) {
+        const c = str.charCodeAt(i);
+        if (0x0000 <= c && c <= 0x0019) {
+            length += 0;
+        }
+        else if (0x0020 <= c && c <= 0x1fff) {
+            length += 1;
+        }
+        else if (0x2000 <= c && c <= 0xff60) {
+            length += 2;
+        }
+        else if (0xff61 <= c && c <= 0xff9f) {
+            length += 1;
+        }
+        else if (0xffa0 <= c) {
+            length += 2;
+        }
+    }
+    return length;
+}
+/**
+ * Truncates string to specified width.
+ */
+function mb_strimwidth(str, start, width, trimmarker = '') {
+    const trimmakerWidth = mb_strwidth(trimmarker);
+    let i = start;
+    const l = str.length;
+    let trimmedLength = 0;
+    let trimmedStr = '';
+    for (; i < l; i++) {
+        const c = str.charAt(i);
+        const charWidth = mb_strwidth(c);
+        const next = str.charAt(i + 1);
+        const nextWidth = mb_strwidth(next);
+        trimmedLength += charWidth;
+        trimmedStr += c;
+        if (trimmedLength + trimmakerWidth + nextWidth > width) {
+            trimmedStr += trimmarker;
+            break;
+        }
+    }
+    return trimmedStr;
+}
+/**
+ * Watches the specified element.
+ * This function as a wrapper for MutationObserver.
+ */
+function watcher(targetElements, callback, config = {}) {
+    const _ELMS = targetElements instanceof Array ? targetElements : [targetElements];
+    if (!callback || typeof callback !== 'function') {
+        return;
+    }
+    const _CONF = Object.assign({
+        childList: true,
+        attributes: true,
+        characterData: true,
+        subtree: true,
+    }, config);
+    _ELMS.forEach((elm) => {
+        if (!isElement(elm)) {
+            logger('error', 'Watching target is not an HTML element.', 'force');
+            return;
+        }
+        new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                callback(mutation);
+            });
+        }).observe(elm, _CONF);
+    });
+}
+/**
+ * Fetch data using the specified URL and method.
+ * This function as a wrapper for Fetch API.
+ */
+async function fetchData(url = '', method = 'get', data = {}, datatype = 'json', timeout = 15000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+        controller.abort();
+    }, timeout);
+    if (!url || !/^(get|post|put|delete|patch)$/i.test(method)) {
+        return Promise.reject({
+            type: 'bad_request',
+            status: 400,
+            message: 'Invalid argument(s) given.',
+        });
+    }
+    let params = new URLSearchParams();
+    const sendData = {
+        method: method.toUpperCase(),
+        mode: 'cors',
+        cache: 'no-cache',
+        credentials: 'omit',
+        redirect: 'follow',
+        referrerPolicy: 'no-referrer',
+        signal: controller.signal,
+    };
+    if (data) {
+        for (const key in data) {
+            if (Object.prototype.hasOwnProperty.call(data, key)) {
+                params.append(key, data[key]);
+            }
+        }
+    }
+    if ('GET' !== sendData.method) {
+        sendData.body = params;
+    }
+    else {
+        if (params.size > 0) {
+            url += '?' + params;
+        }
+    }
+    try {
+        const response = await fetch(url, sendData);
+        logger('fetchData::after:', response);
+        if (response.ok) {
+            const retval = datatype === 'json' ? await response.json() : await response.text();
+            logger('fetchData::after:2:', retval);
+            return Promise.resolve(retval);
+        }
+        else {
+            const errObj = await response.json();
+            return Promise.reject({
+                code: errObj.code,
+                status: errObj.data.status,
+                message: errObj.message,
+            });
+        }
+    }
+    catch (err) {
+        logger('error', 'fetchData::error:', err, 'force');
+    }
+    finally {
+        clearTimeout(timeoutId);
+    }
+}
+/**
+ * Set the storage for saving user data on the client side to be used.
+ */
+function useStge(stge = 'localStorage') {
+    const ambientObj = window.$ambient;
+    if (ambientObj) {
+        ambientObj.useStorage = stge;
+    }
+    else {
+        window.$ambient = { useStorage: stge };
+    }
+}
+/**
+ * Store user data in client-side storage.
+ */
+function saveStge(key, data) {
+    const appKey = window.APP_KEY;
+    const _data = window[window.$ambient.useStorage].getItem(appKey);
+    if (!_data) {
+        const newData = {};
+        newData[key] = data;
+        window[window.$ambient.useStorage].setItem(appKey, JSON.stringify(newData));
+        return true;
+    }
+    try {
+        const userData = JSON.parse(_data);
+        if (isObject(userData)) {
+            userData[key] = data;
+            window[window.$ambient.useStorage].setItem(appKey, JSON.stringify(userData));
+            return true;
+        }
+    }
+    catch (error) {
+        logger(error, _data);
+    }
+    return false;
+}
+/**
+ * Removes specific properties from user data stored in client-side storage.
+ */
+function removeStge(key = null) {
+    const appKey = window.APP_KEY;
+    if (!key) {
+        window[window.$ambient.useStorage].removeItem(appKey);
+        return true;
+    }
+    const _data = window[window.$ambient.useStorage].getItem(appKey);
+    try {
+        const userData = JSON.parse(_data);
+        if (isObject(userData) && userData.hasOwnProperty(key)) {
+            delete userData[key];
+            window[window.$ambient.useStorage].setItem(appKey, JSON.stringify(userData));
+            return true;
+        }
+    }
+    catch (error) {
+        logger(error, _data);
+    }
+    return false;
+}
+/**
+ * Logger for frontend of Ambient Media Player.
+ */
+function logger(...args) {
+    const ambientData = window.AmbientData;
+    let isForce = ambientData?.debug || false;
+    if (args.length > 0 && typeof args[args.length - 1] === 'string' && args[args.length - 1] === 'force') {
+        isForce = args.pop() === 'force';
+    }
+    if (!isForce) {
+        return;
+    }
+    const now = new Date();
+    const dateStr = `[${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}]`;
+    const type = /^(error|warn|info|debug|log)$/i.test(args[0]) ? args.shift() : 'log';
+    return console[type](dateStr, ...args);
+}
+/**
+ * Update notice/notification display.
+ */
+function updateNotice(notification) {
+    logger('Have notification:', notification);
+    const classes = {
+        base: 'fixed inset-y-1/4 left-0 right-0 md:inset-y-1/4 h-max max-h-full w-5/6 max-w-xl md:max-w-sm flex items-center p-4 mx-auto z-99 text-sm border rounded-lg shadow-lg transition-opacity ease-out duration-300 ',
+        info: 'text-blue-800 border-blue-300 bg-blue-50 dark:text-blue-400 dark:border-blue-800 dark:bg-blue-900',
+        success: 'text-green-800 border-green-300 bg-green-50 dark:text-green-400 dark:border-green-800 dark:bg-green-900',
+        warning: 'text-yellow-800 border-yellow-300 bg-yellow-50 dark:text-yellow-400 dark:border-yellow-800 dark:bg-yellow-900',
+        error: 'text-red-800 border-red-300 bg-red-50 dark:text-red-400 dark:border-red-800 dark:bg-red-900',
+        btnbase: 'ml-auto -mx-1.5 -my-1.5 rounded-lg focus:ring-2 p-1.5 inline-flex items-center justify-center h-8 w-8 ',
+        btninfo: 'bg-blue-50 text-blue-500 focus:ring-blue-400 hover:bg-blue-200 dark:bg-blue-800 dark:text-blue-400 dark:hover:bg-blue-700',
+        btnsuccess: 'bg-green-50 text-green-500 focus:ring-green-400 hover:bg-green-200 dark:bg-green-800 dark:text-green-400 dark:hover:bg-green-700',
+        btnwarning: 'bg-yellow-50 text-yellow-500 focus:ring-yellow-400 hover:bg-yellow-200 dark:bg-yellow-800 dark:text-yellow-400 dark:hover:bg-yellow-700',
+        btnerror: 'bg-red-50 text-red-500 focus:ring-red-400 hover:bg-red-200 dark:bg-red-800 dark:text-red-400 dark:hover:bg-red-700',
+    };
+    const $ALERT = document.getElementById('alert-notification');
+    const $BUTTON_ALERT_DISMISS = document.getElementById('btn-alert-dismiss');
+    const classKey = notification.type;
+    const btnClassKey = `btn${notification.type}`;
+    setAtts($ALERT, { class: classes.base + classes[classKey] });
+    setAtts($BUTTON_ALERT_DISMISS, { class: classes.btnbase + classes[btnClassKey] });
+    toggleClass($BUTTON_ALERT_DISMISS, { hidden: true });
+    const $ALERT_MESSAGE = $ALERT.querySelector('#alert-message');
+    if ($ALERT_MESSAGE) {
+        $ALERT_MESSAGE.innerHTML = notification.message;
+    }
+    const delay = notification.hasOwnProperty('delay') ? Number(notification.delay) : 0;
+    // Show alert (inline implementation to avoid closure dependency)
+    toggleClass($ALERT, { 'opacity-0': false });
+    if (delay > 0) {
+        new Promise((resolve) => {
+            setTimeout(() => {
+                toggleClass($ALERT, { 'opacity-0': true });
+                resolve();
+            }, delay);
+        }).then(() => {
+            setTimeout(() => {
+                toggleClass($ALERT, { hidden: true });
+            }, 1000);
+        });
+    }
+}
+// Do dispatcher
+if ('complete' === document.readyState || 'loading' !== document.readyState) {
+    init();
+}
+else if (document.addEventListener) {
+    document.addEventListener('DOMContentLoaded', init, false);
+}
+else {
+    window.onload = init;
+}
+//# sourceMappingURL=ambient.js.map

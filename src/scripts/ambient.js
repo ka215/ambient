@@ -32,6 +32,10 @@ function initStatus() {
         notice: null,
         // add since v1.2.2
         loop: null,
+        // YouTube signal states for DOM-driven E2E waits
+        yt_phase: 'idle',
+        yt_seq: 0,
+        yt_error: '',
     })
 }
 
@@ -46,8 +50,44 @@ const currentWindowSize = {
 var tag = document.createElement('script')
 tag.src = 'https://www.youtube.com/player_api'
 var firstScriptTag = document.getElementsByTagName('script')[0]
-firstScriptTag.parentNode.insertBefore(tag, firstScriptTag)
 var player
+
+/**
+ * Reflect YouTube signal states to body data attributes for DOM-driven waits.
+ */
+function syncYouTubeSignalAttrs() {
+    const body = document.body
+    if (!body || !AMP_STATUS) {
+        return
+    }
+    body.setAttribute('data-yt-phase', AMP_STATUS.yt_phase || 'idle')
+    body.setAttribute('data-yt-seq', String(AMP_STATUS.yt_seq || 0))
+    body.setAttribute('data-yt-error', AMP_STATUS.yt_error || '')
+}
+
+/**
+ * Update YouTube signal states and emit attribute updates.
+ *
+ * @param {string} phase
+ * @param {string} error
+ */
+function emitYouTubeSignal(phase, error = '') {
+    AMP_STATUS.yt_phase = phase
+    AMP_STATUS.yt_error = error
+    AMP_STATUS.yt_seq = Number(AMP_STATUS.yt_seq || 0) + 1
+    syncYouTubeSignalAttrs()
+}
+
+emitYouTubeSignal('api_loading')
+tag.addEventListener('load', () => {
+    emitYouTubeSignal('api_loaded')
+})
+tag.addEventListener('error', () => {
+    emitYouTubeSignal('api_error', 'player_api_load_failed')
+})
+if (firstScriptTag && firstScriptTag.parentNode) {
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag)
+}
 
 // seek container
 var seekId
@@ -114,6 +154,9 @@ function watchState() {
                 break
             case /^options$/i.test(prop):
                 applyOptions()
+                break
+            case /^yt_(phase|seq|error)$/i.test(prop):
+                syncYouTubeSignalAttrs()
                 break
         }
     }
@@ -1125,9 +1168,11 @@ function setupPlayer(type, src, mediaData) {
     switch(true) {
         case /^YouTube$/i.test(type):
             AMP_STATUS.playertype = type
+            AMP_STATUS.yt_error = ''
             createYTPlayer(mediaData)
             break
         case /^HTML$/i.test(type):
+            emitYouTubeSignal('inactive')
             const extension = getExt(src)
             //logger('setupPlayer:', extension)
             if (/^(aac|midi?|mp3|m4a|ogg|opus|wav|weba|wma)$/i.test(extension)) {
@@ -1144,6 +1189,7 @@ function setupPlayer(type, src, mediaData) {
             break
         default:
             AMP_STATUS.playertype = null
+            emitYouTubeSignal('error', 'unsupported_player_specified')
             playItem(null, AMP_STATUS.next)
             throw new Error('Unsupported player specified.')
     }
@@ -1155,6 +1201,7 @@ function setupPlayer(type, src, mediaData) {
  * @param {Object} event 
  */
 function onPlayerReady(event) {
+    emitYouTubeSignal('player_ready')
     // from: flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-full h-0 opacity-0
     // to:   flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-max h-max
     $EMBED_WRAPPER.classList.add('w-max', 'h-max')
@@ -1207,6 +1254,7 @@ function onPlayerReady(event) {
  */
 function onPlayerStateChange(event) {
     if (event.data == YT.PlayerState.ENDED) {
+        emitYouTubeSignal('ended')
         abortSeeking()
         abortFader('fadeout')
 
@@ -1244,11 +1292,13 @@ function onPlayerStateChange(event) {
         setupPlayer(playerType, mediaSrc, mediaData)
     }
     if (event.data == YT.PlayerState.PAUSED) {
+        emitYouTubeSignal('paused')
         // Toggle this button shown (Pause -> Play).
         $BUTTON_PAUSE.classList.add('hidden')
         $BUTTON_PLAY.classList.remove('hidden')
     }
     if (event.data == YT.PlayerState.PLAYING) {
+        emitYouTubeSignal('playing')
         // Toggle this button shown (Play -> Pause).
         $BUTTON_PLAY.classList.add('hidden')
         $BUTTON_PAUSE.classList.remove('hidden')
@@ -1268,6 +1318,7 @@ function onPlayerStateChange(event) {
         }
     }
     if (event.data == -1 && getOption('autoplay')) {
+        emitYouTubeSignal('unstarted')
         // When playback unstarted.
         logger('onPlayerStateChange::unstarted.')
     }
@@ -1279,6 +1330,7 @@ function onPlayerStateChange(event) {
  * @param {Object} event 
  */
 function onPlayerError(event) {
+    emitYouTubeSignal('error', `yt_error_${event && event.data !== undefined ? event.data : 'unknown'}`)
     // Skip if media playback fails.
     // from: flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-max h-max
     // to:   flex justify-center border border-gray-500 rounded-lg overflow-hidden transition-all duration-150 ease-out w-full h-0 opacity-0
@@ -1317,6 +1369,7 @@ function onPlayerError(event) {
  * @param {Object} mediaData 
  */
 function createYTPlayer(mediaData) {
+    emitYouTubeSignal('player_creating')
     const playerElm = document.createElement('div')
     playerElm.id = 'ytplayer'
     while($EMBED_WRAPPER.firstChild) {
@@ -1392,6 +1445,7 @@ function createYTPlayer(mediaData) {
             'onError': onPlayerError,
         },
     })
+    emitYouTubeSignal('player_created')
 }
 
 /**
