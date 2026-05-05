@@ -102,6 +102,23 @@
         @apply text-gray-600 dark:text-gray-400 bg-gray-200 dark:bg-gray-700
     }
 
+    /* Carousel button background with opacity and hover support */
+    .carousel-button-bg {
+        background-color: rgba(17, 24, 39, 0.7); /* bg-gray-900/70 */
+        transition-property: background-color;
+        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        transition-duration: 150ms;
+    }
+    .carousel-button-bg:hover {
+        background-color: rgba(17, 24, 39, 0.85); /* hover: bg-gray-900/85 */
+    }
+    .dark .carousel-button-bg {
+        background-color: rgba(243, 244, 246, 0.35); /* dark:bg-gray-100/35 */
+    }
+    .dark .carousel-button-bg:hover {
+        background-color: rgba(243, 244, 246, 0.55); /* dark:group-hover: bg-gray-100/55 */
+    }
+
     @media (min-width: 1282px) {
         #media-caption {
           max-width: 640px !important;

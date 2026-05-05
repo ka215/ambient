@@ -1036,7 +1036,8 @@ const init = function () {
                 AMP_STATUS.options = Object.assign(AMP_STATUS.options, { dark: evt.target.checked });
             }
         }
-        changeToggleDarkmode();
+        // Delay dark class toggle to let the knob slide animation complete (~150ms)
+        setTimeout(() => changeToggleDarkmode(), 200);
     });
     /**
      * Toggle the darkmode of settings menu toggle button.

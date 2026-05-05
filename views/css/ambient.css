@@ -158,12 +158,17 @@ a[aria-current=true] .playlist-subtitle {
   overflow: hidden;
 }
 
-/* ON時: ノブをright基点に固定してコンテナ内に収める */
-#drawer-settings label[id^=toggle-] input:checked ~ .toggle-track::after {
-  left: auto;
-  right: 2px;
+/* ON時: ノブをleft:22pxに固定してコンテナ内に収める（left: 2px→22px アニメーション維持） */
+#drawer-settings input:checked ~ .toggle-track::after {
+  left: 22px;
   -webkit-transform: none;
           transform: none;
+  translate: none;
+}
+
+/* GPUレイヤーを事前生成してトランジション初回のカクつきを防止 */
+#drawer-settings .toggle-track::after {
+  will-change: left;
 }
 
 #collapse-menu [data-accordion-target] .accordion-caret {

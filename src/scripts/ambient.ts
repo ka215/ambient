@@ -1119,7 +1119,8 @@ const init = function (): void {
         AMP_STATUS.options = Object.assign(AMP_STATUS.options, { dark: (evt.target as HTMLInputElement).checked });
       }
     }
-    changeToggleDarkmode();
+    // Delay dark class toggle to let the knob slide animation complete (~150ms)
+    setTimeout(() => changeToggleDarkmode(), 200);
   });
 
   /**
