@@ -158,6 +158,14 @@ a[aria-current=true] .playlist-subtitle {
   overflow: hidden;
 }
 
+/* ON時: ノブをright基点に固定してコンテナ内に収める */
+#drawer-settings label[id^=toggle-] input:checked ~ .toggle-track::after {
+  left: auto;
+  right: 2px;
+  -webkit-transform: none;
+          transform: none;
+}
+
 #collapse-menu [data-accordion-target] .accordion-caret {
   display: inline-flex;
   min-width: 0.875rem;
