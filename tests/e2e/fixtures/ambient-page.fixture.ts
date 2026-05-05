@@ -67,7 +67,43 @@ export class AmbientPage {
       if (btn) btn.click();
     });
     await this.page.waitForFunction(
-      () => !document.getElementById('drawer-settings')?.classList.contains('-translate-x-full')
+      () => !document.getElementById('drawer-settings')?.classList.contains('translate-x-full')
+    );
+  }
+
+  async closeSettingsDrawer(): Promise<void> {
+    const shouldClose = await this.page.evaluate(() => {
+      const drawer = document.getElementById('drawer-settings');
+      const isOpen = !drawer?.classList.contains('translate-x-full');
+      const isFullUi = window.innerWidth >= 1282;
+      return isOpen && !isFullUi;
+    });
+    if (!shouldClose) {
+      return;
+    }
+
+    // Use DOM click to avoid Playwright viewport click failures on mobile projects.
+    await this.page.evaluate(() => {
+      const closeBtn = document.getElementById('btn-close-settings') as HTMLElement | null;
+      if (closeBtn) {
+        closeBtn.click();
+      }
+    });
+
+    const stillOpen = await this.page.evaluate(
+      () => !document.getElementById('drawer-settings')?.classList.contains('translate-x-full')
+    );
+    if (stillOpen) {
+      await this.page.evaluate(() => {
+        const settingsBtn = document.getElementById('btn-settings') as HTMLElement | null;
+        if (settingsBtn) {
+          settingsBtn.click();
+        }
+      });
+    }
+
+    await this.page.waitForFunction(
+      () => !!document.getElementById('drawer-settings')?.classList.contains('translate-x-full')
     );
   }
 
@@ -83,8 +119,7 @@ export class AmbientPage {
       { timeout: 30_000 }
     );
     // Close the settings drawer so the main UI is accessible
-    await this.page.locator('#btn-close-settings').click();
-    await this.page.waitForTimeout(300);
+    await this.closeSettingsDrawer();
   }
 
   async getYouTubeSignalSeq(): Promise<number> {

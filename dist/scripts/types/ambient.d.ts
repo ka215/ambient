@@ -32,6 +32,7 @@ export interface PlaylistOptions {
     random?: boolean;
     shuffle?: boolean;
     seek?: boolean;
+    fullwindow?: boolean;
     fader?: boolean;
     volume?: number;
     dark?: boolean;

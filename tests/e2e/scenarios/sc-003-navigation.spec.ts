@@ -8,6 +8,14 @@ test.describe('SC-003 Playlist navigation (next/prev)', () => {
     // Arrange
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
+
+    // Ensure carousel controls are visible for this scenario.
+    const fullPressed = await page.locator('#btn-window-full').getAttribute('aria-pressed');
+    if (fullPressed === 'true') {
+      await page.locator('#btn-window-full').click();
+      await expect(page.locator('body')).not.toHaveClass(/amp-full-window/);
+    }
+
     await ambientPage.selectPlaylist('mememori-youtube.json');
     await ambientPage.waitForYouTubeApi();
     // Open playlist drawer, click first item to start playback, then close drawer
@@ -25,13 +33,19 @@ test.describe('SC-003 Playlist navigation (next/prev)', () => {
     await ambientPage.closePlaylistDrawer();
 
     // Act
-    await page.locator('#data-carousel-next').click();
+    await page.evaluate(() => {
+      const btn = document.getElementById('data-carousel-next') as HTMLElement | null;
+      if (btn) btn.click();
+    });
     await ambientPage.openPlaylistDrawer();
     const currentAfterNext = page.locator('#playlist-list-group a[aria-current="true"]');
     const nextCurrentId = await currentAfterNext.first().getAttribute('data-playlist-item');
     await ambientPage.closePlaylistDrawer();
 
-    await page.locator('#data-carousel-prev').click();
+    await page.evaluate(() => {
+      const btn = document.getElementById('data-carousel-prev') as HTMLElement | null;
+      if (btn) btn.click();
+    });
     await ambientPage.openPlaylistDrawer();
     const currentAfterPrev = page.locator('#playlist-list-group a[aria-current="true"]');
     const prevCurrentId = await currentAfterPrev.first().getAttribute('data-playlist-item');

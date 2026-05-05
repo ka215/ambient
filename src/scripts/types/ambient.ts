@@ -34,6 +34,7 @@ export interface PlaylistOptions {
   random?: boolean;        // Random playback
   shuffle?: boolean;       // Shuffle playback
   seek?: boolean;          // Enable seek/start-end controls
+  fullwindow?: boolean;    // Expand player area to fit window
   fader?: boolean;         // Enable fade-in/fade-out
   volume?: number;         // Default volume (0-100)
   dark?: boolean;          // Dark mode

@@ -240,6 +240,7 @@ const init = function () {
     const $TOGGLE_RANDOMLY = document.getElementById('toggle-randomly');
     const $TOGGLE_SHUFFLE = document.getElementById('toggle-shuffle');
     const $TOGGLE_SEEKPLAY = document.getElementById('toggle-seekplay');
+    const $TOGGLE_WINDOW_FULL = document.getElementById('toggle-window-full');
     const $TOGGLE_FADER = document.getElementById('toggle-fader');
     const $RANGE_VOLUME = document.getElementById('default-volume');
     const $TOGGLE_DARKMODE = document.getElementById('toggle-darkmode');
@@ -257,8 +258,10 @@ const init = function () {
     const $MENU = document.getElementById('menu-container');
     const $BUTTON_PLAYLIST = document.getElementById('btn-playlist');
     const $BUTTON_REFRESH = document.getElementById('btn-refresh');
+    const $BUTTON_WINDOW_FULL = document.getElementById('btn-window-full');
     const $BUTTON_PLAY = document.getElementById('btn-play');
     const $BUTTON_PAUSE = document.getElementById('btn-pause');
+    const $BUTTON_MENU_COLLAPSE = document.getElementById('btn-menu-collapse');
     const $BUTTON_SETTINGS = document.getElementById('btn-settings');
     const $BUTTON_OPTIONS = document.getElementById('btn-options');
     const $BUTTON_CLOSE_OPTIONS = document.getElementById('btn-close-options');
@@ -573,6 +576,8 @@ const init = function () {
             }
         }
         changeToggleDarkmode();
+        const isFullWindow = getOption('fullwindow');
+        setFullWindowMode(!!isFullWindow, false);
     }
     /**
      * Clear and initialize the carousel display.
@@ -680,6 +685,9 @@ const init = function () {
      * Toggle caption marqueeing depending on window size.
      */
     function toggleMarqueeCaption() {
+        if ($BODY.classList.contains('amp-full-window')) {
+            return;
+        }
         const $MARQUEE_NODE = $MEDIA_CAPTION.querySelector('.marquee-inner');
         if (!isElement($MARQUEE_NODE)) {
             return;
@@ -706,6 +714,87 @@ const init = function () {
             }
             $MEDIA_CAPTION.appendChild($MARQUEE_CLONE);
         }
+    }
+    /**
+     * Returns true when player is shown as full-window.
+     */
+    function isFullWindowMode() {
+        return $BODY.classList.contains('amp-full-window');
+    }
+    /**
+     * Sync icon pair of full-window toggle button.
+     */
+    function syncWindowFullButtonIcons(enabled) {
+        if (!isElement($BUTTON_WINDOW_FULL)) {
+            return;
+        }
+        const $ICON_EXPAND = $BUTTON_WINDOW_FULL.querySelector('.icon-window-expand');
+        const $ICON_MINIMIZE = $BUTTON_WINDOW_FULL.querySelector('.icon-window-minimize');
+        if (isElement($ICON_EXPAND)) {
+            $ICON_EXPAND.classList.toggle('hidden', enabled);
+        }
+        if (isElement($ICON_MINIMIZE)) {
+            $ICON_MINIMIZE.classList.toggle('hidden', !enabled);
+        }
+        $BUTTON_WINDOW_FULL.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+    }
+    /**
+     * Toggle full-window mode and synchronize controls from drawer and bottom menu.
+     * @param closeDrawers When true, auto-close any open drawers (only for bottom-menu trigger).
+     */
+    function setFullWindowMode(enabled, syncOption = true, closeDrawers = false) {
+        $BODY.classList.toggle('amp-full-window', enabled);
+        const $TOGGLE = $TOGGLE_WINDOW_FULL?.querySelector('input[type="checkbox"]');
+        if (isElement($TOGGLE)) {
+            $TOGGLE.checked = enabled;
+        }
+        if (syncOption) {
+            if (!isObject(AMP_STATUS.options)) {
+                AMP_STATUS.options = { fullwindow: enabled };
+            }
+            else {
+                AMP_STATUS.options.fullwindow = enabled;
+            }
+        }
+        if (enabled && closeDrawers) {
+            const shownLeft = !$DRAWER_PLAYLIST.classList.contains('-translate-x-full');
+            const shownRight = !$DRAWER_SETTINGS.classList.contains('translate-x-full');
+            if (shownLeft) {
+                document.getElementById('btn-close-playlist')?.click();
+            }
+            if (shownRight) {
+                document.getElementById('btn-close-settings')?.click();
+            }
+        }
+        syncWindowFullButtonIcons(enabled);
+        updateWindowSize();
+    }
+    /**
+     * Synchronize the bottom menu minimize button icon and state.
+     */
+    function syncMenuCollapseButton(minimized) {
+        if (!isElement($BUTTON_MENU_COLLAPSE)) {
+            return;
+        }
+        const $ICON_COMPRESS = $BUTTON_MENU_COLLAPSE.querySelector('.icon-menu-compress');
+        const $ICON_EXPAND = $BUTTON_MENU_COLLAPSE.querySelector('.icon-menu-expand');
+        if (isElement($ICON_COMPRESS)) {
+            $ICON_COMPRESS.classList.toggle('hidden', minimized);
+        }
+        if (isElement($ICON_EXPAND)) {
+            $ICON_EXPAND.classList.toggle('hidden', !minimized);
+        }
+        $BUTTON_MENU_COLLAPSE.setAttribute('aria-pressed', minimized ? 'true' : 'false');
+    }
+    /**
+     * Toggle bottom menu minimized state.
+     */
+    function setMenuMinimized(minimized) {
+        if (!isElement($MENU)) {
+            return;
+        }
+        $MENU.classList.toggle('menu-minimized', minimized);
+        syncMenuCollapseButton(minimized);
     }
     /**
      * Filters text to the specified format.
@@ -785,6 +874,21 @@ const init = function () {
     $BUTTON_REFRESH.addEventListener('click', (_evt) => {
         reloadPage();
     });
+    if (isElement($BUTTON_WINDOW_FULL)) {
+        $BUTTON_WINDOW_FULL.addEventListener('click', (_evt) => {
+            setFullWindowMode(!isFullWindowMode(), true, true);
+        });
+    }
+    if (isElement($TOGGLE_WINDOW_FULL)) {
+        $TOGGLE_WINDOW_FULL.querySelector('input[type="checkbox"]').addEventListener('change', (evt) => {
+            setFullWindowMode(evt.target.checked);
+        });
+    }
+    if (isElement($BUTTON_MENU_COLLAPSE)) {
+        $BUTTON_MENU_COLLAPSE.addEventListener('click', (_evt) => {
+            setMenuMinimized(!$MENU.classList.contains('menu-minimized'));
+        });
+    }
     /**
      * Toggle the display of player controls button after media loaded.
      */
@@ -1418,9 +1522,12 @@ const init = function () {
             AMP_STATUS.volume = getOption('volume') || 100;
         }
         // aspect: 16:9 = w:h -> h = 9w/16
+        const isFullWindow = isFullWindowMode();
         const adjustSize = {
-            width: currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2,
-            height: Math.floor((9 * (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2)) / 16),
+            width: isFullWindow ? currentWindowSize.width : (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2),
+            height: isFullWindow
+                ? currentWindowSize.height
+                : Math.floor((9 * (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2)) / 16),
         };
         player = new window.YT.Player('ytplayer', {
             height: adjustSize.height,
@@ -1578,7 +1685,11 @@ const init = function () {
                 if (!self.videoHeight || !self.videoWidth) {
                     self.setAttribute('poster', './views/images/no-media-placeholder.svg');
                 }
-                if (currentWindowSize.width >= 640) {
+                if (isFullWindowMode()) {
+                    self.width = currentWindowSize.width;
+                    self.height = currentWindowSize.height;
+                }
+                else if (currentWindowSize.width >= 640) {
                     self.width = 640;
                     self.height = Math.floor((640 * self.videoHeight) / self.videoWidth);
                 }
@@ -1735,10 +1846,13 @@ const init = function () {
     function updateWindowSize() {
         currentWindowSize.width = window.innerWidth;
         currentWindowSize.height = window.innerHeight;
+        const isFullWindow = isFullWindowMode();
         // aspect: 16:9 = w:h -> h = 9w/16
         const adjustPlayerSize = {
-            width: currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2,
-            height: Math.floor((9 * (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2)) / 16),
+            width: isFullWindow ? currentWindowSize.width : (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2),
+            height: isFullWindow
+                ? currentWindowSize.height
+                : Math.floor((9 * (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2)) / 16),
         };
         if (player && typeof player === 'object' && typeof player.getIframe === 'function') {
             const YTPlayer = player.getIframe();
@@ -1747,8 +1861,13 @@ const init = function () {
         }
         const $HTMLPlayer = document.getElementById('html-player');
         if (isElement($HTMLPlayer)) {
-            $HTMLPlayer.width = adjustPlayerSize.width;
-            $HTMLPlayer.height = adjustPlayerSize.height;
+            if ($HTMLPlayer.tagName === 'VIDEO') {
+                $HTMLPlayer.width = adjustPlayerSize.width;
+                $HTMLPlayer.height = adjustPlayerSize.height;
+            }
+        }
+        if (isFullWindow) {
+            return;
         }
         const shownLeftDrawer = getAtts($DRAWER_PLAYLIST, 'aria-modal') || false;
         const shownRightDrawer = getAtts($DRAWER_SETTINGS, 'aria-modal') || false;
@@ -1787,6 +1906,7 @@ const init = function () {
             }, delay);
         }, false);
     };
+    setMenuMinimized(false);
     resize();
     window.dispatchEvent(new Event('resize', { bubbles: true, cancelable: false }));
     // ============================================================================
