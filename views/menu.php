@@ -13,7 +13,7 @@ if ( $this->menu_type == 1 ) {
           type="button"
           class="inline-flex flex-col items-center justify-center px-4 border-gray-200 border-x hover:bg-gray-50 dark:hover:bg-gray-800 group dark:border-gray-600"
           data-drawer-target="drawer-playlist"
-          data-drawer-show="drawer-playlist"
+          data-drawer-toggle="drawer-playlist"
           data-drawer-placement="left"
           aria-controls="drawer-playlist"
         >
@@ -88,7 +88,7 @@ if ( $this->menu_type == 1 ) {
           type="button"
           class="inline-flex flex-col items-center justify-center px-5 hover:bg-gray-50 dark:hover:bg-gray-800 group"
           data-drawer-target="drawer-settings"
-          data-drawer-show="drawer-settings"
+          data-drawer-toggle="drawer-settings"
           data-drawer-placement="right"
           aria-controls="drawer-settings"
         >
@@ -125,7 +125,7 @@ if ( $this->menu_type == 1 ) {
           class="inline-flex flex-col items-center justify-center px-5 rounded-l-full hover:bg-gray-50 dark:hover:bg-gray-800 group"
           data-tooltip-target="tooltip-playlist" 
           data-drawer-target="drawer-playlist"
-          data-drawer-show="drawer-playlist"
+          data-drawer-toggle="drawer-playlist"
           data-drawer-placement="left"
           aria-controls="drawer-playlist"
         >
@@ -256,7 +256,7 @@ if ( $this->menu_type == 1 ) {
           class="inline-flex flex-col items-center justify-center px-5 hover:bg-gray-50 dark:hover:bg-gray-800 group"
           data-tooltip-target="tooltip-settings" 
           data-drawer-target="drawer-settings"
-          data-drawer-show="drawer-settings"
+          data-drawer-toggle="drawer-settings"
           data-drawer-placement="right"
           aria-controls="drawer-settings"
         >
