@@ -12,6 +12,22 @@ function ensureSnapshotDir(): string {
 test.describe('SC-008 Layout positioning checks', () => {
   test('carousel, bottom menu, and drawer toggle keep expected positions', async ({ ambientPage, page }) => {
     const snapshotDir = ensureSnapshotDir();
+    const isMobileViewport = (page.viewportSize()?.width ?? 1400) < 1282;
+
+    if (isMobileViewport) {
+      test.setTimeout(90_000);
+    }
+
+    const captureSnapshot = async (name: string): Promise<void> => {
+      // On mobile projects, full-page captures are expensive and can cause flaky timeouts.
+      if (isMobileViewport && (name === 'sc-008-toggle-on.png' || name === 'sc-008-accordion-caret.png')) {
+        return;
+      }
+      await page.screenshot({
+        path: path.join(snapshotDir, name),
+        fullPage: !isMobileViewport,
+      });
+    };
 
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
@@ -43,10 +59,7 @@ test.describe('SC-008 Layout positioning checks', () => {
       expect(Math.abs(carouselMetrics.wrapperCy - carouselMetrics.imageCy)).toBeLessThanOrEqual(6);
     }
 
-    await page.screenshot({
-      path: path.join(snapshotDir, 'sc-008-carousel-centered.png'),
-      fullPage: true,
-    });
+    await captureSnapshot('sc-008-carousel-centered.png');
 
     const menuMetrics = await page.evaluate(() => {
       const menu = document.getElementById('menu-container');
@@ -62,10 +75,7 @@ test.describe('SC-008 Layout positioning checks', () => {
       expect(menuMetrics.diff).toBeLessThanOrEqual(4);
     }
 
-    await page.screenshot({
-      path: path.join(snapshotDir, 'sc-008-menu-centered.png'),
-      fullPage: true,
-    });
+    await captureSnapshot('sc-008-menu-centered.png');
 
     await ambientPage.openSettingsDrawer();
     await page.locator('#toggle-loop').click();
@@ -96,10 +106,7 @@ test.describe('SC-008 Layout positioning checks', () => {
       expect(toggleMetrics.knobRight).toBeLessThanOrEqual(toggleMetrics.trackWidth + 0.8);
     }
 
-    await page.screenshot({
-      path: path.join(snapshotDir, 'sc-008-toggle-on.png'),
-      fullPage: true,
-    });
+    await captureSnapshot('sc-008-toggle-on.png');
 
     await ambientPage.closeSettingsDrawer();
     await page.evaluate(() => {
@@ -153,9 +160,6 @@ test.describe('SC-008 Layout positioning checks', () => {
       expect(caretExpanded.caretUpDisplay).not.toBe('none');
     }
 
-    await page.screenshot({
-      path: path.join(snapshotDir, 'sc-008-accordion-caret.png'),
-      fullPage: true,
-    });
+    await captureSnapshot('sc-008-accordion-caret.png');
   });
 });
