@@ -30,6 +30,19 @@
       class="w-full mt-14 mb-16 overflow-y-auto text-sm font-normal text-gray-900 bg-white border-b border-gray-200 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
       style="height: calc(100vh - <?php if ( $this->menu_type == 1 ): ?>120<?php else: ?>136<?php endif; ?>px);"
     >
-        <div id="no-media" class="flex w-full h-full justify-center items-center text-base text-gray-500"><?= __( 'No media available.' ) ?></div>
+        <div id="no-media" class="flex flex-col w-full h-full justify-center items-center gap-3 text-base text-gray-500">
+            <span><?= __( 'No media available.' ) ?></span>
+            <button
+              type="button"
+              id="btn-add-media-from-drawer"
+              data-label="<?= __( 'Register media' ) ?>"
+              class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+            >
+                <svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7 7V5"/>
+                </svg>
+                <?= __( 'Register media' ) ?>
+            </button>
+        </div>
     </div>
 </div><!-- /#drawer-playlist -->

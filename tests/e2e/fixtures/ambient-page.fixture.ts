@@ -39,8 +39,13 @@ export class AmbientPage {
     await this.page.waitForFunction(
       () => !document.getElementById('drawer-playlist')?.classList.contains('-translate-x-full')
     );
-    // Wait until at least one item is in viewport
-    await this.page.locator('#playlist-list-group a[data-playlist-item]').first().waitFor({ state: 'visible' });
+    // Wait until playlist items are visible OR the no-media notice is shown (empty playlist).
+    await this.page.waitForFunction(() => {
+      const items = document.querySelectorAll('#playlist-list-group a[data-playlist-item]').length;
+      const noMedia = document.querySelector<HTMLElement>('#no-media');
+      const isNoMediaVisible = !!(noMedia && !noMedia.classList.contains('hidden'));
+      return items > 0 || isNoMediaVisible;
+    });
   }
 
   async closePlaylistDrawer(): Promise<void> {
@@ -62,10 +67,16 @@ export class AmbientPage {
   }
 
   async openSettingsDrawer(): Promise<void> {
-    await this.page.evaluate(() => {
-      const btn = document.getElementById('btn-settings') as HTMLElement | null;
-      if (btn) btn.click();
-    });
+    // Check if already open before clicking to avoid toggling a drawer that is already visible.
+    const isOpen = await this.page.evaluate(
+      () => !document.getElementById('drawer-settings')?.classList.contains('translate-x-full')
+    );
+    if (!isOpen) {
+      await this.page.evaluate(() => {
+        const btn = document.getElementById('btn-settings') as HTMLElement | null;
+        if (btn) btn.click();
+      });
+    }
     await this.page.waitForFunction(
       () => !document.getElementById('drawer-settings')?.classList.contains('translate-x-full')
     );

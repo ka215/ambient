@@ -93,6 +93,7 @@ interface AmbientData {
   playlists?: {
     [key: string]: string;
   };
+  isCloud?: boolean;
   [key: string]: any;
 }
 
