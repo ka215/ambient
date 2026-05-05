@@ -111,19 +111,20 @@ test.describe('SC-008 Layout positioning checks', () => {
       const button = document.querySelector<HTMLElement>('#collapse-item-heading-media button');
       const caret = button?.querySelector('.accordion-caret');
       if (!button || !caret) return null;
-      const style = getComputedStyle(caret, '::before');
+      const caretDown = caret.querySelector<HTMLElement>('.caret-down');
+      const caretUp = caret.querySelector<HTMLElement>('.caret-up');
       return {
         expanded: button.getAttribute('aria-expanded'),
-        fontFamily: style.fontFamily,
-        content: style.content,
+        caretDownDisplay: caretDown ? getComputedStyle(caretDown).display : null,
+        caretUpDisplay: caretUp ? getComputedStyle(caretUp).display : null,
       };
     });
 
     expect(caretCollapsed).not.toBeNull();
     if (caretCollapsed) {
       expect(caretCollapsed.expanded).toBe('false');
-      expect(caretCollapsed.fontFamily).toContain('Material Symbols Outlined');
-      expect(caretCollapsed.content).toContain('expand_more');
+      expect(caretCollapsed.caretDownDisplay).not.toBe('none');
+      expect(caretCollapsed.caretUpDisplay).toBe('none');
     }
 
     await page.locator('#collapse-item-heading-media button').click();
@@ -132,17 +133,20 @@ test.describe('SC-008 Layout positioning checks', () => {
       const button = document.querySelector<HTMLElement>('#collapse-item-heading-media button');
       const caret = button?.querySelector('.accordion-caret');
       if (!button || !caret) return null;
-      const style = getComputedStyle(caret, '::before');
+      const caretDown = caret.querySelector<HTMLElement>('.caret-down');
+      const caretUp = caret.querySelector<HTMLElement>('.caret-up');
       return {
         expanded: button.getAttribute('aria-expanded'),
-        content: style.content,
+        caretDownDisplay: caretDown ? getComputedStyle(caretDown).display : null,
+        caretUpDisplay: caretUp ? getComputedStyle(caretUp).display : null,
       };
     });
 
     expect(caretExpanded).not.toBeNull();
     if (caretExpanded) {
       expect(caretExpanded.expanded).toBe('true');
-      expect(caretExpanded.content).toContain('expand_less');
+      expect(caretExpanded.caretDownDisplay).toBe('none');
+      expect(caretExpanded.caretUpDisplay).not.toBe('none');
     }
 
     await page.screenshot({

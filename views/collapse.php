@@ -12,7 +12,7 @@
           aria-controls="collapse-item-body-media"
         >
             <span><?= __( 'Media Management' ); ?></span>
-          <span class="accordion-caret" aria-hidden="true"></span>
+          <span class="accordion-caret" aria-hidden="true"><svg class="caret-down w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg><svg class="caret-up w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7"/></svg></span>
         </button>
     </h2>
     <div 
@@ -409,7 +409,7 @@
           aria-controls="collapse-item-body-playlist"
         >
             <span><?= __( 'Playlist Management' ); ?></span>
-          <span class="accordion-caret" aria-hidden="true"></span>
+          <span class="accordion-caret" aria-hidden="true"><svg class="caret-down w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg><svg class="caret-up w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7"/></svg></span>
         </button>
     </h2>
     <div 
@@ -623,7 +623,7 @@
           aria-controls="collapse-item-body-issue"
         >
             <span><?= __( 'Report an issue' ); ?></span>
-          <span class="accordion-caret" aria-hidden="true"></span>
+          <span class="accordion-caret" aria-hidden="true"><svg class="caret-down w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg><svg class="caret-up w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7"/></svg></span>
         </button>
     </h2>
     <div 
@@ -650,7 +650,7 @@
           aria-controls="collapse-item-body-about"
         >
             <span><?= __( 'About Ambient' ); ?></span>
-          <span class="accordion-caret" aria-hidden="true"></span>
+          <span class="accordion-caret" aria-hidden="true"><svg class="caret-down w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg><svg class="caret-up w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7"/></svg></span>
         </button>
     </h2>
     <div 

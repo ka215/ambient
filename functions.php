@@ -34,7 +34,6 @@ function amp_head(): string {
     } else {
         $output[] = '<link href="./dist/tailwindcss.css?20231005" rel="stylesheet" />';
     }
-    $output[] = '<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:FILL@1;wght@700;opsz@20" rel="stylesheet" />';
     $output[] = '<link href="./dist/flowbite.min.css" rel="stylesheet" />';
     $output[] = '<link rel="preload" href="https://www.youtube.com/player_api" as="script" />';
     //$output[] = '<script src="https://www.youtube.com/iframe_api"></script>';
