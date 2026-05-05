@@ -11,6 +11,10 @@ function is_local(): bool {
     return isset( $GLOBALS['ambient'] ) ? $GLOBALS['ambient']->is_local() : false;
 }
 
+function is_cloud(): bool {
+    return isset( $GLOBALS['ambient'] ) ? $GLOBALS['ambient']->is_cloud() : true;
+}
+
 function __( string $text ): string {
     return isset( $GLOBALS['ambient'] ) ? $GLOBALS['ambient']->__( $text ) : $text;
 }

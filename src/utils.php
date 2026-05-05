@@ -249,13 +249,31 @@ trait utils {
 
     /**
      * Whether the application is running locally.
+     * When AMP_ENV is explicitly set, that value takes precedence over the
+     * IP-address heuristic so cloud deployments work behind reverse proxies.
      *
      * @return bool
      */
     public static function is_local(): bool {
-        $server_addr = $_SERVER['SERVER_ADDR'];
-        $remote_addr = $_SERVER['REMOTE_ADDR'];
+        $amp_env = amp_env( 'AMP_ENV' );
+        if ( $amp_env !== null ) {
+            return strtolower( $amp_env ) === 'local';
+        }
+        $server_addr = $_SERVER['SERVER_ADDR'] ?? '';
+        $remote_addr = $_SERVER['REMOTE_ADDR'] ?? '';
+        if ( $server_addr === '' || $remote_addr === '' ) {
+            return false;
+        }
         return substr( $server_addr, 0, mb_strrpos( $server_addr, '.' ) ) === substr( $remote_addr, 0, mb_strrpos( $remote_addr, '.' ) );
+    }
+
+    /**
+     * Whether the application is running in cloud mode.
+     *
+     * @return bool
+     */
+    public static function is_cloud(): bool {
+        return !self::is_local();
     }
 
     /**

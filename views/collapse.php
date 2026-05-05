@@ -22,9 +22,14 @@
     >
         <div class="p-5 border border-b-0 border-gray-200 dark:border-gray-700 dark:bg-gray-900 overflow-y-auto">
             <p class="mb-4 text-gray-500 dark:text-gray-400">
+<?php if ( is_cloud() ): ?>
+                <?= __( 'Added media is saved to MyPlaylist, which is stored in your browser\'s local storage and loaded automatically when you access Ambient.' ) ?>
+                <?= __( 'Existing playlists in cloud mode are read-only. Editing is not available.' ) ?>
+<?php else: ?>
                 <?= __( 'Add media to the currently active playlist.' ) ?>
                 <?= __( 'Media you add is lost when you switch playlists or end your application session.' ) ?>
                 <?= __( 'If you want the additional media to be permanent, you will need to download the playlist after adding the media.' ) ?>
+<?php endif; ?>
             </p>
             <div class="mb-2 text-gray-500 dark:text-gray-400">
               <form name="mediaManagement">
@@ -149,7 +154,7 @@
                           for="media-category"
                           class="block mb-2 text-sm font-medium normal-text"
                         >
-                            <span class="required" data-tooltip-target="tooltip-media-category"><?= __( 'Category' ) ?></span>
+                            <span data-tooltip-target="tooltip-media-category"><?= __( 'Category' ) ?></span>
                             <div id="tooltip-media-category" role="tooltip" class="absolute z-10 invisible inline-block px-2 py-2 text-xs font-normal text-white transition-opacity duration-300 bg-red-600 rounded-lg shadow-sm opacity-0 tooltip dark:bg-red-500">
                                 <?= __( 'Required' ) ?>
                                 <div class="tooltip-arrow" data-popper-arrow></div>
@@ -170,11 +175,19 @@
                           name="category"
                           class="border text-sm rounded-lg block w-full p-2.5 normal-input"
                           data-placeholder="<?= __( 'Choose a playlist category' ) ?>"
-                          required
                           data-validate="false"
                         >
                             <option value="" selected><?= __( 'Choose a playlist category' ) ?></option>
                         </select>
+                        <input
+                          type="text"
+                          id="media-category-new"
+                          name="category_new_name"
+                          class="hidden border text-sm rounded-lg block w-full p-2.5 normal-input"
+                          placeholder="<?= __( 'New Category' ) ?>"
+                          value="<?= __( 'New Category' ) ?>"
+                          data-default-value="<?= __( 'New Category' ) ?>"
+                        />
                     </div>
                     <div
                       class="mb-4"
@@ -251,13 +264,13 @@
                           class="flex justify-between mb-2 text-sm font-medium normal-text"
                         >
                             <?= __( 'Default playback volume' ) ?>
-                            <span id="default-media-volume" class="ml-2 px-1 text-yellow-500 dark:text-yellow-400">100</span>
+                            <span id="default-media-volume" class="ml-2 px-1 text-yellow-500 dark:text-yellow-400">50</span>
                         </label>
                         <input 
                           id="media-volume"
                           type="range"
                           name="volume"
-                          value="100"
+                          value="50"
                           min="0"
                           max="100"
                           step="1"
@@ -320,6 +333,7 @@
                             />
                         </div>
                     </div>
+                    <p class="mt-1 mb-4 text-sm text-red-600 dark:text-red-400"><?= __( '※ Seek start/end times are only valid when &ldquo;Seek Play&rdquo; is ON.' ) ?></p>
                     <div
                       class="hidden grid gap-4 mb-4 md:grid-cols-2"
                     >
@@ -423,6 +437,7 @@
                 <?= __( 'This section provides various tools to manage your playlists.' ) ?><br>
             </p>
             <div class="mb-2 text-gray-500 dark:text-gray-400">
+<?php if ( is_local() ): ?>
                 <div 
                   id="playlist-management-field-symbolic-link"
                   class="mb-4"
@@ -516,6 +531,7 @@
                         ><?= __( 'Create Symbolic Link' ) ?></button>
                     </div>
                 </div>
+<?php endif; /* is_local() - symlink section */ ?>
                 <div 
                   id="playlist-management-field-category"
                   class="mb-8"
