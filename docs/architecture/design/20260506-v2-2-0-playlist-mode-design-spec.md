@@ -19,7 +19,7 @@
 - When mode is not `Normal`:
   - Lock normal item click-to-play behavior.
   - Hide quick add list item (`[+] add media`).
-  - Show active mode badge near mode button.
+  - Switch the mode button icon and label to the active mode.
 - Mode behaviors:
   - `Edit`: item click opens edit modal (v2.3.0 target).
   - `Reorder`: drag and drop reorder.
@@ -65,7 +65,7 @@ Derived UI flags:
 ### 6.1 Header Controls
 - Add cog icon button at left drawer playlist header.
 - Add dropdown menu anchored to button.
-- Add active mode badge when mode != `normal`.
+- Reflect the active mode by changing the mode button icon and label when mode != `normal`.
 
 ### 6.2 Mode Dropdown
 - Items:
@@ -105,7 +105,7 @@ Non-goal:
 
 ## 9. Implementation Slices
 ### Slice A (v2.2.0): Mode Shell
-- Header button, dropdown, mode badge.
+- Header button, dropdown, mode button label/icon switching.
 - Interaction lock gate and quick-add visibility gate.
 - Edit mode shown but disabled.
 

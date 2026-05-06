@@ -103,11 +103,16 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
 
     await page.evaluate(() => {
       const url = document.getElementById('youtube-url') as HTMLInputElement | null;
+      const category = document.getElementById('media-category-new') as HTMLInputElement | null;
       const title = document.getElementById('media-title') as HTMLInputElement | null;
       if (url) {
         url.value = 'https://music.youtube.com/watch?v=dQw4w9WgXcQ';
         url.dispatchEvent(new Event('input', { bubbles: true }));
         url.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (category) {
+        category.dispatchEvent(new Event('input', { bubbles: true }));
+        category.dispatchEvent(new Event('change', { bubbles: true }));
       }
       if (title) {
         title.value = 'e2e-myplaylist-first-item';
@@ -121,6 +126,7 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
     await page.locator('#btn-add-media').click();
 
     await expect(page.locator('#modal-options')).toBeHidden();
+    await expect(page.locator('div[modal-backdrop]')).toHaveCount(0);
     await expect(page.locator('#alert-notification')).toContainClass('bg-green-50');
     await expect(page.locator('#alert-message')).not.toBeEmpty();
 

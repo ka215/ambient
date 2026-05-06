@@ -114,7 +114,6 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
     await expect(page.locator('#btn-pause')).toBeHidden();
 
     await selectMode(page, 'reorder');
-    // Badge is always hidden; the button label reflects the current mode instead.
     await expect(page.locator('#playlist-mode-button-label')).toContainText(/並び替え|Reorder/);
     await expect(page.locator('#btn-add-media-from-playlist')).toHaveCount(0);
 
@@ -139,7 +138,6 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
     await page.locator('#btn-playlist-confirm-cancel').click();
 
     await expect(page.locator('#modal-playlist-confirm')).toBeHidden();
-    // Badge is always hidden; the button label reflects the current mode.
     await expect(page.locator('#playlist-mode-button-label')).toContainText(/削除|Delete/);
     await expect(page.locator('#playlist-list-group a[data-playlist-item]')).toHaveCount(3);
     await expect(firstItem.locator('span[aria-hidden="true"]')).toHaveClass(/bg-red-500/);
@@ -168,6 +166,37 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
       if (!raw) return false;
       return raw.includes('slice-ab-3') && !raw.includes('slice-ab-1') && !raw.includes('slice-ab-2');
     })).toBe(true);
+  });
+
+  test('opens and closes media management from playlist quick add without leaving modal backdrop', async ({ page }) => {
+    await page.locator('#btn-add-media-from-playlist').click();
+
+    await expect(page.locator('#modal-options')).toBeVisible();
+    await page.waitForFunction(() => {
+      const panel = document.getElementById('collapse-item-body-media');
+      return panel ? !panel.classList.contains('hidden') : false;
+    }, { timeout: 8_000 });
+    await expect(page.locator('#collapse-item-body-media')).toBeVisible();
+
+    await page.locator('#btn-close-options').click();
+    await expect(page.locator('#modal-options')).toBeHidden();
+    await expect(page.locator('div[modal-backdrop]')).toHaveCount(0);
+    await expect(page.locator('#btn-playlist-mode')).toBeEnabled();
+  });
+
+  test('reopens options from bottom menu after backdrop close', async ({ page }) => {
+    await page.locator('#btn-add-media-from-playlist').click();
+    await expect(page.locator('#modal-options')).toBeVisible();
+
+    await page.locator('#modal-options').click({ position: { x: 8, y: 8 } });
+    await expect(page.locator('#modal-options')).toBeHidden();
+
+    await page.locator('#btn-options').click();
+    await expect(page.locator('#modal-options')).toBeVisible();
+
+    await page.locator('#btn-close-options').click();
+    await expect(page.locator('#modal-options')).toBeHidden();
+    await expect(page.locator('div[modal-backdrop]')).toHaveCount(0);
   });
 });
 
@@ -209,5 +238,27 @@ test.describe('SC-011 No-media register button', () => {
       return panel ? !panel.classList.contains('hidden') : false;
     }, { timeout: 8_000 });
     await expect(page.locator('#collapse-item-body-media')).toBeVisible();
+
+    await page.locator('#btn-close-options').click();
+    await expect(page.locator('#modal-options')).toBeHidden();
+    await expect(page.locator('div[modal-backdrop]')).toHaveCount(0);
+    await expect(page.locator('#btn-playlist-mode')).toBeDisabled();
+  });
+
+  test('reopens options after backdrop close from no-media register button', async ({ page }) => {
+    await page.locator('#btn-add-media-from-drawer').click();
+    await expect(page.locator('#modal-options')).toBeVisible();
+
+    await page.locator('#modal-options').click({ position: { x: 8, y: 8 } });
+    await expect(page.locator('#modal-options')).toBeHidden();
+
+    await page.locator('#btn-options').click();
+    await expect(page.locator('#modal-options')).toBeVisible();
+
+    await page.locator('#btn-close-options').click();
+    await expect(page.locator('#modal-options')).toBeHidden();
+
+    await page.locator('#btn-add-media-from-drawer').click();
+    await expect(page.locator('#modal-options')).toBeVisible();
   });
 });

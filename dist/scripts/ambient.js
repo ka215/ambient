@@ -195,9 +195,11 @@ const init = function () {
             const jsonStr = generatePlaylistJson(false);
             localStorage.setItem(MYPLAYLIST_KEY, jsonStr);
             logger('saveMyPlaylistToStorage: saved', jsonStr.length, 'bytes');
+            return true;
         }
         catch (e) {
             logger('saveMyPlaylistToStorage: error', e);
+            return false;
         }
     }
     /**
@@ -206,8 +208,9 @@ const init = function () {
     function persistMyPlaylistIfNeeded() {
         const ambientData = window.AmbientData;
         if (ambientData?.isCloud && AMP_STATUS.playlist === MYPLAYLIST_NAME) {
-            saveMyPlaylistToStorage();
+            return saveMyPlaylistToStorage();
         }
+        return true;
     }
     /**
      * Load MyPlaylist from localStorage and populate AMP_STATUS as if a
@@ -427,13 +430,17 @@ const init = function () {
     const $BUTTON_OPTIONS = document.getElementById('btn-options');
     const $BUTTON_CLOSE_OPTIONS = document.getElementById('btn-close-options');
     const $MODAL_OPTIONS = document.getElementById('modal-options');
+    const $MODAL_OPTIONS_PANEL = $MODAL_OPTIONS?.querySelector('.modal-dialog-shell');
     const $COLLAPSE_MENU = document.getElementById('collapse-menu');
     // Add elements since v1.1.0
     const $MEDIA_CATEGORY_SELECT = document.getElementById('media-category');
+    let optionsModalHideTimer = null;
+    if (isElement($MODAL_OPTIONS) && $MODAL_OPTIONS.parentElement !== document.body) {
+        document.body.appendChild($MODAL_OPTIONS);
+    }
     // Playlist operation mode UI (v2.2.0 Slice A)
     const $BUTTON_PLAYLIST_MODE = document.getElementById('btn-playlist-mode');
     const $PLAYLIST_MODE_MENU = document.getElementById('playlist-mode-menu');
-    const $PLAYLIST_MODE_BADGE = document.getElementById('playlist-mode-badge');
     const $PLAYLIST_MODE_BUTTON_ICON = document.getElementById('playlist-mode-button-icon');
     const $PLAYLIST_MODE_BUTTON_LABEL = document.getElementById('playlist-mode-button-label');
     let playlistMode = 'normal';
@@ -489,10 +496,6 @@ const init = function () {
         }
     }
     function updatePlaylistModeUI() {
-        if ($PLAYLIST_MODE_BADGE) {
-            $PLAYLIST_MODE_BADGE.classList.add('hidden');
-            $PLAYLIST_MODE_BADGE.textContent = '';
-        }
         syncPlaylistModeButton(playlistMode);
         if ($PLAYLIST_MODE_MENU) {
             Array.from($PLAYLIST_MODE_MENU.querySelectorAll('.playlist-mode-option')).forEach((elm) => {
@@ -691,6 +694,10 @@ const init = function () {
             restoreOptionsTriggerFocus();
         }, true);
     }
+    function isOptionsModalVisible() {
+        return !$MODAL_OPTIONS.classList.contains('hidden') &&
+            $MODAL_OPTIONS.getAttribute('aria-hidden') !== 'true';
+    }
     /**
      * Sync active styles of bottom menu drawer toggle buttons.
      */
@@ -736,6 +743,9 @@ const init = function () {
         if (isModalHidden && isFocusInsideModal) {
             restoreOptionsTriggerFocus();
         }
+        if (isModalHidden) {
+            cleanupOptionsModalBackdrops();
+        }
     }, { attributes: true, childList: false, subtree: false, attributeFilter: ['aria-hidden', 'class'] });
     /**
      * Monitors the state of the playlist drawer component and fires
@@ -758,11 +768,7 @@ const init = function () {
     {
         const $ADD_FROM_DRAWER = document.getElementById('btn-add-media-from-drawer');
         if ($ADD_FROM_DRAWER) {
-            $ADD_FROM_DRAWER.addEventListener('click', (evt) => {
-                evt.preventDefault();
-                evt.stopPropagation();
-                openMediaManagement();
-            });
+            bindAddMediaFromDrawer($ADD_FROM_DRAWER);
         }
     }
     /**
@@ -798,14 +804,184 @@ const init = function () {
             // Re-attach click handler on the cloned "Register media" button
             const addBtn = clone.querySelector('#btn-add-media-from-drawer');
             if (addBtn) {
-                addBtn.addEventListener('click', (evt) => {
-                    evt.preventDefault();
-                    evt.stopPropagation();
-                    openMediaManagement();
-                });
+                bindAddMediaFromDrawer(addBtn);
             }
         }
     }
+    function bindAddMediaFromDrawer(addBtn) {
+        const btn = addBtn;
+        if (btn.__ambientBound)
+            return;
+        btn.__ambientBound = true;
+        btn.addEventListener('click', (evt) => {
+            evt.preventDefault();
+            evt.stopPropagation();
+            const activeCatId = (AMP_STATUS.ctg !== undefined && AMP_STATUS.ctg !== null && Number(AMP_STATUS.ctg) >= 0)
+                ? Number(AMP_STATUS.ctg)
+                : null;
+            openMediaManagement(activeCatId);
+        });
+    }
+    function cleanupOptionsModalBackdrops() {
+        const isOptionsHidden = !isOptionsModalVisible();
+        if (!isOptionsHidden)
+            return;
+        document.querySelectorAll('div[modal-backdrop]').forEach((backdrop) => {
+            backdrop.remove();
+        });
+        const hasVisibleModal = Array.from(document.querySelectorAll('[aria-modal="true"]')).some((elm) => {
+            return elm instanceof HTMLElement && !elm.classList.contains('hidden');
+        });
+        if (!hasVisibleModal) {
+            document.body.classList.remove('overflow-hidden');
+        }
+    }
+    function getActiveCategoryId() {
+        return (AMP_STATUS.ctg !== undefined && AMP_STATUS.ctg !== null && Number(AMP_STATUS.ctg) >= 0)
+            ? Number(AMP_STATUS.ctg)
+            : null;
+    }
+    function syncTargetCategorySelection() {
+        if (!isElement($SELECT_CATEGORY))
+            return;
+        const preferredValue = getActiveCategoryId();
+        const nextValue = preferredValue !== null ? String(preferredValue) : '-1';
+        const hasOption = Array.from($SELECT_CATEGORY.options).some((opt) => opt.value === nextValue);
+        $SELECT_CATEGORY.value = hasOption ? nextValue : '-1';
+    }
+    function syncMediaCategoryField(preferredCategoryId = getActiveCategoryId()) {
+        const $catInput = document.getElementById('media-category-new');
+        const hasVisibleSelect = isElement($MEDIA_CATEGORY_SELECT) && !$MEDIA_CATEGORY_SELECT.classList.contains('hidden');
+        if (hasVisibleSelect) {
+            const hasPreferredOption = preferredCategoryId !== null &&
+                Array.from($MEDIA_CATEGORY_SELECT.options).some((opt) => opt.value === String(preferredCategoryId));
+            if (hasPreferredOption) {
+                $MEDIA_CATEGORY_SELECT.value = String(preferredCategoryId);
+            }
+            else if (AMP_STATUS.category && AMP_STATUS.category.length === 1) {
+                $MEDIA_CATEGORY_SELECT.value = '0';
+            }
+            else {
+                $MEDIA_CATEGORY_SELECT.value = '';
+            }
+            $MEDIA_CATEGORY_SELECT.dispatchEvent(new Event('change'));
+            return;
+        }
+        if ($catInput && !$catInput.classList.contains('hidden')) {
+            const nextValue = $catInput.value.trim() || $catInput.dataset['defaultValue'] || 'New Category';
+            $catInput.value = nextValue;
+            $catInput.dispatchEvent(new Event('input'));
+            $catInput.dispatchEvent(new Event('change'));
+        }
+    }
+    function showOptionsModal() {
+        if (isOptionsModalVisible())
+            return;
+        if (optionsModalHideTimer !== null) {
+            window.clearTimeout(optionsModalHideTimer);
+            optionsModalHideTimer = null;
+        }
+        cleanupOptionsModalBackdrops();
+        $MODAL_OPTIONS.classList.add('flex');
+        $MODAL_OPTIONS.classList.remove('hidden');
+        $MODAL_OPTIONS.style.zIndex = '9999';
+        $MODAL_OPTIONS.style.opacity = '0';
+        $MODAL_OPTIONS.style.pointerEvents = 'none';
+        $MODAL_OPTIONS.style.transition = 'opacity 180ms ease';
+        $MODAL_OPTIONS.setAttribute('aria-modal', 'true');
+        $MODAL_OPTIONS.setAttribute('role', 'dialog');
+        $MODAL_OPTIONS.removeAttribute('aria-hidden');
+        if ($MODAL_OPTIONS_PANEL) {
+            $MODAL_OPTIONS_PANEL.style.opacity = '0';
+            $MODAL_OPTIONS_PANEL.style.transform = 'translateY(0.5rem) scale(0.98)';
+            $MODAL_OPTIONS_PANEL.style.transition = 'opacity 180ms ease, transform 180ms ease';
+        }
+        const backdrop = document.createElement('div');
+        backdrop.setAttribute('modal-backdrop', '');
+        backdrop.className = currentWindowSize.width >= currentWindowSize.minFullUIWidth
+            ? 'modal-backdrop-layer fixed inset-0 z-[59]'
+            : 'modal-backdrop-layer fixed inset-0 z-40';
+        backdrop.style.zIndex = '9998';
+        backdrop.style.pointerEvents = 'none';
+        backdrop.style.opacity = '0';
+        backdrop.style.transition = 'opacity 180ms ease';
+        if ($MODAL_OPTIONS.parentNode) {
+            $MODAL_OPTIONS.parentNode.insertBefore(backdrop, $MODAL_OPTIONS);
+        }
+        else {
+            document.body.appendChild(backdrop);
+        }
+        document.body.classList.add('overflow-hidden');
+        window.requestAnimationFrame(() => {
+            $MODAL_OPTIONS.style.opacity = '1';
+            $MODAL_OPTIONS.style.pointerEvents = 'auto';
+            if ($MODAL_OPTIONS_PANEL) {
+                $MODAL_OPTIONS_PANEL.style.opacity = '1';
+                $MODAL_OPTIONS_PANEL.style.transform = 'translateY(0) scale(1)';
+            }
+            backdrop.style.opacity = '1';
+        });
+    }
+    function hideOptionsModal() {
+        if (optionsModalHideTimer !== null) {
+            window.clearTimeout(optionsModalHideTimer);
+            optionsModalHideTimer = null;
+        }
+        $MODAL_OPTIONS.style.opacity = '0';
+        $MODAL_OPTIONS.style.pointerEvents = 'none';
+        $MODAL_OPTIONS.setAttribute('aria-hidden', 'true');
+        $MODAL_OPTIONS.removeAttribute('aria-modal');
+        $MODAL_OPTIONS.removeAttribute('role');
+        if ($MODAL_OPTIONS_PANEL) {
+            $MODAL_OPTIONS_PANEL.style.opacity = '0';
+            $MODAL_OPTIONS_PANEL.style.transform = 'translateY(0.5rem) scale(0.98)';
+        }
+        document.querySelectorAll('div[modal-backdrop]').forEach((backdrop) => {
+            backdrop.style.opacity = '0';
+        });
+        optionsModalHideTimer = window.setTimeout(() => {
+            if (!isOptionsModalVisible()) {
+                $MODAL_OPTIONS.classList.add('hidden');
+                $MODAL_OPTIONS.classList.remove('flex');
+                cleanupOptionsModalBackdrops();
+            }
+            optionsModalHideTimer = null;
+        }, 180);
+    }
+    if (isElement($BUTTON_OPTIONS)) {
+        $BUTTON_OPTIONS.addEventListener('click', (evt) => {
+            evt.preventDefault();
+            if (isOptionsModalVisible()) {
+                hideOptionsModal();
+            }
+            else {
+                clearCategory();
+                updateCategory();
+                syncMediaCategoryField();
+                showOptionsModal();
+            }
+        });
+    }
+    if (isElement($BUTTON_CLOSE_OPTIONS)) {
+        $BUTTON_CLOSE_OPTIONS.addEventListener('click', (evt) => {
+            evt.preventDefault();
+            hideOptionsModal();
+        });
+    }
+    if (isElement($MODAL_OPTIONS)) {
+        $MODAL_OPTIONS.addEventListener('click', (evt) => {
+            if (evt.target === $MODAL_OPTIONS) {
+                hideOptionsModal();
+                restoreOptionsTriggerFocus();
+            }
+        });
+    }
+    document.addEventListener('keydown', (evt) => {
+        if (evt.key === 'Escape' && isOptionsModalVisible()) {
+            hideOptionsModal();
+            restoreOptionsTriggerFocus();
+        }
+    });
     /**
      * Open the Options modal with the Media Management accordion expanded.
      * Optionally pre-selects the category matching the current filter.
@@ -816,21 +992,8 @@ const init = function () {
         // switch to text-input mode reliably.
         clearCategory();
         updateCategory();
-        // Open the Options modal directly via Flowbite's Modal API to avoid
-        // click-event bubbling side-effects that close the modal immediately.
-        const $MODAL_EL = document.getElementById('modal-options');
-        if ($MODAL_EL) {
-            const FlowbiteModal = window.Modal;
-            if (typeof FlowbiteModal === 'function') {
-                const modal = new FlowbiteModal($MODAL_EL);
-                modal.show();
-            }
-            else {
-                // Fallback: direct DOM reveal (no Flowbite API available)
-                $MODAL_EL.classList.remove('hidden');
-                $MODAL_EL.removeAttribute('aria-hidden');
-            }
-        }
+        syncMediaCategoryField(presetCategoryId);
+        showOptionsModal();
         // After the modal becomes visible, expand the Media Management accordion
         const expandMediaAccordion = () => {
             const $ACCORDION_BTN = document.querySelector('[data-accordion-target="#collapse-item-body-media"]');
@@ -846,11 +1009,7 @@ const init = function () {
             }
             // Pre-select category if coming from a category-filtered view
             if (presetCategoryId !== null && presetCategoryId >= 0) {
-                const $CAT_SELECT = document.getElementById('media-category');
-                if ($CAT_SELECT && !$CAT_SELECT.classList.contains('hidden')) {
-                    $CAT_SELECT.selectedIndex = presetCategoryId + 1; // +1 for placeholder option
-                    $CAT_SELECT.dispatchEvent(new Event('change'));
-                }
+                syncMediaCategoryField(presetCategoryId);
             }
         };
         // Wait for modal to open (aria-hidden becomes false), then expand accordion
@@ -1057,6 +1216,7 @@ const init = function () {
             $SELECT_CATEGORY.appendChild(clone);
             $SELECT_CATEGORY.firstElementChild?.setAttribute('disabled', '');
             $SELECT_CATEGORY.setAttribute('disabled', '');
+            $SELECT_CATEGORY.value = '-1';
         }
         // add since v1.1.0 – reset category select and hide text input
         while ($MEDIA_CATEGORY_SELECT.firstChild) {
@@ -1108,6 +1268,7 @@ const init = function () {
             }
             $SELECT_CATEGORY.firstElementChild?.removeAttribute('disabled');
             $SELECT_CATEGORY.removeAttribute('disabled');
+            syncTargetCategorySelection();
             return;
         }
         // Has categories – show select, hide text input
@@ -1136,6 +1297,8 @@ const init = function () {
         });
         $SELECT_CATEGORY.firstElementChild?.removeAttribute('disabled');
         $SELECT_CATEGORY.removeAttribute('disabled');
+        syncTargetCategorySelection();
+        syncMediaCategoryField();
     }
     /**
      * Getter for optional data of the AMP_STATUS object.
@@ -3019,20 +3182,22 @@ const init = function () {
                         if (!$MEDIA_MANAGE_FORM)
                             return;
                         const formData = new FormData($MEDIA_MANAGE_FORM);
+                        const categoryField = $MEDIA_CATEGORY_SELECT.classList.contains('hidden')
+                            ? 'media-category-new'
+                            : 'media-category';
+                        const preferredCategoryValue = String(formData.get(categoryField) || '').trim();
                         const result = addMediaData(Array.from(formData.entries()));
                         logger(result, AMP_STATUS.media);
-                        updateNotice({
-                            type: result ? 'success' : 'error',
-                            message: result
-                                ? elm.dataset['messageSuccess'] || ''
-                                : elm.dataset['messageFailure'] || '',
-                            delay: 2000,
-                        });
+                        let persisted = true;
                         updatePlaylist();
                         resetMediaManageForm();
                         // Refresh category select/input after adding media (new categories may have been created)
                         clearCategory();
                         updateCategory();
+                        if (preferredCategoryValue !== '') {
+                            const numericPreferredCategory = Number(preferredCategoryValue);
+                            syncMediaCategoryField(Number.isNaN(numericPreferredCategory) ? null : numericPreferredCategory);
+                        }
                         // Recalculate carousel sequence so next/prev works after additional items are added.
                         if (AMP_STATUS.current !== null) {
                             updatePlayStatus(AMP_STATUS.current);
@@ -3042,9 +3207,18 @@ const init = function () {
                         }
                         if (result) {
                             // Persist cloud MyPlaylist changes immediately and close modal.
-                            persistMyPlaylistIfNeeded();
-                            document.getElementById('btn-close-options')?.click();
+                            persisted = persistMyPlaylistIfNeeded();
+                            if (persisted) {
+                                hideOptionsModal();
+                            }
                         }
+                        updateNotice({
+                            type: result && persisted ? 'success' : 'error',
+                            message: result && persisted
+                                ? elm.dataset['messageSuccess'] || ''
+                                : elm.dataset['messageFailure'] || '',
+                            delay: 2400,
+                        });
                     });
                     break;
                 default:
@@ -3120,31 +3294,44 @@ const init = function () {
                             });
                         },
                         createCategory() {
-                            const categoryName = this.getFormData('category_name');
-                            if (!Array.isArray(AMP_STATUS.category))
-                                AMP_STATUS.category = [];
-                            if (!inArray(categoryName, AMP_STATUS.category)) {
-                                AMP_STATUS.category.push(categoryName);
-                            }
-                            else {
-                                const uniqueSet = new Set(AMP_STATUS.category);
-                                let newValue = categoryName;
-                                let count = 1;
-                                while (uniqueSet.has(newValue)) {
-                                    newValue = `${categoryName}_${count}`;
-                                    count++;
-                                }
-                                AMP_STATUS.category.push(newValue);
-                            }
                             const selfElm = document.getElementById('btn-create-category');
-                            logger('createCategory:', categoryName, AMP_STATUS);
-                            updateNotice({
-                                type: 'success',
-                                message: selfElm?.dataset['messageSuccess'] || '',
-                                delay: 2000,
-                            });
-                            clearCategory();
-                            updateCategory();
+                            try {
+                                const categoryName = this.getFormData('category_name');
+                                if (!Array.isArray(AMP_STATUS.category))
+                                    AMP_STATUS.category = [];
+                                if (!inArray(categoryName, AMP_STATUS.category)) {
+                                    AMP_STATUS.category.push(categoryName);
+                                }
+                                else {
+                                    const uniqueSet = new Set(AMP_STATUS.category);
+                                    let newValue = categoryName;
+                                    let count = 1;
+                                    while (uniqueSet.has(newValue)) {
+                                        newValue = `${categoryName}_${count}`;
+                                        count++;
+                                    }
+                                    AMP_STATUS.category.push(newValue);
+                                }
+                                logger('createCategory:', categoryName, AMP_STATUS);
+                                const persisted = persistMyPlaylistIfNeeded();
+                                updateNotice({
+                                    type: persisted ? 'success' : 'error',
+                                    message: persisted
+                                        ? selfElm?.dataset['messageSuccess'] || ''
+                                        : selfElm?.dataset['messageFailure'] || '',
+                                    delay: 2400,
+                                });
+                                clearCategory();
+                                updateCategory();
+                            }
+                            catch (err) {
+                                logger('createCategory: error', err);
+                                updateNotice({
+                                    type: 'error',
+                                    message: selfElm?.dataset['messageFailure'] || '',
+                                    delay: 2400,
+                                });
+                            }
                         },
                         async downloadPlaylist() {
                             const seek_format = Number(this.getFormData('seek_format')) === 1;
@@ -3202,6 +3389,18 @@ const init = function () {
                     setAtts($BUTTON_CREATE_CATEGORY, { disabled: '' }, isCategoryContainAll);
             }
         }, { childList: true, attributes: true, subtree: true });
+    }
+    const $INITIAL_ALERT = document.getElementById('alert-notification');
+    if ($INITIAL_ALERT) {
+        const initialMessage = ($INITIAL_ALERT.dataset['noticeMessage'] || '').trim();
+        const initialType = ($INITIAL_ALERT.dataset['noticeType'] || 'info');
+        if (initialMessage !== '') {
+            updateNotice({
+                type: initialType,
+                message: initialMessage,
+                delay: 2800,
+            });
+        }
     }
 };
 // for debugging code
@@ -3686,18 +3885,20 @@ function logger(...args) {
     const type = /^(error|warn|info|debug|log)$/i.test(args[0]) ? args.shift() : 'log';
     return console[type](dateStr, ...args);
 }
+let noticeHideTimerGlobal = null;
+let noticeCleanupTimerGlobal = null;
 /**
  * Update notice/notification display.
  */
 function updateNotice(notification) {
     logger('Have notification:', notification);
     const classes = {
-        base: 'fixed inset-y-1/4 left-0 right-0 md:inset-y-1/4 h-max max-h-full w-5/6 max-w-xl md:max-w-sm flex items-center p-4 mx-auto z-99 text-sm border rounded-lg shadow-lg transition-opacity ease-out duration-300 ',
+        base: 'fixed top-2 right-2 w-full max-w-sm flex items-start gap-3 p-4 z-[10050] text-sm border rounded-lg shadow-xl transition-all duration-200 ease-out ',
         info: 'text-blue-800 border-blue-300 bg-blue-50 dark:text-blue-400 dark:border-blue-800 dark:bg-blue-900',
         success: 'text-green-800 border-green-300 bg-green-50 dark:text-green-400 dark:border-green-800 dark:bg-green-900',
         warning: 'text-yellow-800 border-yellow-300 bg-yellow-50 dark:text-yellow-400 dark:border-yellow-800 dark:bg-yellow-900',
         error: 'text-red-800 border-red-300 bg-red-50 dark:text-red-400 dark:border-red-800 dark:bg-red-900',
-        btnbase: 'ml-auto -mx-1.5 -my-1.5 rounded-lg focus:ring-2 p-1.5 inline-flex items-center justify-center h-8 w-8 ',
+        btnbase: 'ml-auto -mr-1 -mt-1 rounded-lg focus:ring-2 p-1.5 inline-flex items-center justify-center h-8 w-8 ',
         btninfo: 'bg-blue-50 text-blue-500 focus:ring-blue-400 hover:bg-blue-200 dark:bg-blue-800 dark:text-blue-400 dark:hover:bg-blue-700',
         btnsuccess: 'bg-green-50 text-green-500 focus:ring-green-400 hover:bg-green-200 dark:bg-green-800 dark:text-green-400 dark:hover:bg-green-700',
         btnwarning: 'bg-yellow-50 text-yellow-500 focus:ring-yellow-400 hover:bg-yellow-200 dark:bg-yellow-800 dark:text-yellow-400 dark:hover:bg-yellow-700',
@@ -3709,24 +3910,64 @@ function updateNotice(notification) {
     const btnClassKey = `btn${notification.type}`;
     setAtts($ALERT, { class: classes.base + classes[classKey] });
     setAtts($BUTTON_ALERT_DISMISS, { class: classes.btnbase + classes[btnClassKey] });
-    toggleClass($BUTTON_ALERT_DISMISS, { hidden: true });
+    $ALERT.style.zIndex = '10050';
+    $ALERT.style.width = 'min(22rem, calc(100vw - 1rem))';
     const $ALERT_MESSAGE = $ALERT.querySelector('#alert-message');
     if ($ALERT_MESSAGE) {
         $ALERT_MESSAGE.innerHTML = notification.message;
     }
+    if (noticeHideTimerGlobal !== null) {
+        window.clearTimeout(noticeHideTimerGlobal);
+        noticeHideTimerGlobal = null;
+    }
+    if (noticeCleanupTimerGlobal !== null) {
+        window.clearTimeout(noticeCleanupTimerGlobal);
+        noticeCleanupTimerGlobal = null;
+    }
     const delay = notification.hasOwnProperty('delay') ? Number(notification.delay) : 0;
-    // Show alert (inline implementation to avoid closure dependency)
-    toggleClass($ALERT, { 'opacity-0': false });
+    toggleClass($ALERT, {
+        hidden: false,
+        'opacity-0': true,
+        '-translate-y-4': true,
+        'pointer-events-none': true,
+    });
+    window.requestAnimationFrame(() => {
+        toggleClass($ALERT, {
+            'opacity-0': false,
+            '-translate-y-4': false,
+            'pointer-events-none': false,
+        });
+    });
+    const hideNotice = () => {
+        toggleClass($ALERT, {
+            'opacity-0': true,
+            '-translate-y-4': true,
+            'pointer-events-none': true,
+        });
+        noticeCleanupTimerGlobal = window.setTimeout(() => {
+            toggleClass($ALERT, { hidden: true });
+            noticeCleanupTimerGlobal = null;
+        }, 220);
+    };
     if (delay > 0) {
-        new Promise((resolve) => {
-            setTimeout(() => {
-                toggleClass($ALERT, { 'opacity-0': true });
-                resolve();
-            }, delay);
-        }).then(() => {
-            setTimeout(() => {
-                toggleClass($ALERT, { hidden: true });
-            }, 1000);
+        noticeHideTimerGlobal = window.setTimeout(() => {
+            hideNotice();
+            noticeHideTimerGlobal = null;
+        }, delay);
+    }
+    if (!$BUTTON_ALERT_DISMISS.dataset['ambientBound']) {
+        $BUTTON_ALERT_DISMISS.dataset['ambientBound'] = 'true';
+        $BUTTON_ALERT_DISMISS.addEventListener('click', (evt) => {
+            evt.preventDefault();
+            if (noticeHideTimerGlobal !== null) {
+                window.clearTimeout(noticeHideTimerGlobal);
+                noticeHideTimerGlobal = null;
+            }
+            if (noticeCleanupTimerGlobal !== null) {
+                window.clearTimeout(noticeCleanupTimerGlobal);
+                noticeCleanupTimerGlobal = null;
+            }
+            hideNotice();
         });
     }
 }

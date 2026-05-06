@@ -101,6 +101,8 @@ declare function removeStge(key?: string | null): boolean;
  * Logger for frontend of Ambient Media Player.
  */
 declare function logger(...args: any[]): any;
+declare let noticeHideTimerGlobal: number | null;
+declare let noticeCleanupTimerGlobal: number | null;
 /**
  * Update notice/notification display.
  */

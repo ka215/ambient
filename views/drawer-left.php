@@ -36,10 +36,6 @@
                 </span>
                 <span id="playlist-mode-button-label" class="text-sm font-medium"><?= __( 'Mode Change' ) ?></span>
             </button>
-            <span
-              id="playlist-mode-badge"
-              class="hidden absolute -top-2 left-full ml-1 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white bg-blue-600 rounded"
-            ></span>
             <div
               id="playlist-mode-menu"
               class="hidden absolute top-10 right-0 z-20 bg-white border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600"

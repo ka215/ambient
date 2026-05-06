@@ -47,6 +47,39 @@
     [drawer-backdrop] {
         z-index: 49 !important;
     }
+    [modal-backdrop] {
+        opacity: 0;
+        transition: opacity 180ms ease;
+        background-color: rgb(3 7 18 / 0.6) !important;
+        -webkit-backdrop-filter: blur(4px) !important;
+        backdrop-filter: blur(4px) !important;
+    }
+    .modal-backdrop-layer {
+        opacity: 0;
+        transition: opacity 180ms ease;
+        background-color: rgb(3 7 18 / 0.6) !important;
+        -webkit-backdrop-filter: blur(4px) !important;
+        backdrop-filter: blur(4px) !important;
+    }
+    .modal-backdrop-visible {
+        opacity: 1 !important;
+    }
+    #modal-options {
+        transition: opacity 180ms ease;
+    }
+    #modal-options.modal-visible {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    #modal-options .modal-dialog-shell {
+        opacity: 0;
+        transform: translateY(0.5rem) scale(0.98);
+        transition: opacity 180ms ease, transform 180ms ease;
+    }
+    #modal-options.modal-visible .modal-dialog-shell {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
     .required {
         position: relative;
         display: inline-flex;

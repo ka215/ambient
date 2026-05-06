@@ -107,7 +107,7 @@ test.describe('SC-007 Playlist/Media management flow', () => {
 
     // Optional check: symlink button should be disabled on non-local hosts
     const localMediaDirectory = page.locator('#local-media-directory');
-    if (await localMediaDirectory.isDisabled()) {
+    if (await localMediaDirectory.count() > 0 && await localMediaDirectory.isDisabled()) {
       await expect(page.locator('#btn-create-symlink')).toBeDisabled();
     }
 
@@ -149,5 +149,113 @@ test.describe('SC-007 Playlist/Media management flow', () => {
 
     // Assert: playlist item count increased by 1
     await expect.poll(async () => getPlaylistItemCount(page), { timeout: 10_000 }).toBe(initialItemCount + 1);
+  });
+
+  test('opens media management from no-media button when a filtered category has no items', async ({ ambientPage, page }) => {
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.selectPlaylist('mememori-youtube.json');
+
+    const uniqueSuffix = Date.now();
+    const categoryName = `e2e-empty-category-${uniqueSuffix}`;
+
+    await openManagementSection(page, '#collapse-item-heading-playlist button', 'collapse-item-body-playlist');
+
+    await page.evaluate((name) => {
+      const input = document.getElementById('category-name') as HTMLInputElement | null;
+      if (!input) return;
+      input.value = name;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }, categoryName);
+
+    const optCountBefore = await page.evaluate(() =>
+      document.querySelectorAll('#media-category option').length
+    );
+    await page.evaluate(() => {
+      const btn = document.getElementById('btn-create-category') as HTMLButtonElement | null;
+      if (!btn) return;
+      btn.removeAttribute('disabled');
+      btn.click();
+    });
+
+    await page.waitForFunction((prev: number) => {
+      return document.querySelectorAll('#media-category option').length > prev;
+    }, optCountBefore, { timeout: 8_000 });
+
+    await page.locator('#btn-close-options').click();
+    await expect(page.locator('#modal-options')).toBeHidden();
+
+    await ambientPage.openSettingsDrawer();
+    await page.locator('#target-category').selectOption({ label: categoryName });
+    await page.locator('#target-category').dispatchEvent('change');
+    await ambientPage.closeSettingsDrawer();
+
+    await ambientPage.openPlaylistDrawer();
+    await expect(page.locator('#no-media')).toBeVisible();
+    await expect(page.locator('#btn-add-media-from-drawer')).toBeVisible();
+
+    await page.locator('#btn-add-media-from-drawer').click();
+    await expect(page.locator('#modal-options')).toBeVisible();
+    await expect(page.locator('#collapse-item-body-media')).toBeVisible();
+    await expect(page.locator('#media-category')).toHaveValue(/\d+/);
+
+    await page.locator('#btn-close-options').click();
+    await expect(page.locator('#modal-options')).toBeHidden();
+
+    await ambientPage.openSettingsDrawer();
+    await expect(page.locator('#target-category')).toHaveValue(/\d+/);
+    await page.evaluate(() => {
+      const btn = document.querySelector<HTMLElement>('#btn-options');
+      if (btn) btn.click();
+    });
+    await expect(page.locator('#modal-options')).toBeVisible();
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+    await expect(page.locator('#media-category')).toHaveValue(/\d+/);
+  });
+
+  test('keeps category field valid when first category auto-selects after initial media registration', async ({ ambientPage, page }) => {
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.waitForPlaylistReady();
+
+    await ambientPage.openPlaylistDrawer();
+    await page.locator('#btn-add-media-from-drawer').click();
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+
+    await page.evaluate(() => {
+      const url = document.getElementById('youtube-url') as HTMLInputElement | null;
+      const category = document.getElementById('media-category-new') as HTMLInputElement | null;
+      const title = document.getElementById('media-title') as HTMLInputElement | null;
+      if (url) {
+        url.value = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+        url.dispatchEvent(new Event('input', { bubbles: true }));
+        url.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (category) {
+        category.dispatchEvent(new Event('input', { bubbles: true }));
+        category.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (title) {
+        title.value = `e2e-first-category-${Date.now()}`;
+        title.dispatchEvent(new Event('input', { bubbles: true }));
+        title.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    await expect(page.locator('#btn-add-media')).toBeEnabled();
+    await page.locator('#btn-add-media').click();
+    await expect(page.locator('#modal-options')).toBeHidden();
+
+    await page.evaluate(() => {
+      const btn = document.querySelector<HTMLElement>('#btn-options');
+      if (btn) btn.click();
+    });
+    await expect(page.locator('#modal-options')).toBeVisible();
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+
+    await expect(page.locator('#media-category')).toHaveValue('0');
+    await expect(page.locator('#media-category')).toHaveAttribute('data-validate', 'true');
+    await expect(page.locator('#btn-add-media')).toBeDisabled();
   });
 });
