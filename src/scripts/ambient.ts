@@ -890,7 +890,11 @@ const init = function (): void {
       $catInput.disabled = true;
     }
     const $catLabel = document.getElementById('media-category-label') as HTMLLabelElement | null;
+    const $catNote = document.getElementById('note-media-category-create-from-playlist-management') as HTMLParagraphElement | null;
     if ($catLabel) $catLabel.setAttribute('for', 'media-category');
+    if ($catNote) {
+      $catNote.classList.add('hidden');
+    }
   }
 
   /**
@@ -899,6 +903,7 @@ const init = function (): void {
   function updateCategory(): void {
     const $catInput = document.getElementById('media-category-new') as HTMLInputElement | null;
     const $catLabel = document.getElementById('media-category-label') as HTMLLabelElement | null;
+    const $catNote = document.getElementById('note-media-category-create-from-playlist-management') as HTMLParagraphElement | null;
     const hasCategories = !!(AMP_STATUS.category && AMP_STATUS.category.length > 0);
 
     if (!hasCategories) {
@@ -912,6 +917,9 @@ const init = function (): void {
         $catInput.value = $catInput.dataset['defaultValue'] || 'New Category';
       }
       if ($catLabel) $catLabel.setAttribute('for', 'media-category-new');
+      if ($catNote) {
+        $catNote.classList.add('hidden');
+      }
       $SELECT_CATEGORY.firstElementChild?.removeAttribute('disabled');
       $SELECT_CATEGORY.removeAttribute('disabled');
       return;
@@ -925,6 +933,9 @@ const init = function (): void {
       $catInput.disabled = true;
     }
     if ($catLabel) $catLabel.setAttribute('for', 'media-category');
+    if ($catNote) {
+      $catNote.classList.remove('hidden');
+    }
 
     AMP_STATUS.category!.forEach((catName: string, catId: number) => {
       const optElm = document.createElement('option');
@@ -2911,11 +2922,20 @@ const init = function (): void {
         case 'category':
           elm.addEventListener('change', (evt: Event) => {
             const target = evt.target as HTMLSelectElement;
-            if (target.selectedIndex === 0) {
+            setValidated(elm, target.value !== '');
+          });
+          break;
+        case 'category_new_name':
+          elm.addEventListener('input', (evt: Event) => {
+            const isEmpty = (evt.target as HTMLInputElement).value.trim() === '';
+            if (isEmpty) {
               setValidated(elm, null);
             } else {
-              setValidated(elm, target.value !== '');
+              setValidated(elm, true);
             }
+          });
+          elm.addEventListener('change', (evt: Event) => {
+            setValidated(elm, (evt.target as HTMLInputElement).value.trim() !== '');
           });
           break;
         case 'title':
@@ -3005,7 +3025,10 @@ const init = function (): void {
           });
         }
         const $BUTTON_ADD_MEDIA = document.getElementById('btn-add-media');
-        const contains = [mediaType === 'youtube' ? 'youtube-url' : 'local-media-file', 'media-title'];
+        const categoryField = $MEDIA_CATEGORY_SELECT.classList.contains('hidden')
+          ? 'media-category-new'
+          : 'media-category';
+        const contains = [mediaType === 'youtube' ? 'youtube-url' : 'local-media-file', categoryField, 'media-title'];
         const isContainAll = inArray(contains, valid_items, false);
         logger(`Check valid items for "${mediaType}":`, valid_items, contains, isContainAll);
         if ($BUTTON_ADD_MEDIA) setAtts($BUTTON_ADD_MEDIA, { disabled: '' }, isContainAll);

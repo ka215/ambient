@@ -251,38 +251,15 @@ if ( $this->menu_type == 1 ) {
             <div class="tooltip-arrow" data-popper-arrow></div>
         </div>
         <button 
-          id="btn-settings"
-          type="button" 
-          class="inline-flex flex-col items-center justify-center px-5 hover:bg-gray-50 dark:hover:bg-gray-800 group"
-          data-tooltip-target="tooltip-settings" 
-          data-drawer-target="drawer-settings"
-          data-drawer-toggle="drawer-settings"
-          data-drawer-placement="right"
-          aria-controls="drawer-settings"
-        >
-            <svg class="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500" aria-hidden="true" aria-label="settings" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12.25V1m0 11.25a2.25 2.25 0 0 0 0 4.5m0-4.5a2.25 2.25 0 0 1 0 4.5M4 19v-2.25m6-13.5V1m0 2.25a2.25 2.25 0 0 0 0 4.5m0-4.5a2.25 2.25 0 0 1 0 4.5M10 19V7.75m6 4.5V1m0 11.25a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5ZM16 19v-2"/>
-            </svg>
-            <span class="sr-only"><?= __( 'Settings' ) ?></span>
-        </button>
-        <div 
-          id="tooltip-settings" 
-          role="tooltip" 
-          class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white transition-opacity duration-300 bg-gray-900 rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-700"
-        >
-            <?= __( 'Settings' ) ?>
-            <div class="tooltip-arrow" data-popper-arrow></div>
-        </div>
-        <button 
           id="btn-options"
           type="button" 
-          class="inline-flex flex-col items-center justify-center px-5 rounded-r-full hover:bg-gray-50 dark:hover:bg-gray-800 group"
+          class="inline-flex flex-col items-center justify-center px-5 hover:bg-gray-50 dark:hover:bg-gray-800 group"
           data-modal-target="modal-options"
           data-modal-toggle="modal-options"
           data-tooltip-target="tooltip-options" 
         >
-            <svg class="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500" aria-hidden="true" aria-label="other-options" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 3">
-                <path d="M2 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm6.041 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM14 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"/>
+            <svg class="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500" aria-hidden="true" aria-label="other-options" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 11.5h13m-13 0V18a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-6.5m-13 0V9a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v2.5M9 5h11a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-1"/>
             </svg>
             <span class="sr-only"><?= __( 'Options' ) ?></span>
         </button>
@@ -294,6 +271,29 @@ if ( $this->menu_type == 1 ) {
             <?= __( 'Options' ) ?>
             <div class="tooltip-arrow" data-popper-arrow></div>
         </div>
+          <button 
+            id="btn-settings"
+            type="button" 
+            class="inline-flex flex-col items-center justify-center px-5 rounded-r-full hover:bg-gray-50 dark:hover:bg-gray-800 group"
+            data-tooltip-target="tooltip-settings" 
+            data-drawer-target="drawer-settings"
+            data-drawer-toggle="drawer-settings"
+            data-drawer-placement="right"
+            aria-controls="drawer-settings"
+          >
+            <svg class="w-5 h-5 mb-1 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500" aria-hidden="true" aria-label="settings" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12.25V1m0 11.25a2.25 2.25 0 0 0 0 4.5m0-4.5a2.25 2.25 0 0 1 0 4.5M4 19v-2.25m6-13.5V1m0 2.25a2.25 2.25 0 0 0 0 4.5m0-4.5a2.25 2.25 0 0 1 0 4.5M10 19V7.75m6 4.5V1m0 11.25a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5ZM16 19v-2"/>
+            </svg>
+            <span class="sr-only"><?= __( 'Settings' ) ?></span>
+          </button>
+          <div 
+            id="tooltip-settings" 
+            role="tooltip" 
+            class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white transition-opacity duration-300 bg-gray-900 rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-700"
+          >
+            <?= __( 'Settings' ) ?>
+            <div class="tooltip-arrow" data-popper-arrow></div>
+          </div>
     </div>
 </div><!-- /#menu-container -->
 <?php 
