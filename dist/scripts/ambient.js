@@ -499,6 +499,23 @@ const init = function () {
             closePlaylistModeMenu();
             return;
         }
+        // If leaving delete mode with selected items, show confirm modal
+        if (playlistMode === 'delete' && deleteSelectedIds.size > 0) {
+            const title = $BUTTON_PLAYLIST_MODE?.dataset['confirmDeleteTitle'] || 'Delete selected items?';
+            const body = $BUTTON_PLAYLIST_MODE?.dataset['confirmDeleteBody'] || 'Selected items will be removed from your playlist.';
+            closePlaylistModeMenu();
+            openPlaylistConfirmModal(title, body, () => {
+                applyDeleteSelections();
+                playlistMode = nextMode;
+                updatePlaylistModeUI();
+                updatePlaylist();
+            });
+            return;
+        }
+        // If leaving delete mode without selections, clear just in case
+        if (playlistMode === 'delete') {
+            deleteSelectedIds.clear();
+        }
         playlistMode = nextMode;
         closePlaylistModeMenu();
         updatePlaylistModeUI();
@@ -536,6 +553,49 @@ const init = function () {
             }
         });
         updatePlaylistModeUI();
+    }
+    // Playlist delete mode state (v2.2.0 Slice B)
+    const $MODAL_PLAYLIST_CONFIRM = document.getElementById('modal-playlist-confirm');
+    const $MODAL_PLAYLIST_CONFIRM_TITLE = document.getElementById('modal-playlist-confirm-title');
+    const $MODAL_PLAYLIST_CONFIRM_BODY = document.getElementById('modal-playlist-confirm-body');
+    const $BTN_PLAYLIST_CONFIRM_APPLY = document.getElementById('btn-playlist-confirm-apply');
+    const $BTN_PLAYLIST_CONFIRM_CANCEL = document.getElementById('btn-playlist-confirm-cancel');
+    let deleteSelectedIds = new Set();
+    let _playlistConfirmApplyCallback = null;
+    function openPlaylistConfirmModal(title, body, onApply) {
+        if (!$MODAL_PLAYLIST_CONFIRM)
+            return;
+        if ($MODAL_PLAYLIST_CONFIRM_TITLE)
+            $MODAL_PLAYLIST_CONFIRM_TITLE.textContent = title;
+        if ($MODAL_PLAYLIST_CONFIRM_BODY)
+            $MODAL_PLAYLIST_CONFIRM_BODY.textContent = body;
+        _playlistConfirmApplyCallback = onApply;
+        $MODAL_PLAYLIST_CONFIRM.classList.remove('hidden');
+    }
+    function closePlaylistConfirmModal() {
+        if (!$MODAL_PLAYLIST_CONFIRM)
+            return;
+        $MODAL_PLAYLIST_CONFIRM.classList.add('hidden');
+        _playlistConfirmApplyCallback = null;
+    }
+    function applyDeleteSelections() {
+        if (!AMP_STATUS.media || deleteSelectedIds.size === 0)
+            return;
+        AMP_STATUS.media = AMP_STATUS.media.filter((item) => !deleteSelectedIds.has(item.amId));
+        deleteSelectedIds.clear();
+        persistMyPlaylistIfNeeded();
+    }
+    if ($BTN_PLAYLIST_CONFIRM_APPLY) {
+        $BTN_PLAYLIST_CONFIRM_APPLY.addEventListener('click', () => {
+            if (_playlistConfirmApplyCallback)
+                _playlistConfirmApplyCallback();
+            closePlaylistConfirmModal();
+        });
+    }
+    if ($BTN_PLAYLIST_CONFIRM_CANCEL) {
+        $BTN_PLAYLIST_CONFIRM_CANCEL.addEventListener('click', () => {
+            closePlaylistConfirmModal();
+        });
     }
     // Process global data passed by the system.
     // In cloud mode: load MyPlaylist from localStorage before processing server data.
@@ -838,6 +898,19 @@ const init = function () {
             imgElm.classList.add('block', 'h-8', 'w-8', 'rounded', 'object-cover');
             imgElm.setAttribute('alt', mb_strimwidth(item.title, 0, 50, '...'));
             itemElm.appendChild(imgElm);
+            // Delete mode: prepend checkbox indicator
+            if (playlistMode === 'delete') {
+                const isSelected = deleteSelectedIds.has(item.amId);
+                const chkElm = document.createElement('span');
+                chkElm.setAttribute('aria-hidden', 'true');
+                chkElm.className = isSelected
+                    ? 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-red-500 bg-red-500'
+                    : 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 dark:border-gray-500';
+                if (isSelected) {
+                    chkElm.innerHTML = '<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>';
+                }
+                itemElm.prepend(chkElm);
+            }
             let labelText = item.title;
             const format = getOption('playlist');
             if (format) {
@@ -854,6 +927,18 @@ const init = function () {
         Array.from($LIST_PLAYLIST.querySelectorAll('a[data-playlist-item]')).forEach((elm) => {
             elm.addEventListener('click', (evt) => {
                 evt.preventDefault();
+                // Delete mode: toggle item selection
+                if (playlistMode === 'delete') {
+                    const amId = Number(elm.getAttribute('data-playlist-item'));
+                    if (deleteSelectedIds.has(amId)) {
+                        deleteSelectedIds.delete(amId);
+                    }
+                    else {
+                        deleteSelectedIds.add(amId);
+                    }
+                    updatePlaylist();
+                    return;
+                }
                 if (isPlaylistInteractionLocked()) {
                     return;
                 }

@@ -24,6 +24,8 @@
               data-label-reorder="<?= __( 'Reorder' ) ?>"
               data-label-delete="<?= __( 'Delete' ) ?>"
               data-label-mode="<?= __( 'Mode' ) ?>"
+              data-confirm-delete-title="<?= __( 'Delete selected items?' ) ?>"
+              data-confirm-delete-body="<?= __( 'Selected items will be removed from your playlist.' ) ?>"
             >
                 <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.75 4.75a1.25 1.25 0 1 1 2.5 0v.72a6.2 6.2 0 0 1 1.9.79l.5-.5a1.25 1.25 0 0 1 1.77 1.77l-.5.5c.34.6.6 1.24.78 1.9h.72a1.25 1.25 0 1 1 0 2.5h-.72a6.2 6.2 0 0 1-.79 1.9l.5.5a1.25 1.25 0 0 1-1.77 1.77l-.5-.5a6.2 6.2 0 0 1-1.9.78v.72a1.25 1.25 0 1 1-2.5 0v-.72a6.2 6.2 0 0 1-1.9-.79l-.5.5a1.25 1.25 0 1 1-1.77-1.77l.5-.5a6.2 6.2 0 0 1-.78-1.9h-.72a1.25 1.25 0 1 1 0-2.5h.72a6.2 6.2 0 0 1 .79-1.9l-.5-.5a1.25 1.25 0 0 1 1.77-1.77l.5.5c.6-.34 1.24-.6 1.9-.78v-.72Z"/>
@@ -81,3 +83,26 @@
         </div>
     </div>
 </div><!-- /#drawer-playlist -->
+
+<!-- Playlist operation confirm modal (v2.2.0) -->
+<div
+  id="modal-playlist-confirm"
+  class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="modal-playlist-confirm-title"
+>
+    <div class="absolute inset-0 bg-black/50" aria-hidden="true"></div>
+    <div class="relative z-10 w-full max-w-sm bg-white rounded-lg shadow-xl dark:bg-gray-700 p-6">
+        <h3 id="modal-playlist-confirm-title" class="text-base font-semibold text-gray-900 dark:text-white mb-2"></h3>
+        <p id="modal-playlist-confirm-body" class="text-sm text-gray-600 dark:text-gray-300 mb-5"></p>
+        <div class="flex justify-end gap-3">
+            <button type="button" id="btn-playlist-confirm-cancel" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:border-gray-500 dark:hover:bg-gray-500">
+                <?= __( 'Cancel' ) ?>
+            </button>
+            <button type="button" id="btn-playlist-confirm-apply" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-300 dark:focus:ring-red-800">
+                <?= __( 'Apply' ) ?>
+            </button>
+        </div>
+    </div>
+</div>
