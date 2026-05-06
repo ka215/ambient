@@ -4,19 +4,19 @@
   tabindex="-1"
   aria-labelledby="drawer-playlist-label"
 >
-    <div class="p-4 fixed top-0 left-0 z-auto w-80 h-14 flex flex-nowrap justify-between items-center bg-white border-r border-b dark:bg-gray-800 dark:border-gray-600">
-        <h5 id="drawer-playlist-label" class="inline-flex items-center text-base font-semibold text-gray-500 dark:text-white text-rotate-0">
+    <div class="p-4 fixed top-0 left-0 z-auto w-80 h-14 flex flex-nowrap items-center bg-white border-r border-b dark:bg-gray-800 dark:border-gray-600">
+        <h5 id="drawer-playlist-label" class="inline-flex flex-1 min-w-0 items-center text-base font-semibold text-gray-500 dark:text-white text-rotate-0">
             <svg class="w-5 h-5 text-gray-500 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-500 text-rotate-0" aria-hidden="true" aria-label="play-list" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 18 16">
                 <path d="M14.316.051A1 1 0 0 0 13 1v8.473A4.49 4.49 0 0 0 11 9c-2.206 0-4 1.525-4 3.4s1.794 3.4 4 3.4 4-1.526 4-3.4a2.945 2.945 0 0 0-.067-.566c.041-.107.064-.22.067-.334V2.763A2.974 2.974 0 0 1 16 5a1 1 0 0 0 2 0C18 1.322 14.467.1 14.316.051ZM10 3H1a1 1 0 0 1 0-2h9a1 1 0 1 1 0 2Z"/>
                 <path d="M10 7H1a1 1 0 0 1 0-2h9a1 1 0 1 1 0 2Zm-5 4H1a1 1 0 0 1 0-2h4a1 1 0 1 1 0 2Z"/>
             </svg>
             <span class="ml-2 text-rotate-0"><?= __( 'Playlist' ) ?></span>
         </h5>
-        <div class="absolute top-2.5 right-12">
+            <div class="relative ml-2 inline-flex items-center gap-2">
             <button
               type="button"
               id="btn-playlist-mode"
-              class="inline-flex items-center justify-center w-8 h-8 text-gray-500 rounded-lg hover:bg-gray-200 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-gray-300 dark:hover:bg-gray-600 dark:hover:text-white"
+                            class="inline-flex min-w-[8rem] items-center justify-center gap-1.5 px-2 py-1.5 text-gray-500 rounded-lg hover:bg-gray-200 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-gray-300 dark:hover:bg-gray-600 dark:hover:text-white"
               aria-haspopup="true"
               aria-expanded="false"
               data-label-normal="<?= __( 'Normal' ) ?>"
@@ -24,14 +24,17 @@
               data-label-reorder="<?= __( 'Reorder' ) ?>"
               data-label-delete="<?= __( 'Delete' ) ?>"
               data-label-mode="<?= __( 'Mode' ) ?>"
+              data-label-mode-change="<?= __( 'Mode Change' ) ?>"
               data-confirm-delete-title="<?= __( 'Delete selected items?' ) ?>"
               data-confirm-delete-body="<?= __( 'Selected items will be removed from your playlist.' ) ?>"
             >
-                <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.75 4.75a1.25 1.25 0 1 1 2.5 0v.72a6.2 6.2 0 0 1 1.9.79l.5-.5a1.25 1.25 0 0 1 1.77 1.77l-.5.5c.34.6.6 1.24.78 1.9h.72a1.25 1.25 0 1 1 0 2.5h-.72a6.2 6.2 0 0 1-.79 1.9l.5.5a1.25 1.25 0 0 1-1.77 1.77l-.5-.5a6.2 6.2 0 0 1-1.9.78v.72a1.25 1.25 0 1 1-2.5 0v-.72a6.2 6.2 0 0 1-1.9-.79l-.5.5a1.25 1.25 0 1 1-1.77-1.77l.5-.5a6.2 6.2 0 0 1-.78-1.9h-.72a1.25 1.25 0 1 1 0-2.5h.72a6.2 6.2 0 0 1 .79-1.9l-.5-.5a1.25 1.25 0 0 1 1.77-1.77l.5.5c.6-.34 1.24-.6 1.9-.78v-.72Z"/>
-                    <circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="2"/>
-                </svg>
-                <span class="sr-only"><?= __( 'Mode' ) ?></span>
+                <span id="playlist-mode-button-icon" class="inline-flex items-center justify-center" aria-hidden="true">
+                    <svg class="w-4 h-4 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13v-2a1 1 0 0 0-1-1h-.757l-.707-1.707.535-.536a1 1 0 0 0 0-1.414l-1.414-1.414a1 1 0 0 0-1.414 0l-.536.535L14 4.757V4a1 1 0 0 0-1-1h-2a1 1 0 0 0-1 1v.757l-1.707.707-.536-.535a1 1 0 0 0-1.414 0L4.929 6.343a1 1 0 0 0 0 1.414l.536.536L4.757 10H4a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h.757l.707 1.707-.535.536a1 1 0 0 0 0 1.414l1.414 1.414a1 1 0 0 0 1.414 0l.536-.535 1.707.707V20a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-.757l1.707-.708.536.536a1 1 0 0 0 1.414 0l1.414-1.414a1 1 0 0 0 0-1.414l-.535-.536.707-1.707H20a1 1 0 0 0 1-1Z"/>
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+                    </svg>
+                </span>
+                <span id="playlist-mode-button-label" class="text-sm font-medium"><?= __( 'Mode Change' ) ?></span>
             </button>
             <span
               id="playlist-mode-badge"
@@ -39,14 +42,35 @@
             ></span>
             <div
               id="playlist-mode-menu"
-              class="hidden absolute top-10 right-0 z-20 min-w-[128px] bg-white border border-gray-200 rounded-lg shadow-md dark:bg-gray-700 dark:border-gray-600"
+              class="hidden absolute top-10 right-0 z-20 bg-white border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                            style="min-width: 8rem; box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);"
               role="menu"
               aria-label="<?= __( 'Mode' ) ?>"
             >
-                <button type="button" class="playlist-mode-option block w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600" data-mode="normal" role="menuitem"><?= __( 'Normal' ) ?></button>
-                <button type="button" class="playlist-mode-option block w-full px-3 py-2 text-left text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed" data-mode="edit" role="menuitem" disabled aria-disabled="true"><?= __( 'Edit' ) ?></button>
-                <button type="button" class="playlist-mode-option block w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600" data-mode="reorder" role="menuitem"><?= __( 'Reorder' ) ?></button>
-                <button type="button" class="playlist-mode-option block w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600" data-mode="delete" role="menuitem"><?= __( 'Delete' ) ?></button>
+                <button type="button" class="playlist-mode-option inline-flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600" data-mode="normal" role="menuitem">
+                    <svg class="playlist-mode-option-icon w-4 h-4 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M9 8h10M9 12h10M9 16h10M4.99 8H5m-.02 4h.01m0 4H5"/>
+                    </svg>
+                    <span class="playlist-mode-option-label"><?= __( 'Normal' ) ?></span>
+                </button>
+                <button type="button" class="playlist-mode-option inline-flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed" data-mode="edit" role="menuitem" disabled aria-disabled="true">
+                    <svg class="playlist-mode-option-icon w-4 h-4 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m14.304 4.844 2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565 6.844-6.844a2.015 2.015 0 0 1 2.852 0Z"/>
+                    </svg>
+                    <span class="playlist-mode-option-label"><?= __( 'Edit' ) ?></span>
+                </button>
+                <button type="button" class="playlist-mode-option inline-flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600" data-mode="reorder" role="menuitem">
+                    <svg class="playlist-mode-option-icon w-4 h-4 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 20V7m0 13-4-4m4 4 4-4m4-12v13m0-13 4 4m-4-4-4 4"/>
+                    </svg>
+                    <span class="playlist-mode-option-label"><?= __( 'Reorder' ) ?></span>
+                </button>
+                <button type="button" class="playlist-mode-option inline-flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600" data-mode="delete" role="menuitem">
+                    <svg class="playlist-mode-option-icon w-4 h-4 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 7h14m-9 3v8m4-8v8M10 3h4a1 1 0 0 1 1 1v3H9V4a1 1 0 0 1 1-1ZM6 7h12v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7Z"/>
+                    </svg>
+                    <span class="playlist-mode-option-label"><?= __( 'Delete' ) ?></span>
+                </button>
             </div>
         </div>
         <button 
@@ -54,7 +78,7 @@
           id="btn-close-playlist"
           data-drawer-hide="drawer-playlist"
           aria-controls="drawer-playlist"
-          class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 absolute top-2.5 right-2.5 inline-flex items-center justify-center dark:hover:bg-gray-600 dark:hover:text-white"
+          class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex items-center justify-center dark:hover:bg-gray-600 dark:hover:text-white"
         >
             <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>

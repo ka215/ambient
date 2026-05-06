@@ -434,7 +434,27 @@ const init = function () {
     const $BUTTON_PLAYLIST_MODE = document.getElementById('btn-playlist-mode');
     const $PLAYLIST_MODE_MENU = document.getElementById('playlist-mode-menu');
     const $PLAYLIST_MODE_BADGE = document.getElementById('playlist-mode-badge');
+    const $PLAYLIST_MODE_BUTTON_ICON = document.getElementById('playlist-mode-button-icon');
+    const $PLAYLIST_MODE_BUTTON_LABEL = document.getElementById('playlist-mode-button-label');
     let playlistMode = 'normal';
+    const defaultPlaylistModeButtonIcon = $PLAYLIST_MODE_BUTTON_ICON ? $PLAYLIST_MODE_BUTTON_ICON.innerHTML : '';
+    const defaultPlaylistModeButtonLabel = $PLAYLIST_MODE_BUTTON_LABEL?.textContent || $BUTTON_PLAYLIST_MODE?.dataset['labelModeChange'] || 'Mode Change';
+    function syncPlaylistModeButton(mode) {
+        if (!$BUTTON_PLAYLIST_MODE || !$PLAYLIST_MODE_BUTTON_ICON || !$PLAYLIST_MODE_BUTTON_LABEL)
+            return;
+        if (mode === 'normal') {
+            $PLAYLIST_MODE_BUTTON_ICON.innerHTML = defaultPlaylistModeButtonIcon;
+            $PLAYLIST_MODE_BUTTON_LABEL.textContent = defaultPlaylistModeButtonLabel;
+            return;
+        }
+        const option = $PLAYLIST_MODE_MENU?.querySelector(`.playlist-mode-option[data-mode="${mode}"]`);
+        const optionIcon = option?.querySelector('.playlist-mode-option-icon');
+        const optionLabel = option?.querySelector('.playlist-mode-option-label');
+        if (optionIcon && optionLabel) {
+            $PLAYLIST_MODE_BUTTON_ICON.innerHTML = optionIcon.outerHTML;
+            $PLAYLIST_MODE_BUTTON_LABEL.textContent = optionLabel.textContent || getPlaylistModeLabel(mode);
+        }
+    }
     function getPlaylistModeLabel(mode) {
         if (!$BUTTON_PLAYLIST_MODE)
             return mode;
@@ -470,15 +490,10 @@ const init = function () {
     }
     function updatePlaylistModeUI() {
         if ($PLAYLIST_MODE_BADGE) {
-            if (playlistMode === 'normal') {
-                $PLAYLIST_MODE_BADGE.classList.add('hidden');
-                $PLAYLIST_MODE_BADGE.textContent = '';
-            }
-            else {
-                $PLAYLIST_MODE_BADGE.classList.remove('hidden');
-                $PLAYLIST_MODE_BADGE.textContent = getPlaylistModeLabel(playlistMode);
-            }
+            $PLAYLIST_MODE_BADGE.classList.add('hidden');
+            $PLAYLIST_MODE_BADGE.textContent = '';
         }
+        syncPlaylistModeButton(playlistMode);
         if ($PLAYLIST_MODE_MENU) {
             Array.from($PLAYLIST_MODE_MENU.querySelectorAll('.playlist-mode-option')).forEach((elm) => {
                 const optElm = elm;
@@ -499,19 +514,6 @@ const init = function () {
             closePlaylistModeMenu();
             return;
         }
-        // If leaving delete mode with selected items, show confirm modal
-        if (playlistMode === 'delete' && deleteSelectedIds.size > 0) {
-            const title = $BUTTON_PLAYLIST_MODE?.dataset['confirmDeleteTitle'] || 'Delete selected items?';
-            const body = $BUTTON_PLAYLIST_MODE?.dataset['confirmDeleteBody'] || 'Selected items will be removed from your playlist.';
-            closePlaylistModeMenu();
-            openPlaylistConfirmModal(title, body, () => {
-                applyDeleteSelections();
-                playlistMode = nextMode;
-                updatePlaylistModeUI();
-                updatePlaylist();
-            });
-            return;
-        }
         // If leaving delete mode without selections, clear just in case
         if (playlistMode === 'delete') {
             deleteSelectedIds.clear();
@@ -525,6 +527,27 @@ const init = function () {
         $BUTTON_PLAYLIST_MODE.addEventListener('click', (evt) => {
             evt.preventDefault();
             evt.stopPropagation();
+            // In delete mode, pressing the mode button should trigger commit flow first.
+            if (playlistMode === 'delete') {
+                closePlaylistModeMenu();
+                if (deleteSelectedIds.size > 0) {
+                    const title = $BUTTON_PLAYLIST_MODE.dataset['confirmDeleteTitle'] || 'Delete selected items?';
+                    const body = $BUTTON_PLAYLIST_MODE.dataset['confirmDeleteBody'] || 'Selected items will be removed from your playlist.';
+                    openPlaylistConfirmModal(title, body, () => {
+                        applyDeleteSelections();
+                        playlistMode = 'normal';
+                        updatePlaylistModeUI();
+                        updatePlaylist();
+                    });
+                    return;
+                }
+                // Nothing selected: just exit delete mode and return to normal.
+                deleteSelectedIds.clear();
+                playlistMode = 'normal';
+                updatePlaylistModeUI();
+                updatePlaylist();
+                return;
+            }
             togglePlaylistModeMenu();
         });
         Array.from($PLAYLIST_MODE_MENU.querySelectorAll('.playlist-mode-option')).forEach((elm) => {
@@ -737,6 +760,7 @@ const init = function () {
         if ($ADD_FROM_DRAWER) {
             $ADD_FROM_DRAWER.addEventListener('click', (evt) => {
                 evt.preventDefault();
+                evt.stopPropagation();
                 openMediaManagement();
             });
         }
@@ -776,6 +800,7 @@ const init = function () {
             if (addBtn) {
                 addBtn.addEventListener('click', (evt) => {
                     evt.preventDefault();
+                    evt.stopPropagation();
                     openMediaManagement();
                 });
             }
@@ -791,9 +816,20 @@ const init = function () {
         // switch to text-input mode reliably.
         clearCategory();
         updateCategory();
-        // Open the Options modal
-        if ($BUTTON_OPTIONS) {
-            $BUTTON_OPTIONS.click();
+        // Open the Options modal directly via Flowbite's Modal API to avoid
+        // click-event bubbling side-effects that close the modal immediately.
+        const $MODAL_EL = document.getElementById('modal-options');
+        if ($MODAL_EL) {
+            const FlowbiteModal = window.Modal;
+            if (typeof FlowbiteModal === 'function') {
+                const modal = new FlowbiteModal($MODAL_EL);
+                modal.show();
+            }
+            else {
+                // Fallback: direct DOM reveal (no Flowbite API available)
+                $MODAL_EL.classList.remove('hidden');
+                $MODAL_EL.removeAttribute('aria-hidden');
+            }
         }
         // After the modal becomes visible, expand the Media Management accordion
         const expandMediaAccordion = () => {
@@ -823,7 +859,7 @@ const init = function () {
             return;
         const isAlreadyOpen = $MODAL.getAttribute('aria-hidden') !== 'true' && !$MODAL.classList.contains('hidden');
         if (isAlreadyOpen) {
-            expandMediaAccordion();
+            setTimeout(expandMediaAccordion, 50);
         }
         else {
             const observer = new MutationObserver(() => {
@@ -857,10 +893,27 @@ const init = function () {
         if (is_no_media) {
             // no playable media
             $LIST_NO_MEDIA.classList.remove('hidden');
+            // close mode menu so it doesn't overlap the "Register media" button
+            closePlaylistModeMenu();
+            // disable mode button when playlist is empty
+            if ($BUTTON_PLAYLIST_MODE) {
+                $BUTTON_PLAYLIST_MODE.disabled = true;
+                $BUTTON_PLAYLIST_MODE.classList.add('opacity-50', 'cursor-not-allowed');
+                if (playlistMode !== 'normal') {
+                    deleteSelectedIds.clear();
+                    playlistMode = 'normal';
+                    updatePlaylistModeUI();
+                }
+            }
             return;
         }
         else {
             $LIST_NO_MEDIA.classList.add('hidden');
+            // re-enable mode button when playlist has items
+            if ($BUTTON_PLAYLIST_MODE) {
+                $BUTTON_PLAYLIST_MODE.disabled = false;
+                $BUTTON_PLAYLIST_MODE.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
         }
         const isShuffle = getOption('shuffle') || false;
         if (isShuffle) {
