@@ -292,15 +292,19 @@ body.amp-full-window #embed-wrapper video#html-player {
   }
 }
 
-/* iOS portrait: keep bottom menu above browser toolbar/safe-area. */
-@supports (bottom: env(safe-area-inset-bottom)) {
+/* iOS portrait: lift bottom menu by toolbar-height + safe-area. */
+@supports (bottom: env(safe-area-inset-bottom)) and (-webkit-touch-callout: none) {
   @media (orientation: portrait) and (hover: none) and (pointer: coarse) {
     #menu-container:not(.menu-minimized) {
-      bottom: env(safe-area-inset-bottom);
+      bottom: calc(64px + env(safe-area-inset-bottom));
     }
 
     #menu-container.rounded-full:not(.menu-minimized) {
-      bottom: calc(1rem + env(safe-area-inset-bottom));
+      bottom: calc(64px + 1rem + env(safe-area-inset-bottom));
+    }
+
+    #menu-container.menu-minimized {
+      bottom: calc(64px + 0.75rem + env(safe-area-inset-bottom));
     }
   }
 }
