@@ -292,6 +292,19 @@ body.amp-full-window #embed-wrapper video#html-player {
   }
 }
 
+/* iOS portrait: keep bottom menu above browser toolbar/safe-area. */
+@supports (bottom: env(safe-area-inset-bottom)) {
+  @media (orientation: portrait) and (hover: none) and (pointer: coarse) {
+    #menu-container:not(.menu-minimized) {
+      bottom: env(safe-area-inset-bottom);
+    }
+
+    #menu-container.rounded-full:not(.menu-minimized) {
+      bottom: calc(1rem + env(safe-area-inset-bottom));
+    }
+  }
+}
+
 #menu-container.menu-minimized > div {
   display: -webkit-box;
   display: -ms-flexbox;
