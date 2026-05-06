@@ -461,6 +461,121 @@ const init = function (): void {
   // Add elements since v1.1.0
   const $MEDIA_CATEGORY_SELECT = document.getElementById('media-category') as HTMLSelectElement;
 
+  // Playlist operation mode UI (v2.2.0 Slice A)
+  const $BUTTON_PLAYLIST_MODE = document.getElementById('btn-playlist-mode') as HTMLButtonElement | null;
+  const $PLAYLIST_MODE_MENU = document.getElementById('playlist-mode-menu') as HTMLElement | null;
+  const $PLAYLIST_MODE_BADGE = document.getElementById('playlist-mode-badge') as HTMLElement | null;
+  type PlaylistMode = 'normal' | 'reorder' | 'delete';
+  let playlistMode: PlaylistMode = 'normal';
+
+  function getPlaylistModeLabel(mode: PlaylistMode): string {
+    if (!$BUTTON_PLAYLIST_MODE) return mode;
+    switch (mode) {
+      case 'reorder':
+        return $BUTTON_PLAYLIST_MODE.dataset['labelReorder'] || 'Reorder';
+      case 'delete':
+        return $BUTTON_PLAYLIST_MODE.dataset['labelDelete'] || 'Delete';
+      default:
+        return $BUTTON_PLAYLIST_MODE.dataset['labelNormal'] || 'Normal';
+    }
+  }
+
+  function isPlaylistInteractionLocked(): boolean {
+    return playlistMode !== 'normal';
+  }
+
+  function closePlaylistModeMenu(): void {
+    if (!$PLAYLIST_MODE_MENU || !$BUTTON_PLAYLIST_MODE) return;
+    $PLAYLIST_MODE_MENU.classList.add('hidden');
+    $BUTTON_PLAYLIST_MODE.setAttribute('aria-expanded', 'false');
+  }
+
+  function togglePlaylistModeMenu(forceOpen = false): void {
+    if (!$PLAYLIST_MODE_MENU || !$BUTTON_PLAYLIST_MODE) return;
+    const shouldOpen = forceOpen || $PLAYLIST_MODE_MENU.classList.contains('hidden');
+    if (shouldOpen) {
+      $PLAYLIST_MODE_MENU.classList.remove('hidden');
+      $BUTTON_PLAYLIST_MODE.setAttribute('aria-expanded', 'true');
+    } else {
+      closePlaylistModeMenu();
+    }
+  }
+
+  function updatePlaylistModeUI(): void {
+    if ($PLAYLIST_MODE_BADGE) {
+      if (playlistMode === 'normal') {
+        $PLAYLIST_MODE_BADGE.classList.add('hidden');
+        $PLAYLIST_MODE_BADGE.textContent = '';
+      } else {
+        $PLAYLIST_MODE_BADGE.classList.remove('hidden');
+        $PLAYLIST_MODE_BADGE.textContent = getPlaylistModeLabel(playlistMode);
+      }
+    }
+
+    if ($PLAYLIST_MODE_MENU) {
+      Array.from($PLAYLIST_MODE_MENU.querySelectorAll('.playlist-mode-option')).forEach((elm) => {
+        const optElm = elm as HTMLButtonElement;
+        const mode = (optElm.dataset['mode'] || '') as PlaylistMode | 'edit';
+        if (mode === playlistMode) {
+          optElm.classList.add('text-blue-700', 'dark:text-blue-300');
+          optElm.setAttribute('aria-current', 'true');
+        } else {
+          optElm.classList.remove('text-blue-700', 'dark:text-blue-300');
+          optElm.removeAttribute('aria-current');
+        }
+      });
+    }
+  }
+
+  function setPlaylistMode(nextMode: PlaylistMode): void {
+    if (playlistMode === nextMode) {
+      closePlaylistModeMenu();
+      return;
+    }
+    playlistMode = nextMode;
+    closePlaylistModeMenu();
+    updatePlaylistModeUI();
+    updatePlaylist();
+  }
+
+  if ($BUTTON_PLAYLIST_MODE && $PLAYLIST_MODE_MENU) {
+    $BUTTON_PLAYLIST_MODE.addEventListener('click', (evt: Event) => {
+      evt.preventDefault();
+      evt.stopPropagation();
+      togglePlaylistModeMenu();
+    });
+
+    Array.from($PLAYLIST_MODE_MENU.querySelectorAll('.playlist-mode-option')).forEach((elm) => {
+      elm.addEventListener('click', (evt: Event) => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        const optionElm = evt.currentTarget as HTMLButtonElement;
+        if (optionElm.disabled || optionElm.getAttribute('aria-disabled') === 'true') {
+          return;
+        }
+        const nextMode = optionElm.dataset['mode'];
+        if (nextMode === 'normal' || nextMode === 'reorder' || nextMode === 'delete') {
+          setPlaylistMode(nextMode);
+        }
+      });
+    });
+
+    document.addEventListener('click', (evt: MouseEvent) => {
+      const target = evt.target as Node;
+      if (!$PLAYLIST_MODE_MENU.contains(target) && !$BUTTON_PLAYLIST_MODE.contains(target)) {
+        closePlaylistModeMenu();
+      }
+    });
+
+    document.addEventListener('keydown', (evt: KeyboardEvent) => {
+      if (evt.key === 'Escape') {
+        closePlaylistModeMenu();
+      }
+    });
+
+    updatePlaylistModeUI();
+  }
+
   // Process global data passed by the system.
   // In cloud mode: load MyPlaylist from localStorage before processing server data.
   // (Placed here, AFTER DOM constants, to avoid const temporal dead zone issues.)
@@ -805,6 +920,10 @@ const init = function (): void {
 
     Array.from($LIST_PLAYLIST.querySelectorAll('a[data-playlist-item]')).forEach((elm) => {
       elm.addEventListener('click', (evt: Event) => {
+        evt.preventDefault();
+        if (isPlaylistInteractionLocked()) {
+          return;
+        }
         const target = evt.target as HTMLElement;
         playItem(target);
         // Toggle player control buttons shown.
@@ -815,11 +934,12 @@ const init = function (): void {
 
     // Append "[+] Add media" item at the bottom of the playlist
     // Hidden in cloud mode for existing JSON playlists (read-only)
+    // and hidden when playlist operation mode is not normal.
     const _ambDataForAdd = (window as any).AmbientData as AmbientData;
     const _isCloudReadOnly = _ambDataForAdd?.isCloud === true &&
       AMP_STATUS.playlist !== null &&
       AMP_STATUS.playlist !== MYPLAYLIST_NAME;
-    if (!_isCloudReadOnly) {
+    if (!_isCloudReadOnly && playlistMode === 'normal') {
       const addItemElm = document.createElement('a');
       addItemElm.href = '#';
       addItemElm.setAttribute('id', 'btn-add-media-from-playlist');

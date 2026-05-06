@@ -12,6 +12,41 @@
             </svg>
             <span class="ml-2 text-rotate-0"><?= __( 'Playlist' ) ?></span>
         </h5>
+        <div class="absolute top-2.5 right-12">
+            <button
+              type="button"
+              id="btn-playlist-mode"
+              class="inline-flex items-center justify-center w-8 h-8 text-gray-500 rounded-lg hover:bg-gray-200 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-gray-300 dark:hover:bg-gray-600 dark:hover:text-white"
+              aria-haspopup="true"
+              aria-expanded="false"
+              data-label-normal="<?= __( 'Normal' ) ?>"
+              data-label-edit="<?= __( 'Edit' ) ?>"
+              data-label-reorder="<?= __( 'Reorder' ) ?>"
+              data-label-delete="<?= __( 'Delete' ) ?>"
+              data-label-mode="<?= __( 'Mode' ) ?>"
+            >
+                <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.75 4.75a1.25 1.25 0 1 1 2.5 0v.72a6.2 6.2 0 0 1 1.9.79l.5-.5a1.25 1.25 0 0 1 1.77 1.77l-.5.5c.34.6.6 1.24.78 1.9h.72a1.25 1.25 0 1 1 0 2.5h-.72a6.2 6.2 0 0 1-.79 1.9l.5.5a1.25 1.25 0 0 1-1.77 1.77l-.5-.5a6.2 6.2 0 0 1-1.9.78v.72a1.25 1.25 0 1 1-2.5 0v-.72a6.2 6.2 0 0 1-1.9-.79l-.5.5a1.25 1.25 0 1 1-1.77-1.77l.5-.5a6.2 6.2 0 0 1-.78-1.9h-.72a1.25 1.25 0 1 1 0-2.5h.72a6.2 6.2 0 0 1 .79-1.9l-.5-.5a1.25 1.25 0 0 1 1.77-1.77l.5.5c.6-.34 1.24-.6 1.9-.78v-.72Z"/>
+                    <circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                <span class="sr-only"><?= __( 'Mode' ) ?></span>
+            </button>
+            <span
+              id="playlist-mode-badge"
+              class="hidden absolute -top-2 left-full ml-1 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white bg-blue-600 rounded"
+            ></span>
+            <div
+              id="playlist-mode-menu"
+              class="hidden absolute top-10 right-0 z-20 min-w-[128px] bg-white border border-gray-200 rounded-lg shadow-md dark:bg-gray-700 dark:border-gray-600"
+              role="menu"
+              aria-label="<?= __( 'Mode' ) ?>"
+            >
+                <button type="button" class="playlist-mode-option block w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600" data-mode="normal" role="menuitem"><?= __( 'Normal' ) ?></button>
+                <button type="button" class="playlist-mode-option block w-full px-3 py-2 text-left text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed" data-mode="edit" role="menuitem" disabled aria-disabled="true"><?= __( 'Edit' ) ?></button>
+                <button type="button" class="playlist-mode-option block w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600" data-mode="reorder" role="menuitem"><?= __( 'Reorder' ) ?></button>
+                <button type="button" class="playlist-mode-option block w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600" data-mode="delete" role="menuitem"><?= __( 'Delete' ) ?></button>
+            </div>
+        </div>
         <button 
           type="button"
           id="btn-close-playlist"
