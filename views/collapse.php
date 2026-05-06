@@ -12,7 +12,10 @@
           aria-controls="collapse-item-body-media"
         >
             <span><?= __( 'Media Management' ); ?></span>
-          <span class="accordion-caret" aria-hidden="true"><svg class="caret-down w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg><svg class="caret-up w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7"/></svg></span>
+          <span class="accordion-caret" aria-hidden="true">
+            <svg class="caret-down w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
+            <svg class="caret-up w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7"/></svg>
+          </span>
         </button>
     </h2>
     <div 
@@ -92,13 +95,12 @@
                     <div class="flex">
                         <span 
                           id="youtube-url-prefix"
-                          class="inline-flex items-center px-3 text-sm bg-gray-200 dark:bg-gray-600 border border-r-0 rounded-l-md normal-prefix"
+                          class="inline-flex items-center px-3 text-sm bg-gray-200 dark:bg-gray-700 border border-r-0 rounded-l-md normal-prefix"
                         >https://</span>
                         <input 
                           id="youtube-url"
                           type="text"
                           name="youtube_url"
-                          _class="rounded-none rounded-r-lg bg-gray-50 border text-gray-900 focus:ring-blue-500 focus:border-blue-500 block flex-1 min-w-0 w-full text-sm border-gray-300 p-2.5  dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                           class="rounded-none rounded-r-lg border block flex-1 min-w-0 w-full text-sm p-2.5 normal-input"
                           placeholder="www.youtube.com/watch?v=......"
                           data-validate="false"
@@ -154,7 +156,7 @@
                           for="media-category"
                           class="block mb-2 text-sm font-medium normal-text"
                         >
-                            <span data-tooltip-target="tooltip-media-category"><?= __( 'Category' ) ?></span>
+                            <span class="required" data-tooltip-target="tooltip-media-category"><?= __( 'Category' ) ?></span>
                             <div id="tooltip-media-category" role="tooltip" class="absolute z-10 invisible inline-block px-2 py-2 text-xs font-normal text-white transition-opacity duration-300 bg-red-600 rounded-lg shadow-sm opacity-0 tooltip dark:bg-red-500">
                                 <?= __( 'Required' ) ?>
                                 <div class="tooltip-arrow" data-popper-arrow></div>
@@ -187,7 +189,12 @@
                           placeholder="<?= __( 'New Category' ) ?>"
                           value="<?= __( 'New Category' ) ?>"
                           data-default-value="<?= __( 'New Category' ) ?>"
+                          data-validate="false"
                         />
+                        <p
+                          id="note-media-category-create-from-playlist-management"
+                          class="hidden mt-1 text-sm text-red-600 dark:text-red-400"
+                        ><?= __( '※ 新しいカテゴリーは「プレイリスト管理」の「新規カテゴリー追加」から追加できます。' ) ?></p>
                     </div>
                     <div
                       class="mb-4"
@@ -423,7 +430,10 @@
           aria-controls="collapse-item-body-playlist"
         >
             <span><?= __( 'Playlist Management' ); ?></span>
-          <span class="accordion-caret" aria-hidden="true"><svg class="caret-down w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg><svg class="caret-up w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7"/></svg></span>
+          <span class="accordion-caret" aria-hidden="true">
+            <svg class="caret-down w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
+            <svg class="caret-up w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7"/></svg>
+          </span>
         </button>
     </h2>
     <div 
@@ -639,7 +649,10 @@
           aria-controls="collapse-item-body-issue"
         >
             <span><?= __( 'Report an issue' ); ?></span>
-          <span class="accordion-caret" aria-hidden="true"><svg class="caret-down w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg><svg class="caret-up w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7"/></svg></span>
+          <span class="accordion-caret" aria-hidden="true">
+            <svg class="caret-down w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
+            <svg class="caret-up w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7"/></svg>
+          </span>
         </button>
     </h2>
     <div 
@@ -666,7 +679,10 @@
           aria-controls="collapse-item-body-about"
         >
             <span><?= __( 'About Ambient' ); ?></span>
-          <span class="accordion-caret" aria-hidden="true"><svg class="caret-down w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg><svg class="caret-up w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7"/></svg></span>
+          <span class="accordion-caret" aria-hidden="true">
+            <svg class="caret-down w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
+            <svg class="caret-up w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7"/></svg>
+          </span>
         </button>
     </h2>
     <div 
@@ -677,8 +693,8 @@
         <div class="p-5 border border-t-0 border-gray-200 dark:border-gray-700 dark:bg-gray-900 overflow-y-auto">
             <p class="mb-2 text-gray-500 dark:text-gray-400">
                 <?= __( 'Ambient is an open-source media player that allows you to seamlessly mix and play media published on YouTube and media stored on a host computer, such as a local PC.' ) ?><br>
-                <?= __( "Additionally, since Ambient is designed as a web application, anyone can use it by accessing the application's pages with a common web browser." ) ?><br>
-                <?= __( 'However, if you want to use Ambient on your local PC, you will need to prepare a PHP execution environment and launch your application onto that environment.' ) ?>
+                <?= __( "Additionally, since Ambient is designed as a web application, anyone can use it by accessing the application's pages with a common web browser." ) ?><?php if ( is_local() ) : ?><br>
+                <?= __( 'However, if you want to use Ambient on your local PC, you will need to prepare a PHP execution environment and launch your application onto that environment.' ) ?><?php endif; ?>
             </p>
             <p class="mb-2 text-gray-500 dark:text-gray-400"><?= __( 'Learn more about the technology Ambient uses below:' ) ?></p>
             <ul class="mb-2 pl-5 text-gray-500 list-disc dark:text-gray-400">

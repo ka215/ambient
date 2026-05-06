@@ -194,6 +194,31 @@ a[aria-current=true] .playlist-subtitle {
   display: block;
 }
 
+/* Options modal accordion: clear item separators and dark-mode panel tone. */
+#modal-options #collapse-menu > h2 > [data-accordion-target],
+#modal-options #collapse-menu > div[id^=collapse-item-body-] > div {
+  border-bottom-width: 1px;
+  border-bottom-style: solid;
+  border-bottom-color: #d1d5db;
+}
+
+.dark #modal-options #collapse-menu > h2 > [data-accordion-target],
+.dark #modal-options #collapse-menu > div[id^=collapse-item-body-] > div {
+  border-bottom-color: #4b5563;
+}
+
+.dark #modal-options #collapse-menu > h2 > [data-accordion-target] {
+  background-color: #2b3441;
+}
+
+.dark #modal-options #collapse-menu > h2 > [data-accordion-target]:hover {
+  background-color: #334155;
+}
+
+.dark #modal-options #collapse-menu > div[id^=collapse-item-body-] > div {
+  background-color: #1f2937;
+}
+
 body.amp-full-window #carousel-container,
 body.amp-full-window #media-caption {
   display: none;
@@ -300,6 +325,67 @@ body.amp-full-window #embed-wrapper video#html-player {
   border-radius: 9999px;
 }
 
+#modal-options #media-category-new {
+  color: #1d4ed8;
+}
+
+.dark #modal-options #media-category-new {
+  color: #93c5fd;
+}
+
+/* Neutralize Flowbite preflight color inheritance for validated fields. */
+#modal-options :is(input, select, textarea).normal-input,
+#modal-options :is(input, select, textarea).success-input,
+#modal-options :is(input, select, textarea).error-input {
+  color: #111827;
+}
+
+/* Light mode: keep validation border switching explicit with slightly deeper tones. */
+#modal-options .normal-input {
+  border-color: #6b7280;
+}
+
+#modal-options .success-input {
+  border-color: #15803d;
+}
+
+#modal-options .error-input {
+  border-color: #b91c1c;
+}
+
+#modal-options .normal-prefix {
+  border-color: #6b7280;
+  color: #374151;
+}
+
+#modal-options .success-prefix {
+  border-color: #15803d;
+  color: #166534;
+}
+
+#modal-options .error-prefix {
+  border-color: #b91c1c;
+  color: #991b1b;
+}
+
+.dark #modal-options :is(input, select, textarea).normal-input,
+.dark #modal-options :is(input, select, textarea).success-input,
+.dark #modal-options :is(input, select, textarea).error-input {
+  color: #e5e7eb;
+}
+
+/* v2.1.1 item4: In dark mode, validation-success fields keep the same background;
+   only the border turns green to signal OK state. */
+.dark #modal-options .success-input {
+  background-color: #111827; /* same as .dark #modal-options .normal-input */
+  border-color: #22c55e;     /* green-500 */
+}
+
+.dark #modal-options .success-input::-webkit-input-placeholder { color: #9ca3af; }
+.dark #modal-options .success-input::-moz-placeholder           { color: #9ca3af; }
+.dark #modal-options .success-input:-ms-input-placeholder       { color: #9ca3af; }
+.dark #modal-options .success-input::placeholder                { color: #9ca3af; }
+
 .dark #modal-options .normal-text {
   color: #d1d5db;
 }
@@ -334,6 +420,12 @@ body.amp-full-window #embed-wrapper video#html-player {
   background-color: #1f2937;
   border-color: #374151;
   color: #9ca3af;
+}
+
+.dark #modal-options .success-prefix {
+  background-color: #1f2937;
+  border-color: #22c55e;
+  color: #86efac;
 }
 
 .dark #drawer-settings #current-playlist,
