@@ -253,7 +253,7 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
     ]);
   });
 
-  test('shows delete confirm modal and keeps selection on cancel (Slice B)', async ({ page }) => {
+  test('shows delete confirm modal and keeps selection on outside-click cancel (Slice B)', async ({ page }) => {
     await selectMode(page, 'delete');
 
     const firstItem = page.locator('#playlist-list-group a[data-playlist-item]').first();
@@ -266,7 +266,7 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
     await expect(page.locator('#modal-playlist-confirm')).toBeVisible();
     await expect(page.locator('#modal-playlist-confirm-title')).toContainText(/選択したアイテムを削除しますか\?|Delete selected items\?/);
 
-    await page.locator('#btn-playlist-confirm-cancel').click();
+    await page.mouse.click(8, 8);
 
     await expect(page.locator('#modal-playlist-confirm')).toBeHidden();
     await expect(page.locator('#playlist-mode-button-label')).toContainText(/削除|Delete/);

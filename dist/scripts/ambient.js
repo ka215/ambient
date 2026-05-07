@@ -704,6 +704,13 @@ const init = function () {
         $MODAL_PLAYLIST_CONFIRM.classList.add('hidden');
         _playlistConfirmApplyCallback = null;
     }
+    function cancelPlaylistConfirmModal() {
+        if (playlistMode === 'reorder') {
+            reorderWorkingIds = [...reorderInitialIds];
+            updatePlaylist();
+        }
+        closePlaylistConfirmModal();
+    }
     function applyDeleteSelections() {
         if (!canMutateCurrentPlaylist()) {
             deleteSelectedIds.clear();
@@ -801,11 +808,18 @@ const init = function () {
     }
     if ($BTN_PLAYLIST_CONFIRM_CANCEL) {
         $BTN_PLAYLIST_CONFIRM_CANCEL.addEventListener('click', () => {
-            if (playlistMode === 'reorder') {
-                reorderWorkingIds = [...reorderInitialIds];
-                updatePlaylist();
+            cancelPlaylistConfirmModal();
+        });
+    }
+    if ($MODAL_PLAYLIST_CONFIRM) {
+        $MODAL_PLAYLIST_CONFIRM.addEventListener('click', (evt) => {
+            const target = evt.target;
+            const isBackdrop = target instanceof HTMLElement &&
+                target.parentElement === $MODAL_PLAYLIST_CONFIRM &&
+                target.getAttribute('aria-hidden') === 'true';
+            if (target === $MODAL_PLAYLIST_CONFIRM || isBackdrop) {
+                cancelPlaylistConfirmModal();
             }
-            closePlaylistConfirmModal();
         });
     }
     // Process global data passed by the system.

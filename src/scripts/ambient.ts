@@ -764,6 +764,14 @@ const init = function (): void {
     _playlistConfirmApplyCallback = null;
   }
 
+  function cancelPlaylistConfirmModal(): void {
+    if (playlistMode === 'reorder') {
+      reorderWorkingIds = [...reorderInitialIds];
+      updatePlaylist();
+    }
+    closePlaylistConfirmModal();
+  }
+
   function applyDeleteSelections(): void {
     if (!canMutateCurrentPlaylist()) {
       deleteSelectedIds.clear();
@@ -871,11 +879,19 @@ const init = function (): void {
 
   if ($BTN_PLAYLIST_CONFIRM_CANCEL) {
     $BTN_PLAYLIST_CONFIRM_CANCEL.addEventListener('click', () => {
-      if (playlistMode === 'reorder') {
-        reorderWorkingIds = [...reorderInitialIds];
-        updatePlaylist();
+      cancelPlaylistConfirmModal();
+    });
+  }
+
+  if ($MODAL_PLAYLIST_CONFIRM) {
+    $MODAL_PLAYLIST_CONFIRM.addEventListener('click', (evt: MouseEvent) => {
+      const target = evt.target;
+      const isBackdrop = target instanceof HTMLElement &&
+        target.parentElement === $MODAL_PLAYLIST_CONFIRM &&
+        target.getAttribute('aria-hidden') === 'true';
+      if (target === $MODAL_PLAYLIST_CONFIRM || isBackdrop) {
+        cancelPlaylistConfirmModal();
       }
-      closePlaylistConfirmModal();
     });
   }
 
