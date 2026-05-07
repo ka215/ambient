@@ -3042,7 +3042,6 @@ const init = function () {
     function addMediaData(payload) {
         logger('addMediaData::before:', payload, AMP_STATUS.media?.length);
         // --- Auto-playlist: if no playlist is currently selected, use/create MyPlaylist ---
-        const MYPLAYLIST_NAME = 'MyPlaylist.json';
         if (!AMP_STATUS.playlist) {
             AMP_STATUS.playlist = MYPLAYLIST_NAME;
             // Add MyPlaylist option to the dropdown if not present
