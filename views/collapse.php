@@ -193,8 +193,12 @@
                         />
                         <p
                           id="note-media-category-create-from-playlist-management"
-                          class="hidden mt-1 text-sm text-red-600 dark:text-red-400"
-                        ><?= __( '※ 新しいカテゴリーは「プレイリスト管理」の「新規カテゴリー追加」から追加できます。' ) ?></p>
+                          class="hidden relative z-20 mt-1 text-sm text-red-600 dark:text-red-400"
+                        ><?= __( '※ 新しいカテゴリーは' ) ?>「<a
+                            id="link-open-playlist-management-category"
+                            href="#collapse-item-body-playlist"
+                            class="relative z-10 inline-flex font-medium underline underline-offset-2 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 dark:hover:text-red-300"
+                          ><?= __( 'Playlist Management' ) ?></a>」<?= __( 'の「新規カテゴリー追加」から追加できます。' ) ?></p>
                     </div>
                     <div
                       class="mb-4"
@@ -281,7 +285,7 @@
                           min="0"
                           max="100"
                           step="1"
-                          class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-600"
+                          class="volume-range w-full h-2 rounded-lg appearance-none cursor-pointer"
                         />
                     </div>
                     <div

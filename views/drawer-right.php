@@ -95,9 +95,9 @@
         <div class="p-4">
             <label for="default-volume" class="flex justify-between mb-2 text-sm font-medium text-gray-900 dark:text-white">
                 <?= __( 'Default volume:' ) ?>
-                <span id="default-volume-value" class="ml-2 px-1 text-yellow-500 dark:text-yellow-400">100</span>
+                <span id="default-volume-value" class="ml-2 px-1 text-yellow-500 dark:text-yellow-400">50</span>
             </label>
-            <input id="default-volume" type="range" min="0" max="100" value="100" step="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-600">
+            <input id="default-volume" type="range" min="0" max="100" value="50" step="1" class="volume-range w-full h-2 rounded-lg appearance-none cursor-pointer">
         </div>
         <div class="p-4">
             <label for="language" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white"><?= __( 'Language' ) ?></label>

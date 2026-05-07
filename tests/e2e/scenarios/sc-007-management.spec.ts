@@ -215,6 +215,21 @@ test.describe('SC-007 Playlist/Media management flow', () => {
     await expect(page.locator('#media-category')).toHaveValue(/\d+/);
   });
 
+  test('category note link opens playlist management category field', async ({ ambientPage, page }) => {
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.selectPlaylist('mememori-youtube.json');
+
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+
+    const noteLink = page.locator('#link-open-playlist-management-category');
+    await expect(noteLink).toBeVisible();
+    await noteLink.click();
+
+    await expect(page.locator('#collapse-item-body-playlist')).toBeVisible();
+    await expect(page.locator('#category-name')).toBeFocused();
+  });
+
   test('keeps category field valid when first category auto-selects after initial media registration', async ({ ambientPage, page }) => {
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
