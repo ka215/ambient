@@ -178,6 +178,48 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
     expect(optionTextsAfter.map((v) => v.trim())).toEqual(['All categories', 'Alpha', 'Beta']);
   });
 
+  test('uses playlist option volume for settings and media management defaults', async ({ ambientPage, page }) => {
+    const playlist = buildMyPlaylist({
+      E2E: [{ title: 'volume-default', videoid: 'dQw4w9WgXcQ' }],
+    });
+    (playlist.options as Record<string, unknown>).volume = 35;
+    await seedMyPlaylist(page, playlist);
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.openSettingsDrawer();
+
+    await expect(page.locator('#default-volume')).toHaveValue('35');
+    await expect(page.locator('#default-volume-value')).toHaveText('35');
+
+    await ambientPage.closeSettingsDrawer();
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+
+    await expect(page.locator('#media-volume')).toHaveValue('35');
+    await expect(page.locator('#default-media-volume')).toHaveText('35');
+  });
+
+  test('falls back to volume 50 when playlist option volume is undefined', async ({ ambientPage, page }) => {
+    const playlist = buildMyPlaylist({
+      E2E: [{ title: 'volume-fallback', videoid: 'dQw4w9WgXcQ' }],
+    });
+    delete (playlist.options as Record<string, unknown>).volume;
+    await seedMyPlaylist(page, playlist);
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.openSettingsDrawer();
+
+    await expect(page.locator('#default-volume')).toHaveValue('50');
+    await expect(page.locator('#default-volume-value')).toHaveText('50');
+
+    await ambientPage.closeSettingsDrawer();
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+
+    await expect(page.locator('#media-volume')).toHaveValue('50');
+    await expect(page.locator('#default-media-volume')).toHaveText('50');
+  });
+
   test('switches away from MyPlaylist and back without losing items or disabling target category', async ({ ambientPage, page }) => {
     await seedMyPlaylist(page, buildMyPlaylist({
       Replay: [
