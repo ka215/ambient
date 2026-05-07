@@ -88,7 +88,7 @@
     "Playlist Management": "プレイリスト管理",
     "Create Symbolic Link": "シンボリックリンク作成",
     "Create a symbolic link of the folder containing the media files on your host computer into media directory in the Ambient.": "ホストコンピュータ上のメディアファイルを含むフォルダのシンボリックリンクを、Ambientのメディアディレクトリ内に作成します。",
-    "This section provides various tools to manage your playlists.": "",
+    "This section provides various tools to manage your playlists.": "プレイリストを管理するための各種ツールを提供します。",
     "Local Media Folder Path": "ローカルメディア格納フォルダのパス",
     "This path is required": "このパスは入力必須です",
     "Enter the full path to the media folder on the host computer that you want to link to.": "リンク先のホストコンピューター上のメディアフォルダへのフルパスを入力してください。",
