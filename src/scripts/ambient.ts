@@ -1194,6 +1194,9 @@ const init = function (): void {
   }
 
   function normalizeVolume(value: any, fallback: number = DEFAULT_VOLUME): number {
+    if (value === null || value === undefined || value === '') {
+      return fallback;
+    }
     const numericValue = Number(value);
     return Number.isFinite(numericValue) && inRange(numericValue, 0, 100)
       ? numericValue

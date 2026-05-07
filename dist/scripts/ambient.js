@@ -1094,6 +1094,9 @@ const init = function () {
         }
     }
     function normalizeVolume(value, fallback = DEFAULT_VOLUME) {
+        if (value === null || value === undefined || value === '') {
+            return fallback;
+        }
         const numericValue = Number(value);
         return Number.isFinite(numericValue) && inRange(numericValue, 0, 100)
             ? numericValue
