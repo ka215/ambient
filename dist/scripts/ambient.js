@@ -181,6 +181,7 @@ const init = function () {
     // ============================================================================
     const MYPLAYLIST_KEY = 'AmbientMyPlaylist';
     const MYPLAYLIST_NAME = 'MyPlaylist.json';
+    const DEFAULT_VOLUME = 50;
     /**
      * Save the current in-memory state of MyPlaylist to localStorage.
      * Only called in cloud mode when the active playlist is MyPlaylist.
@@ -382,7 +383,7 @@ const init = function () {
             }
             // Visual hint on the media management form
             if ($MEDIA_MANAGE_FORM_EL) {
-                $MEDIA_MANAGE_FORM_EL.classList.add('opacity-50', 'pointer-events-none');
+                $MEDIA_MANAGE_FORM_EL.classList.add('opacity-50');
             }
         }
         else {
@@ -395,7 +396,7 @@ const init = function () {
                 $BTN_CREATE_CATEGORY.removeAttribute('title');
             }
             if ($MEDIA_MANAGE_FORM_EL) {
-                $MEDIA_MANAGE_FORM_EL.classList.remove('opacity-50', 'pointer-events-none');
+                $MEDIA_MANAGE_FORM_EL.classList.remove('opacity-50');
             }
         }
         void $PLAYLIST_MANAGE_NOTICE;
@@ -439,6 +440,7 @@ const init = function () {
     const $COLLAPSE_MENU = document.getElementById('collapse-menu');
     // Add elements since v1.1.0
     const $MEDIA_CATEGORY_SELECT = document.getElementById('media-category');
+    const $MEDIA_VOLUME = document.getElementById('media-volume');
     let optionsModalHideTimer = null;
     if (isElement($MODAL_OPTIONS) && $MODAL_OPTIONS.parentElement !== document.body) {
         document.body.appendChild($MODAL_OPTIONS);
@@ -1091,6 +1093,67 @@ const init = function () {
             $catInput.dispatchEvent(new Event('change'));
         }
     }
+    function normalizeVolume(value, fallback = DEFAULT_VOLUME) {
+        const numericValue = Number(value);
+        return Number.isFinite(numericValue) && inRange(numericValue, 0, 100)
+            ? numericValue
+            : fallback;
+    }
+    function getDefaultVolume() {
+        return normalizeVolume(getOption('volume'), DEFAULT_VOLUME);
+    }
+    function getPlaybackVolume(mediaData = null) {
+        const mediaVolume = mediaData?.volume;
+        if (mediaData &&
+            mediaVolume !== undefined &&
+            inRange(Number(mediaVolume), 0, 100)) {
+            return Number(mediaVolume);
+        }
+        return getDefaultVolume();
+    }
+    function syncRangeProgress(range) {
+        if (!range)
+            return;
+        const min = Number(range.min || 0);
+        const max = Number(range.max || 100);
+        const value = normalizeVolume(range.value, DEFAULT_VOLUME);
+        const progress = max > min ? ((value - min) / (max - min)) * 100 : 0;
+        range.style.setProperty('--range-progress', `${Math.min(100, Math.max(0, progress))}%`);
+    }
+    function syncMediaVolumeField(volume = getDefaultVolume()) {
+        if (!$MEDIA_VOLUME)
+            return;
+        const normalizedVolume = normalizeVolume(volume, getDefaultVolume());
+        $MEDIA_VOLUME.value = String(normalizedVolume);
+        syncRangeProgress($MEDIA_VOLUME);
+        const displayVolume = document.getElementById('default-media-volume');
+        if (displayVolume) {
+            displayVolume.textContent = String(normalizedVolume);
+        }
+    }
+    function openPlaylistManagementCategoryCreate() {
+        ensureAccordionPanel('collapse-item-body-playlist');
+        window.setTimeout(() => {
+            const categoryNameInput = document.getElementById('category-name');
+            categoryNameInput?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            categoryNameInput?.focus();
+        }, 120);
+    }
+    function ensureAccordionPanel(panelId) {
+        const accordionBtn = document.querySelector(`[data-accordion-target="#${panelId}"]`);
+        const panel = document.getElementById(panelId);
+        if (!panel)
+            return;
+        if (accordionBtn && panel.classList.contains('hidden')) {
+            accordionBtn.click();
+        }
+        window.setTimeout(() => {
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                accordionBtn?.setAttribute('aria-expanded', 'true');
+            }
+        }, 80);
+    }
     function showOptionsModal() {
         if (isOptionsModalVisible())
             return;
@@ -1195,6 +1258,11 @@ const init = function () {
             }
         });
     }
+    document.getElementById('link-open-playlist-management-category')
+        ?.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        openPlaylistManagementCategoryCreate();
+    });
     document.addEventListener('keydown', (evt) => {
         if (evt.key === 'Escape' && isOptionsModalVisible()) {
             hideOptionsModal();
@@ -1215,12 +1283,9 @@ const init = function () {
         // After the modal becomes visible, expand the Media Management accordion
         const expandMediaAccordion = () => {
             const $ACCORDION_BTN = document.querySelector('[data-accordion-target="#collapse-item-body-media"]');
-            if ($ACCORDION_BTN && $ACCORDION_BTN.getAttribute('aria-expanded') !== 'true') {
-                $ACCORDION_BTN.click();
-            }
-            else {
-                // Already expanded: manually scroll to top
-                const $panel = document.getElementById('collapse-item-body-media');
+            const $panel = document.getElementById('collapse-item-body-media');
+            ensureAccordionPanel('collapse-item-body-media');
+            if (!$ACCORDION_BTN || $ACCORDION_BTN.getAttribute('aria-expanded') === 'true') {
                 if ($panel?.firstElementChild) {
                     $panel.firstElementChild.scrollTop = 0;
                 }
@@ -1229,6 +1294,7 @@ const init = function () {
             if (presetCategoryId !== null && presetCategoryId >= 0) {
                 syncMediaCategoryField(presetCategoryId);
             }
+            syncMediaVolumeField();
         };
         // Wait for modal to open (aria-hidden becomes false), then expand accordion
         const $MODAL = document.getElementById('modal-options');
@@ -1299,10 +1365,10 @@ const init = function () {
             itemElm.draggable = false;
             if (AMP_STATUS.current && AMP_STATUS.current !== null && AMP_STATUS.current === item.amId) {
                 itemElm.setAttribute('aria-current', 'true');
-                itemElm.setAttribute('class', 'flex items-center gap-2 w-full px-4 py-2 text-white bg-blue-500 border-b border-gray-200 cursor-pointer dark:bg-gray-800 dark:border-gray-600');
+                itemElm.setAttribute('class', 'flex items-center gap-2 w-full min-w-0 px-4 py-2 text-white bg-blue-500 border-b border-gray-200 cursor-pointer dark:bg-gray-800 dark:border-gray-600');
             }
             else {
-                itemElm.setAttribute('class', 'flex items-center gap-2 w-full px-4 py-2 border-b border-gray-200 cursor-pointer hover:bg-gray-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-500 dark:focus:text-white');
+                itemElm.setAttribute('class', 'flex items-center gap-2 w-full min-w-0 px-4 py-2 border-b border-gray-200 cursor-pointer hover:bg-gray-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-500 dark:focus:text-white');
             }
             if (playlistMode === 'reorder') {
                 itemElm.classList.remove('cursor-pointer');
@@ -1352,12 +1418,15 @@ const init = function () {
             if (format) {
                 labelText = filterText(format, item);
             }
+            const labelElm = document.createElement('span');
+            labelElm.className = 'playlist-item-label flex-1';
             if (/<.*?[!^<].*?>/gi.test(labelText)) {
-                itemElm.insertAdjacentHTML('beforeend', labelText);
+                labelElm.innerHTML = labelText;
             }
             else {
-                itemElm.append(document.createTextNode(labelText));
+                labelElm.textContent = labelText;
             }
+            itemElm.appendChild(labelElm);
             $LIST_PLAYLIST.appendChild(itemElm);
         });
         Array.from($LIST_PLAYLIST.querySelectorAll('a[data-playlist-item]')).forEach((elm) => {
@@ -1393,7 +1462,7 @@ const init = function () {
             const addItemElm = document.createElement('a');
             addItemElm.href = '#';
             addItemElm.setAttribute('id', 'btn-add-media-from-playlist');
-            addItemElm.setAttribute('class', 'flex items-center gap-2 w-full px-4 py-2 border-b border-gray-200 cursor-pointer hover:bg-gray-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-500 dark:focus:text-white text-blue-600 dark:text-blue-400');
+            addItemElm.setAttribute('class', 'flex items-center gap-2 w-full min-w-0 px-4 py-2 border-b border-gray-200 cursor-pointer hover:bg-gray-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-500 dark:focus:text-white text-blue-600 dark:text-blue-400');
             // Thumbnail-sized icon block (centered SVG)
             const addIconElm = document.createElement('span');
             addIconElm.setAttribute('class', 'flex items-center justify-center h-8 w-8 rounded bg-gray-100 dark:bg-gray-600 text-blue-600 dark:text-blue-400 flex-shrink-0');
@@ -1402,7 +1471,10 @@ const init = function () {
             addItemElm.appendChild(addIconElm);
             const registerBtn = document.getElementById('btn-add-media-from-drawer');
             const registerText = (registerBtn?.dataset['label'] || registerBtn?.innerText || 'Register media').trim();
-            addItemElm.append(document.createTextNode('\u00a0' + registerText));
+            const addLabelElm = document.createElement('span');
+            addLabelElm.className = 'playlist-item-label flex-1';
+            addLabelElm.textContent = registerText;
+            addItemElm.appendChild(addLabelElm);
             addItemElm.addEventListener('click', (evt) => {
                 evt.preventDefault();
                 const activeCatId = (AMP_STATUS.ctg !== undefined && AMP_STATUS.ctg !== null && Number(AMP_STATUS.ctg) >= 0)
@@ -1577,8 +1649,9 @@ const init = function () {
             changeToggleFader();
         }
         // Applies if a default volume is specified.
-        AMP_STATUS.volume = getOption('volume') || 100;
+        AMP_STATUS.volume = getDefaultVolume();
         changeRangeVolume();
+        syncMediaVolumeField();
         // Applies if a dark mode is specified.
         const isDarkMode = getOption('dark');
         if (isDarkMode !== null) {
@@ -2167,12 +2240,16 @@ const init = function () {
      * Event listener when inputting the volume of settings menu range slider.
      */
     $RANGE_VOLUME.addEventListener('input', (evt) => {
-        const currentVolume = Number(evt.target.value);
+        const currentVolume = normalizeVolume(evt.target.value);
+        evt.target.value = String(currentVolume);
+        syncRangeProgress(evt.target);
         const displayVolume = document.getElementById('default-volume-value');
         displayVolume.textContent = String(currentVolume);
     });
     $RANGE_VOLUME.addEventListener('change', (evt) => {
-        const currentVolume = Number(evt.target.value);
+        const currentVolume = normalizeVolume(evt.target.value);
+        evt.target.value = String(currentVolume);
+        syncRangeProgress(evt.target);
         AMP_STATUS.volume = currentVolume;
         if (!isObject(AMP_STATUS.options)) {
             AMP_STATUS.options = { volume: currentVolume };
@@ -2186,8 +2263,13 @@ const init = function () {
      * Fires an input event of range slider when was changed default playback volume.
      */
     function changeRangeVolume() {
-        $RANGE_VOLUME.value = inRange(Number(AMP_STATUS.volume), 0, 100) ? String(Number(AMP_STATUS.volume)) : '100';
-        $RANGE_VOLUME.dispatchEvent(new Event('input'));
+        const currentVolume = normalizeVolume(AMP_STATUS.volume, getDefaultVolume());
+        $RANGE_VOLUME.value = String(currentVolume);
+        syncRangeProgress($RANGE_VOLUME);
+        const displayVolume = document.getElementById('default-volume-value');
+        if (displayVolume) {
+            displayVolume.textContent = String(currentVolume);
+        }
     }
     /**
      * Event listener when changing the darkmode of settings menu toggle button.
@@ -2395,7 +2477,7 @@ const init = function () {
             event.target.setVolume(0);
         }
         else {
-            event.target.setVolume(AMP_STATUS.volume || 100);
+            event.target.setVolume(normalizeVolume(AMP_STATUS.volume, getDefaultVolume()));
         }
         event.target.playVideo();
     }
@@ -2464,7 +2546,7 @@ const init = function () {
                     const seekEnd = currentMedia.hasOwnProperty('end') && currentMedia.end !== ''
                         ? parseFloat(String(currentMedia.end))
                         : event.target.getDuration();
-                    event.target.setVolume(AMP_STATUS.volume || 100);
+                    event.target.setVolume(normalizeVolume(AMP_STATUS.volume, getDefaultVolume()));
                     fadeOut(event.target, parseFloat(String(currentMedia.fadeout)), seekEnd);
                 }
                 if (currentMedia.hasOwnProperty('fadein') && currentMedia.fadein !== '') {
@@ -2581,10 +2663,10 @@ const init = function () {
         if (mediaData.hasOwnProperty('volume') &&
             mediaData.volume !== undefined &&
             inRange(Number(mediaData.volume), 0, 100)) {
-            AMP_STATUS.volume = Number(mediaData.volume);
+            AMP_STATUS.volume = getPlaybackVolume(mediaData);
         }
         else {
-            AMP_STATUS.volume = getOption('volume') || 100;
+            AMP_STATUS.volume = getDefaultVolume();
         }
         // aspect: 16:9 = w:h -> h = 9w/16
         const isFullWindow = isFullWindowMode();
@@ -2627,16 +2709,16 @@ const init = function () {
         if (mediaData.hasOwnProperty('volume') &&
             mediaData.volume !== undefined &&
             inRange(Number(mediaData.volume), 0, 100)) {
-            AMP_STATUS.volume = Number(mediaData.volume);
+            AMP_STATUS.volume = getPlaybackVolume(mediaData);
         }
         else {
-            AMP_STATUS.volume = getOption('volume') || 100;
+            AMP_STATUS.volume = getDefaultVolume();
         }
         if (AMP_STATUS.fader && mediaData.hasOwnProperty('fadein') && mediaData.fadein !== '') {
             playerElm.volume = 0;
         }
         else {
-            playerElm.volume = (AMP_STATUS.volume || 100) / 100;
+            playerElm.volume = normalizeVolume(AMP_STATUS.volume, getDefaultVolume()) / 100;
         }
         if (tagname === 'audio' && isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark) {
             setStyles(playerElm, 'opacity: .7');
@@ -2681,7 +2763,7 @@ const init = function () {
                     const seekEnd = mediaData.hasOwnProperty('end') && mediaData.end !== ''
                         ? parseFloat(String(mediaData.end))
                         : playerElm.duration;
-                    playerElm.volume = (AMP_STATUS.volume || 100) / 100;
+                    playerElm.volume = normalizeVolume(AMP_STATUS.volume, getDefaultVolume()) / 100;
                     fadeOut(playerElm, parseFloat(String(mediaData.fadeout)), seekEnd);
                 }
                 if (mediaData.hasOwnProperty('fadein') && mediaData.fadein !== '') {
@@ -2793,7 +2875,7 @@ const init = function () {
         const mediaType = isElement(media) ? 'local' : 'youtube';
         const fadeEnd = (start + period) * 1000; // unit milliseconds
         const steps = period * 10;
-        const stepVolume = (AMP_STATUS.volume || 100) / steps;
+        const stepVolume = normalizeVolume(AMP_STATUS.volume, getDefaultVolume()) / steps;
         logger('fadeIn::', mediaType === 'youtube' ? media.getDuration() : media.duration, mediaType === 'youtube' ? media.getVolume() : media.volume, period, start, fadeEnd, steps, stepVolume, AMP_STATUS.volume);
         let elapsed = 0;
         let incrementVolume = 0;
@@ -2811,7 +2893,7 @@ const init = function () {
             }
             else if (currentTime >= fadeEnd) {
                 if (mediaType === 'youtube') {
-                    media.setVolume(AMP_STATUS.volume || 100);
+                    media.setVolume(normalizeVolume(AMP_STATUS.volume, getDefaultVolume()));
                 }
                 abortFader('fadein');
             }
@@ -3038,6 +3120,7 @@ const init = function () {
                 child.dispatchEvent(new Event(event));
             }
         });
+        syncMediaVolumeField();
     }
     function addMediaData(payload) {
         logger('addMediaData::before:', payload, AMP_STATUS.media?.length);
@@ -3381,9 +3464,13 @@ const init = function () {
                     break;
                 case 'volume':
                     elm.addEventListener('input', (evt) => {
+                        const target = evt.target;
+                        const currentVolume = normalizeVolume(target.value, getDefaultVolume());
+                        target.value = String(currentVolume);
+                        syncRangeProgress(target);
                         const $VOLUME_VALUE = document.getElementById('default-media-volume');
                         if ($VOLUME_VALUE)
-                            $VOLUME_VALUE.textContent = evt.target.value;
+                            $VOLUME_VALUE.textContent = String(currentVolume);
                     });
                     break;
                 case 'start':

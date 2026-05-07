@@ -64,6 +64,8 @@
     "Choose category is required": "カテゴリの選択は必須です",
     "Choose a playlist category": "プレイリストのカテゴリを選択してください",
     "Please enter a category name": "カテゴリー名を入力してください",
+    "※ 新しいカテゴリーは": "※ 新しいカテゴリーは",
+    "の「新規カテゴリー追加」から追加できます。": "の「新規カテゴリー追加」から追加できます。",
     "Title": "メディアタイトル",
     "Media title is required": "メディアタイトルは必須です",
     "Displayed media title": "表示されるメディアのタイトル名",

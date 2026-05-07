@@ -12,6 +12,9 @@ test.describe('SC-004 Volume control (fader)', () => {
     const slider = page.locator('#default-volume');
     const displayValue = page.locator('#default-volume-value');
 
+    await expect(displayValue).toHaveText('50');
+    await expect(slider).toHaveValue('50');
+
     // Act
     await slider.fill('35');
     await slider.dispatchEvent('input');
@@ -19,5 +22,6 @@ test.describe('SC-004 Volume control (fader)', () => {
     // Assert
     await expect(displayValue).toHaveText('35');
     await expect(slider).toHaveValue('35');
+    await expect(slider).toHaveCSS('--range-progress', '35%');
   });
 });
