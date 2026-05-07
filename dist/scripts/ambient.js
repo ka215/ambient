@@ -1,9 +1,4 @@
 "use strict";
-/**
-/**
- * Ambient Media Player v2 - TypeScript Frontend Application
- * Ported from ambient.js with full type safety
- */
 /// <reference path="./types/index.ts" />
 // ============================================================================
 // INITIALIZATION
@@ -195,9 +190,11 @@ const init = function () {
             const jsonStr = generatePlaylistJson(false);
             localStorage.setItem(MYPLAYLIST_KEY, jsonStr);
             logger('saveMyPlaylistToStorage: saved', jsonStr.length, 'bytes');
+            return true;
         }
         catch (e) {
             logger('saveMyPlaylistToStorage: error', e);
+            return false;
         }
     }
     /**
@@ -206,8 +203,9 @@ const init = function () {
     function persistMyPlaylistIfNeeded() {
         const ambientData = window.AmbientData;
         if (ambientData?.isCloud && AMP_STATUS.playlist === MYPLAYLIST_NAME) {
-            saveMyPlaylistToStorage();
+            return saveMyPlaylistToStorage();
         }
+        return true;
     }
     /**
      * Load MyPlaylist from localStorage and populate AMP_STATUS as if a
@@ -427,9 +425,341 @@ const init = function () {
     const $BUTTON_OPTIONS = document.getElementById('btn-options');
     const $BUTTON_CLOSE_OPTIONS = document.getElementById('btn-close-options');
     const $MODAL_OPTIONS = document.getElementById('modal-options');
+    const $MODAL_OPTIONS_PANEL = $MODAL_OPTIONS?.querySelector('.modal-dialog-shell');
     const $COLLAPSE_MENU = document.getElementById('collapse-menu');
     // Add elements since v1.1.0
     const $MEDIA_CATEGORY_SELECT = document.getElementById('media-category');
+    let optionsModalHideTimer = null;
+    if (isElement($MODAL_OPTIONS) && $MODAL_OPTIONS.parentElement !== document.body) {
+        document.body.appendChild($MODAL_OPTIONS);
+    }
+    // Playlist operation mode UI (v2.2.0 Slice A)
+    const $BUTTON_PLAYLIST_MODE = document.getElementById('btn-playlist-mode');
+    const $PLAYLIST_MODE_MENU = document.getElementById('playlist-mode-menu');
+    const $PLAYLIST_MODE_BUTTON_ICON = document.getElementById('playlist-mode-button-icon');
+    const $PLAYLIST_MODE_BUTTON_LABEL = document.getElementById('playlist-mode-button-label');
+    let playlistMode = 'normal';
+    const defaultPlaylistModeButtonIcon = $PLAYLIST_MODE_BUTTON_ICON ? $PLAYLIST_MODE_BUTTON_ICON.innerHTML : '';
+    const defaultPlaylistModeButtonLabel = $PLAYLIST_MODE_BUTTON_LABEL?.textContent || $BUTTON_PLAYLIST_MODE?.dataset['labelModeChange'] || 'Mode Change';
+    function syncPlaylistModeButton(mode) {
+        if (!$BUTTON_PLAYLIST_MODE || !$PLAYLIST_MODE_BUTTON_ICON || !$PLAYLIST_MODE_BUTTON_LABEL)
+            return;
+        if (mode === 'normal') {
+            $PLAYLIST_MODE_BUTTON_ICON.innerHTML = defaultPlaylistModeButtonIcon;
+            $PLAYLIST_MODE_BUTTON_LABEL.textContent = defaultPlaylistModeButtonLabel;
+            return;
+        }
+        const option = $PLAYLIST_MODE_MENU?.querySelector(`.playlist-mode-option[data-mode="${mode}"]`);
+        const optionIcon = option?.querySelector('.playlist-mode-option-icon');
+        const optionLabel = option?.querySelector('.playlist-mode-option-label');
+        if (optionIcon && optionLabel) {
+            $PLAYLIST_MODE_BUTTON_ICON.innerHTML = optionIcon.outerHTML;
+            $PLAYLIST_MODE_BUTTON_LABEL.textContent = optionLabel.textContent || getPlaylistModeLabel(mode);
+        }
+    }
+    function getPlaylistModeLabel(mode) {
+        if (!$BUTTON_PLAYLIST_MODE)
+            return mode;
+        switch (mode) {
+            case 'reorder':
+                return $BUTTON_PLAYLIST_MODE.dataset['labelReorder'] || 'Reorder';
+            case 'delete':
+                return $BUTTON_PLAYLIST_MODE.dataset['labelDelete'] || 'Delete';
+            default:
+                return $BUTTON_PLAYLIST_MODE.dataset['labelNormal'] || 'Normal';
+        }
+    }
+    function isPlaylistInteractionLocked() {
+        return playlistMode !== 'normal';
+    }
+    function getPlaylistItemsForCurrentView() {
+        if (!AMP_STATUS.media)
+            return [];
+        if (!AMP_STATUS.hasOwnProperty('ctg') || AMP_STATUS.ctg === null || Number(AMP_STATUS.ctg) === -1) {
+            return AMP_STATUS.media || [];
+        }
+        return (AMP_STATUS.media || []).filter((item) => item.catId === AMP_STATUS.ctg);
+    }
+    function isSortableAvailable() {
+        return typeof Sortable !== 'undefined' && typeof Sortable.create === 'function';
+    }
+    function canUseReorderMode() {
+        if (!isSortableAvailable()) {
+            return false;
+        }
+        if (Number(AMP_STATUS.ctg) === -1) {
+            return false;
+        }
+        return getPlaylistItemsForCurrentView().length > 1;
+    }
+    function closePlaylistModeMenu() {
+        if (!$PLAYLIST_MODE_MENU || !$BUTTON_PLAYLIST_MODE)
+            return;
+        $PLAYLIST_MODE_MENU.classList.add('hidden');
+        $BUTTON_PLAYLIST_MODE.setAttribute('aria-expanded', 'false');
+    }
+    function togglePlaylistModeMenu(forceOpen = false) {
+        if (!$PLAYLIST_MODE_MENU || !$BUTTON_PLAYLIST_MODE)
+            return;
+        const shouldOpen = forceOpen || $PLAYLIST_MODE_MENU.classList.contains('hidden');
+        if (shouldOpen) {
+            $PLAYLIST_MODE_MENU.classList.remove('hidden');
+            $BUTTON_PLAYLIST_MODE.setAttribute('aria-expanded', 'true');
+        }
+        else {
+            closePlaylistModeMenu();
+        }
+    }
+    function updatePlaylistModeUI() {
+        syncPlaylistModeButton(playlistMode);
+        if ($PLAYLIST_MODE_MENU) {
+            Array.from($PLAYLIST_MODE_MENU.querySelectorAll('.playlist-mode-option')).forEach((elm) => {
+                const optElm = elm;
+                const mode = (optElm.dataset['mode'] || '');
+                if (mode === 'reorder') {
+                    const canReorder = canUseReorderMode();
+                    optElm.disabled = !canReorder;
+                    optElm.setAttribute('aria-disabled', String(!canReorder));
+                    optElm.classList.toggle('text-gray-400', !canReorder);
+                    optElm.classList.toggle('dark:text-gray-500', !canReorder);
+                    optElm.classList.toggle('cursor-not-allowed', !canReorder);
+                    optElm.classList.toggle('hover:bg-gray-100', canReorder);
+                    optElm.classList.toggle('dark:hover:bg-gray-600', canReorder);
+                }
+                if (mode === playlistMode) {
+                    optElm.classList.add('text-blue-700', 'dark:text-blue-300');
+                    optElm.setAttribute('aria-current', 'true');
+                }
+                else {
+                    optElm.classList.remove('text-blue-700', 'dark:text-blue-300');
+                    optElm.removeAttribute('aria-current');
+                }
+            });
+        }
+    }
+    function setPlaylistMode(nextMode) {
+        if (playlistMode === nextMode) {
+            closePlaylistModeMenu();
+            return;
+        }
+        if (nextMode === 'reorder' && !canUseReorderMode()) {
+            closePlaylistModeMenu();
+            updatePlaylistModeUI();
+            return;
+        }
+        // If leaving delete mode without selections, clear just in case
+        if (playlistMode === 'delete') {
+            deleteSelectedIds.clear();
+        }
+        if (playlistMode === 'reorder' && nextMode !== 'reorder') {
+            resetReorderState();
+        }
+        if (nextMode === 'reorder') {
+            captureReorderSnapshot();
+        }
+        playlistMode = nextMode;
+        closePlaylistModeMenu();
+        updatePlaylistModeUI();
+        updatePlaylist();
+    }
+    if ($BUTTON_PLAYLIST_MODE && $PLAYLIST_MODE_MENU) {
+        $BUTTON_PLAYLIST_MODE.addEventListener('click', (evt) => {
+            evt.preventDefault();
+            evt.stopPropagation();
+            // In delete mode, pressing the mode button should trigger commit flow first.
+            if (playlistMode === 'delete') {
+                closePlaylistModeMenu();
+                if (deleteSelectedIds.size > 0) {
+                    const title = $BUTTON_PLAYLIST_MODE.dataset['confirmDeleteTitle'] || 'Delete selected items?';
+                    const body = $BUTTON_PLAYLIST_MODE.dataset['confirmDeleteBody'] || 'Selected items will be removed from your playlist.';
+                    openPlaylistConfirmModal(title, body, () => {
+                        applyDeleteSelections();
+                        playlistMode = 'normal';
+                        updatePlaylistModeUI();
+                        updatePlaylist();
+                    });
+                    return;
+                }
+                // Nothing selected: just exit delete mode and return to normal.
+                deleteSelectedIds.clear();
+                playlistMode = 'normal';
+                updatePlaylistModeUI();
+                updatePlaylist();
+                return;
+            }
+            if (playlistMode === 'reorder') {
+                closePlaylistModeMenu();
+                syncReorderWorkingIdsFromDom();
+                if (isReorderDirty()) {
+                    const title = $BUTTON_PLAYLIST_MODE.dataset['confirmReorderTitle'] || 'Apply reordered sequence?';
+                    const body = $BUTTON_PLAYLIST_MODE.dataset['confirmReorderBody'] || 'Apply the current item order to your playlist.';
+                    openPlaylistConfirmModal(title, body, () => {
+                        applyReorderChanges();
+                        playlistMode = 'normal';
+                        updatePlaylistModeUI();
+                        updatePlaylist();
+                    });
+                    return;
+                }
+                resetReorderState();
+                playlistMode = 'normal';
+                updatePlaylistModeUI();
+                updatePlaylist();
+                return;
+            }
+            togglePlaylistModeMenu();
+        });
+        Array.from($PLAYLIST_MODE_MENU.querySelectorAll('.playlist-mode-option')).forEach((elm) => {
+            elm.addEventListener('click', (evt) => {
+                evt.preventDefault();
+                evt.stopPropagation();
+                const optionElm = evt.currentTarget;
+                if (optionElm.disabled || optionElm.getAttribute('aria-disabled') === 'true') {
+                    return;
+                }
+                const nextMode = optionElm.dataset['mode'];
+                if (nextMode === 'normal' || nextMode === 'reorder' || nextMode === 'delete') {
+                    setPlaylistMode(nextMode);
+                }
+            });
+        });
+        document.addEventListener('click', (evt) => {
+            const target = evt.target;
+            if (!$PLAYLIST_MODE_MENU.contains(target) && !$BUTTON_PLAYLIST_MODE.contains(target)) {
+                closePlaylistModeMenu();
+            }
+        });
+        document.addEventListener('keydown', (evt) => {
+            if (evt.key === 'Escape') {
+                closePlaylistModeMenu();
+            }
+        });
+        updatePlaylistModeUI();
+    }
+    // Playlist delete mode state (v2.2.0 Slice B)
+    const $MODAL_PLAYLIST_CONFIRM = document.getElementById('modal-playlist-confirm');
+    const $MODAL_PLAYLIST_CONFIRM_TITLE = document.getElementById('modal-playlist-confirm-title');
+    const $MODAL_PLAYLIST_CONFIRM_BODY = document.getElementById('modal-playlist-confirm-body');
+    const $BTN_PLAYLIST_CONFIRM_APPLY = document.getElementById('btn-playlist-confirm-apply');
+    const $BTN_PLAYLIST_CONFIRM_CANCEL = document.getElementById('btn-playlist-confirm-cancel');
+    let deleteSelectedIds = new Set();
+    let reorderInitialIds = [];
+    let reorderWorkingIds = [];
+    let reorderCategoryId = null;
+    let playlistSortable = null;
+    let _playlistConfirmApplyCallback = null;
+    function openPlaylistConfirmModal(title, body, onApply) {
+        if (!$MODAL_PLAYLIST_CONFIRM)
+            return;
+        if ($MODAL_PLAYLIST_CONFIRM_TITLE)
+            $MODAL_PLAYLIST_CONFIRM_TITLE.textContent = title;
+        if ($MODAL_PLAYLIST_CONFIRM_BODY)
+            $MODAL_PLAYLIST_CONFIRM_BODY.textContent = body;
+        _playlistConfirmApplyCallback = onApply;
+        $MODAL_PLAYLIST_CONFIRM.classList.remove('hidden');
+    }
+    function closePlaylistConfirmModal() {
+        if (!$MODAL_PLAYLIST_CONFIRM)
+            return;
+        $MODAL_PLAYLIST_CONFIRM.classList.add('hidden');
+        _playlistConfirmApplyCallback = null;
+    }
+    function applyDeleteSelections() {
+        if (!AMP_STATUS.media || deleteSelectedIds.size === 0)
+            return;
+        AMP_STATUS.media = AMP_STATUS.media.filter((item) => !deleteSelectedIds.has(item.amId));
+        deleteSelectedIds.clear();
+        persistMyPlaylistIfNeeded();
+    }
+    function destroyPlaylistSortable() {
+        if (playlistSortable) {
+            playlistSortable.destroy();
+            playlistSortable = null;
+        }
+    }
+    function resetReorderState() {
+        destroyPlaylistSortable();
+        reorderInitialIds = [];
+        reorderWorkingIds = [];
+        reorderCategoryId = null;
+    }
+    function isReorderDirty() {
+        return reorderInitialIds.length > 0 &&
+            reorderInitialIds.length === reorderWorkingIds.length &&
+            reorderInitialIds.some((amId, index) => amId !== reorderWorkingIds[index]);
+    }
+    function captureReorderSnapshot() {
+        reorderCategoryId = Number(AMP_STATUS.ctg);
+        reorderInitialIds = getPlaylistItemsForCurrentView().map((item) => item.amId);
+        reorderWorkingIds = [...reorderInitialIds];
+    }
+    function syncReorderWorkingIdsFromDom() {
+        reorderWorkingIds = Array.from($LIST_PLAYLIST.querySelectorAll('a[data-playlist-item]')).map((elm) => {
+            return Number(elm.dataset['playlistItem'] || elm.getAttribute('data-playlist-item') || -1);
+        }).filter((amId) => amId >= 0);
+    }
+    function applyReorderChanges() {
+        if (!AMP_STATUS.media || reorderCategoryId === null || reorderWorkingIds.length === 0) {
+            resetReorderState();
+            return;
+        }
+        const mediaById = new Map((AMP_STATUS.media || []).map((item) => [item.amId, item]));
+        const reorderedItems = reorderWorkingIds
+            .map((amId) => mediaById.get(amId))
+            .filter((item) => !!item);
+        let reorderIndex = 0;
+        AMP_STATUS.media = (AMP_STATUS.media || []).map((item) => {
+            if (item.catId !== reorderCategoryId) {
+                return item;
+            }
+            const nextItem = reorderedItems[reorderIndex];
+            reorderIndex++;
+            return nextItem || item;
+        });
+        persistMyPlaylistIfNeeded();
+        resetReorderState();
+    }
+    function ensurePlaylistSortable() {
+        if (playlistMode !== 'reorder' || !canUseReorderMode()) {
+            destroyPlaylistSortable();
+            return;
+        }
+        if (playlistSortable) {
+            return;
+        }
+        const sortableLibrary = Sortable;
+        if (!sortableLibrary) {
+            return;
+        }
+        playlistSortable = sortableLibrary.create($LIST_PLAYLIST, {
+            animation: 150,
+            draggable: 'a[data-playlist-item]',
+            forceFallback: true,
+            fallbackOnBody: true,
+            ghostClass: 'playlist-reorder-ghost',
+            chosenClass: 'playlist-reorder-chosen',
+            dragClass: 'playlist-reorder-drag',
+            onEnd: () => {
+                syncReorderWorkingIdsFromDom();
+            },
+        });
+    }
+    if ($BTN_PLAYLIST_CONFIRM_APPLY) {
+        $BTN_PLAYLIST_CONFIRM_APPLY.addEventListener('click', () => {
+            if (_playlistConfirmApplyCallback)
+                _playlistConfirmApplyCallback();
+            closePlaylistConfirmModal();
+        });
+    }
+    if ($BTN_PLAYLIST_CONFIRM_CANCEL) {
+        $BTN_PLAYLIST_CONFIRM_CANCEL.addEventListener('click', () => {
+            if (playlistMode === 'reorder') {
+                reorderWorkingIds = [...reorderInitialIds];
+                updatePlaylist();
+            }
+            closePlaylistConfirmModal();
+        });
+    }
     // Process global data passed by the system.
     // In cloud mode: load MyPlaylist from localStorage before processing server data.
     // (Placed here, AFTER DOM constants, to avoid const temporal dead zone issues.)
@@ -501,6 +831,10 @@ const init = function () {
             restoreOptionsTriggerFocus();
         }, true);
     }
+    function isOptionsModalVisible() {
+        return !$MODAL_OPTIONS.classList.contains('hidden') &&
+            $MODAL_OPTIONS.getAttribute('aria-hidden') !== 'true';
+    }
     /**
      * Sync active styles of bottom menu drawer toggle buttons.
      */
@@ -546,6 +880,9 @@ const init = function () {
         if (isModalHidden && isFocusInsideModal) {
             restoreOptionsTriggerFocus();
         }
+        if (isModalHidden) {
+            cleanupOptionsModalBackdrops();
+        }
     }, { attributes: true, childList: false, subtree: false, attributeFilter: ['aria-hidden', 'class'] });
     /**
      * Monitors the state of the playlist drawer component and fires
@@ -568,10 +905,7 @@ const init = function () {
     {
         const $ADD_FROM_DRAWER = document.getElementById('btn-add-media-from-drawer');
         if ($ADD_FROM_DRAWER) {
-            $ADD_FROM_DRAWER.addEventListener('click', (evt) => {
-                evt.preventDefault();
-                openMediaManagement();
-            });
+            bindAddMediaFromDrawer($ADD_FROM_DRAWER);
         }
     }
     /**
@@ -607,27 +941,215 @@ const init = function () {
             // Re-attach click handler on the cloned "Register media" button
             const addBtn = clone.querySelector('#btn-add-media-from-drawer');
             if (addBtn) {
-                addBtn.addEventListener('click', (evt) => {
-                    evt.preventDefault();
-                    openMediaManagement();
-                });
+                bindAddMediaFromDrawer(addBtn);
             }
         }
     }
+    function bindAddMediaFromDrawer(addBtn) {
+        const btn = addBtn;
+        if (btn.__ambientBound)
+            return;
+        btn.__ambientBound = true;
+        btn.addEventListener('click', (evt) => {
+            evt.preventDefault();
+            evt.stopPropagation();
+            const activeCatId = (AMP_STATUS.ctg !== undefined && AMP_STATUS.ctg !== null && Number(AMP_STATUS.ctg) >= 0)
+                ? Number(AMP_STATUS.ctg)
+                : null;
+            openMediaManagement(activeCatId);
+        });
+    }
+    function cleanupOptionsModalBackdrops() {
+        const isOptionsHidden = !isOptionsModalVisible();
+        if (!isOptionsHidden)
+            return;
+        document.querySelectorAll('div[modal-backdrop]').forEach((backdrop) => {
+            backdrop.remove();
+        });
+        const hasVisibleModal = Array.from(document.querySelectorAll('[aria-modal="true"]')).some((elm) => {
+            return elm instanceof HTMLElement && !elm.classList.contains('hidden');
+        });
+        if (!hasVisibleModal) {
+            document.body.classList.remove('overflow-hidden');
+        }
+    }
+    function closePlaylistDrawerForModalIfNeeded() {
+        if (currentWindowSize.width >= currentWindowSize.minFullUIWidth) {
+            return;
+        }
+        if (!isDrawerOpen($DRAWER_PLAYLIST, '-translate-x-full')) {
+            return;
+        }
+        document.getElementById('btn-close-playlist')?.click();
+    }
+    function closeSettingsDrawerForModalIfNeeded() {
+        if (currentWindowSize.width >= currentWindowSize.minFullUIWidth) {
+            return;
+        }
+        if (!isDrawerOpen($DRAWER_SETTINGS, 'translate-x-full')) {
+            return;
+        }
+        document.getElementById('btn-close-settings')?.click();
+    }
+    function getActiveCategoryId() {
+        return (AMP_STATUS.ctg !== undefined && AMP_STATUS.ctg !== null && Number(AMP_STATUS.ctg) >= 0)
+            ? Number(AMP_STATUS.ctg)
+            : null;
+    }
+    function syncTargetCategorySelection() {
+        if (!isElement($SELECT_CATEGORY))
+            return;
+        const preferredValue = getActiveCategoryId();
+        const nextValue = preferredValue !== null ? String(preferredValue) : '-1';
+        const hasOption = Array.from($SELECT_CATEGORY.options).some((opt) => opt.value === nextValue);
+        $SELECT_CATEGORY.value = hasOption ? nextValue : '-1';
+    }
+    function syncMediaCategoryField(preferredCategoryId = getActiveCategoryId()) {
+        const $catInput = document.getElementById('media-category-new');
+        const hasVisibleSelect = isElement($MEDIA_CATEGORY_SELECT) && !$MEDIA_CATEGORY_SELECT.classList.contains('hidden');
+        if (hasVisibleSelect) {
+            const hasPreferredOption = preferredCategoryId !== null &&
+                Array.from($MEDIA_CATEGORY_SELECT.options).some((opt) => opt.value === String(preferredCategoryId));
+            if (hasPreferredOption) {
+                $MEDIA_CATEGORY_SELECT.value = String(preferredCategoryId);
+            }
+            else if (AMP_STATUS.category && AMP_STATUS.category.length === 1) {
+                $MEDIA_CATEGORY_SELECT.value = '0';
+            }
+            else {
+                $MEDIA_CATEGORY_SELECT.value = '';
+            }
+            $MEDIA_CATEGORY_SELECT.dispatchEvent(new Event('change'));
+            return;
+        }
+        if ($catInput && !$catInput.classList.contains('hidden')) {
+            const nextValue = $catInput.value.trim() || $catInput.dataset['defaultValue'] || 'New Category';
+            $catInput.value = nextValue;
+            $catInput.dispatchEvent(new Event('input'));
+            $catInput.dispatchEvent(new Event('change'));
+        }
+    }
+    function showOptionsModal() {
+        if (isOptionsModalVisible())
+            return;
+        if (optionsModalHideTimer !== null) {
+            window.clearTimeout(optionsModalHideTimer);
+            optionsModalHideTimer = null;
+        }
+        closePlaylistDrawerForModalIfNeeded();
+        closeSettingsDrawerForModalIfNeeded();
+        cleanupOptionsModalBackdrops();
+        $MODAL_OPTIONS.classList.add('flex');
+        $MODAL_OPTIONS.classList.remove('hidden');
+        $MODAL_OPTIONS.style.zIndex = '9999';
+        $MODAL_OPTIONS.style.opacity = '0';
+        $MODAL_OPTIONS.style.pointerEvents = 'none';
+        $MODAL_OPTIONS.style.transition = 'opacity 180ms ease';
+        $MODAL_OPTIONS.setAttribute('aria-modal', 'true');
+        $MODAL_OPTIONS.setAttribute('role', 'dialog');
+        $MODAL_OPTIONS.removeAttribute('aria-hidden');
+        if ($MODAL_OPTIONS_PANEL) {
+            $MODAL_OPTIONS_PANEL.style.opacity = '0';
+            $MODAL_OPTIONS_PANEL.style.transform = 'translateY(0.5rem) scale(0.98)';
+            $MODAL_OPTIONS_PANEL.style.transition = 'opacity 180ms ease, transform 180ms ease';
+        }
+        const backdrop = document.createElement('div');
+        backdrop.setAttribute('modal-backdrop', '');
+        backdrop.className = currentWindowSize.width >= currentWindowSize.minFullUIWidth
+            ? 'modal-backdrop-layer fixed inset-0 z-[59]'
+            : 'modal-backdrop-layer fixed inset-0 z-40';
+        backdrop.style.zIndex = '9998';
+        backdrop.style.pointerEvents = 'none';
+        backdrop.style.opacity = '0';
+        backdrop.style.transition = 'opacity 180ms ease';
+        if ($MODAL_OPTIONS.parentNode) {
+            $MODAL_OPTIONS.parentNode.insertBefore(backdrop, $MODAL_OPTIONS);
+        }
+        else {
+            document.body.appendChild(backdrop);
+        }
+        document.body.classList.add('overflow-hidden');
+        window.requestAnimationFrame(() => {
+            $MODAL_OPTIONS.style.opacity = '1';
+            $MODAL_OPTIONS.style.pointerEvents = 'auto';
+            if ($MODAL_OPTIONS_PANEL) {
+                $MODAL_OPTIONS_PANEL.style.opacity = '1';
+                $MODAL_OPTIONS_PANEL.style.transform = 'translateY(0) scale(1)';
+            }
+            backdrop.style.opacity = '1';
+        });
+    }
+    function hideOptionsModal() {
+        if (optionsModalHideTimer !== null) {
+            window.clearTimeout(optionsModalHideTimer);
+            optionsModalHideTimer = null;
+        }
+        $MODAL_OPTIONS.style.opacity = '0';
+        $MODAL_OPTIONS.style.pointerEvents = 'none';
+        $MODAL_OPTIONS.setAttribute('aria-hidden', 'true');
+        $MODAL_OPTIONS.removeAttribute('aria-modal');
+        $MODAL_OPTIONS.removeAttribute('role');
+        if ($MODAL_OPTIONS_PANEL) {
+            $MODAL_OPTIONS_PANEL.style.opacity = '0';
+            $MODAL_OPTIONS_PANEL.style.transform = 'translateY(0.5rem) scale(0.98)';
+        }
+        document.querySelectorAll('div[modal-backdrop]').forEach((backdrop) => {
+            backdrop.style.opacity = '0';
+        });
+        optionsModalHideTimer = window.setTimeout(() => {
+            if (!isOptionsModalVisible()) {
+                $MODAL_OPTIONS.classList.add('hidden');
+                $MODAL_OPTIONS.classList.remove('flex');
+                cleanupOptionsModalBackdrops();
+            }
+            optionsModalHideTimer = null;
+        }, 180);
+    }
+    if (isElement($BUTTON_OPTIONS)) {
+        $BUTTON_OPTIONS.addEventListener('click', (evt) => {
+            evt.preventDefault();
+            if (isOptionsModalVisible()) {
+                hideOptionsModal();
+            }
+            else {
+                clearCategory();
+                updateCategory();
+                syncMediaCategoryField();
+                showOptionsModal();
+            }
+        });
+    }
+    if (isElement($BUTTON_CLOSE_OPTIONS)) {
+        $BUTTON_CLOSE_OPTIONS.addEventListener('click', (evt) => {
+            evt.preventDefault();
+            hideOptionsModal();
+        });
+    }
+    if (isElement($MODAL_OPTIONS)) {
+        $MODAL_OPTIONS.addEventListener('click', (evt) => {
+            if (evt.target === $MODAL_OPTIONS) {
+                hideOptionsModal();
+                restoreOptionsTriggerFocus();
+            }
+        });
+    }
+    document.addEventListener('keydown', (evt) => {
+        if (evt.key === 'Escape' && isOptionsModalVisible()) {
+            hideOptionsModal();
+            restoreOptionsTriggerFocus();
+        }
+    });
     /**
      * Open the Options modal with the Media Management accordion expanded.
      * Optionally pre-selects the category matching the current filter.
      */
     function openMediaManagement(presetCategoryId = null) {
-        // Keep left drawer open by request; do not force-close it here.
         // Refresh category UI before opening modal so undefined-category playlists
         // switch to text-input mode reliably.
         clearCategory();
         updateCategory();
-        // Open the Options modal
-        if ($BUTTON_OPTIONS) {
-            $BUTTON_OPTIONS.click();
-        }
+        syncMediaCategoryField(presetCategoryId);
+        showOptionsModal();
         // After the modal becomes visible, expand the Media Management accordion
         const expandMediaAccordion = () => {
             const $ACCORDION_BTN = document.querySelector('[data-accordion-target="#collapse-item-body-media"]');
@@ -643,11 +1165,7 @@ const init = function () {
             }
             // Pre-select category if coming from a category-filtered view
             if (presetCategoryId !== null && presetCategoryId >= 0) {
-                const $CAT_SELECT = document.getElementById('media-category');
-                if ($CAT_SELECT && !$CAT_SELECT.classList.contains('hidden')) {
-                    $CAT_SELECT.selectedIndex = presetCategoryId + 1; // +1 for placeholder option
-                    $CAT_SELECT.dispatchEvent(new Event('change'));
-                }
+                syncMediaCategoryField(presetCategoryId);
             }
         };
         // Wait for modal to open (aria-hidden becomes false), then expand accordion
@@ -656,7 +1174,7 @@ const init = function () {
             return;
         const isAlreadyOpen = $MODAL.getAttribute('aria-hidden') !== 'true' && !$MODAL.classList.contains('hidden');
         if (isAlreadyOpen) {
-            expandMediaAccordion();
+            setTimeout(expandMediaAccordion, 50);
         }
         else {
             const observer = new MutationObserver(() => {
@@ -673,6 +1191,7 @@ const init = function () {
      * Create a playlist from the data of the AMP_STATUS object.
      */
     function updatePlaylist() {
+        destroyPlaylistSortable();
         clearPlaylist();
         const $LIST_NO_MEDIA = document.getElementById('no-media');
         let is_no_media = AMP_STATUS.media && AMP_STATUS.media.length === 0;
@@ -690,11 +1209,34 @@ const init = function () {
         if (is_no_media) {
             // no playable media
             $LIST_NO_MEDIA.classList.remove('hidden');
+            // close mode menu so it doesn't overlap the "Register media" button
+            closePlaylistModeMenu();
+            // disable mode button when playlist is empty
+            if ($BUTTON_PLAYLIST_MODE) {
+                $BUTTON_PLAYLIST_MODE.disabled = true;
+                $BUTTON_PLAYLIST_MODE.classList.add('opacity-50', 'cursor-not-allowed');
+                if (playlistMode !== 'normal') {
+                    deleteSelectedIds.clear();
+                    resetReorderState();
+                    playlistMode = 'normal';
+                    updatePlaylistModeUI();
+                }
+            }
             return;
         }
         else {
             $LIST_NO_MEDIA.classList.add('hidden');
+            // re-enable mode button when playlist has items
+            if ($BUTTON_PLAYLIST_MODE) {
+                $BUTTON_PLAYLIST_MODE.disabled = false;
+                $BUTTON_PLAYLIST_MODE.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
         }
+        if (playlistMode === 'reorder' && !canUseReorderMode()) {
+            resetReorderState();
+            playlistMode = 'normal';
+        }
+        updatePlaylistModeUI();
         const isShuffle = getOption('shuffle') || false;
         if (isShuffle) {
             // Shuffle (evenly mix) the items array
@@ -707,6 +1249,7 @@ const init = function () {
         items.forEach((item) => {
             const itemElm = document.createElement('a');
             itemElm.href = '#';
+            itemElm.draggable = false;
             if (AMP_STATUS.current && AMP_STATUS.current !== null && AMP_STATUS.current === item.amId) {
                 itemElm.setAttribute('aria-current', 'true');
                 itemElm.setAttribute('class', 'flex items-center gap-2 w-full px-4 py-2 text-white bg-blue-500 border-b border-gray-200 cursor-pointer dark:bg-gray-800 dark:border-gray-600');
@@ -714,7 +1257,12 @@ const init = function () {
             else {
                 itemElm.setAttribute('class', 'flex items-center gap-2 w-full px-4 py-2 border-b border-gray-200 cursor-pointer hover:bg-gray-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-500 dark:focus:text-white');
             }
+            if (playlistMode === 'reorder') {
+                itemElm.classList.remove('cursor-pointer');
+                itemElm.classList.add('cursor-grab', 'active:cursor-grabbing', 'select-none');
+            }
             itemElm.setAttribute('data-playlist-item', String(item.amId));
+            itemElm.setAttribute('data-id', String(item.amId));
             let imageSrc = './views/images/no-media-thumb.svg';
             if ((item.image && item.image !== '') || (item.thumb && item.thumb !== '')) {
                 const ambientData = window.AmbientData;
@@ -728,9 +1276,30 @@ const init = function () {
             // Set thumbnail image.
             const imgElm = document.createElement('img');
             imgElm.setAttribute('src', imageSrc);
+            imgElm.draggable = false;
             imgElm.classList.add('block', 'h-8', 'w-8', 'rounded', 'object-cover');
             imgElm.setAttribute('alt', mb_strimwidth(item.title, 0, 50, '...'));
             itemElm.appendChild(imgElm);
+            // Delete mode: prepend checkbox indicator
+            if (playlistMode === 'delete') {
+                const isSelected = deleteSelectedIds.has(item.amId);
+                const chkElm = document.createElement('span');
+                chkElm.setAttribute('aria-hidden', 'true');
+                chkElm.className = isSelected
+                    ? 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-red-500 bg-red-500'
+                    : 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 dark:border-gray-500';
+                if (isSelected) {
+                    chkElm.innerHTML = '<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>';
+                }
+                itemElm.prepend(chkElm);
+            }
+            else if (playlistMode === 'reorder') {
+                const handleElm = document.createElement('span');
+                handleElm.setAttribute('aria-hidden', 'true');
+                handleElm.className = 'playlist-reorder-handle flex-shrink-0 order-first inline-flex items-center justify-center w-5 h-5 text-gray-400 cursor-grab active:cursor-grabbing dark:text-gray-500';
+                handleElm.innerHTML = '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01"/></svg>';
+                itemElm.prepend(handleElm);
+            }
             let labelText = item.title;
             const format = getOption('playlist');
             if (format) {
@@ -746,6 +1315,22 @@ const init = function () {
         });
         Array.from($LIST_PLAYLIST.querySelectorAll('a[data-playlist-item]')).forEach((elm) => {
             elm.addEventListener('click', (evt) => {
+                evt.preventDefault();
+                // Delete mode: toggle item selection
+                if (playlistMode === 'delete') {
+                    const amId = Number(elm.getAttribute('data-playlist-item'));
+                    if (deleteSelectedIds.has(amId)) {
+                        deleteSelectedIds.delete(amId);
+                    }
+                    else {
+                        deleteSelectedIds.add(amId);
+                    }
+                    updatePlaylist();
+                    return;
+                }
+                if (isPlaylistInteractionLocked()) {
+                    return;
+                }
                 const target = evt.target;
                 playItem(target);
                 // Toggle player control buttons shown.
@@ -753,13 +1338,15 @@ const init = function () {
                 $BUTTON_PAUSE.classList.remove('hidden');
             });
         });
+        ensurePlaylistSortable();
         // Append "[+] Add media" item at the bottom of the playlist
         // Hidden in cloud mode for existing JSON playlists (read-only)
+        // and hidden when playlist operation mode is not normal.
         const _ambDataForAdd = window.AmbientData;
         const _isCloudReadOnly = _ambDataForAdd?.isCloud === true &&
             AMP_STATUS.playlist !== null &&
             AMP_STATUS.playlist !== MYPLAYLIST_NAME;
-        if (!_isCloudReadOnly) {
+        if (!_isCloudReadOnly && playlistMode === 'normal') {
             const addItemElm = document.createElement('a');
             addItemElm.href = '#';
             addItemElm.setAttribute('id', 'btn-add-media-from-playlist');
@@ -807,6 +1394,7 @@ const init = function () {
             $SELECT_CATEGORY.appendChild(clone);
             $SELECT_CATEGORY.firstElementChild?.setAttribute('disabled', '');
             $SELECT_CATEGORY.setAttribute('disabled', '');
+            $SELECT_CATEGORY.value = '-1';
         }
         // add since v1.1.0 – reset category select and hide text input
         while ($MEDIA_CATEGORY_SELECT.firstChild) {
@@ -826,8 +1414,12 @@ const init = function () {
             $catInput.disabled = true;
         }
         const $catLabel = document.getElementById('media-category-label');
+        const $catNote = document.getElementById('note-media-category-create-from-playlist-management');
         if ($catLabel)
             $catLabel.setAttribute('for', 'media-category');
+        if ($catNote) {
+            $catNote.classList.add('hidden');
+        }
     }
     /**
      * Update the items in the category selection field of the settings menu.
@@ -835,6 +1427,7 @@ const init = function () {
     function updateCategory() {
         const $catInput = document.getElementById('media-category-new');
         const $catLabel = document.getElementById('media-category-label');
+        const $catNote = document.getElementById('note-media-category-create-from-playlist-management');
         const hasCategories = !!(AMP_STATUS.category && AMP_STATUS.category.length > 0);
         if (!hasCategories) {
             // No categories yet – show text input, hide select so user can define first category
@@ -848,8 +1441,12 @@ const init = function () {
             }
             if ($catLabel)
                 $catLabel.setAttribute('for', 'media-category-new');
+            if ($catNote) {
+                $catNote.classList.add('hidden');
+            }
             $SELECT_CATEGORY.firstElementChild?.removeAttribute('disabled');
             $SELECT_CATEGORY.removeAttribute('disabled');
+            syncTargetCategorySelection();
             return;
         }
         // Has categories – show select, hide text input
@@ -861,6 +1458,9 @@ const init = function () {
         }
         if ($catLabel)
             $catLabel.setAttribute('for', 'media-category');
+        if ($catNote) {
+            $catNote.classList.remove('hidden');
+        }
         AMP_STATUS.category.forEach((catName, catId) => {
             const optElm = document.createElement('option');
             optElm.value = String(catId);
@@ -875,6 +1475,8 @@ const init = function () {
         });
         $SELECT_CATEGORY.firstElementChild?.removeAttribute('disabled');
         $SELECT_CATEGORY.removeAttribute('disabled');
+        syncTargetCategorySelection();
+        syncMediaCategoryField();
     }
     /**
      * Getter for optional data of the AMP_STATUS object.
@@ -1216,6 +1818,12 @@ const init = function () {
             oldPlaylist = AMP_STATUS.playlist;
         }
         if (oldPlaylist !== newPlaylist) {
+            if (playlistMode !== 'normal') {
+                deleteSelectedIds.clear();
+                resetReorderState();
+                playlistMode = 'normal';
+                updatePlaylistModeUI();
+            }
             clearCategory();
             getPlaylistData(newPlaylist);
         }
@@ -1232,6 +1840,12 @@ const init = function () {
         }
         const newCtgId = Number(evt.target.value);
         if (oldCtgId !== newCtgId) {
+            if (playlistMode !== 'normal') {
+                deleteSelectedIds.clear();
+                resetReorderState();
+                playlistMode = 'normal';
+                updatePlaylistModeUI();
+            }
             AMP_STATUS.ctg = newCtgId;
             AMP_STATUS.prev = null;
             AMP_STATUS.current = null;
@@ -2696,12 +3310,21 @@ const init = function () {
                 case 'category':
                     elm.addEventListener('change', (evt) => {
                         const target = evt.target;
-                        if (target.selectedIndex === 0) {
+                        setValidated(elm, target.value !== '');
+                    });
+                    break;
+                case 'category_new_name':
+                    elm.addEventListener('input', (evt) => {
+                        const isEmpty = evt.target.value.trim() === '';
+                        if (isEmpty) {
                             setValidated(elm, null);
                         }
                         else {
-                            setValidated(elm, target.value !== '');
+                            setValidated(elm, true);
                         }
+                    });
+                    elm.addEventListener('change', (evt) => {
+                        setValidated(elm, evt.target.value.trim() !== '');
                     });
                     break;
                 case 'title':
@@ -2749,20 +3372,22 @@ const init = function () {
                         if (!$MEDIA_MANAGE_FORM)
                             return;
                         const formData = new FormData($MEDIA_MANAGE_FORM);
+                        const categoryField = $MEDIA_CATEGORY_SELECT.classList.contains('hidden')
+                            ? 'media-category-new'
+                            : 'media-category';
+                        const preferredCategoryValue = String(formData.get(categoryField) || '').trim();
                         const result = addMediaData(Array.from(formData.entries()));
                         logger(result, AMP_STATUS.media);
-                        updateNotice({
-                            type: result ? 'success' : 'error',
-                            message: result
-                                ? elm.dataset['messageSuccess'] || ''
-                                : elm.dataset['messageFailure'] || '',
-                            delay: 2000,
-                        });
+                        let persisted = true;
                         updatePlaylist();
                         resetMediaManageForm();
                         // Refresh category select/input after adding media (new categories may have been created)
                         clearCategory();
                         updateCategory();
+                        if (preferredCategoryValue !== '') {
+                            const numericPreferredCategory = Number(preferredCategoryValue);
+                            syncMediaCategoryField(Number.isNaN(numericPreferredCategory) ? null : numericPreferredCategory);
+                        }
                         // Recalculate carousel sequence so next/prev works after additional items are added.
                         if (AMP_STATUS.current !== null) {
                             updatePlayStatus(AMP_STATUS.current);
@@ -2772,9 +3397,18 @@ const init = function () {
                         }
                         if (result) {
                             // Persist cloud MyPlaylist changes immediately and close modal.
-                            persistMyPlaylistIfNeeded();
-                            document.getElementById('btn-close-options')?.click();
+                            persisted = persistMyPlaylistIfNeeded();
+                            if (persisted) {
+                                hideOptionsModal();
+                            }
                         }
+                        updateNotice({
+                            type: result && persisted ? 'success' : 'error',
+                            message: result && persisted
+                                ? elm.dataset['messageSuccess'] || ''
+                                : elm.dataset['messageFailure'] || '',
+                            delay: 2400,
+                        });
                     });
                     break;
                 default:
@@ -2796,7 +3430,10 @@ const init = function () {
                     });
                 }
                 const $BUTTON_ADD_MEDIA = document.getElementById('btn-add-media');
-                const contains = [mediaType === 'youtube' ? 'youtube-url' : 'local-media-file', 'media-title'];
+                const categoryField = $MEDIA_CATEGORY_SELECT.classList.contains('hidden')
+                    ? 'media-category-new'
+                    : 'media-category';
+                const contains = [mediaType === 'youtube' ? 'youtube-url' : 'local-media-file', categoryField, 'media-title'];
                 const isContainAll = inArray(contains, valid_items, false);
                 logger(`Check valid items for "${mediaType}":`, valid_items, contains, isContainAll);
                 if ($BUTTON_ADD_MEDIA)
@@ -2847,31 +3484,44 @@ const init = function () {
                             });
                         },
                         createCategory() {
-                            const categoryName = this.getFormData('category_name');
-                            if (!Array.isArray(AMP_STATUS.category))
-                                AMP_STATUS.category = [];
-                            if (!inArray(categoryName, AMP_STATUS.category)) {
-                                AMP_STATUS.category.push(categoryName);
-                            }
-                            else {
-                                const uniqueSet = new Set(AMP_STATUS.category);
-                                let newValue = categoryName;
-                                let count = 1;
-                                while (uniqueSet.has(newValue)) {
-                                    newValue = `${categoryName}_${count}`;
-                                    count++;
-                                }
-                                AMP_STATUS.category.push(newValue);
-                            }
                             const selfElm = document.getElementById('btn-create-category');
-                            logger('createCategory:', categoryName, AMP_STATUS);
-                            updateNotice({
-                                type: 'success',
-                                message: selfElm?.dataset['messageSuccess'] || '',
-                                delay: 2000,
-                            });
-                            clearCategory();
-                            updateCategory();
+                            try {
+                                const categoryName = this.getFormData('category_name');
+                                if (!Array.isArray(AMP_STATUS.category))
+                                    AMP_STATUS.category = [];
+                                if (!inArray(categoryName, AMP_STATUS.category)) {
+                                    AMP_STATUS.category.push(categoryName);
+                                }
+                                else {
+                                    const uniqueSet = new Set(AMP_STATUS.category);
+                                    let newValue = categoryName;
+                                    let count = 1;
+                                    while (uniqueSet.has(newValue)) {
+                                        newValue = `${categoryName}_${count}`;
+                                        count++;
+                                    }
+                                    AMP_STATUS.category.push(newValue);
+                                }
+                                logger('createCategory:', categoryName, AMP_STATUS);
+                                const persisted = persistMyPlaylistIfNeeded();
+                                updateNotice({
+                                    type: persisted ? 'success' : 'error',
+                                    message: persisted
+                                        ? selfElm?.dataset['messageSuccess'] || ''
+                                        : selfElm?.dataset['messageFailure'] || '',
+                                    delay: 2400,
+                                });
+                                clearCategory();
+                                updateCategory();
+                            }
+                            catch (err) {
+                                logger('createCategory: error', err);
+                                updateNotice({
+                                    type: 'error',
+                                    message: selfElm?.dataset['messageFailure'] || '',
+                                    delay: 2400,
+                                });
+                            }
                         },
                         async downloadPlaylist() {
                             const seek_format = Number(this.getFormData('seek_format')) === 1;
@@ -2929,6 +3579,18 @@ const init = function () {
                     setAtts($BUTTON_CREATE_CATEGORY, { disabled: '' }, isCategoryContainAll);
             }
         }, { childList: true, attributes: true, subtree: true });
+    }
+    const $INITIAL_ALERT = document.getElementById('alert-notification');
+    if ($INITIAL_ALERT) {
+        const initialMessage = ($INITIAL_ALERT.dataset['noticeMessage'] || '').trim();
+        const initialType = ($INITIAL_ALERT.dataset['noticeType'] || 'info');
+        if (initialMessage !== '') {
+            updateNotice({
+                type: initialType,
+                message: initialMessage,
+                delay: 2800,
+            });
+        }
     }
 };
 // for debugging code
@@ -3413,18 +4075,20 @@ function logger(...args) {
     const type = /^(error|warn|info|debug|log)$/i.test(args[0]) ? args.shift() : 'log';
     return console[type](dateStr, ...args);
 }
+let noticeHideTimerGlobal = null;
+let noticeCleanupTimerGlobal = null;
 /**
  * Update notice/notification display.
  */
 function updateNotice(notification) {
     logger('Have notification:', notification);
     const classes = {
-        base: 'fixed inset-y-1/4 left-0 right-0 md:inset-y-1/4 h-max max-h-full w-5/6 max-w-xl md:max-w-sm flex items-center p-4 mx-auto z-99 text-sm border rounded-lg shadow-lg transition-opacity ease-out duration-300 ',
+        base: 'fixed top-2 right-2 w-full max-w-sm flex items-start gap-3 p-4 z-[10050] text-sm border rounded-lg shadow-xl transition-all duration-200 ease-out ',
         info: 'text-blue-800 border-blue-300 bg-blue-50 dark:text-blue-400 dark:border-blue-800 dark:bg-blue-900',
         success: 'text-green-800 border-green-300 bg-green-50 dark:text-green-400 dark:border-green-800 dark:bg-green-900',
         warning: 'text-yellow-800 border-yellow-300 bg-yellow-50 dark:text-yellow-400 dark:border-yellow-800 dark:bg-yellow-900',
         error: 'text-red-800 border-red-300 bg-red-50 dark:text-red-400 dark:border-red-800 dark:bg-red-900',
-        btnbase: 'ml-auto -mx-1.5 -my-1.5 rounded-lg focus:ring-2 p-1.5 inline-flex items-center justify-center h-8 w-8 ',
+        btnbase: 'ml-auto -mr-1 -mt-1 rounded-lg focus:ring-2 p-1.5 inline-flex items-center justify-center h-8 w-8 ',
         btninfo: 'bg-blue-50 text-blue-500 focus:ring-blue-400 hover:bg-blue-200 dark:bg-blue-800 dark:text-blue-400 dark:hover:bg-blue-700',
         btnsuccess: 'bg-green-50 text-green-500 focus:ring-green-400 hover:bg-green-200 dark:bg-green-800 dark:text-green-400 dark:hover:bg-green-700',
         btnwarning: 'bg-yellow-50 text-yellow-500 focus:ring-yellow-400 hover:bg-yellow-200 dark:bg-yellow-800 dark:text-yellow-400 dark:hover:bg-yellow-700',
@@ -3436,24 +4100,64 @@ function updateNotice(notification) {
     const btnClassKey = `btn${notification.type}`;
     setAtts($ALERT, { class: classes.base + classes[classKey] });
     setAtts($BUTTON_ALERT_DISMISS, { class: classes.btnbase + classes[btnClassKey] });
-    toggleClass($BUTTON_ALERT_DISMISS, { hidden: true });
+    $ALERT.style.zIndex = '10050';
+    $ALERT.style.width = 'min(22rem, calc(100vw - 1rem))';
     const $ALERT_MESSAGE = $ALERT.querySelector('#alert-message');
     if ($ALERT_MESSAGE) {
         $ALERT_MESSAGE.innerHTML = notification.message;
     }
+    if (noticeHideTimerGlobal !== null) {
+        window.clearTimeout(noticeHideTimerGlobal);
+        noticeHideTimerGlobal = null;
+    }
+    if (noticeCleanupTimerGlobal !== null) {
+        window.clearTimeout(noticeCleanupTimerGlobal);
+        noticeCleanupTimerGlobal = null;
+    }
     const delay = notification.hasOwnProperty('delay') ? Number(notification.delay) : 0;
-    // Show alert (inline implementation to avoid closure dependency)
-    toggleClass($ALERT, { 'opacity-0': false });
+    toggleClass($ALERT, {
+        hidden: false,
+        'opacity-0': true,
+        '-translate-y-4': true,
+        'pointer-events-none': true,
+    });
+    window.requestAnimationFrame(() => {
+        toggleClass($ALERT, {
+            'opacity-0': false,
+            '-translate-y-4': false,
+            'pointer-events-none': false,
+        });
+    });
+    const hideNotice = () => {
+        toggleClass($ALERT, {
+            'opacity-0': true,
+            '-translate-y-4': true,
+            'pointer-events-none': true,
+        });
+        noticeCleanupTimerGlobal = window.setTimeout(() => {
+            toggleClass($ALERT, { hidden: true });
+            noticeCleanupTimerGlobal = null;
+        }, 220);
+    };
     if (delay > 0) {
-        new Promise((resolve) => {
-            setTimeout(() => {
-                toggleClass($ALERT, { 'opacity-0': true });
-                resolve();
-            }, delay);
-        }).then(() => {
-            setTimeout(() => {
-                toggleClass($ALERT, { hidden: true });
-            }, 1000);
+        noticeHideTimerGlobal = window.setTimeout(() => {
+            hideNotice();
+            noticeHideTimerGlobal = null;
+        }, delay);
+    }
+    if (!$BUTTON_ALERT_DISMISS.dataset['ambientBound']) {
+        $BUTTON_ALERT_DISMISS.dataset['ambientBound'] = 'true';
+        $BUTTON_ALERT_DISMISS.addEventListener('click', (evt) => {
+            evt.preventDefault();
+            if (noticeHideTimerGlobal !== null) {
+                window.clearTimeout(noticeHideTimerGlobal);
+                noticeHideTimerGlobal = null;
+            }
+            if (noticeCleanupTimerGlobal !== null) {
+                window.clearTimeout(noticeCleanupTimerGlobal);
+                noticeCleanupTimerGlobal = null;
+            }
+            hideNotice();
         });
     }
 }

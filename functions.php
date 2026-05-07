@@ -61,6 +61,17 @@ function amp_footer(): string {
     $output = [];
     //$output[] = '<script src="https://cdn.jsdelivr.net/npm/fs-js@1.0.6/index.min.js" type="module"></script>';
     $output[] = '<script src="./dist/flowbite.min.js"></script>';
+    $sortable_paths = [
+        './dist/vendor/sortable.min.js',
+        './node_modules/sortablejs/Sortable.min.js',
+    ];
+    foreach ( $sortable_paths as $sortable_path ) {
+        if ( file_exists( $sortable_path ) ) {
+            $sortable_path .= '?'. filemtime( $sortable_path );
+            $output[] = '<script src="'. $sortable_path . '"></script>';
+            break;
+        }
+    }
 
     $script_path = './dist/scripts/ambient.js';
     if ( file_exists( $script_path ) ) {

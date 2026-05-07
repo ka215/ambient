@@ -3,6 +3,7 @@
  * Ambient Media Player v2 - TypeScript Frontend Application
  * Ported from ambient.js with full type safety
  */
+declare const Sortable: typeof import('sortablejs') | undefined;
 declare const init: () => void;
 declare function execDebug(): void;
 /**
@@ -101,6 +102,8 @@ declare function removeStge(key?: string | null): boolean;
  * Logger for frontend of Ambient Media Player.
  */
 declare function logger(...args: any[]): any;
+declare let noticeHideTimerGlobal: number | null;
+declare let noticeCleanupTimerGlobal: number | null;
 /**
  * Update notice/notification display.
  */

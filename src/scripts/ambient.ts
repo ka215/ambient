@@ -4,6 +4,7 @@
  * Ported from ambient.js with full type safety
  */
 /// <reference path="./types/index.ts" />
+declare const Sortable: typeof import('sortablejs') | undefined;
 
 // ============================================================================
 // INITIALIZATION
@@ -212,24 +213,27 @@ const init = function (): void {
    * Save the current in-memory state of MyPlaylist to localStorage.
    * Only called in cloud mode when the active playlist is MyPlaylist.
    */
-  function saveMyPlaylistToStorage(): void {
+  function saveMyPlaylistToStorage(): boolean {
     try {
       const jsonStr = generatePlaylistJson(false);
       localStorage.setItem(MYPLAYLIST_KEY, jsonStr);
       logger('saveMyPlaylistToStorage: saved', jsonStr.length, 'bytes');
+      return true;
     } catch (e) {
       logger('saveMyPlaylistToStorage: error', e);
+      return false;
     }
   }
 
   /**
    * Persist MyPlaylist only when cloud mode + MyPlaylist is currently active.
    */
-  function persistMyPlaylistIfNeeded(): void {
+  function persistMyPlaylistIfNeeded(): boolean {
     const ambientData = (window as any).AmbientData as AmbientData | undefined;
     if (ambientData?.isCloud && AMP_STATUS.playlist === MYPLAYLIST_NAME) {
-      saveMyPlaylistToStorage();
+      return saveMyPlaylistToStorage();
     }
+    return true;
   }
 
   /**
@@ -456,10 +460,373 @@ const init = function (): void {
   const $BUTTON_OPTIONS = document.getElementById('btn-options') as HTMLButtonElement;
   const $BUTTON_CLOSE_OPTIONS = document.getElementById('btn-close-options') as HTMLButtonElement;
   const $MODAL_OPTIONS = document.getElementById('modal-options') as HTMLElement;
+  const $MODAL_OPTIONS_PANEL = $MODAL_OPTIONS?.querySelector('.modal-dialog-shell') as HTMLElement | null;
   const $COLLAPSE_MENU = document.getElementById('collapse-menu') as HTMLElement;
 
   // Add elements since v1.1.0
   const $MEDIA_CATEGORY_SELECT = document.getElementById('media-category') as HTMLSelectElement;
+  let optionsModalHideTimer: number | null = null;
+  if (isElement($MODAL_OPTIONS) && $MODAL_OPTIONS.parentElement !== document.body) {
+    document.body.appendChild($MODAL_OPTIONS);
+  }
+
+  // Playlist operation mode UI (v2.2.0 Slice A)
+  const $BUTTON_PLAYLIST_MODE = document.getElementById('btn-playlist-mode') as HTMLButtonElement | null;
+  const $PLAYLIST_MODE_MENU = document.getElementById('playlist-mode-menu') as HTMLElement | null;
+  const $PLAYLIST_MODE_BUTTON_ICON = document.getElementById('playlist-mode-button-icon') as HTMLElement | null;
+  const $PLAYLIST_MODE_BUTTON_LABEL = document.getElementById('playlist-mode-button-label') as HTMLElement | null;
+  type PlaylistMode = 'normal' | 'reorder' | 'delete';
+  let playlistMode: PlaylistMode = 'normal';
+  const defaultPlaylistModeButtonIcon = $PLAYLIST_MODE_BUTTON_ICON ? $PLAYLIST_MODE_BUTTON_ICON.innerHTML : '';
+  const defaultPlaylistModeButtonLabel =
+    $PLAYLIST_MODE_BUTTON_LABEL?.textContent || $BUTTON_PLAYLIST_MODE?.dataset['labelModeChange'] || 'Mode Change';
+
+  function syncPlaylistModeButton(mode: PlaylistMode): void {
+    if (!$BUTTON_PLAYLIST_MODE || !$PLAYLIST_MODE_BUTTON_ICON || !$PLAYLIST_MODE_BUTTON_LABEL) return;
+
+    if (mode === 'normal') {
+      $PLAYLIST_MODE_BUTTON_ICON.innerHTML = defaultPlaylistModeButtonIcon;
+      $PLAYLIST_MODE_BUTTON_LABEL.textContent = defaultPlaylistModeButtonLabel;
+      return;
+    }
+
+    const option = $PLAYLIST_MODE_MENU?.querySelector(
+      `.playlist-mode-option[data-mode="${mode}"]`
+    ) as HTMLButtonElement | null;
+    const optionIcon = option?.querySelector('.playlist-mode-option-icon') as HTMLElement | null;
+    const optionLabel = option?.querySelector('.playlist-mode-option-label') as HTMLElement | null;
+    if (optionIcon && optionLabel) {
+      $PLAYLIST_MODE_BUTTON_ICON.innerHTML = optionIcon.outerHTML;
+      $PLAYLIST_MODE_BUTTON_LABEL.textContent = optionLabel.textContent || getPlaylistModeLabel(mode);
+    }
+  }
+
+  function getPlaylistModeLabel(mode: PlaylistMode): string {
+    if (!$BUTTON_PLAYLIST_MODE) return mode;
+    switch (mode) {
+      case 'reorder':
+        return $BUTTON_PLAYLIST_MODE.dataset['labelReorder'] || 'Reorder';
+      case 'delete':
+        return $BUTTON_PLAYLIST_MODE.dataset['labelDelete'] || 'Delete';
+      default:
+        return $BUTTON_PLAYLIST_MODE.dataset['labelNormal'] || 'Normal';
+    }
+  }
+
+  function isPlaylistInteractionLocked(): boolean {
+    return playlistMode !== 'normal';
+  }
+
+  function getPlaylistItemsForCurrentView(): MediaItem[] {
+    if (!AMP_STATUS.media) return [];
+    if (!AMP_STATUS.hasOwnProperty('ctg') || AMP_STATUS.ctg === null || Number(AMP_STATUS.ctg) === -1) {
+      return AMP_STATUS.media || [];
+    }
+    return (AMP_STATUS.media || []).filter((item: MediaItem) => item.catId === AMP_STATUS.ctg);
+  }
+
+  function isSortableAvailable(): boolean {
+    return typeof Sortable !== 'undefined' && typeof Sortable.create === 'function';
+  }
+
+  function canUseReorderMode(): boolean {
+    if (!isSortableAvailable()) {
+      return false;
+    }
+    if (Number(AMP_STATUS.ctg) === -1) {
+      return false;
+    }
+    return getPlaylistItemsForCurrentView().length > 1;
+  }
+
+  function closePlaylistModeMenu(): void {
+    if (!$PLAYLIST_MODE_MENU || !$BUTTON_PLAYLIST_MODE) return;
+    $PLAYLIST_MODE_MENU.classList.add('hidden');
+    $BUTTON_PLAYLIST_MODE.setAttribute('aria-expanded', 'false');
+  }
+
+  function togglePlaylistModeMenu(forceOpen = false): void {
+    if (!$PLAYLIST_MODE_MENU || !$BUTTON_PLAYLIST_MODE) return;
+    const shouldOpen = forceOpen || $PLAYLIST_MODE_MENU.classList.contains('hidden');
+    if (shouldOpen) {
+      $PLAYLIST_MODE_MENU.classList.remove('hidden');
+      $BUTTON_PLAYLIST_MODE.setAttribute('aria-expanded', 'true');
+    } else {
+      closePlaylistModeMenu();
+    }
+  }
+
+  function updatePlaylistModeUI(): void {
+    syncPlaylistModeButton(playlistMode);
+
+    if ($PLAYLIST_MODE_MENU) {
+      Array.from($PLAYLIST_MODE_MENU.querySelectorAll('.playlist-mode-option')).forEach((elm) => {
+        const optElm = elm as HTMLButtonElement;
+        const mode = (optElm.dataset['mode'] || '') as PlaylistMode | 'edit';
+        if (mode === 'reorder') {
+          const canReorder = canUseReorderMode();
+          optElm.disabled = !canReorder;
+          optElm.setAttribute('aria-disabled', String(!canReorder));
+          optElm.classList.toggle('text-gray-400', !canReorder);
+          optElm.classList.toggle('dark:text-gray-500', !canReorder);
+          optElm.classList.toggle('cursor-not-allowed', !canReorder);
+          optElm.classList.toggle('hover:bg-gray-100', canReorder);
+          optElm.classList.toggle('dark:hover:bg-gray-600', canReorder);
+        }
+        if (mode === playlistMode) {
+          optElm.classList.add('text-blue-700', 'dark:text-blue-300');
+          optElm.setAttribute('aria-current', 'true');
+        } else {
+          optElm.classList.remove('text-blue-700', 'dark:text-blue-300');
+          optElm.removeAttribute('aria-current');
+        }
+      });
+    }
+  }
+
+  function setPlaylistMode(nextMode: PlaylistMode): void {
+    if (playlistMode === nextMode) {
+      closePlaylistModeMenu();
+      return;
+    }
+    if (nextMode === 'reorder' && !canUseReorderMode()) {
+      closePlaylistModeMenu();
+      updatePlaylistModeUI();
+      return;
+    }
+    // If leaving delete mode without selections, clear just in case
+    if (playlistMode === 'delete') {
+      deleteSelectedIds.clear();
+    }
+    if (playlistMode === 'reorder' && nextMode !== 'reorder') {
+      resetReorderState();
+    }
+    if (nextMode === 'reorder') {
+      captureReorderSnapshot();
+    }
+    playlistMode = nextMode;
+    closePlaylistModeMenu();
+    updatePlaylistModeUI();
+    updatePlaylist();
+  }
+
+  if ($BUTTON_PLAYLIST_MODE && $PLAYLIST_MODE_MENU) {
+    $BUTTON_PLAYLIST_MODE.addEventListener('click', (evt: Event) => {
+      evt.preventDefault();
+      evt.stopPropagation();
+
+      // In delete mode, pressing the mode button should trigger commit flow first.
+      if (playlistMode === 'delete') {
+        closePlaylistModeMenu();
+        if (deleteSelectedIds.size > 0) {
+          const title = $BUTTON_PLAYLIST_MODE.dataset['confirmDeleteTitle'] || 'Delete selected items?';
+          const body = $BUTTON_PLAYLIST_MODE.dataset['confirmDeleteBody'] || 'Selected items will be removed from your playlist.';
+          openPlaylistConfirmModal(title, body, () => {
+            applyDeleteSelections();
+            playlistMode = 'normal';
+            updatePlaylistModeUI();
+            updatePlaylist();
+          });
+          return;
+        }
+
+        // Nothing selected: just exit delete mode and return to normal.
+        deleteSelectedIds.clear();
+        playlistMode = 'normal';
+        updatePlaylistModeUI();
+        updatePlaylist();
+        return;
+      }
+
+      if (playlistMode === 'reorder') {
+        closePlaylistModeMenu();
+        syncReorderWorkingIdsFromDom();
+        if (isReorderDirty()) {
+          const title = $BUTTON_PLAYLIST_MODE.dataset['confirmReorderTitle'] || 'Apply reordered sequence?';
+          const body = $BUTTON_PLAYLIST_MODE.dataset['confirmReorderBody'] || 'Apply the current item order to your playlist.';
+          openPlaylistConfirmModal(title, body, () => {
+            applyReorderChanges();
+            playlistMode = 'normal';
+            updatePlaylistModeUI();
+            updatePlaylist();
+          });
+          return;
+        }
+        resetReorderState();
+        playlistMode = 'normal';
+        updatePlaylistModeUI();
+        updatePlaylist();
+        return;
+      }
+
+      togglePlaylistModeMenu();
+    });
+
+    Array.from($PLAYLIST_MODE_MENU.querySelectorAll('.playlist-mode-option')).forEach((elm) => {
+      elm.addEventListener('click', (evt: Event) => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        const optionElm = evt.currentTarget as HTMLButtonElement;
+        if (optionElm.disabled || optionElm.getAttribute('aria-disabled') === 'true') {
+          return;
+        }
+        const nextMode = optionElm.dataset['mode'];
+        if (nextMode === 'normal' || nextMode === 'reorder' || nextMode === 'delete') {
+          setPlaylistMode(nextMode);
+        }
+      });
+    });
+
+    document.addEventListener('click', (evt: MouseEvent) => {
+      const target = evt.target as Node;
+      if (!$PLAYLIST_MODE_MENU.contains(target) && !$BUTTON_PLAYLIST_MODE.contains(target)) {
+        closePlaylistModeMenu();
+      }
+    });
+
+    document.addEventListener('keydown', (evt: KeyboardEvent) => {
+      if (evt.key === 'Escape') {
+        closePlaylistModeMenu();
+      }
+    });
+
+    updatePlaylistModeUI();
+  }
+
+  // Playlist delete mode state (v2.2.0 Slice B)
+  const $MODAL_PLAYLIST_CONFIRM = document.getElementById('modal-playlist-confirm') as HTMLElement | null;
+  const $MODAL_PLAYLIST_CONFIRM_TITLE = document.getElementById('modal-playlist-confirm-title') as HTMLElement | null;
+  const $MODAL_PLAYLIST_CONFIRM_BODY = document.getElementById('modal-playlist-confirm-body') as HTMLElement | null;
+  const $BTN_PLAYLIST_CONFIRM_APPLY = document.getElementById('btn-playlist-confirm-apply') as HTMLButtonElement | null;
+  const $BTN_PLAYLIST_CONFIRM_CANCEL = document.getElementById('btn-playlist-confirm-cancel') as HTMLButtonElement | null;
+
+  let deleteSelectedIds = new Set<number>();
+  let reorderInitialIds: number[] = [];
+  let reorderWorkingIds: number[] = [];
+  let reorderCategoryId: number | null = null;
+  let playlistSortable: { destroy(): void } | null = null;
+  let _playlistConfirmApplyCallback: (() => void) | null = null;
+
+  function openPlaylistConfirmModal(title: string, body: string, onApply: () => void): void {
+    if (!$MODAL_PLAYLIST_CONFIRM) return;
+    if ($MODAL_PLAYLIST_CONFIRM_TITLE) $MODAL_PLAYLIST_CONFIRM_TITLE.textContent = title;
+    if ($MODAL_PLAYLIST_CONFIRM_BODY) $MODAL_PLAYLIST_CONFIRM_BODY.textContent = body;
+    _playlistConfirmApplyCallback = onApply;
+    $MODAL_PLAYLIST_CONFIRM.classList.remove('hidden');
+  }
+
+  function closePlaylistConfirmModal(): void {
+    if (!$MODAL_PLAYLIST_CONFIRM) return;
+    $MODAL_PLAYLIST_CONFIRM.classList.add('hidden');
+    _playlistConfirmApplyCallback = null;
+  }
+
+  function applyDeleteSelections(): void {
+    if (!AMP_STATUS.media || deleteSelectedIds.size === 0) return;
+    AMP_STATUS.media = (AMP_STATUS.media as MediaItem[]).filter(
+      (item: MediaItem) => !deleteSelectedIds.has(item.amId)
+    );
+    deleteSelectedIds.clear();
+    persistMyPlaylistIfNeeded();
+  }
+
+  function destroyPlaylistSortable(): void {
+    if (playlistSortable) {
+      playlistSortable.destroy();
+      playlistSortable = null;
+    }
+  }
+
+  function resetReorderState(): void {
+    destroyPlaylistSortable();
+    reorderInitialIds = [];
+    reorderWorkingIds = [];
+    reorderCategoryId = null;
+  }
+
+  function isReorderDirty(): boolean {
+    return reorderInitialIds.length > 0 &&
+      reorderInitialIds.length === reorderWorkingIds.length &&
+      reorderInitialIds.some((amId, index) => amId !== reorderWorkingIds[index]);
+  }
+
+  function captureReorderSnapshot(): void {
+    reorderCategoryId = Number(AMP_STATUS.ctg);
+    reorderInitialIds = getPlaylistItemsForCurrentView().map((item: MediaItem) => item.amId);
+    reorderWorkingIds = [...reorderInitialIds];
+  }
+
+  function syncReorderWorkingIdsFromDom(): void {
+    reorderWorkingIds = Array.from($LIST_PLAYLIST.querySelectorAll('a[data-playlist-item]')).map((elm) => {
+      return Number((elm as HTMLElement).dataset['playlistItem'] || (elm as HTMLElement).getAttribute('data-playlist-item') || -1);
+    }).filter((amId) => amId >= 0);
+  }
+
+  function applyReorderChanges(): void {
+    if (!AMP_STATUS.media || reorderCategoryId === null || reorderWorkingIds.length === 0) {
+      resetReorderState();
+      return;
+    }
+
+    const mediaById = new Map((AMP_STATUS.media || []).map((item: MediaItem) => [item.amId, item]));
+    const reorderedItems = reorderWorkingIds
+      .map((amId) => mediaById.get(amId))
+      .filter((item): item is MediaItem => !!item);
+    let reorderIndex = 0;
+    AMP_STATUS.media = (AMP_STATUS.media || []).map((item: MediaItem) => {
+      if (item.catId !== reorderCategoryId) {
+        return item;
+      }
+      const nextItem = reorderedItems[reorderIndex];
+      reorderIndex++;
+      return nextItem || item;
+    });
+    persistMyPlaylistIfNeeded();
+    resetReorderState();
+  }
+
+  function ensurePlaylistSortable(): void {
+    if (playlistMode !== 'reorder' || !canUseReorderMode()) {
+      destroyPlaylistSortable();
+      return;
+    }
+    if (playlistSortable) {
+      return;
+    }
+    const sortableLibrary = Sortable;
+    if (!sortableLibrary) {
+      return;
+    }
+    playlistSortable = sortableLibrary.create($LIST_PLAYLIST, {
+      animation: 150,
+      draggable: 'a[data-playlist-item]',
+      forceFallback: true,
+      fallbackOnBody: true,
+      ghostClass: 'playlist-reorder-ghost',
+      chosenClass: 'playlist-reorder-chosen',
+      dragClass: 'playlist-reorder-drag',
+      onEnd: () => {
+        syncReorderWorkingIdsFromDom();
+      },
+    });
+  }
+
+  if ($BTN_PLAYLIST_CONFIRM_APPLY) {
+    $BTN_PLAYLIST_CONFIRM_APPLY.addEventListener('click', () => {
+      if (_playlistConfirmApplyCallback) _playlistConfirmApplyCallback();
+      closePlaylistConfirmModal();
+    });
+  }
+
+  if ($BTN_PLAYLIST_CONFIRM_CANCEL) {
+    $BTN_PLAYLIST_CONFIRM_CANCEL.addEventListener('click', () => {
+      if (playlistMode === 'reorder') {
+        reorderWorkingIds = [...reorderInitialIds];
+        updatePlaylist();
+      }
+      closePlaylistConfirmModal();
+    });
+  }
 
   // Process global data passed by the system.
   // In cloud mode: load MyPlaylist from localStorage before processing server data.
@@ -538,6 +905,11 @@ const init = function (): void {
     }, true);
   }
 
+  function isOptionsModalVisible(): boolean {
+    return !$MODAL_OPTIONS.classList.contains('hidden') &&
+      $MODAL_OPTIONS.getAttribute('aria-hidden') !== 'true';
+  }
+
   /**
    * Sync active styles of bottom menu drawer toggle buttons.
    */
@@ -590,6 +962,10 @@ const init = function (): void {
     if (isModalHidden && isFocusInsideModal) {
       restoreOptionsTriggerFocus();
     }
+
+    if (isModalHidden) {
+      cleanupOptionsModalBackdrops();
+    }
   }, { attributes: true, childList: false, subtree: false, attributeFilter: ['aria-hidden', 'class'] });
 
   /**
@@ -616,10 +992,7 @@ const init = function (): void {
   {
     const $ADD_FROM_DRAWER = document.getElementById('btn-add-media-from-drawer');
     if ($ADD_FROM_DRAWER) {
-      $ADD_FROM_DRAWER.addEventListener('click', (evt: Event) => {
-        evt.preventDefault();
-        openMediaManagement();
-      });
+      bindAddMediaFromDrawer($ADD_FROM_DRAWER);
     }
   }
 
@@ -657,30 +1030,228 @@ const init = function (): void {
       // Re-attach click handler on the cloned "Register media" button
       const addBtn = clone.querySelector('#btn-add-media-from-drawer');
       if (addBtn) {
-        addBtn.addEventListener('click', (evt: Event) => {
-          evt.preventDefault();
-          openMediaManagement();
-        });
+        bindAddMediaFromDrawer(addBtn);
       }
     }
   }
+
+  function bindAddMediaFromDrawer(addBtn: Element): void {
+    const btn = addBtn as HTMLElement & { __ambientBound?: boolean };
+    if (btn.__ambientBound) return;
+    btn.__ambientBound = true;
+    btn.addEventListener('click', (evt: Event) => {
+      evt.preventDefault();
+      evt.stopPropagation();
+      const activeCatId = (AMP_STATUS.ctg !== undefined && AMP_STATUS.ctg !== null && Number(AMP_STATUS.ctg) >= 0)
+        ? Number(AMP_STATUS.ctg)
+        : null;
+      openMediaManagement(activeCatId);
+    });
+  }
+
+  function cleanupOptionsModalBackdrops(): void {
+    const isOptionsHidden = !isOptionsModalVisible();
+    if (!isOptionsHidden) return;
+
+    document.querySelectorAll('div[modal-backdrop]').forEach((backdrop) => {
+      backdrop.remove();
+    });
+
+    const hasVisibleModal = Array.from(document.querySelectorAll('[aria-modal="true"]')).some((elm) => {
+      return elm instanceof HTMLElement && !elm.classList.contains('hidden');
+    });
+    if (!hasVisibleModal) {
+      document.body.classList.remove('overflow-hidden');
+    }
+  }
+
+  function closePlaylistDrawerForModalIfNeeded(): void {
+    if (currentWindowSize.width >= currentWindowSize.minFullUIWidth) {
+      return;
+    }
+    if (!isDrawerOpen($DRAWER_PLAYLIST, '-translate-x-full')) {
+      return;
+    }
+    (document.getElementById('btn-close-playlist') as HTMLButtonElement | null)?.click();
+  }
+
+  function closeSettingsDrawerForModalIfNeeded(): void {
+    if (currentWindowSize.width >= currentWindowSize.minFullUIWidth) {
+      return;
+    }
+    if (!isDrawerOpen($DRAWER_SETTINGS, 'translate-x-full')) {
+      return;
+    }
+    (document.getElementById('btn-close-settings') as HTMLButtonElement | null)?.click();
+  }
+
+  function getActiveCategoryId(): number | null {
+    return (AMP_STATUS.ctg !== undefined && AMP_STATUS.ctg !== null && Number(AMP_STATUS.ctg) >= 0)
+      ? Number(AMP_STATUS.ctg)
+      : null;
+  }
+
+  function syncTargetCategorySelection(): void {
+    if (!isElement($SELECT_CATEGORY)) return;
+    const preferredValue = getActiveCategoryId();
+    const nextValue = preferredValue !== null ? String(preferredValue) : '-1';
+    const hasOption = Array.from($SELECT_CATEGORY.options).some((opt) => opt.value === nextValue);
+    $SELECT_CATEGORY.value = hasOption ? nextValue : '-1';
+  }
+
+  function syncMediaCategoryField(preferredCategoryId: number | null = getActiveCategoryId()): void {
+    const $catInput = document.getElementById('media-category-new') as HTMLInputElement | null;
+    const hasVisibleSelect = isElement($MEDIA_CATEGORY_SELECT) && !$MEDIA_CATEGORY_SELECT.classList.contains('hidden');
+    if (hasVisibleSelect) {
+      const hasPreferredOption = preferredCategoryId !== null &&
+        Array.from($MEDIA_CATEGORY_SELECT.options).some((opt) => opt.value === String(preferredCategoryId));
+      if (hasPreferredOption) {
+        $MEDIA_CATEGORY_SELECT.value = String(preferredCategoryId);
+      } else if (AMP_STATUS.category && AMP_STATUS.category.length === 1) {
+        $MEDIA_CATEGORY_SELECT.value = '0';
+      } else {
+        $MEDIA_CATEGORY_SELECT.value = '';
+      }
+      $MEDIA_CATEGORY_SELECT.dispatchEvent(new Event('change'));
+      return;
+    }
+
+    if ($catInput && !$catInput.classList.contains('hidden')) {
+      const nextValue = $catInput.value.trim() || $catInput.dataset['defaultValue'] || 'New Category';
+      $catInput.value = nextValue;
+      $catInput.dispatchEvent(new Event('input'));
+      $catInput.dispatchEvent(new Event('change'));
+    }
+  }
+
+  function showOptionsModal(): void {
+    if (isOptionsModalVisible()) return;
+    if (optionsModalHideTimer !== null) {
+      window.clearTimeout(optionsModalHideTimer);
+      optionsModalHideTimer = null;
+    }
+
+    closePlaylistDrawerForModalIfNeeded();
+    closeSettingsDrawerForModalIfNeeded();
+    cleanupOptionsModalBackdrops();
+
+    $MODAL_OPTIONS.classList.add('flex');
+    $MODAL_OPTIONS.classList.remove('hidden');
+    $MODAL_OPTIONS.style.zIndex = '9999';
+    $MODAL_OPTIONS.style.opacity = '0';
+    $MODAL_OPTIONS.style.pointerEvents = 'none';
+    $MODAL_OPTIONS.style.transition = 'opacity 180ms ease';
+    $MODAL_OPTIONS.setAttribute('aria-modal', 'true');
+    $MODAL_OPTIONS.setAttribute('role', 'dialog');
+    $MODAL_OPTIONS.removeAttribute('aria-hidden');
+    if ($MODAL_OPTIONS_PANEL) {
+      $MODAL_OPTIONS_PANEL.style.opacity = '0';
+      $MODAL_OPTIONS_PANEL.style.transform = 'translateY(0.5rem) scale(0.98)';
+      $MODAL_OPTIONS_PANEL.style.transition = 'opacity 180ms ease, transform 180ms ease';
+    }
+
+    const backdrop = document.createElement('div');
+    backdrop.setAttribute('modal-backdrop', '');
+    backdrop.className = currentWindowSize.width >= currentWindowSize.minFullUIWidth
+      ? 'modal-backdrop-layer fixed inset-0 z-[59]'
+      : 'modal-backdrop-layer fixed inset-0 z-40';
+    backdrop.style.zIndex = '9998';
+    backdrop.style.pointerEvents = 'none';
+    backdrop.style.opacity = '0';
+    backdrop.style.transition = 'opacity 180ms ease';
+    if ($MODAL_OPTIONS.parentNode) {
+      $MODAL_OPTIONS.parentNode.insertBefore(backdrop, $MODAL_OPTIONS);
+    } else {
+      document.body.appendChild(backdrop);
+    }
+    document.body.classList.add('overflow-hidden');
+    window.requestAnimationFrame(() => {
+      $MODAL_OPTIONS.style.opacity = '1';
+      $MODAL_OPTIONS.style.pointerEvents = 'auto';
+      if ($MODAL_OPTIONS_PANEL) {
+        $MODAL_OPTIONS_PANEL.style.opacity = '1';
+        $MODAL_OPTIONS_PANEL.style.transform = 'translateY(0) scale(1)';
+      }
+      backdrop.style.opacity = '1';
+    });
+  }
+
+  function hideOptionsModal(): void {
+    if (optionsModalHideTimer !== null) {
+      window.clearTimeout(optionsModalHideTimer);
+      optionsModalHideTimer = null;
+    }
+    $MODAL_OPTIONS.style.opacity = '0';
+    $MODAL_OPTIONS.style.pointerEvents = 'none';
+    $MODAL_OPTIONS.setAttribute('aria-hidden', 'true');
+    $MODAL_OPTIONS.removeAttribute('aria-modal');
+    $MODAL_OPTIONS.removeAttribute('role');
+    if ($MODAL_OPTIONS_PANEL) {
+      $MODAL_OPTIONS_PANEL.style.opacity = '0';
+      $MODAL_OPTIONS_PANEL.style.transform = 'translateY(0.5rem) scale(0.98)';
+    }
+    document.querySelectorAll('div[modal-backdrop]').forEach((backdrop) => {
+      (backdrop as HTMLElement).style.opacity = '0';
+    });
+    optionsModalHideTimer = window.setTimeout(() => {
+      if (!isOptionsModalVisible()) {
+        $MODAL_OPTIONS.classList.add('hidden');
+        $MODAL_OPTIONS.classList.remove('flex');
+        cleanupOptionsModalBackdrops();
+      }
+      optionsModalHideTimer = null;
+    }, 180);
+  }
+
+  if (isElement($BUTTON_OPTIONS)) {
+    $BUTTON_OPTIONS.addEventListener('click', (evt: Event) => {
+      evt.preventDefault();
+      if (isOptionsModalVisible()) {
+        hideOptionsModal();
+      } else {
+        clearCategory();
+        updateCategory();
+        syncMediaCategoryField();
+        showOptionsModal();
+      }
+    });
+  }
+
+  if (isElement($BUTTON_CLOSE_OPTIONS)) {
+    $BUTTON_CLOSE_OPTIONS.addEventListener('click', (evt: Event) => {
+      evt.preventDefault();
+      hideOptionsModal();
+    });
+  }
+
+  if (isElement($MODAL_OPTIONS)) {
+    $MODAL_OPTIONS.addEventListener('click', (evt: Event) => {
+      if (evt.target === $MODAL_OPTIONS) {
+        hideOptionsModal();
+        restoreOptionsTriggerFocus();
+      }
+    });
+  }
+
+  document.addEventListener('keydown', (evt: KeyboardEvent) => {
+    if (evt.key === 'Escape' && isOptionsModalVisible()) {
+      hideOptionsModal();
+      restoreOptionsTriggerFocus();
+    }
+  });
 
   /**
    * Open the Options modal with the Media Management accordion expanded.
    * Optionally pre-selects the category matching the current filter.
    */
   function openMediaManagement(presetCategoryId: number | null = null): void {
-    // Keep left drawer open by request; do not force-close it here.
-
     // Refresh category UI before opening modal so undefined-category playlists
     // switch to text-input mode reliably.
     clearCategory();
     updateCategory();
+    syncMediaCategoryField(presetCategoryId);
 
-    // Open the Options modal
-    if ($BUTTON_OPTIONS) {
-      $BUTTON_OPTIONS.click();
-    }
+    showOptionsModal();
 
     // After the modal becomes visible, expand the Media Management accordion
     const expandMediaAccordion = (): void => {
@@ -698,11 +1269,7 @@ const init = function (): void {
       }
       // Pre-select category if coming from a category-filtered view
       if (presetCategoryId !== null && presetCategoryId >= 0) {
-        const $CAT_SELECT = document.getElementById('media-category') as HTMLSelectElement | null;
-        if ($CAT_SELECT && !$CAT_SELECT.classList.contains('hidden')) {
-          $CAT_SELECT.selectedIndex = presetCategoryId + 1; // +1 for placeholder option
-          $CAT_SELECT.dispatchEvent(new Event('change'));
-        }
+        syncMediaCategoryField(presetCategoryId);
       }
     };
 
@@ -711,7 +1278,7 @@ const init = function (): void {
     if (!$MODAL) return;
     const isAlreadyOpen = $MODAL.getAttribute('aria-hidden') !== 'true' && !$MODAL.classList.contains('hidden');
     if (isAlreadyOpen) {
-      expandMediaAccordion();
+      setTimeout(expandMediaAccordion, 50);
     } else {
       const observer = new MutationObserver(() => {
         const nowOpen = $MODAL.getAttribute('aria-hidden') !== 'true' && !$MODAL.classList.contains('hidden');
@@ -728,6 +1295,7 @@ const init = function (): void {
    * Create a playlist from the data of the AMP_STATUS object.
    */
   function updatePlaylist(): void {
+    destroyPlaylistSortable();
     clearPlaylist();
     const $LIST_NO_MEDIA = document.getElementById('no-media') as HTMLElement;
     let is_no_media =
@@ -747,10 +1315,34 @@ const init = function (): void {
     if (is_no_media) {
       // no playable media
       $LIST_NO_MEDIA.classList.remove('hidden');
+      // close mode menu so it doesn't overlap the "Register media" button
+      closePlaylistModeMenu();
+      // disable mode button when playlist is empty
+      if ($BUTTON_PLAYLIST_MODE) {
+        $BUTTON_PLAYLIST_MODE.disabled = true;
+        $BUTTON_PLAYLIST_MODE.classList.add('opacity-50', 'cursor-not-allowed');
+        if (playlistMode !== 'normal') {
+          deleteSelectedIds.clear();
+          resetReorderState();
+          playlistMode = 'normal';
+          updatePlaylistModeUI();
+        }
+      }
       return;
     } else {
       $LIST_NO_MEDIA.classList.add('hidden');
+      // re-enable mode button when playlist has items
+      if ($BUTTON_PLAYLIST_MODE) {
+        $BUTTON_PLAYLIST_MODE.disabled = false;
+        $BUTTON_PLAYLIST_MODE.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
     }
+
+    if (playlistMode === 'reorder' && !canUseReorderMode()) {
+      resetReorderState();
+      playlistMode = 'normal';
+    }
+    updatePlaylistModeUI();
 
     const isShuffle = getOption('shuffle') || false;
     if (isShuffle) {
@@ -765,13 +1357,19 @@ const init = function (): void {
     items.forEach((item: MediaItem) => {
       const itemElm = document.createElement('a');
       itemElm.href = '#';
+      itemElm.draggable = false;
       if (AMP_STATUS.current && AMP_STATUS.current !== null && AMP_STATUS.current === item.amId) {
         itemElm.setAttribute('aria-current', 'true');
         itemElm.setAttribute('class', 'flex items-center gap-2 w-full px-4 py-2 text-white bg-blue-500 border-b border-gray-200 cursor-pointer dark:bg-gray-800 dark:border-gray-600');
       } else {
         itemElm.setAttribute('class', 'flex items-center gap-2 w-full px-4 py-2 border-b border-gray-200 cursor-pointer hover:bg-gray-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-500 dark:focus:text-white');
       }
+      if (playlistMode === 'reorder') {
+        itemElm.classList.remove('cursor-pointer');
+        itemElm.classList.add('cursor-grab', 'active:cursor-grabbing', 'select-none');
+      }
       itemElm.setAttribute('data-playlist-item', String(item.amId));
+      itemElm.setAttribute('data-id', String(item.amId));
 
       let imageSrc = './views/images/no-media-thumb.svg';
       if ((item.image && item.image !== '') || (item.thumb && item.thumb !== '')) {
@@ -786,9 +1384,30 @@ const init = function (): void {
       // Set thumbnail image.
       const imgElm = document.createElement('img');
       imgElm.setAttribute('src', imageSrc);
+      imgElm.draggable = false;
       imgElm.classList.add('block', 'h-8', 'w-8', 'rounded', 'object-cover');
       imgElm.setAttribute('alt', mb_strimwidth(item.title, 0, 50, '...'));
       itemElm.appendChild(imgElm);
+
+      // Delete mode: prepend checkbox indicator
+      if (playlistMode === 'delete') {
+        const isSelected = deleteSelectedIds.has(item.amId);
+        const chkElm = document.createElement('span');
+        chkElm.setAttribute('aria-hidden', 'true');
+        chkElm.className = isSelected
+          ? 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-red-500 bg-red-500'
+          : 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 dark:border-gray-500';
+        if (isSelected) {
+          chkElm.innerHTML = '<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>';
+        }
+        itemElm.prepend(chkElm);
+      } else if (playlistMode === 'reorder') {
+        const handleElm = document.createElement('span');
+        handleElm.setAttribute('aria-hidden', 'true');
+        handleElm.className = 'playlist-reorder-handle flex-shrink-0 order-first inline-flex items-center justify-center w-5 h-5 text-gray-400 cursor-grab active:cursor-grabbing dark:text-gray-500';
+        handleElm.innerHTML = '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01"/></svg>';
+        itemElm.prepend(handleElm);
+      }
 
       let labelText = item.title;
       const format = getOption('playlist');
@@ -805,6 +1424,21 @@ const init = function (): void {
 
     Array.from($LIST_PLAYLIST.querySelectorAll('a[data-playlist-item]')).forEach((elm) => {
       elm.addEventListener('click', (evt: Event) => {
+        evt.preventDefault();
+        // Delete mode: toggle item selection
+        if (playlistMode === 'delete') {
+          const amId = Number((elm as HTMLElement).getAttribute('data-playlist-item'));
+          if (deleteSelectedIds.has(amId)) {
+            deleteSelectedIds.delete(amId);
+          } else {
+            deleteSelectedIds.add(amId);
+          }
+          updatePlaylist();
+          return;
+        }
+        if (isPlaylistInteractionLocked()) {
+          return;
+        }
         const target = evt.target as HTMLElement;
         playItem(target);
         // Toggle player control buttons shown.
@@ -813,13 +1447,16 @@ const init = function (): void {
       });
     });
 
+    ensurePlaylistSortable();
+
     // Append "[+] Add media" item at the bottom of the playlist
     // Hidden in cloud mode for existing JSON playlists (read-only)
+    // and hidden when playlist operation mode is not normal.
     const _ambDataForAdd = (window as any).AmbientData as AmbientData;
     const _isCloudReadOnly = _ambDataForAdd?.isCloud === true &&
       AMP_STATUS.playlist !== null &&
       AMP_STATUS.playlist !== MYPLAYLIST_NAME;
-    if (!_isCloudReadOnly) {
+    if (!_isCloudReadOnly && playlistMode === 'normal') {
       const addItemElm = document.createElement('a');
       addItemElm.href = '#';
       addItemElm.setAttribute('id', 'btn-add-media-from-playlist');
@@ -870,6 +1507,7 @@ const init = function (): void {
       $SELECT_CATEGORY.appendChild(clone);
       $SELECT_CATEGORY.firstElementChild?.setAttribute('disabled', '');
       $SELECT_CATEGORY.setAttribute('disabled', '');
+      $SELECT_CATEGORY.value = '-1';
     }
 
     // add since v1.1.0 – reset category select and hide text input
@@ -922,6 +1560,7 @@ const init = function (): void {
       }
       $SELECT_CATEGORY.firstElementChild?.removeAttribute('disabled');
       $SELECT_CATEGORY.removeAttribute('disabled');
+      syncTargetCategorySelection();
       return;
     }
 
@@ -952,6 +1591,8 @@ const init = function (): void {
     });
     $SELECT_CATEGORY.firstElementChild?.removeAttribute('disabled');
     $SELECT_CATEGORY.removeAttribute('disabled');
+    syncTargetCategorySelection();
+    syncMediaCategoryField();
   }
 
   /**
@@ -1326,6 +1967,12 @@ const init = function (): void {
       oldPlaylist = AMP_STATUS.playlist;
     }
     if (oldPlaylist !== newPlaylist) {
+      if (playlistMode !== 'normal') {
+        deleteSelectedIds.clear();
+        resetReorderState();
+        playlistMode = 'normal';
+        updatePlaylistModeUI();
+      }
       clearCategory();
       getPlaylistData(newPlaylist);
     }
@@ -1343,6 +1990,12 @@ const init = function (): void {
     }
     const newCtgId = Number((evt.target as HTMLSelectElement).value);
     if (oldCtgId !== newCtgId) {
+      if (playlistMode !== 'normal') {
+        deleteSelectedIds.clear();
+        resetReorderState();
+        playlistMode = 'normal';
+        updatePlaylistModeUI();
+      }
       AMP_STATUS.ctg = newCtgId;
       AMP_STATUS.prev = null;
       AMP_STATUS.current = null;
@@ -2980,20 +3633,22 @@ const init = function (): void {
           elm.addEventListener('click', (_evt: Event) => {
             if (!$MEDIA_MANAGE_FORM) return;
             const formData = new FormData($MEDIA_MANAGE_FORM);
+            const categoryField = $MEDIA_CATEGORY_SELECT.classList.contains('hidden')
+              ? 'media-category-new'
+              : 'media-category';
+            const preferredCategoryValue = String(formData.get(categoryField) || '').trim();
             const result = addMediaData(Array.from(formData.entries()) as [string, string][]);
             logger(result, AMP_STATUS.media);
-            updateNotice({
-              type: result ? 'success' : 'error',
-              message: result
-                ? (elm as HTMLElement).dataset['messageSuccess'] || ''
-                : (elm as HTMLElement).dataset['messageFailure'] || '',
-              delay: 2000,
-            });
+            let persisted = true;
             updatePlaylist();
             resetMediaManageForm();
             // Refresh category select/input after adding media (new categories may have been created)
             clearCategory();
             updateCategory();
+            if (preferredCategoryValue !== '') {
+              const numericPreferredCategory = Number(preferredCategoryValue);
+              syncMediaCategoryField(Number.isNaN(numericPreferredCategory) ? null : numericPreferredCategory);
+            }
             // Recalculate carousel sequence so next/prev works after additional items are added.
             if (AMP_STATUS.current !== null) {
               updatePlayStatus(AMP_STATUS.current);
@@ -3002,9 +3657,18 @@ const init = function (): void {
             }
             if (result) {
               // Persist cloud MyPlaylist changes immediately and close modal.
-              persistMyPlaylistIfNeeded();
-              (document.getElementById('btn-close-options') as HTMLElement | null)?.click();
+              persisted = persistMyPlaylistIfNeeded();
+              if (persisted) {
+                hideOptionsModal();
+              }
             }
+            updateNotice({
+              type: result && persisted ? 'success' : 'error',
+              message: result && persisted
+                ? (elm as HTMLElement).dataset['messageSuccess'] || ''
+                : (elm as HTMLElement).dataset['messageFailure'] || '',
+              delay: 2400,
+            });
           });
           break;
         default:
@@ -3079,6 +3743,8 @@ const init = function (): void {
               });
             },
             createCategory(): void {
+              const selfElm = document.getElementById('btn-create-category');
+              try {
               const categoryName = this.getFormData('category_name') as string;
               if (!Array.isArray(AMP_STATUS.category)) AMP_STATUS.category = [];
               if (!inArray(categoryName, AMP_STATUS.category)) {
@@ -3093,15 +3759,25 @@ const init = function (): void {
                 }
                 AMP_STATUS.category.push(newValue);
               }
-              const selfElm = document.getElementById('btn-create-category');
               logger('createCategory:', categoryName, AMP_STATUS);
+              const persisted = persistMyPlaylistIfNeeded();
               updateNotice({
-                type: 'success',
-                message: selfElm?.dataset['messageSuccess'] || '',
-                delay: 2000,
+                type: persisted ? 'success' : 'error',
+                message: persisted
+                  ? selfElm?.dataset['messageSuccess'] || ''
+                  : selfElm?.dataset['messageFailure'] || '',
+                delay: 2400,
               });
               clearCategory();
               updateCategory();
+              } catch (err) {
+                logger('createCategory: error', err);
+                updateNotice({
+                  type: 'error',
+                  message: selfElm?.dataset['messageFailure'] || '',
+                  delay: 2400,
+                });
+              }
             },
             async downloadPlaylist(): Promise<void> {
               const seek_format = Number(this.getFormData('seek_format')) === 1;
@@ -3158,6 +3834,19 @@ const init = function (): void {
         if ($BUTTON_CREATE_CATEGORY) setAtts($BUTTON_CREATE_CATEGORY, { disabled: '' }, isCategoryContainAll);
       }
     }, { childList: true, attributes: true, subtree: true });
+  }
+
+  const $INITIAL_ALERT = document.getElementById('alert-notification') as HTMLElement | null;
+  if ($INITIAL_ALERT) {
+    const initialMessage = ($INITIAL_ALERT.dataset['noticeMessage'] || '').trim();
+    const initialType = (($INITIAL_ALERT.dataset['noticeType'] || 'info') as NotificationPayload['type']);
+    if (initialMessage !== '') {
+      updateNotice({
+        type: initialType,
+        message: initialMessage,
+        delay: 2800,
+      });
+    }
   }
 };
 
@@ -3693,6 +4382,9 @@ function logger(...args: any[]): any {
   return (console as any)[type](dateStr, ...args);
 }
 
+let noticeHideTimerGlobal: number | null = null;
+let noticeCleanupTimerGlobal: number | null = null;
+
 /**
  * Update notice/notification display.
  */
@@ -3700,12 +4392,12 @@ function updateNotice(notification: NotificationPayload): void {
   logger('Have notification:', notification);
 
   const classes = {
-    base: 'fixed inset-y-1/4 left-0 right-0 md:inset-y-1/4 h-max max-h-full w-5/6 max-w-xl md:max-w-sm flex items-center p-4 mx-auto z-99 text-sm border rounded-lg shadow-lg transition-opacity ease-out duration-300 ',
+    base: 'fixed top-2 right-2 w-full max-w-sm flex items-start gap-3 p-4 z-[10050] text-sm border rounded-lg shadow-xl transition-all duration-200 ease-out ',
     info: 'text-blue-800 border-blue-300 bg-blue-50 dark:text-blue-400 dark:border-blue-800 dark:bg-blue-900',
     success: 'text-green-800 border-green-300 bg-green-50 dark:text-green-400 dark:border-green-800 dark:bg-green-900',
     warning: 'text-yellow-800 border-yellow-300 bg-yellow-50 dark:text-yellow-400 dark:border-yellow-800 dark:bg-yellow-900',
     error: 'text-red-800 border-red-300 bg-red-50 dark:text-red-400 dark:border-red-800 dark:bg-red-900',
-    btnbase: 'ml-auto -mx-1.5 -my-1.5 rounded-lg focus:ring-2 p-1.5 inline-flex items-center justify-center h-8 w-8 ',
+    btnbase: 'ml-auto -mr-1 -mt-1 rounded-lg focus:ring-2 p-1.5 inline-flex items-center justify-center h-8 w-8 ',
     btninfo: 'bg-blue-50 text-blue-500 focus:ring-blue-400 hover:bg-blue-200 dark:bg-blue-800 dark:text-blue-400 dark:hover:bg-blue-700',
     btnsuccess: 'bg-green-50 text-green-500 focus:ring-green-400 hover:bg-green-200 dark:bg-green-800 dark:text-green-400 dark:hover:bg-green-700',
     btnwarning: 'bg-yellow-50 text-yellow-500 focus:ring-yellow-400 hover:bg-yellow-200 dark:bg-yellow-800 dark:text-yellow-400 dark:hover:bg-yellow-700',
@@ -3720,26 +4412,70 @@ function updateNotice(notification: NotificationPayload): void {
 
   setAtts($ALERT, { class: classes.base + classes[classKey] });
   setAtts($BUTTON_ALERT_DISMISS, { class: classes.btnbase + classes[btnClassKey] });
-  toggleClass($BUTTON_ALERT_DISMISS, { hidden: true });
+  $ALERT.style.zIndex = '10050';
+  $ALERT.style.width = 'min(22rem, calc(100vw - 1rem))';
 
   const $ALERT_MESSAGE = $ALERT.querySelector('#alert-message');
   if ($ALERT_MESSAGE) {
     $ALERT_MESSAGE.innerHTML = notification.message;
   }
 
+  if (noticeHideTimerGlobal !== null) {
+    window.clearTimeout(noticeHideTimerGlobal);
+    noticeHideTimerGlobal = null;
+  }
+  if (noticeCleanupTimerGlobal !== null) {
+    window.clearTimeout(noticeCleanupTimerGlobal);
+    noticeCleanupTimerGlobal = null;
+  }
+
   const delay = notification.hasOwnProperty('delay') ? Number(notification.delay) : 0;
-  // Show alert (inline implementation to avoid closure dependency)
-  toggleClass($ALERT, { 'opacity-0': false });
+  toggleClass($ALERT, {
+    hidden: false,
+    'opacity-0': true,
+    '-translate-y-4': true,
+    'pointer-events-none': true,
+  });
+  window.requestAnimationFrame(() => {
+    toggleClass($ALERT, {
+      'opacity-0': false,
+      '-translate-y-4': false,
+      'pointer-events-none': false,
+    });
+  });
+
+  const hideNotice = (): void => {
+    toggleClass($ALERT, {
+      'opacity-0': true,
+      '-translate-y-4': true,
+      'pointer-events-none': true,
+    });
+    noticeCleanupTimerGlobal = window.setTimeout(() => {
+      toggleClass($ALERT, { hidden: true });
+      noticeCleanupTimerGlobal = null;
+    }, 220);
+  };
+
   if (delay > 0) {
-    new Promise<void>((resolve) => {
-      setTimeout(() => {
-        toggleClass($ALERT, { 'opacity-0': true });
-        resolve();
-      }, delay);
-    }).then(() => {
-      setTimeout(() => {
-        toggleClass($ALERT, { hidden: true });
-      }, 1000);
+    noticeHideTimerGlobal = window.setTimeout(() => {
+      hideNotice();
+      noticeHideTimerGlobal = null;
+    }, delay);
+  }
+
+  if (!$BUTTON_ALERT_DISMISS.dataset['ambientBound']) {
+    $BUTTON_ALERT_DISMISS.dataset['ambientBound'] = 'true';
+    $BUTTON_ALERT_DISMISS.addEventListener('click', (evt: Event) => {
+      evt.preventDefault();
+      if (noticeHideTimerGlobal !== null) {
+        window.clearTimeout(noticeHideTimerGlobal);
+        noticeHideTimerGlobal = null;
+      }
+      if (noticeCleanupTimerGlobal !== null) {
+        window.clearTimeout(noticeCleanupTimerGlobal);
+        noticeCleanupTimerGlobal = null;
+      }
+      hideNotice();
     });
   }
 }

@@ -121,7 +121,29 @@ test.describe('SC-009-mobile Full-window on mobile viewports', () => {
     await ambientPage.waitForBaseUi();
 
     // Open right drawer on mobile.
-    await ambientPage.openSettingsDrawer();
+    await ambientPage.closePlaylistDrawer();
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await page.evaluate(() => {
+        const playlistClose = document.getElementById('btn-close-playlist') as HTMLElement | null;
+        if (playlistClose) {
+          playlistClose.click();
+        }
+        const btn = document.getElementById('btn-settings') as HTMLElement | null;
+        if (btn) btn.click();
+      });
+      try {
+        await page.waitForFunction(() => {
+          const drawer = document.getElementById('drawer-settings');
+          if (!drawer) return false;
+          return drawer.getAttribute('aria-modal') === 'true' || !drawer.classList.contains('translate-x-full');
+        }, { timeout: 5_000 });
+        break;
+      } catch (error) {
+        if (attempt === 2) {
+          throw error;
+        }
+      }
+    }
     await expect(page.locator('#drawer-settings')).not.toHaveClass(/translate-x-full/);
 
     // Act: toggle full-window ON from bottom menu button (NOT from the drawer toggle).

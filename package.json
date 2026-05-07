@@ -1,6 +1,6 @@
 {
   "name": "ambient",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "scripts": {
     "ts-dev": "tsc --watch",
     "ts-build": "tsc",
@@ -15,10 +15,14 @@
     "@playwright/test": "^1.59.1",
     "@tailwindcss/cli": "^4.2.4",
     "@types/node": "^20.10.0",
+    "@types/sortablejs": "^1.15.9",
     "ajv": "^8.17.1",
     "flowbite": "^4.0.1",
     "playwright": "^1.59.1",
     "tailwindcss": "^4.2.4",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "sortablejs": "^1.15.7"
   }
 }
