@@ -13,7 +13,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 function Invoke-Git {
-  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+  param([Parameter(Mandatory = $true)][string[]]$Args)
   & git @Args
   if ($LASTEXITCODE -ne 0) {
     throw "git $($Args -join ' ') failed with exit code $LASTEXITCODE"
@@ -34,26 +34,30 @@ $releaseBranch = "release/v$Version"
 
 Assert-CleanWorktree
 
-Invoke-Git checkout $MainBranch
-Invoke-Git pull --ff-only $Remote $MainBranch
+Invoke-Git @('checkout', $MainBranch)
+Invoke-Git @('pull', '--ff-only', $Remote, $MainBranch)
 
-Invoke-Git checkout $DevBranch
+Invoke-Git @('checkout', $DevBranch)
 if ($AllowMergeCommit) {
-  Invoke-Git merge $MainBranch
+  Invoke-Git @('merge', $MainBranch)
 } else {
-  Invoke-Git merge --ff-only $MainBranch
+  Invoke-Git @('merge', '--ff-only', $MainBranch)
 }
-Invoke-Git push $Remote $DevBranch
+Invoke-Git @('push', $Remote, $DevBranch)
 
 if (!$KeepReleaseBranch) {
-  $localBranch = & git branch --list $releaseBranch
-  if ($localBranch) {
-    Invoke-Git branch -d $releaseBranch
+  & git show-ref --verify --quiet "refs/heads/$releaseBranch"
+  if ($LASTEXITCODE -eq 0) {
+    Invoke-Git @('branch', '-d', $releaseBranch)
+  } elseif ($LASTEXITCODE -eq 1) {
+    Write-Host "Local branch '$releaseBranch' was already absent."
+  } else {
+    throw "Failed to check local branch '$releaseBranch'."
   }
 
   & git ls-remote --exit-code --heads $Remote $releaseBranch *> $null
   if ($LASTEXITCODE -eq 0) {
-    Invoke-Git push $Remote --delete $releaseBranch
+    Invoke-Git @('push', $Remote, '--delete', $releaseBranch)
   } elseif ($LASTEXITCODE -eq 2) {
     Write-Host "Remote branch '$releaseBranch' was already absent."
   } else {

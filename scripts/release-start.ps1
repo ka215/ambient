@@ -13,7 +13,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 function Invoke-Git {
-  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+  param([Parameter(Mandatory = $true)][string[]]$Args)
   & git @Args
   if ($LASTEXITCODE -ne 0) {
     throw "git $($Args -join ' ') failed with exit code $LASTEXITCODE"
@@ -55,9 +55,9 @@ $releaseBranch = "release/v$Version"
 
 Assert-CleanWorktree
 
-Invoke-Git checkout $BaseBranch
+Invoke-Git @('checkout', $BaseBranch)
 if (!$SkipPull) {
-  Invoke-Git pull --ff-only $Remote $BaseBranch
+  Invoke-Git @('pull', '--ff-only', $Remote, $BaseBranch)
 }
 
 $existingBranch = & git branch --list $releaseBranch
@@ -65,7 +65,7 @@ if ($existingBranch) {
   throw "Local branch '$releaseBranch' already exists."
 }
 
-Invoke-Git checkout -b $releaseBranch
+Invoke-Git @('checkout', '-b', $releaseBranch)
 Update-PackageVersion $Version
 
 $changed = & git status --porcelain -- package.json
@@ -73,9 +73,9 @@ if (!$changed) {
   throw "package.json version is already $Version; no release commit was created."
 }
 
-Invoke-Git add package.json
-Invoke-Git commit -m "chore(release): bump version to $Version"
-Invoke-Git push -u $Remote $releaseBranch
+Invoke-Git @('add', 'package.json')
+Invoke-Git @('commit', '-m', "chore(release): bump version to $Version")
+Invoke-Git @('push', '-u', $Remote, $releaseBranch)
 
 if (!$SkipPr) {
   & gh pr create `
