@@ -71,9 +71,13 @@ Derived UI flags:
 - Items:
   - Normal (enabled)
   - Edit (disabled in v2.2.0)
-  - Reorder (enabled)
+  - Reorder (conditionally enabled)
   - Delete (enabled)
 - Selection transitions state and updates list rendering.
+- Reorder is disabled when:
+  - the current target category is `All categories`, or
+  - the current playlist view contains 1 item or fewer.
+- Cross-category reorder is not supported in v2.2.0.
 
 ### 6.3 Confirmation Modal
 - Triggered when user exits `delete_selecting` or `reorder_editing` via mode button.
@@ -120,6 +124,8 @@ Non-goal:
 - Working order snapshot and rollback.
 - Confirm modal + apply/cancel flow.
 - Persistence update on apply.
+- Reorder entry is blocked when target category is `All categories`.
+- Reorder entry is blocked when visible item count is 1 or fewer.
 
 ### Slice D (v2.3.0): Edit Mode
 - Enable mode selection.
@@ -132,6 +138,8 @@ Non-goal:
 - In non-normal mode, playback click and quick-add item are blocked.
 - Delete mode supports multi-select and confirm apply/cancel behavior.
 - Reorder mode supports DnD and confirm apply/cancel behavior.
+- Reorder is disabled when `All categories` is selected.
+- Reorder is disabled when the current filtered playlist view has 1 item or fewer.
 - Apply operations persist to localStorage for MyPlaylist.
 
 ### v2.3.0
@@ -146,6 +154,8 @@ Non-goal:
   - Reorder apply/cancel rollback.
 - E2E:
   - Delete multiple items then apply.
+  - Reorder disabled in `All categories`.
+  - Reorder disabled when filtered item count is 1 or fewer.
   - Reorder then cancel (restore original).
   - Reorder then apply (persisted order).
   - Ensure normal mode playback works unchanged.

@@ -93,7 +93,12 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
 
     await page.locator('#btn-add-media-from-drawer').click();
 
-    await expect(page.locator('#drawer-playlist')).not.toHaveClass(/-translate-x-full/);
+    const isNarrowViewport = (page.viewportSize()?.width ?? 1400) < 1282;
+    if (isNarrowViewport) {
+      await expect(page.locator('#drawer-playlist')).toHaveClass(/-translate-x-full/);
+    } else {
+      await expect(page.locator('#drawer-playlist')).not.toHaveClass(/-translate-x-full/);
+    }
     await expect(page.locator('#modal-options')).toBeVisible();
     await expect(page.locator('#media-category-new')).toBeVisible();
     await expect(page.locator('#media-category')).toBeHidden();

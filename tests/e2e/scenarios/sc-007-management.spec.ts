@@ -205,6 +205,7 @@ test.describe('SC-007 Playlist/Media management flow', () => {
 
     await ambientPage.openSettingsDrawer();
     await expect(page.locator('#target-category')).toHaveValue(/\d+/);
+    await ambientPage.closeSettingsDrawer();
     await page.evaluate(() => {
       const btn = document.querySelector<HTMLElement>('#btn-options');
       if (btn) btn.click();

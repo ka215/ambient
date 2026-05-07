@@ -3,6 +3,7 @@
  * Ambient Media Player v2 - TypeScript Frontend Application
  * Ported from ambient.js with full type safety
  */
+declare const Sortable: typeof import('sortablejs') | undefined;
 declare const init: () => void;
 declare function execDebug(): void;
 /**

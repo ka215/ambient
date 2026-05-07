@@ -4,6 +4,7 @@
  * Ported from ambient.js with full type safety
  */
 /// <reference path="./types/index.ts" />
+declare const Sortable: typeof import('sortablejs') | undefined;
 
 // ============================================================================
 // INITIALIZATION
@@ -516,6 +517,28 @@ const init = function (): void {
     return playlistMode !== 'normal';
   }
 
+  function getPlaylistItemsForCurrentView(): MediaItem[] {
+    if (!AMP_STATUS.media) return [];
+    if (!AMP_STATUS.hasOwnProperty('ctg') || AMP_STATUS.ctg === null || Number(AMP_STATUS.ctg) === -1) {
+      return AMP_STATUS.media || [];
+    }
+    return (AMP_STATUS.media || []).filter((item: MediaItem) => item.catId === AMP_STATUS.ctg);
+  }
+
+  function isSortableAvailable(): boolean {
+    return typeof Sortable !== 'undefined' && typeof Sortable.create === 'function';
+  }
+
+  function canUseReorderMode(): boolean {
+    if (!isSortableAvailable()) {
+      return false;
+    }
+    if (Number(AMP_STATUS.ctg) === -1) {
+      return false;
+    }
+    return getPlaylistItemsForCurrentView().length > 1;
+  }
+
   function closePlaylistModeMenu(): void {
     if (!$PLAYLIST_MODE_MENU || !$BUTTON_PLAYLIST_MODE) return;
     $PLAYLIST_MODE_MENU.classList.add('hidden');
@@ -540,6 +563,16 @@ const init = function (): void {
       Array.from($PLAYLIST_MODE_MENU.querySelectorAll('.playlist-mode-option')).forEach((elm) => {
         const optElm = elm as HTMLButtonElement;
         const mode = (optElm.dataset['mode'] || '') as PlaylistMode | 'edit';
+        if (mode === 'reorder') {
+          const canReorder = canUseReorderMode();
+          optElm.disabled = !canReorder;
+          optElm.setAttribute('aria-disabled', String(!canReorder));
+          optElm.classList.toggle('text-gray-400', !canReorder);
+          optElm.classList.toggle('dark:text-gray-500', !canReorder);
+          optElm.classList.toggle('cursor-not-allowed', !canReorder);
+          optElm.classList.toggle('hover:bg-gray-100', canReorder);
+          optElm.classList.toggle('dark:hover:bg-gray-600', canReorder);
+        }
         if (mode === playlistMode) {
           optElm.classList.add('text-blue-700', 'dark:text-blue-300');
           optElm.setAttribute('aria-current', 'true');
@@ -556,9 +589,20 @@ const init = function (): void {
       closePlaylistModeMenu();
       return;
     }
+    if (nextMode === 'reorder' && !canUseReorderMode()) {
+      closePlaylistModeMenu();
+      updatePlaylistModeUI();
+      return;
+    }
     // If leaving delete mode without selections, clear just in case
     if (playlistMode === 'delete') {
       deleteSelectedIds.clear();
+    }
+    if (playlistMode === 'reorder' && nextMode !== 'reorder') {
+      resetReorderState();
+    }
+    if (nextMode === 'reorder') {
+      captureReorderSnapshot();
     }
     playlistMode = nextMode;
     closePlaylistModeMenu();
@@ -588,6 +632,27 @@ const init = function (): void {
 
         // Nothing selected: just exit delete mode and return to normal.
         deleteSelectedIds.clear();
+        playlistMode = 'normal';
+        updatePlaylistModeUI();
+        updatePlaylist();
+        return;
+      }
+
+      if (playlistMode === 'reorder') {
+        closePlaylistModeMenu();
+        syncReorderWorkingIdsFromDom();
+        if (isReorderDirty()) {
+          const title = $BUTTON_PLAYLIST_MODE.dataset['confirmReorderTitle'] || 'Apply reordered sequence?';
+          const body = $BUTTON_PLAYLIST_MODE.dataset['confirmReorderBody'] || 'Apply the current item order to your playlist.';
+          openPlaylistConfirmModal(title, body, () => {
+            applyReorderChanges();
+            playlistMode = 'normal';
+            updatePlaylistModeUI();
+            updatePlaylist();
+          });
+          return;
+        }
+        resetReorderState();
         playlistMode = 'normal';
         updatePlaylistModeUI();
         updatePlaylist();
@@ -636,6 +701,10 @@ const init = function (): void {
   const $BTN_PLAYLIST_CONFIRM_CANCEL = document.getElementById('btn-playlist-confirm-cancel') as HTMLButtonElement | null;
 
   let deleteSelectedIds = new Set<number>();
+  let reorderInitialIds: number[] = [];
+  let reorderWorkingIds: number[] = [];
+  let reorderCategoryId: number | null = null;
+  let playlistSortable: { destroy(): void } | null = null;
   let _playlistConfirmApplyCallback: (() => void) | null = null;
 
   function openPlaylistConfirmModal(title: string, body: string, onApply: () => void): void {
@@ -661,6 +730,87 @@ const init = function (): void {
     persistMyPlaylistIfNeeded();
   }
 
+  function destroyPlaylistSortable(): void {
+    if (playlistSortable) {
+      playlistSortable.destroy();
+      playlistSortable = null;
+    }
+  }
+
+  function resetReorderState(): void {
+    destroyPlaylistSortable();
+    reorderInitialIds = [];
+    reorderWorkingIds = [];
+    reorderCategoryId = null;
+  }
+
+  function isReorderDirty(): boolean {
+    return reorderInitialIds.length > 0 &&
+      reorderInitialIds.length === reorderWorkingIds.length &&
+      reorderInitialIds.some((amId, index) => amId !== reorderWorkingIds[index]);
+  }
+
+  function captureReorderSnapshot(): void {
+    reorderCategoryId = Number(AMP_STATUS.ctg);
+    reorderInitialIds = getPlaylistItemsForCurrentView().map((item: MediaItem) => item.amId);
+    reorderWorkingIds = [...reorderInitialIds];
+  }
+
+  function syncReorderWorkingIdsFromDom(): void {
+    reorderWorkingIds = Array.from($LIST_PLAYLIST.querySelectorAll('a[data-playlist-item]')).map((elm) => {
+      return Number((elm as HTMLElement).dataset['playlistItem'] || (elm as HTMLElement).getAttribute('data-playlist-item') || -1);
+    }).filter((amId) => amId >= 0);
+  }
+
+  function applyReorderChanges(): void {
+    if (!AMP_STATUS.media || reorderCategoryId === null || reorderWorkingIds.length === 0) {
+      resetReorderState();
+      return;
+    }
+
+    const mediaById = new Map((AMP_STATUS.media || []).map((item: MediaItem) => [item.amId, item]));
+    const reorderedItems = reorderWorkingIds
+      .map((amId) => mediaById.get(amId))
+      .filter((item): item is MediaItem => !!item);
+    let reorderIndex = 0;
+    AMP_STATUS.media = (AMP_STATUS.media || []).map((item: MediaItem) => {
+      if (item.catId !== reorderCategoryId) {
+        return item;
+      }
+      const nextItem = reorderedItems[reorderIndex];
+      reorderIndex++;
+      return nextItem || item;
+    });
+    persistMyPlaylistIfNeeded();
+    resetReorderState();
+  }
+
+  function ensurePlaylistSortable(): void {
+    if (playlistMode !== 'reorder' || !canUseReorderMode()) {
+      destroyPlaylistSortable();
+      return;
+    }
+    if (playlistSortable) {
+      return;
+    }
+    const sortableLibrary = Sortable;
+    if (!sortableLibrary) {
+      return;
+    }
+    playlistSortable = sortableLibrary.create($LIST_PLAYLIST, {
+      animation: 150,
+      draggable: 'a[data-playlist-item]',
+      forceFallback: true,
+      fallbackOnBody: true,
+      ghostClass: 'playlist-reorder-ghost',
+      chosenClass: 'playlist-reorder-chosen',
+      dragClass: 'playlist-reorder-drag',
+      onEnd: () => {
+        syncReorderWorkingIdsFromDom();
+      },
+    });
+  }
+
   if ($BTN_PLAYLIST_CONFIRM_APPLY) {
     $BTN_PLAYLIST_CONFIRM_APPLY.addEventListener('click', () => {
       if (_playlistConfirmApplyCallback) _playlistConfirmApplyCallback();
@@ -670,6 +820,10 @@ const init = function (): void {
 
   if ($BTN_PLAYLIST_CONFIRM_CANCEL) {
     $BTN_PLAYLIST_CONFIRM_CANCEL.addEventListener('click', () => {
+      if (playlistMode === 'reorder') {
+        reorderWorkingIds = [...reorderInitialIds];
+        updatePlaylist();
+      }
       closePlaylistConfirmModal();
     });
   }
@@ -911,6 +1065,26 @@ const init = function (): void {
     }
   }
 
+  function closePlaylistDrawerForModalIfNeeded(): void {
+    if (currentWindowSize.width >= currentWindowSize.minFullUIWidth) {
+      return;
+    }
+    if (!isDrawerOpen($DRAWER_PLAYLIST, '-translate-x-full')) {
+      return;
+    }
+    (document.getElementById('btn-close-playlist') as HTMLButtonElement | null)?.click();
+  }
+
+  function closeSettingsDrawerForModalIfNeeded(): void {
+    if (currentWindowSize.width >= currentWindowSize.minFullUIWidth) {
+      return;
+    }
+    if (!isDrawerOpen($DRAWER_SETTINGS, 'translate-x-full')) {
+      return;
+    }
+    (document.getElementById('btn-close-settings') as HTMLButtonElement | null)?.click();
+  }
+
   function getActiveCategoryId(): number | null {
     return (AMP_STATUS.ctg !== undefined && AMP_STATUS.ctg !== null && Number(AMP_STATUS.ctg) >= 0)
       ? Number(AMP_STATUS.ctg)
@@ -957,6 +1131,8 @@ const init = function (): void {
       optionsModalHideTimer = null;
     }
 
+    closePlaylistDrawerForModalIfNeeded();
+    closeSettingsDrawerForModalIfNeeded();
     cleanupOptionsModalBackdrops();
 
     $MODAL_OPTIONS.classList.add('flex');
@@ -1069,8 +1245,6 @@ const init = function (): void {
    * Optionally pre-selects the category matching the current filter.
    */
   function openMediaManagement(presetCategoryId: number | null = null): void {
-    // Keep left drawer open by request; do not force-close it here.
-
     // Refresh category UI before opening modal so undefined-category playlists
     // switch to text-input mode reliably.
     clearCategory();
@@ -1121,6 +1295,7 @@ const init = function (): void {
    * Create a playlist from the data of the AMP_STATUS object.
    */
   function updatePlaylist(): void {
+    destroyPlaylistSortable();
     clearPlaylist();
     const $LIST_NO_MEDIA = document.getElementById('no-media') as HTMLElement;
     let is_no_media =
@@ -1148,6 +1323,7 @@ const init = function (): void {
         $BUTTON_PLAYLIST_MODE.classList.add('opacity-50', 'cursor-not-allowed');
         if (playlistMode !== 'normal') {
           deleteSelectedIds.clear();
+          resetReorderState();
           playlistMode = 'normal';
           updatePlaylistModeUI();
         }
@@ -1162,6 +1338,12 @@ const init = function (): void {
       }
     }
 
+    if (playlistMode === 'reorder' && !canUseReorderMode()) {
+      resetReorderState();
+      playlistMode = 'normal';
+    }
+    updatePlaylistModeUI();
+
     const isShuffle = getOption('shuffle') || false;
     if (isShuffle) {
       // Shuffle (evenly mix) the items array
@@ -1175,13 +1357,19 @@ const init = function (): void {
     items.forEach((item: MediaItem) => {
       const itemElm = document.createElement('a');
       itemElm.href = '#';
+      itemElm.draggable = false;
       if (AMP_STATUS.current && AMP_STATUS.current !== null && AMP_STATUS.current === item.amId) {
         itemElm.setAttribute('aria-current', 'true');
         itemElm.setAttribute('class', 'flex items-center gap-2 w-full px-4 py-2 text-white bg-blue-500 border-b border-gray-200 cursor-pointer dark:bg-gray-800 dark:border-gray-600');
       } else {
         itemElm.setAttribute('class', 'flex items-center gap-2 w-full px-4 py-2 border-b border-gray-200 cursor-pointer hover:bg-gray-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-500 dark:focus:text-white');
       }
+      if (playlistMode === 'reorder') {
+        itemElm.classList.remove('cursor-pointer');
+        itemElm.classList.add('cursor-grab', 'active:cursor-grabbing', 'select-none');
+      }
       itemElm.setAttribute('data-playlist-item', String(item.amId));
+      itemElm.setAttribute('data-id', String(item.amId));
 
       let imageSrc = './views/images/no-media-thumb.svg';
       if ((item.image && item.image !== '') || (item.thumb && item.thumb !== '')) {
@@ -1196,6 +1384,7 @@ const init = function (): void {
       // Set thumbnail image.
       const imgElm = document.createElement('img');
       imgElm.setAttribute('src', imageSrc);
+      imgElm.draggable = false;
       imgElm.classList.add('block', 'h-8', 'w-8', 'rounded', 'object-cover');
       imgElm.setAttribute('alt', mb_strimwidth(item.title, 0, 50, '...'));
       itemElm.appendChild(imgElm);
@@ -1212,6 +1401,12 @@ const init = function (): void {
           chkElm.innerHTML = '<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>';
         }
         itemElm.prepend(chkElm);
+      } else if (playlistMode === 'reorder') {
+        const handleElm = document.createElement('span');
+        handleElm.setAttribute('aria-hidden', 'true');
+        handleElm.className = 'playlist-reorder-handle flex-shrink-0 order-first inline-flex items-center justify-center w-5 h-5 text-gray-400 cursor-grab active:cursor-grabbing dark:text-gray-500';
+        handleElm.innerHTML = '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01"/></svg>';
+        itemElm.prepend(handleElm);
       }
 
       let labelText = item.title;
@@ -1251,6 +1446,8 @@ const init = function (): void {
         $BUTTON_PAUSE.classList.remove('hidden');
       });
     });
+
+    ensurePlaylistSortable();
 
     // Append "[+] Add media" item at the bottom of the playlist
     // Hidden in cloud mode for existing JSON playlists (read-only)
@@ -1770,6 +1967,12 @@ const init = function (): void {
       oldPlaylist = AMP_STATUS.playlist;
     }
     if (oldPlaylist !== newPlaylist) {
+      if (playlistMode !== 'normal') {
+        deleteSelectedIds.clear();
+        resetReorderState();
+        playlistMode = 'normal';
+        updatePlaylistModeUI();
+      }
       clearCategory();
       getPlaylistData(newPlaylist);
     }
@@ -1787,6 +1990,12 @@ const init = function (): void {
     }
     const newCtgId = Number((evt.target as HTMLSelectElement).value);
     if (oldCtgId !== newCtgId) {
+      if (playlistMode !== 'normal') {
+        deleteSelectedIds.clear();
+        resetReorderState();
+        playlistMode = 'normal';
+        updatePlaylistModeUI();
+      }
       AMP_STATUS.ctg = newCtgId;
       AMP_STATUS.prev = null;
       AMP_STATUS.current = null;

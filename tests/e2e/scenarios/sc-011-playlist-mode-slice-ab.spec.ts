@@ -1,6 +1,6 @@
 import { Page, expect } from '@playwright/test';
 
-import { test } from '../fixtures/ambient-page.fixture';
+import { AmbientPage, test } from '../fixtures/ambient-page.fixture';
 
 const MYPLAYLIST_NAME = 'MyPlaylist.json';
 
@@ -29,6 +29,28 @@ function buildMyPlaylist(items: SeedItem[]) {
   };
 }
 
+function buildMultiCategoryMyPlaylist(categories: Record<string, SeedItem[]>) {
+  const playlist: Record<string, unknown> = {};
+  Object.entries(categories).forEach(([categoryName, items]) => {
+    playlist[categoryName] = items.map((item) => ({
+      title: item.title,
+      videoid: item.videoid,
+      artist: 'E2E Artist',
+      desc: '',
+      start: '',
+      end: '',
+    }));
+  });
+  playlist.options = {
+    dark: false,
+    seek: false,
+    shuffle: false,
+    fader: false,
+    volume: 50,
+  };
+  return playlist;
+}
+
 async function seedMyPlaylist(page: Page, items: SeedItem[]): Promise<void> {
   const payload = JSON.stringify(buildMyPlaylist(items));
   await page.addInitScript((playlistJson) => {
@@ -44,6 +66,13 @@ async function seedEmptyMyPlaylist(page: Page): Promise<void> {
   });
 }
 
+async function seedNamedMyPlaylist(page: Page, payload: Record<string, unknown>): Promise<void> {
+  await page.addInitScript((playlistJson) => {
+    localStorage.clear();
+    localStorage.setItem('AmbientMyPlaylist', playlistJson);
+  }, JSON.stringify(payload));
+}
+
 async function openModeMenu(page: Page): Promise<void> {
   await page.locator('#btn-playlist-mode').click();
   await expect(page.locator('#playlist-mode-menu')).toBeVisible();
@@ -52,6 +81,30 @@ async function openModeMenu(page: Page): Promise<void> {
 async function selectMode(page: Page, mode: 'normal' | 'reorder' | 'delete'): Promise<void> {
   await openModeMenu(page);
   await page.locator(`#playlist-mode-menu .playlist-mode-option[data-mode="${mode}"]`).click();
+}
+
+async function selectTargetCategory(page: Page, ambientPage: AmbientPage, label: string): Promise<void> {
+  await ambientPage.openSettingsDrawer();
+  await page.locator('#target-category').selectOption({ label });
+  await page.locator('#target-category').dispatchEvent('change');
+  await ambientPage.closeSettingsDrawer();
+  await ambientPage.openPlaylistDrawer();
+}
+
+async function dragPlaylistItem(page: Page, fromIndex: number, toIndex: number): Promise<void> {
+  await page.evaluate(({ sourceIndex, targetIndex }) => {
+    const list = document.getElementById('playlist-list-group') as HTMLElement | null;
+    if (!list) return;
+    const items = Array.from(list.querySelectorAll('a[data-playlist-item]'));
+    const source = items[sourceIndex] as HTMLElement | undefined;
+    const target = items[targetIndex] as HTMLElement | undefined;
+    if (!source || !target || source === target) return;
+    if (targetIndex > sourceIndex) {
+      list.insertBefore(source, target.nextSibling);
+    } else {
+      list.insertBefore(source, target);
+    }
+  }, { sourceIndex: fromIndex, targetIndex: toIndex });
 }
 
 test.describe('SC-011 Playlist mode Slice A/B', () => {
@@ -113,13 +166,78 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
     await expect(page.locator('#btn-play')).toBeVisible();
     await expect(page.locator('#btn-pause')).toBeHidden();
 
-    await selectMode(page, 'reorder');
-    await expect(page.locator('#playlist-mode-button-label')).toContainText(/並び替え|Reorder/);
+    await selectMode(page, 'delete');
+    await expect(page.locator('#playlist-mode-button-label')).toContainText(/削除|Delete/);
     await expect(page.locator('#btn-add-media-from-playlist')).toHaveCount(0);
 
     await page.locator('#playlist-list-group a[data-playlist-item]').nth(1).click();
     await expect(page.locator('#btn-play')).toBeVisible();
     await expect(page.locator('#btn-pause')).toBeHidden();
+  });
+
+  test('disables reorder when All categories is selected', async ({ page }) => {
+    await openModeMenu(page);
+    await expect(page.locator('#playlist-mode-menu .playlist-mode-option[data-mode="reorder"]')).toBeDisabled();
+  });
+
+  test('disables reorder when the filtered category has one item or fewer', async ({ page, ambientPage, browserName }) => {
+    test.skip(browserName !== 'chromium');
+    await seedNamedMyPlaylist(page, buildMultiCategoryMyPlaylist({
+      Solo: [{ title: 'solo-1', videoid: 'dQw4w9WgXcQ' }],
+      Duo: [
+        { title: 'duo-1', videoid: 'gu7T0D50wFk' },
+        { title: 'duo-2', videoid: '3JZ_D3ELwOQ' },
+      ],
+    }));
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.waitForPlaylistReady();
+    await selectTargetCategory(page, ambientPage, 'Solo');
+
+    await openModeMenu(page);
+    await expect(page.locator('#playlist-mode-menu .playlist-mode-option[data-mode="reorder"]')).toBeDisabled();
+  });
+
+  test('reorder mode applies new order and persists to localStorage (Slice C)', async ({ page, ambientPage }) => {
+    await selectTargetCategory(page, ambientPage, 'E2E');
+    await expect(page.locator('#playlist-list-group a[data-playlist-item]')).toHaveCount(3);
+
+    await selectMode(page, 'reorder');
+    await expect(page.locator('#playlist-mode-button-label')).toContainText(/並び替え|Reorder/);
+    await expect(page.locator('#btn-add-media-from-playlist')).toHaveCount(0);
+    await expect(page.locator('.playlist-reorder-handle')).toHaveCount(3);
+
+    await dragPlaylistItem(page, 0, 2);
+    await page.locator('#btn-playlist-mode').click();
+    await expect(page.locator('#modal-playlist-confirm')).toBeVisible();
+    await page.locator('#btn-playlist-confirm-apply').click();
+
+    await expect(page.locator('#playlist-mode-button-label')).toContainText(/モード変更|Mode Change/);
+    await expect.poll(async () => page.locator('#playlist-list-group a[data-playlist-item]').allTextContents()).toEqual([
+      expect.stringContaining('slice-ab-2'),
+      expect.stringContaining('slice-ab-3'),
+      expect.stringContaining('slice-ab-1'),
+    ]);
+    await expect.poll(async () => page.evaluate(() => localStorage.getItem('AmbientMyPlaylist') || '')).toContain('slice-ab-1');
+  });
+
+  test('reorder mode discards working order on cancel (Slice C)', async ({ page, ambientPage }) => {
+    await selectTargetCategory(page, ambientPage, 'E2E');
+    await selectMode(page, 'reorder');
+
+    await dragPlaylistItem(page, 0, 2);
+    await page.locator('#btn-playlist-mode').click();
+    await expect(page.locator('#modal-playlist-confirm')).toBeVisible();
+    await page.locator('#btn-playlist-confirm-cancel').click();
+
+    await expect(page.locator('#playlist-mode-button-label')).toContainText(/並び替え|Reorder/);
+    await page.locator('#btn-playlist-mode').click();
+    await expect(page.locator('#playlist-mode-button-label')).toContainText(/モード変更|Mode Change/);
+    await expect.poll(async () => page.locator('#playlist-list-group a[data-playlist-item]').allTextContents()).toEqual([
+      expect.stringContaining('slice-ab-1'),
+      expect.stringContaining('slice-ab-2'),
+      expect.stringContaining('slice-ab-3'),
+    ]);
   });
 
   test('shows delete confirm modal and keeps selection on cancel (Slice B)', async ({ page }) => {
@@ -245,7 +363,7 @@ test.describe('SC-011 No-media register button', () => {
     await expect(page.locator('#btn-playlist-mode')).toBeDisabled();
   });
 
-  test('reopens options after backdrop close from no-media register button', async ({ page }) => {
+  test('reopens options after backdrop close from no-media register button', async ({ page, ambientPage }) => {
     await page.locator('#btn-add-media-from-drawer').click();
     await expect(page.locator('#modal-options')).toBeVisible();
 
@@ -258,6 +376,7 @@ test.describe('SC-011 No-media register button', () => {
     await page.locator('#btn-close-options').click();
     await expect(page.locator('#modal-options')).toBeHidden();
 
+    await ambientPage.openPlaylistDrawer();
     await page.locator('#btn-add-media-from-drawer').click();
     await expect(page.locator('#modal-options')).toBeVisible();
   });

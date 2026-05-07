@@ -25,20 +25,74 @@ export class AmbientPage {
     });
   }
 
+  private async isPlaylistDrawerOpen(): Promise<boolean> {
+    return this.page.evaluate(() => {
+      const drawer = document.getElementById('drawer-playlist');
+      if (!drawer) return false;
+      const hiddenByClass = drawer.classList.contains('-translate-x-full');
+      const ariaModal = drawer.getAttribute('aria-modal') === 'true';
+      return ariaModal || !hiddenByClass;
+    });
+  }
+
+  private async isSettingsDrawerOpen(): Promise<boolean> {
+    return this.page.evaluate(() => {
+      const drawer = document.getElementById('drawer-settings');
+      if (!drawer) return false;
+      const hiddenByClass = drawer.classList.contains('translate-x-full');
+      const ariaModal = drawer.getAttribute('aria-modal') === 'true';
+      return ariaModal || !hiddenByClass;
+    });
+  }
+
   async openPlaylistDrawer(): Promise<void> {
-    // If already open (full UI mode: width >= 1282), skip
-    const isOpen = await this.page.evaluate(
-      () => !document.getElementById('drawer-playlist')?.classList.contains('-translate-x-full')
-    );
-    if (!isOpen) {
-      await this.page.evaluate(() => {
-        const btn = document.getElementById('btn-playlist') as HTMLElement | null;
-        if (btn) btn.click();
-      });
+    const shouldCloseSettingsDrawer = await this.page.evaluate(() => {
+      const isFullUi = window.innerWidth >= 1282;
+      const settingsDrawer = document.getElementById('drawer-settings');
+      const isSettingsOpen = !settingsDrawer?.classList.contains('translate-x-full');
+      return !isFullUi && isSettingsOpen;
+    });
+    if (shouldCloseSettingsDrawer) {
+      await this.closeSettingsDrawer();
     }
-    await this.page.waitForFunction(
-      () => !document.getElementById('drawer-playlist')?.classList.contains('-translate-x-full')
-    );
+
+    // If already open (full UI mode: width >= 1282), skip
+    const isOpen = await this.isPlaylistDrawerOpen();
+    if (!isOpen) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        await this.page.evaluate(() => {
+          const btn = document.getElementById('btn-playlist') as HTMLElement | null;
+          if (btn) btn.click();
+        });
+        try {
+          await this.page.waitForFunction(
+            () => {
+              const drawer = document.getElementById('drawer-playlist');
+              if (!drawer) return false;
+              const hiddenByClass = drawer.classList.contains('-translate-x-full');
+              const ariaModal = drawer.getAttribute('aria-modal') === 'true';
+              return ariaModal || !hiddenByClass;
+            },
+            { timeout: 5_000 }
+          );
+          break;
+        } catch (error) {
+          if (attempt === 2) {
+            throw error;
+          }
+        }
+      }
+    } else {
+      await this.page.waitForFunction(
+        () => {
+          const drawer = document.getElementById('drawer-playlist');
+          if (!drawer) return false;
+          const hiddenByClass = drawer.classList.contains('-translate-x-full');
+          const ariaModal = drawer.getAttribute('aria-modal') === 'true';
+          return ariaModal || !hiddenByClass;
+        }
+      );
+    }
     // Wait until playlist items are visible OR the no-media notice is shown (empty playlist).
     await this.page.waitForFunction(() => {
       const items = document.querySelectorAll('#playlist-list-group a[data-playlist-item]').length;
@@ -51,7 +105,7 @@ export class AmbientPage {
   async closePlaylistDrawer(): Promise<void> {
     const shouldClose = await this.page.evaluate(() => {
       const drawer = document.getElementById('drawer-playlist');
-      const isOpen = !drawer?.classList.contains('-translate-x-full');
+      const isOpen = !!drawer && (drawer.getAttribute('aria-modal') === 'true' || !drawer.classList.contains('-translate-x-full'));
       const isFullUi = window.innerWidth >= 1282;
       return isOpen && !isFullUi;
     });
@@ -61,31 +115,69 @@ export class AmbientPage {
         if (btn) btn.click();
       });
       await this.page.waitForFunction(
-        () => !!document.getElementById('drawer-playlist')?.classList.contains('-translate-x-full')
+        () => {
+          const drawer = document.getElementById('drawer-playlist');
+          if (!drawer) return true;
+          return drawer.getAttribute('aria-modal') !== 'true' && drawer.classList.contains('-translate-x-full');
+        }
       );
     }
   }
 
   async openSettingsDrawer(): Promise<void> {
-    // Check if already open before clicking to avoid toggling a drawer that is already visible.
-    const isOpen = await this.page.evaluate(
-      () => !document.getElementById('drawer-settings')?.classList.contains('translate-x-full')
-    );
-    if (!isOpen) {
-      await this.page.evaluate(() => {
-        const btn = document.getElementById('btn-settings') as HTMLElement | null;
-        if (btn) btn.click();
-      });
+    const shouldClosePlaylistDrawer = await this.page.evaluate(() => {
+      const isFullUi = window.innerWidth >= 1282;
+      const playlistDrawer = document.getElementById('drawer-playlist');
+      const isPlaylistOpen = !playlistDrawer?.classList.contains('-translate-x-full');
+      return !isFullUi && isPlaylistOpen;
+    });
+    if (shouldClosePlaylistDrawer) {
+      await this.closePlaylistDrawer();
     }
-    await this.page.waitForFunction(
-      () => !document.getElementById('drawer-settings')?.classList.contains('translate-x-full')
-    );
+
+    // Check if already open before clicking to avoid toggling a drawer that is already visible.
+    const isOpen = await this.isSettingsDrawerOpen();
+    if (!isOpen) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        await this.page.evaluate(() => {
+          const btn = document.getElementById('btn-settings') as HTMLElement | null;
+          if (btn) btn.click();
+        });
+        try {
+          await this.page.waitForFunction(
+            () => {
+              const drawer = document.getElementById('drawer-settings');
+              if (!drawer) return false;
+              const hiddenByClass = drawer.classList.contains('translate-x-full');
+              const ariaModal = drawer.getAttribute('aria-modal') === 'true';
+              return ariaModal || !hiddenByClass;
+            },
+            { timeout: 5_000 }
+          );
+          break;
+        } catch (error) {
+          if (attempt === 2) {
+            throw error;
+          }
+        }
+      }
+    } else {
+      await this.page.waitForFunction(
+        () => {
+          const drawer = document.getElementById('drawer-settings');
+          if (!drawer) return false;
+          const hiddenByClass = drawer.classList.contains('translate-x-full');
+          const ariaModal = drawer.getAttribute('aria-modal') === 'true';
+          return ariaModal || !hiddenByClass;
+        }
+      );
+    }
   }
 
   async closeSettingsDrawer(): Promise<void> {
     const shouldClose = await this.page.evaluate(() => {
       const drawer = document.getElementById('drawer-settings');
-      const isOpen = !drawer?.classList.contains('translate-x-full');
+      const isOpen = !!drawer && (drawer.getAttribute('aria-modal') === 'true' || !drawer.classList.contains('translate-x-full'));
       const isFullUi = window.innerWidth >= 1282;
       return isOpen && !isFullUi;
     });
@@ -101,9 +193,7 @@ export class AmbientPage {
       }
     });
 
-    const stillOpen = await this.page.evaluate(
-      () => !document.getElementById('drawer-settings')?.classList.contains('translate-x-full')
-    );
+    const stillOpen = await this.isSettingsDrawerOpen();
     if (stillOpen) {
       await this.page.evaluate(() => {
         const settingsBtn = document.getElementById('btn-settings') as HTMLElement | null;
@@ -114,7 +204,11 @@ export class AmbientPage {
     }
 
     await this.page.waitForFunction(
-      () => !!document.getElementById('drawer-settings')?.classList.contains('translate-x-full')
+      () => {
+        const drawer = document.getElementById('drawer-settings');
+        if (!drawer) return true;
+        return drawer.getAttribute('aria-modal') !== 'true' && drawer.classList.contains('translate-x-full');
+      }
     );
   }
 

@@ -27,6 +27,8 @@
               data-label-mode-change="<?= __( 'Mode Change' ) ?>"
               data-confirm-delete-title="<?= __( 'Delete selected items?' ) ?>"
               data-confirm-delete-body="<?= __( 'Selected items will be removed from your playlist.' ) ?>"
+              data-confirm-reorder-title="<?= __( 'Apply reordered sequence?' ) ?>"
+              data-confirm-reorder-body="<?= __( 'Apply the current item order to your playlist.' ) ?>"
             >
                 <span id="playlist-mode-button-icon" class="inline-flex items-center justify-center" aria-hidden="true">
                     <svg class="w-4 h-4 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
