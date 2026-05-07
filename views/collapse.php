@@ -186,7 +186,7 @@
                           id="media-category-new"
                           name="category_new_name"
                           class="hidden border text-sm rounded-lg block w-full p-2.5 normal-input"
-                          placeholder="<?= __( 'New Category' ) ?>"
+                          placeholder="<?= __( 'Please enter a category name' ) ?>"
                           value="<?= __( 'New Category' ) ?>"
                           data-default-value="<?= __( 'New Category' ) ?>"
                           data-validate="false"

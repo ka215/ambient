@@ -4,8 +4,9 @@
 module.exports = {
   content: [
       "./src/**/*.js",
+      "./src/**/*.ts",
       "./views/**/*.{php,html}",
-      "./dist/*.js",
+      "./dist/**/*.js",
   ],
   safelist: [
     // Opacity variants for carousel button styling
@@ -14,6 +15,8 @@ module.exports = {
     { pattern: /^group-hover:bg-gray-900\/\d+$/ },
     { pattern: /^dark:group-hover:bg-gray-100\/\d+$/ },
     'bg-gray-900/50', 'bg-gray-900/70', 'bg-gray-900/85',
+    'bg-gray-950/60',
+    'backdrop-blur-sm',
     'dark:bg-gray-100/35', 'dark:bg-gray-100/55',
     'group-hover:bg-gray-900/85',
     'dark:group-hover:bg-gray-100/55',
