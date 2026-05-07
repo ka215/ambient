@@ -236,6 +236,19 @@ const init = function (): void {
     return true;
   }
 
+  function getAmbientData(): AmbientData | undefined {
+    return (window as any).AmbientData as AmbientData | undefined;
+  }
+
+  function canMutateCurrentPlaylist(): boolean {
+    const ambientData = getAmbientData();
+    if (ambientData?.isCloud === true) {
+      return AMP_STATUS.playlist === MYPLAYLIST_NAME || !AMP_STATUS.playlist;
+    }
+    // Local JSON playlist write-back is intentionally left for a later release.
+    return false;
+  }
+
   /**
    * Load MyPlaylist from localStorage and populate AMP_STATUS as if a
    * normal JSON playlist was loaded from the server.
@@ -386,15 +399,14 @@ const init = function (): void {
    * MyPlaylist (localStorage-only virtual playlist) is always editable.
    */
   function applyCloudEditRestrictions(): void {
-    const ambientData = (window as any).AmbientData as AmbientData;
+    const ambientData = getAmbientData();
     if (!ambientData?.isCloud) return;
-    const MYPLAYLIST_NAME = 'MyPlaylist.json';
-    const isMyPlaylist = AMP_STATUS.playlist === MYPLAYLIST_NAME || !AMP_STATUS.playlist;
+    const canMutatePlaylist = canMutateCurrentPlaylist();
     const $BTN_ADD_MEDIA = document.getElementById('btn-add-media');
     const $BTN_CREATE_CATEGORY = document.getElementById('btn-create-category');
     const $MEDIA_MANAGE_FORM_EL = document.querySelector('form[name="mediaManagement"]') as HTMLFormElement | null;
     const $PLAYLIST_MANAGE_NOTICE = document.getElementById('cloud-readonly-notice');
-    if (!isMyPlaylist) {
+    if (!canMutatePlaylist) {
       // Disable add-media button
       if ($BTN_ADD_MEDIA) {
         ($BTN_ADD_MEDIA as HTMLButtonElement).disabled = true;
@@ -530,6 +542,9 @@ const init = function (): void {
   }
 
   function canUseReorderMode(): boolean {
+    if (!canMutateCurrentPlaylist()) {
+      return false;
+    }
     if (!isSortableAvailable()) {
       return false;
     }
@@ -584,7 +599,35 @@ const init = function (): void {
     }
   }
 
+  function resetPlaylistOperationMode(): void {
+    deleteSelectedIds.clear();
+    resetReorderState();
+    playlistMode = 'normal';
+    updatePlaylistModeUI();
+  }
+
+  function syncPlaylistModeAvailability(visibleItemCount: number): void {
+    if (!$BUTTON_PLAYLIST_MODE) return;
+    const canUsePlaylistModes = canMutateCurrentPlaylist() && visibleItemCount > 0;
+    if (!canUsePlaylistModes) {
+      closePlaylistModeMenu();
+      if (playlistMode !== 'normal') {
+        resetPlaylistOperationMode();
+      }
+    }
+    $BUTTON_PLAYLIST_MODE.disabled = !canUsePlaylistModes;
+    $BUTTON_PLAYLIST_MODE.classList.toggle('opacity-50', !canUsePlaylistModes);
+    $BUTTON_PLAYLIST_MODE.classList.toggle('cursor-not-allowed', !canUsePlaylistModes);
+    $BUTTON_PLAYLIST_MODE.setAttribute('aria-disabled', String(!canUsePlaylistModes));
+    updatePlaylistModeUI();
+  }
+
   function setPlaylistMode(nextMode: PlaylistMode): void {
+    if (nextMode !== 'normal' && !canMutateCurrentPlaylist()) {
+      closePlaylistModeMenu();
+      syncPlaylistModeAvailability(getPlaylistItemsForCurrentView().length);
+      return;
+    }
     if (playlistMode === nextMode) {
       closePlaylistModeMenu();
       return;
@@ -722,6 +765,10 @@ const init = function (): void {
   }
 
   function applyDeleteSelections(): void {
+    if (!canMutateCurrentPlaylist()) {
+      deleteSelectedIds.clear();
+      return;
+    }
     if (!AMP_STATUS.media || deleteSelectedIds.size === 0) return;
     AMP_STATUS.media = (AMP_STATUS.media as MediaItem[]).filter(
       (item: MediaItem) => !deleteSelectedIds.has(item.amId)
@@ -763,6 +810,10 @@ const init = function (): void {
   }
 
   function applyReorderChanges(): void {
+    if (!canMutateCurrentPlaylist()) {
+      resetReorderState();
+      return;
+    }
     if (!AMP_STATUS.media || reorderCategoryId === null || reorderWorkingIds.length === 0) {
       resetReorderState();
       return;
@@ -1307,6 +1358,7 @@ const init = function (): void {
       items = (AMP_STATUS.media || []).filter((item: MediaItem) => item.catId === AMP_STATUS.ctg);
     }
     is_no_media = items.length === 0;
+    syncPlaylistModeAvailability(items.length);
 
     // Enable playlist download
     const $BUTTON_DOWNLOAD_PLAYLIST = document.getElementById('btn-download-playlist') as HTMLButtonElement;
@@ -1317,25 +1369,9 @@ const init = function (): void {
       $LIST_NO_MEDIA.classList.remove('hidden');
       // close mode menu so it doesn't overlap the "Register media" button
       closePlaylistModeMenu();
-      // disable mode button when playlist is empty
-      if ($BUTTON_PLAYLIST_MODE) {
-        $BUTTON_PLAYLIST_MODE.disabled = true;
-        $BUTTON_PLAYLIST_MODE.classList.add('opacity-50', 'cursor-not-allowed');
-        if (playlistMode !== 'normal') {
-          deleteSelectedIds.clear();
-          resetReorderState();
-          playlistMode = 'normal';
-          updatePlaylistModeUI();
-        }
-      }
       return;
     } else {
       $LIST_NO_MEDIA.classList.add('hidden');
-      // re-enable mode button when playlist has items
-      if ($BUTTON_PLAYLIST_MODE) {
-        $BUTTON_PLAYLIST_MODE.disabled = false;
-        $BUTTON_PLAYLIST_MODE.classList.remove('opacity-50', 'cursor-not-allowed');
-      }
     }
 
     if (playlistMode === 'reorder' && !canUseReorderMode()) {
@@ -1452,11 +1488,7 @@ const init = function (): void {
     // Append "[+] Add media" item at the bottom of the playlist
     // Hidden in cloud mode for existing JSON playlists (read-only)
     // and hidden when playlist operation mode is not normal.
-    const _ambDataForAdd = (window as any).AmbientData as AmbientData;
-    const _isCloudReadOnly = _ambDataForAdd?.isCloud === true &&
-      AMP_STATUS.playlist !== null &&
-      AMP_STATUS.playlist !== MYPLAYLIST_NAME;
-    if (!_isCloudReadOnly && playlistMode === 'normal') {
+    if (canMutateCurrentPlaylist() && playlistMode === 'normal') {
       const addItemElm = document.createElement('a');
       addItemElm.href = '#';
       addItemElm.setAttribute('id', 'btn-add-media-from-playlist');

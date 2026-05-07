@@ -180,6 +180,19 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
     await expect(page.locator('#playlist-mode-menu .playlist-mode-option[data-mode="reorder"]')).toBeDisabled();
   });
 
+  test('disables playlist operation modes for read-only JSON playlists', async ({ page, ambientPage }) => {
+    await ambientPage.selectPlaylist('mememori-youtube.json');
+    await ambientPage.openPlaylistDrawer();
+
+    await expect(page.locator('#playlist-list-group a[data-playlist-item]').first()).toBeVisible();
+    await expect(page.locator('#btn-playlist-mode')).toBeDisabled();
+    await expect(page.locator('#btn-add-media-from-playlist')).toHaveCount(0);
+
+    await page.locator('#playlist-list-group a[data-playlist-item]').first().click();
+    await expect(page.locator('#btn-play')).toBeHidden();
+    await expect(page.locator('#btn-pause')).toBeVisible();
+  });
+
   test('disables reorder when the filtered category has one item or fewer', async ({ page, ambientPage, browserName }) => {
     test.skip(browserName !== 'chromium');
     await seedNamedMyPlaylist(page, buildMultiCategoryMyPlaylist({
