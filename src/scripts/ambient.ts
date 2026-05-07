@@ -61,6 +61,7 @@ const init = function (): void {
     height: window.innerHeight,
     minFullUIWidth: 1282, // = 320 + 1 + 640 + 1 + 320
   };
+  let viewportMetricsTimer: number | null = null;
 
   // Advance preparation for using YouTube players.
   const tag = document.createElement('script');
@@ -482,6 +483,49 @@ const init = function (): void {
   let optionsModalHideTimer: number | null = null;
   if (isElement($MODAL_OPTIONS) && $MODAL_OPTIONS.parentElement !== document.body) {
     document.body.appendChild($MODAL_OPTIONS);
+  }
+
+  function getViewportWidth(): number {
+    return Math.round(window.visualViewport?.width || window.innerWidth);
+  }
+
+  function getViewportHeight(): number {
+    return Math.round(window.visualViewport?.height || window.innerHeight);
+  }
+
+  function syncViewportMetrics(): void {
+    const visualViewport = window.visualViewport;
+    const width = getViewportWidth();
+    const height = getViewportHeight();
+    const offsetTop = Math.max(0, Math.round(visualViewport?.offsetTop || 0));
+    const visualBottomInset = Math.max(0, Math.round(window.innerHeight - height - offsetTop));
+    const rootStyle = document.documentElement.style;
+    rootStyle.setProperty('--amp-viewport-width', `${width}px`);
+    rootStyle.setProperty('--amp-viewport-height', `${height}px`);
+    rootStyle.setProperty('--amp-visual-offset-top', `${offsetTop}px`);
+    rootStyle.setProperty('--amp-visual-bottom-inset', `${visualBottomInset}px`);
+    document.body.style.minHeight = `${height}px`;
+    document.body.style.height = `${height}px`;
+    currentWindowSize.width = width;
+    currentWindowSize.height = height;
+  }
+
+  function scheduleViewportMetricsSync(delay = 0): void {
+    if (viewportMetricsTimer !== null) {
+      window.clearTimeout(viewportMetricsTimer);
+    }
+    viewportMetricsTimer = window.setTimeout(() => {
+      viewportMetricsTimer = null;
+      syncViewportMetrics();
+      updateWindowSize();
+    }, delay);
+  }
+
+  function refreshViewportMetricsAfter(delay: number): void {
+    window.setTimeout(() => {
+      syncViewportMetrics();
+      updateWindowSize();
+    }, delay);
   }
 
   // Playlist operation mode UI (v2.2.0 Slice A)
@@ -3279,8 +3323,8 @@ const init = function (): void {
    * Event handler when the window size is resized.
    */
   function updateWindowSize(): void {
-    currentWindowSize.width = window.innerWidth;
-    currentWindowSize.height = window.innerHeight;
+    currentWindowSize.width = getViewportWidth();
+    currentWindowSize.height = getViewportHeight();
     const isFullWindow = isFullWindowMode();
 
     // aspect: 16:9 = w:h -> h = 9w/16
@@ -3346,15 +3390,32 @@ const init = function (): void {
       () => {
         clearTimeout(timeoutID);
         timeoutID = window.setTimeout(() => {
+          syncViewportMetrics();
           updateWindowSize();
         }, delay);
       },
       false
     );
+    window.addEventListener('orientationchange', () => {
+      refreshViewportMetricsAfter(80);
+      refreshViewportMetricsAfter(420);
+    });
+    window.visualViewport?.addEventListener('resize', () => {
+      scheduleViewportMetricsSync(60);
+    });
+    window.visualViewport?.addEventListener('scroll', () => {
+      scheduleViewportMetricsSync(60);
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        scheduleViewportMetricsSync(80);
+      }
+    });
   };
 
   setMenuMinimized(false);
 
+  syncViewportMetrics();
   resize();
 
   window.dispatchEvent(new Event('resize', { bubbles: true, cancelable: false }));

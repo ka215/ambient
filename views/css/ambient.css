@@ -1,4 +1,26 @@
 @charset "UTF-8";
+:root {
+  --amp-viewport-width: 100vw;
+  --amp-viewport-height: 100dvh;
+  --amp-visual-offset-top: 0px;
+  --amp-visual-bottom-inset: 0px;
+  --amp-menu-base-bottom: 0px;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: var(--amp-viewport-height, 100dvh);
+  height: var(--amp-viewport-height, 100dvh) !important;
+  overflow: hidden;
+}
+
+@supports not (height: 100dvh) {
+  :root {
+    --amp-viewport-height: 100vh;
+  }
+}
+
 @font-face {
   font-family: "mplus-1p-regular";
   src: url("../fonts/mplus-1p-regular.eot");
@@ -229,6 +251,10 @@ body.amp-full-window #player-container {
   overflow: hidden;
 }
 
+#player-container {
+  padding-top: var(--amp-visual-offset-top, 0px);
+}
+
 body.amp-full-window #player-container > figure {
   margin-top: 0;
   margin-bottom: 0;
@@ -282,31 +308,18 @@ body.amp-full-window #embed-wrapper video#html-player {
   z-index: 60;
   left: auto;
   right: 0.75rem;
-  bottom: 0.75rem;
+  --amp-menu-base-bottom: 0.75rem;
+  bottom: calc(var(--amp-menu-base-bottom, 0.75rem) + env(safe-area-inset-bottom, 0px) + var(--amp-visual-bottom-inset, 0px)) !important;
   border-radius: 9999px;
 }
 
-@supports (bottom: calc(0.75rem + env(safe-area-inset-bottom))) {
-  #menu-container.menu-minimized {
-    bottom: calc(0.75rem + env(safe-area-inset-bottom));
-  }
+#menu-container {
+  --amp-menu-base-bottom: 0px;
+  bottom: calc(var(--amp-menu-base-bottom, 0px) + env(safe-area-inset-bottom, 0px) + var(--amp-visual-bottom-inset, 0px)) !important;
 }
 
-/* iOS portrait: lift bottom menu by toolbar-height + safe-area. */
-@supports (bottom: env(safe-area-inset-bottom)) and (-webkit-touch-callout: none) {
-  @media (orientation: portrait) and (hover: none) and (pointer: coarse) {
-    #menu-container:not(.menu-minimized) {
-      bottom: calc(64px + env(safe-area-inset-bottom));
-    }
-
-    #menu-container.rounded-full:not(.menu-minimized) {
-      bottom: calc(64px + 1rem + env(safe-area-inset-bottom));
-    }
-
-    #menu-container.menu-minimized {
-      bottom: calc(64px + 0.75rem + env(safe-area-inset-bottom));
-    }
-  }
+#menu-container.rounded-full:not(.menu-minimized) {
+  --amp-menu-base-bottom: 1rem;
 }
 
 #menu-container.menu-minimized > div {
