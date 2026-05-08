@@ -37,6 +37,7 @@
     "Randomly play": "",
     "Shuffle play": "",
     "Seek and play": "",
+    "Expand to fill window": "",
     "Default volume:": "",
     "Pseudo fader": "",
     "Dark mode": "",
@@ -61,8 +62,8 @@
     "Choose category is required": "",
     "Choose a playlist category": "",
     "Please enter a category name": "",
-    "※ 新しいカテゴリーは": "",
-    "の「新規カテゴリー追加」から追加できます。": "",
+    "Note: New categories can be added from \"Add New Category\" in \"": "",
+    "\".": "",
     "Title": "",
     "Media title is required": "",
     "Displayed media title": "",
@@ -75,6 +76,7 @@
     "Invalid format": "",
     "Integer of seconds or H:MM:SS format": "",
     "Seek end": "",
+    "Note: Seek start/end times are only valid when &ldquo;Seek Play&rdquo; is ON.": "",
     "Fade-in seconds": "",
     "Integer of seconds": "",
     "Set seconds fade-in from start of playback.": "",
@@ -124,5 +126,6 @@
     "YouTube IFrame Player API": "",
     "tailwindcss": "",
     "Flowbite": "",
-    "Version:": ""
+    "Version:": "",
+    "Menu Minimize": ""
 }
