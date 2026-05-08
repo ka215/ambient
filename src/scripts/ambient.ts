@@ -3155,7 +3155,7 @@ const init = function (): void {
       }, 5000);
     });
 
-    const sourcePath = mediaData.file || '';
+    const sourcePath = resolveLocalMediaSrc(mediaData.file || '');
     sourceElm.src = sourcePath;
     sourceElm.setAttribute('type', getMediaMimeType(sourcePath, tagname));
     sourceElm.addEventListener('error', (evt: Event) => {
@@ -4209,6 +4209,30 @@ function getMediaMimeType(path: string, tagname: 'audio' | 'video'): string {
     '3g2': 'video/3gpp2',
   };
   return mimeTypes[ext] || `${tagname}/${ext || 'mpeg'}`;
+}
+
+function resolveLocalMediaSrc(path: string): string {
+  const normalizedPath = String(path || '').replace(/\\/g, '/');
+  if (!normalizedPath) {
+    return '';
+  }
+  if (/^(https?:)?\/\//i.test(normalizedPath) || /^(blob|data):/i.test(normalizedPath)) {
+    return normalizedPath;
+  }
+
+  const ambientData = (window as any).AmbientData as AmbientData | undefined;
+  const mediaDir = (ambientData?.mediaDir || './assets/media/').replace(/\\/g, '/').replace(/\/?$/, '/');
+  const mediaDirWithoutDot = mediaDir.replace(/^\.\//, '');
+  const pathWithoutDot = normalizedPath.replace(/^\.\//, '');
+
+  if (pathWithoutDot.startsWith(mediaDirWithoutDot)) {
+    return `${mediaDir}${pathWithoutDot.slice(mediaDirWithoutDot.length)}`;
+  }
+  if (pathWithoutDot.startsWith('assets/media/')) {
+    return `${mediaDir}${pathWithoutDot.slice('assets/media/'.length)}`;
+  }
+
+  return `${mediaDir}${pathWithoutDot.replace(/^\/+/, '')}`;
 }
 
 function escapeHTML(value: string): string {

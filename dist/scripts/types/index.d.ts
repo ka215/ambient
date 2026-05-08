@@ -84,6 +84,7 @@ interface AMP_STATUS {
 interface AmbientData {
     debug?: boolean;
     imageDir?: string;
+    mediaDir?: string;
     currentPlaylist?: string;
     playlists?: {
         [key: string]: string;

@@ -2894,7 +2894,7 @@ const init = function () {
                 }
             }, 5000);
         });
-        const sourcePath = mediaData.file || '';
+        const sourcePath = resolveLocalMediaSrc(mediaData.file || '');
         sourceElm.src = sourcePath;
         sourceElm.setAttribute('type', getMediaMimeType(sourcePath, tagname));
         sourceElm.addEventListener('error', (evt) => {
@@ -3914,6 +3914,26 @@ function getMediaMimeType(path, tagname) {
         '3g2': 'video/3gpp2',
     };
     return mimeTypes[ext] || `${tagname}/${ext || 'mpeg'}`;
+}
+function resolveLocalMediaSrc(path) {
+    const normalizedPath = String(path || '').replace(/\\/g, '/');
+    if (!normalizedPath) {
+        return '';
+    }
+    if (/^(https?:)?\/\//i.test(normalizedPath) || /^(blob|data):/i.test(normalizedPath)) {
+        return normalizedPath;
+    }
+    const ambientData = window.AmbientData;
+    const mediaDir = (ambientData?.mediaDir || './assets/media/').replace(/\\/g, '/').replace(/\/?$/, '/');
+    const mediaDirWithoutDot = mediaDir.replace(/^\.\//, '');
+    const pathWithoutDot = normalizedPath.replace(/^\.\//, '');
+    if (pathWithoutDot.startsWith(mediaDirWithoutDot)) {
+        return `${mediaDir}${pathWithoutDot.slice(mediaDirWithoutDot.length)}`;
+    }
+    if (pathWithoutDot.startsWith('assets/media/')) {
+        return `${mediaDir}${pathWithoutDot.slice('assets/media/'.length)}`;
+    }
+    return `${mediaDir}${pathWithoutDot.replace(/^\/+/, '')}`;
 }
 function escapeHTML(value) {
     const map = {
