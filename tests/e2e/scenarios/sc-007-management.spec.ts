@@ -59,7 +59,7 @@ test.describe('SC-007 Playlist/Media management flow', () => {
     // Arrange
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
-    await ambientPage.selectPlaylist('mememori-youtube.json');
+    await ambientPage.selectPlaylist('mememori-yt.json');
 
     const initialItemCount = await getPlaylistItemCount(page);
     const uniqueSuffix = Date.now();
@@ -154,7 +154,7 @@ test.describe('SC-007 Playlist/Media management flow', () => {
   test('opens media management from no-media button when a filtered category has no items', async ({ ambientPage, page }) => {
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
-    await ambientPage.selectPlaylist('mememori-youtube.json');
+    await ambientPage.selectPlaylist('mememori-yt.json');
 
     const uniqueSuffix = Date.now();
     const categoryName = `e2e-empty-category-${uniqueSuffix}`;
@@ -218,7 +218,7 @@ test.describe('SC-007 Playlist/Media management flow', () => {
   test('category note link opens playlist management category field', async ({ ambientPage, page }) => {
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
-    await ambientPage.selectPlaylist('mememori-youtube.json');
+    await ambientPage.selectPlaylist('mememori-yt.json');
 
     await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
 
@@ -228,6 +228,47 @@ test.describe('SC-007 Playlist/Media management flow', () => {
 
     await expect(page.locator('#collapse-item-body-playlist')).toBeVisible();
     await expect(page.locator('#category-name')).toBeFocused();
+  });
+
+  test('validates media title immediately while typing', async ({ ambientPage, page }) => {
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+
+    await page.evaluate(() => {
+      const input = document.getElementById('media-title') as HTMLInputElement | null;
+      if (!input) return;
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await expect(page.locator('#media-title')).not.toHaveAttribute('data-validate', 'true');
+
+    await page.evaluate(() => {
+      const input = document.getElementById('media-title') as HTMLInputElement | null;
+      if (!input) return;
+      input.value = 'typed title';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await expect(page.locator('#media-title')).toHaveAttribute('data-validate', 'true');
+    await expect(page.locator('#media-title')).toHaveClass(/success-input/);
+  });
+
+  test('does not close options modal when dragging from inside to backdrop', async ({ ambientPage, page }) => {
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+    await expect(page.locator('#modal-options')).toBeVisible();
+
+    const titleBox = await page.locator('#media-title').boundingBox();
+    if (!titleBox) throw new Error('media-title bounding box is unavailable');
+    await page.mouse.move(titleBox.x + 10, titleBox.y + titleBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(8, 8);
+    await page.mouse.up();
+
+    await expect(page.locator('#modal-options')).toBeVisible();
   });
 
   test('keeps category field valid when first category auto-selects after initial media registration', async ({ ambientPage, page }) => {

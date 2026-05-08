@@ -8,11 +8,11 @@ test.describe('SC-006 YouTube IFrame embed on track selection', () => {
     // Arrange
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
-    await ambientPage.selectPlaylist('mememori-youtube.json');
+    await ambientPage.selectPlaylist('mememori-yt.json');
     await ambientPage.waitForYouTubeApi();
     await ambientPage.openPlaylistDrawer();
     const youtubeItem = await findYoutubePlaylistItem(page);
-    // mememori-youtube.json guarantees YouTube items; skip only if somehow absent
+    // mememori-yt.json guarantees YouTube items; skip only if somehow absent
     test.skip(!youtubeItem, 'No YouTube media item found in current playlist.');
 
     // Act

@@ -7,7 +7,7 @@ test.describe('SC-009 Full-window and menu-collapse controls', () => {
     // Arrange
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
-    await ambientPage.selectPlaylist('mememori-youtube.json');
+    await ambientPage.selectPlaylist('mememori-yt.json');
     await ambientPage.waitForYouTubeApi();
 
     const seqBeforePlay = await ambientPage.getYouTubeSignalSeq();
@@ -28,6 +28,24 @@ test.describe('SC-009 Full-window and menu-collapse controls', () => {
     await expect(page.locator('#toggle-window-full input[type="checkbox"]')).toBeChecked();
     await expect(page.locator('#carousel-container')).toBeHidden();
     await expect(page.locator('#media-caption')).toBeHidden();
+
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const iframe = document.querySelector<HTMLIFrameElement>('#embed-wrapper iframe');
+        const menu = document.getElementById('menu-container');
+        if (!iframe || !menu) return false;
+        const viewportHeight = Math.round(window.visualViewport?.height || window.innerHeight);
+        const menuHeight = Math.ceil(menu.getBoundingClientRect().height);
+        const iframeRect = iframe.getBoundingClientRect();
+        const menuRect = menu.getBoundingClientRect();
+        const expectedMaxHeight = menuRect.top;
+        const aspect = iframeRect.width / iframeRect.height;
+        return iframeRect.height <= expectedMaxHeight + 1 &&
+          Math.abs(menuRect.bottom - viewportHeight) <= 1 &&
+          iframeRect.bottom <= menuRect.top + 1 &&
+          Math.abs(aspect - (16 / 9)) < 0.02;
+      });
+    }).toBe(true);
 
     // Drawers must remain overlay-capable and operable in full-window mode.
     await page.locator('#btn-playlist').click();

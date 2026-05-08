@@ -47,11 +47,17 @@
     }
     .playlist-item-label {
         min-width: 0;
+        max-width: 100%;
+        display: block;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
     .playlist-item-label * {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
         white-space: nowrap !important;
     }
     .volume-range {

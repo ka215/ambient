@@ -199,6 +199,11 @@ const init = function () {
             return false;
         }
     }
+    function abortPlaybackTimers() {
+        abortSeeking();
+        abortFader('fadein');
+        abortFader('fadeout');
+    }
     /**
      * Persist MyPlaylist only when cloud mode + MyPlaylist is currently active.
      */
@@ -443,6 +448,7 @@ const init = function () {
     const $MEDIA_CATEGORY_SELECT = document.getElementById('media-category');
     const $MEDIA_VOLUME = document.getElementById('media-volume');
     let optionsModalHideTimer = null;
+    let optionsBackdropPointerStarted = false;
     if (isElement($MODAL_OPTIONS) && $MODAL_OPTIONS.parentElement !== document.body) {
         document.body.appendChild($MODAL_OPTIONS);
     }
@@ -451,6 +457,40 @@ const init = function () {
     }
     function getViewportHeight() {
         return Math.round(window.visualViewport?.height || window.innerHeight);
+    }
+    function getBottomMenuHeight() {
+        if (!isElement($MENU)) {
+            return 0;
+        }
+        const rect = $MENU.getBoundingClientRect();
+        return Math.max(0, Math.ceil(getViewportHeight() - rect.top));
+    }
+    function getFullWindowPlayerSize() {
+        const aspectRatio = 16 / 9;
+        const width = Math.max(1, currentWindowSize.width);
+        const bottomReserve = getBottomMenuHeight();
+        const height = Math.max(1, currentWindowSize.height - bottomReserve);
+        const availableRatio = width / height;
+        if (availableRatio > aspectRatio) {
+            return {
+                width: Math.floor(height * aspectRatio),
+                height,
+            };
+        }
+        return {
+            width,
+            height: Math.floor(width / aspectRatio),
+        };
+    }
+    function getStandardPlayerSize() {
+        const width = currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2;
+        return {
+            width,
+            height: Math.floor((9 * width) / 16),
+        };
+    }
+    function getPlayerSizeForCurrentMode() {
+        return isFullWindowMode() ? getFullWindowPlayerSize() : getStandardPlayerSize();
     }
     function syncViewportMetrics() {
         const visualViewport = window.visualViewport;
@@ -463,6 +503,7 @@ const init = function () {
         rootStyle.setProperty('--amp-viewport-height', `${height}px`);
         rootStyle.setProperty('--amp-visual-offset-top', `${offsetTop}px`);
         rootStyle.setProperty('--amp-visual-bottom-inset', `${visualBottomInset}px`);
+        rootStyle.setProperty('--amp-bottom-menu-height', `${getBottomMenuHeight()}px`);
         document.body.style.minHeight = `${height}px`;
         document.body.style.height = `${height}px`;
         currentWindowSize.width = width;
@@ -762,6 +803,17 @@ const init = function () {
         AMP_STATUS.media = AMP_STATUS.media.filter((item) => !deleteSelectedIds.has(item.amId));
         deleteSelectedIds.clear();
         persistMyPlaylistIfNeeded();
+    }
+    function syncDeleteSelectionIndicator(itemElm, isSelected) {
+        const chkElm = itemElm.querySelector('span[data-delete-selector]');
+        if (!chkElm)
+            return;
+        chkElm.className = isSelected
+            ? 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-red-500 bg-red-500'
+            : 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 dark:border-gray-500';
+        chkElm.innerHTML = isSelected
+            ? '<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>'
+            : '';
     }
     function destroyPlaylistSortable() {
         if (playlistSortable) {
@@ -1293,11 +1345,15 @@ const init = function () {
         });
     }
     if (isElement($MODAL_OPTIONS)) {
+        $MODAL_OPTIONS.addEventListener('pointerdown', (evt) => {
+            optionsBackdropPointerStarted = evt.target === $MODAL_OPTIONS;
+        });
         $MODAL_OPTIONS.addEventListener('click', (evt) => {
-            if (evt.target === $MODAL_OPTIONS) {
+            if (evt.target === $MODAL_OPTIONS && optionsBackdropPointerStarted) {
                 hideOptionsModal();
                 restoreOptionsTriggerFocus();
             }
+            optionsBackdropPointerStarted = false;
         });
     }
     document.getElementById('link-open-playlist-management-category')
@@ -1439,6 +1495,7 @@ const init = function () {
             if (playlistMode === 'delete') {
                 const isSelected = deleteSelectedIds.has(item.amId);
                 const chkElm = document.createElement('span');
+                chkElm.setAttribute('data-delete-selector', '');
                 chkElm.setAttribute('aria-hidden', 'true');
                 chkElm.className = isSelected
                     ? 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-red-500 bg-red-500'
@@ -1483,7 +1540,7 @@ const init = function () {
                     else {
                         deleteSelectedIds.add(amId);
                     }
-                    updatePlaylist();
+                    syncDeleteSelectionIndicator(elm, deleteSelectedIds.has(amId));
                     return;
                 }
                 if (isPlaylistInteractionLocked()) {
@@ -1914,6 +1971,7 @@ const init = function () {
         }
         syncWindowFullButtonIcons(enabled);
         updateWindowSize();
+        refreshViewportMetricsAfter(240);
     }
     /**
      * Synchronize the bottom menu minimize button icon and state.
@@ -2466,6 +2524,7 @@ const init = function () {
      * Handle the player to prepare depending on the type of media to play.
      */
     function setupPlayer(type, src, mediaData) {
+        abortPlaybackTimers();
         // update media caption.
         updateMediaCaption(mediaData);
         switch (true) {
@@ -2537,6 +2596,7 @@ const init = function () {
                 }
                 else if (elapsed > wait) {
                     document.getElementById('btn-play').dispatchEvent(new Event('click'));
+                    clearInterval(intervalID);
                 }
             }, 100);
         }
@@ -2558,8 +2618,7 @@ const init = function () {
         const YT_PAUSED = 2;
         if (event.data === YT_ENDED) {
             emitYouTubeSignal('ended');
-            abortSeeking();
-            abortFader('fadeout');
+            abortPlaybackTimers();
             $EMBED_WRAPPER.classList.add('w-full', 'h-0', 'opacity-0');
             $EMBED_WRAPPER.classList.remove('w-max', 'h-max');
             $BUTTON_WATCH_TY.href = '#';
@@ -2664,9 +2723,7 @@ const init = function () {
             event.target.g?.remove();
             logger('error', 'onYTPlayerError:', event, 'force');
         }
-        abortSeeking();
-        abortFader('fadeout');
-        abortFader('fadein');
+        abortPlaybackTimers();
         updatePlayStatus(nextId);
         setupPlayer(playerType, mediaSrc, mediaData);
     }
@@ -2736,14 +2793,7 @@ const init = function () {
         else {
             AMP_STATUS.volume = getDefaultVolume();
         }
-        // aspect: 16:9 = w:h -> h = 9w/16
-        const isFullWindow = isFullWindowMode();
-        const adjustSize = {
-            width: isFullWindow ? currentWindowSize.width : (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2),
-            height: isFullWindow
-                ? currentWindowSize.height
-                : Math.floor((9 * (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2)) / 16),
-        };
+        const adjustSize = getPlayerSizeForCurrentMode();
         player = new window.YT.Player('ytplayer', {
             height: adjustSize.height,
             width: adjustSize.width,
@@ -2854,6 +2904,7 @@ const init = function () {
             logger('playerVolumeChange:', playerElm.volume, AMP_STATUS.volume);
         });
         playerElm.addEventListener('ended', (_evt) => {
+            abortPlaybackTimers();
             $EMBED_WRAPPER.classList.remove('max-w-2xl', 'w-max', 'h-max', 'border-0');
             // add since v1.2.2
             let nextId = 0;
@@ -2917,8 +2968,9 @@ const init = function () {
                     self.setAttribute('poster', './views/images/no-media-placeholder.svg');
                 }
                 if (isFullWindowMode()) {
-                    self.width = currentWindowSize.width;
-                    self.height = currentWindowSize.height;
+                    const adjustSize = getFullWindowPlayerSize();
+                    self.width = adjustSize.width;
+                    self.height = adjustSize.height;
                 }
                 else if (currentWindowSize.width >= 640) {
                     self.width = 640;
@@ -2956,6 +3008,7 @@ const init = function () {
      * Fade in the volume of the specified media.
      */
     function fadeIn(media, period, start) {
+        abortFader('fadein');
         const mediaType = isElement(media) ? 'local' : 'youtube';
         const fadeEnd = (start + period) * 1000; // unit milliseconds
         const steps = period * 10;
@@ -2996,6 +3049,7 @@ const init = function () {
      * Fade out the volume of the specified media.
      */
     function fadeOut(media, period, end) {
+        abortFader('fadeout');
         const mediaType = isElement(media) ? 'local' : 'youtube';
         const fadeStart = (end - period) * 1000; // unit milliseconds
         const steps = period * 10;
@@ -3077,14 +3131,9 @@ const init = function () {
     function updateWindowSize() {
         currentWindowSize.width = getViewportWidth();
         currentWindowSize.height = getViewportHeight();
+        document.documentElement.style.setProperty('--amp-bottom-menu-height', `${getBottomMenuHeight()}px`);
         const isFullWindow = isFullWindowMode();
-        // aspect: 16:9 = w:h -> h = 9w/16
-        const adjustPlayerSize = {
-            width: isFullWindow ? currentWindowSize.width : (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2),
-            height: isFullWindow
-                ? currentWindowSize.height
-                : Math.floor((9 * (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2)) / 16),
-        };
+        const adjustPlayerSize = getPlayerSizeForCurrentMode();
         if (player && typeof player === 'object' && typeof player.getIframe === 'function') {
             const YTPlayer = player.getIframe();
             YTPlayer.width = String(adjustPlayerSize.width);
@@ -3555,12 +3604,11 @@ const init = function () {
                     break;
                 case 'title':
                     elm.addEventListener('input', (evt) => {
-                        if (evt.target.value === '') {
-                            setValidated(elm, null);
-                        }
+                        const value = evt.target.value.trim();
+                        setValidated(elm, value === '' ? null : true);
                     });
                     elm.addEventListener('change', (evt) => {
-                        setValidated(elm, evt.target.value !== '');
+                        setValidated(elm, evt.target.value.trim() !== '');
                     });
                     break;
                 case 'volume':
