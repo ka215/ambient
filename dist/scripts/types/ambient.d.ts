@@ -94,6 +94,7 @@ export interface AmbientDataGlobal {
         [name: string]: string;
     };
     imageDir?: string;
+    mediaDir?: string;
     [key: string]: any;
 }
 /**

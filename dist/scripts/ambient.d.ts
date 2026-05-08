@@ -31,6 +31,9 @@ declare function basename(path: string): string;
  * Gets the extension from the given file path.
  */
 declare function getExt(path: string): string;
+declare function getMediaMimeType(path: string, tagname: 'audio' | 'video'): string;
+declare function resolveLocalMediaSrc(path: string): string;
+declare function escapeHTML(value: string): string;
 /**
  * Return true if a number is in range, otherwise false.
  */

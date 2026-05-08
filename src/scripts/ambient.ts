@@ -2600,6 +2600,28 @@ const init = function (): void {
   /**
    * Commit a media item to play.
    */
+  function reportMediaPlaybackIssue(
+    mediaItem: MediaItem,
+    reason: string,
+    details: Record<string, unknown> = {}
+  ): void {
+    const title = mediaItem.title || mediaItem.file || mediaItem.videoid || 'Unknown media';
+    logger('error', 'Media playback issue:', {
+      reason,
+      title,
+      file: mediaItem.file || '',
+      videoid: mediaItem.videoid || '',
+      media: mediaItem,
+      ...details,
+    }, 'force');
+
+    updateNotice({
+      type: 'error',
+      message: `Media could not be loaded: ${escapeHTML(title)}`,
+      delay: 6000,
+    });
+  }
+
   function playItem(object: HTMLElement | null = null, id: number | null = null): void {
     const thisElm = isElement(object) ? (object as HTMLElement) : null;
     const amId = id !== null ? id : Number((thisElm as any)?.dataset?.playlistItem || 0);
@@ -2629,6 +2651,14 @@ const init = function (): void {
       (document.getElementById('btn-close-settings') as HTMLButtonElement)?.click();
     }
 
+    if (!playerType || !mediaSrc) {
+      reportMediaPlaybackIssue(mediaData, 'media_source_missing', {
+        currentPlaylist: AMP_STATUS.playlist || '',
+        currentCategory: AMP_STATUS.ctg,
+      });
+      return;
+    }
+
     setupPlayer(playerType, mediaSrc, mediaData);
   }
 
@@ -2656,16 +2686,19 @@ const init = function (): void {
           createPlayerTag('video', mediaData);
         } else {
           AMP_STATUS.playertype = null;
-          throw new Error('Unsupported file format');
+          reportMediaPlaybackIssue(mediaData, 'unsupported_file_format', {
+            src,
+            extension,
+          });
         }
         break;
       default:
         AMP_STATUS.playertype = null;
         emitYouTubeSignal('error', 'unsupported_player_specified');
-        if (AMP_STATUS.next !== null) {
-          playItem(null, AMP_STATUS.next);
-        }
-        throw new Error('Unsupported player specified.');
+        reportMediaPlaybackIssue(mediaData, 'unsupported_player_specified', {
+          src,
+          type,
+        });
     }
   }
 
@@ -2963,6 +2996,7 @@ const init = function (): void {
   function createPlayerTag(tagname: 'audio' | 'video', mediaData: MediaItem): void {
     const playerElm = document.createElement(tagname) as HTMLMediaElement;
     const sourceElm = document.createElement('source');
+    let hasReportedLoadIssue = false;
     playerElm.id = 'html-player';
     playerElm.setAttribute('controls', String(getOption('controls') || ''));
     playerElm.setAttribute('controlslist', 'nodownload');
@@ -2999,21 +3033,23 @@ const init = function (): void {
       playerElm.currentTime = Number(mediaData.start);
     }
 
-    sourceElm.src = mediaData.file || '';
-    sourceElm.setAttribute('type', `audio/${getExt(mediaData.file || '')}`);
-    playerElm.appendChild(sourceElm);
-
-    while ($EMBED_WRAPPER.firstChild) {
-      $EMBED_WRAPPER.removeChild($EMBED_WRAPPER.firstChild);
-    }
-    $EMBED_WRAPPER.appendChild(playerElm);
-
-    $EMBED_WRAPPER.classList.add('max-w-2xl', 'w-max', 'h-max', 'border-0');
-    $EMBED_WRAPPER.classList.remove('border', 'w-full', 'h-0', 'opacity-0');
-
-    $BUTTON_WATCH_TY.href = '#';
-    $BUTTON_WATCH_TY.setAttribute('disabled', '');
-    $OPTIONAL_CONTAINER.classList.add('hidden', 'opacity-0');
+    const reportHtmlMediaLoadIssue = (
+      mediaElement: HTMLMediaElement,
+      mediaItem: MediaItem,
+      evt: Event,
+      reason: string
+    ): void => {
+      if (hasReportedLoadIssue) return;
+      hasReportedLoadIssue = true;
+      reportMediaPlaybackIssue(mediaItem, reason, {
+        src: mediaElement.currentSrc || mediaItem.file || '',
+        networkState: mediaElement.networkState,
+        readyState: mediaElement.readyState,
+        errorCode: mediaElement.error?.code ?? null,
+        errorMessage: mediaElement.error?.message ?? '',
+        eventType: evt.type,
+      });
+    };
 
     playerElm.addEventListener('play', (_evt: Event) => {
       if (
@@ -3107,19 +3143,37 @@ const init = function (): void {
     });
 
     playerElm.addEventListener('error', (evt: Event) => {
-      logger('error', 'Player Error:', mediaData, evt, 'force');
+      reportHtmlMediaLoadIssue(playerElm, mediaData, evt, 'player_error');
     });
 
     playerElm.addEventListener('loadstart', (evt: Event) => {
-      // If the readyState does not change 1 second after the start of loading,
-      // it is skipped as an unsupported medium.
       setTimeout(() => {
-        if ((evt.target as HTMLMediaElement).readyState === 0) {
-          logger('warn', `The player will treat this media (${mediaData.file}) as unsupported and will skip it.`, 'force');
-          (evt.target as HTMLMediaElement).dispatchEvent(new Event('ended'));
+        const target = evt.target as HTMLMediaElement;
+        if (target.readyState === 0 && (target.networkState === 3 || target.error)) {
+          reportHtmlMediaLoadIssue(target, mediaData, evt, 'load_timeout');
         }
-      }, 1500);
+      }, 5000);
     });
+
+    const sourcePath = resolveLocalMediaSrc(mediaData.file || '');
+    sourceElm.src = sourcePath;
+    sourceElm.setAttribute('type', getMediaMimeType(sourcePath, tagname));
+    sourceElm.addEventListener('error', (evt: Event) => {
+      reportHtmlMediaLoadIssue(playerElm, mediaData, evt, 'source_error');
+    });
+    playerElm.appendChild(sourceElm);
+
+    while ($EMBED_WRAPPER.firstChild) {
+      $EMBED_WRAPPER.removeChild($EMBED_WRAPPER.firstChild);
+    }
+    $EMBED_WRAPPER.appendChild(playerElm);
+
+    $EMBED_WRAPPER.classList.add('max-w-2xl', 'w-max', 'h-max', 'border-0');
+    $EMBED_WRAPPER.classList.remove('border', 'w-full', 'h-0', 'opacity-0');
+
+    $BUTTON_WATCH_TY.href = '#';
+    $BUTTON_WATCH_TY.setAttribute('disabled', '');
+    $OPTIONAL_CONTAINER.classList.add('hidden', 'opacity-0');
 
     playerElm.addEventListener('loadedmetadata', (evt: Event) => {
       const self = evt.target as HTMLVideoElement;
@@ -4127,7 +4181,69 @@ function basename(path: string): string {
  * Gets the extension from the given file path.
  */
 function getExt(path: string): string {
-  return path.split('.').pop() || '';
+  const cleanPath = path.split(/[?#]/).shift() || '';
+  return cleanPath.split('.').pop()?.toLowerCase() || '';
+}
+
+function getMediaMimeType(path: string, tagname: 'audio' | 'video'): string {
+  const ext = getExt(path);
+  const mimeTypes: Record<string, string> = {
+    aac: 'audio/aac',
+    mid: 'audio/midi',
+    midi: 'audio/midi',
+    mp3: 'audio/mpeg',
+    m4a: 'audio/mp4',
+    ogg: 'audio/ogg',
+    opus: 'audio/opus',
+    wav: 'audio/wav',
+    weba: 'audio/webm',
+    wma: 'audio/x-ms-wma',
+    avi: 'video/x-msvideo',
+    mpeg: 'video/mpeg',
+    mpg: 'video/mpeg',
+    mp4: 'video/mp4',
+    ogv: 'video/ogg',
+    ts: 'video/mp2t',
+    webm: 'video/webm',
+    '3gp': 'video/3gpp',
+    '3g2': 'video/3gpp2',
+  };
+  return mimeTypes[ext] || `${tagname}/${ext || 'mpeg'}`;
+}
+
+function resolveLocalMediaSrc(path: string): string {
+  const normalizedPath = String(path || '').replace(/\\/g, '/');
+  if (!normalizedPath) {
+    return '';
+  }
+  if (/^(https?:)?\/\//i.test(normalizedPath) || /^(blob|data):/i.test(normalizedPath)) {
+    return normalizedPath;
+  }
+
+  const ambientData = (window as any).AmbientData as AmbientData | undefined;
+  const mediaDir = (ambientData?.mediaDir || './assets/media/').replace(/\\/g, '/').replace(/\/?$/, '/');
+  const mediaDirWithoutDot = mediaDir.replace(/^\.\//, '');
+  const pathWithoutDot = normalizedPath.replace(/^\.\//, '');
+
+  if (pathWithoutDot.startsWith(mediaDirWithoutDot)) {
+    return `${mediaDir}${pathWithoutDot.slice(mediaDirWithoutDot.length)}`;
+  }
+  if (pathWithoutDot.startsWith('assets/media/')) {
+    return `${mediaDir}${pathWithoutDot.slice('assets/media/'.length)}`;
+  }
+
+  return `${mediaDir}${pathWithoutDot.replace(/^\/+/, '')}`;
+}
+
+function escapeHTML(value: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  };
+  return String(value).replace(/[&<>"']/g, (char) => map[char] || char);
 }
 
 /**

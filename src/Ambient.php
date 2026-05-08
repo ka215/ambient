@@ -63,6 +63,7 @@ class Ambient {
             $localize_data = [
                 'playlists' => $relative_playlists,
                 'isCloud'   => $this->is_cloud(),
+                'mediaDir'  => str_replace( $app_root_normalized, './', str_replace( '\\', '/', MEDIA_DIR ) ),
             ];
             if ( count( $this->playlists ) > 1 ) {
                 // If there are multiple playlists, prompt you to select a playlist.

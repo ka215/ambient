@@ -169,7 +169,9 @@ trait utils {
                 if ( array_key_exists( 'file', $item ) && !empty( $item['file'] ) ) {
                     if ( file_exists( MEDIA_DIR . $item['file'] ) ) {
                         //$item['file'] = realpath( MEDIA_DIR . $item['file'] );
-                        $item['file'] = str_replace( APP_ROOT, './', MEDIA_DIR . $item['file'] );
+                        $app_root_normalized = str_replace( '\\', '/', APP_ROOT );
+                        $media_path = str_replace( '\\', '/', MEDIA_DIR . $item['file'] );
+                        $item['file'] = str_replace( $app_root_normalized, './', $media_path );
                     } else {
                         $item['file'] = '';
                     }
