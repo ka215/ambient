@@ -258,7 +258,7 @@ body.amp-full-window #player-container {
 body.amp-full-window #player-container > figure {
   margin-top: 0;
   margin-bottom: 0;
-  min-height: 100vh;
+  min-height: calc(100vh - var(--amp-bottom-menu-height, 0px));
   width: 100%;
   -webkit-box-pack: center;
       -ms-flex-pack: center;
@@ -267,13 +267,13 @@ body.amp-full-window #player-container > figure {
 
 @supports (min-height: 100dvh) {
   body.amp-full-window #player-container > figure {
-    min-height: 100dvh;
+    min-height: calc(100dvh - var(--amp-bottom-menu-height, 0px));
   }
 }
 
 body.amp-full-window #embed-wrapper {
   width: 100vw !important;
-  height: 100vh !important;
+  height: calc(100vh - var(--amp-bottom-menu-height, 0px)) !important;
   max-width: none !important;
   border: 0 !important;
   border-radius: 0 !important;
@@ -281,15 +281,14 @@ body.amp-full-window #embed-wrapper {
 
 @supports (height: 100dvh) {
   body.amp-full-window #embed-wrapper {
-    height: 100dvh !important;
+    height: calc(100dvh - var(--amp-bottom-menu-height, 0px)) !important;
   }
 }
 
 body.amp-full-window #ytplayer,
 body.amp-full-window #embed-wrapper iframe,
 body.amp-full-window #embed-wrapper video#html-player {
-  width: 100% !important;
-  height: 100% !important;
+  max-width: 100vw;
   max-height: 100vh;
 }
 
@@ -316,6 +315,11 @@ body.amp-full-window #embed-wrapper video#html-player {
 #menu-container {
   --amp-menu-base-bottom: 0px;
   bottom: calc(var(--amp-menu-base-bottom, 0px) + env(safe-area-inset-bottom, 0px) + var(--amp-visual-bottom-inset, 0px)) !important;
+}
+
+body.amp-full-window #menu-container {
+  --amp-menu-base-bottom: 0px;
+  bottom: 0 !important;
 }
 
 #menu-container.rounded-full:not(.menu-minimized) {

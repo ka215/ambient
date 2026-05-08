@@ -6,7 +6,7 @@ test.describe('SC-002 Play/pause state toggle', () => {
     // Arrange
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
-    await ambientPage.selectPlaylist('mememori-youtube.json');
+    await ambientPage.selectPlaylist('mememori-yt.json');
     await ambientPage.waitForYouTubeApi();
 
     // Open playlist drawer to access items, click first item, then close drawer

@@ -181,7 +181,7 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
   });
 
   test('disables playlist operation modes for read-only JSON playlists', async ({ page, ambientPage }) => {
-    await ambientPage.selectPlaylist('mememori-youtube.json');
+    await ambientPage.selectPlaylist('mememori-yt.json');
     await ambientPage.openPlaylistDrawer();
 
     await expect(page.locator('#playlist-list-group a[data-playlist-item]').first()).toBeVisible();
@@ -257,9 +257,20 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
     await selectMode(page, 'delete');
 
     const firstItem = page.locator('#playlist-list-group a[data-playlist-item]').first();
+    await firstItem.locator('img').evaluate((img) => {
+      img.setAttribute('data-e2e-stable-thumb', '1');
+    });
     await firstItem.click();
 
-    await expect(firstItem.locator('span[aria-hidden="true"]')).toHaveClass(/bg-red-500/);
+    await expect(firstItem.locator('span[data-delete-selector]')).toHaveClass(/bg-red-500/);
+    await expect(firstItem.locator('img')).toHaveAttribute('data-e2e-stable-thumb', '1');
+
+    await firstItem.click();
+    await expect(firstItem.locator('span[data-delete-selector]')).not.toHaveClass(/bg-red-500/);
+    await expect(firstItem.locator('img')).toHaveAttribute('data-e2e-stable-thumb', '1');
+
+    await firstItem.click();
+    await expect(firstItem.locator('span[data-delete-selector]')).toHaveClass(/bg-red-500/);
 
     // In delete mode with selections, clicking the mode button shows the confirm modal directly.
     await page.locator('#btn-playlist-mode').click();
@@ -271,7 +282,7 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
     await expect(page.locator('#modal-playlist-confirm')).toBeHidden();
     await expect(page.locator('#playlist-mode-button-label')).toContainText(/削除|Delete/);
     await expect(page.locator('#playlist-list-group a[data-playlist-item]')).toHaveCount(3);
-    await expect(firstItem.locator('span[aria-hidden="true"]')).toHaveClass(/bg-red-500/);
+    await expect(firstItem.locator('span[data-delete-selector]')).toHaveClass(/bg-red-500/);
   });
 
   test('applies delete selection, removes items, and persists to localStorage (Slice B)', async ({ page }) => {

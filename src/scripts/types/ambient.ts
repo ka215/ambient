@@ -111,6 +111,7 @@ export interface AmbientDataGlobal {
     [name: string]: string;  // Playlist name => filename mapping
   };
   imageDir?: string;         // Base directory for images (relative URL)
+  mediaDir?: string;         // Base directory for local media files (relative URL)
   [key: string]: any;        // Allow additional properties
 }
 

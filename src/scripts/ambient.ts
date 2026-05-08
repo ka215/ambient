@@ -227,6 +227,12 @@ const init = function (): void {
     }
   }
 
+  function abortPlaybackTimers(): void {
+    abortSeeking();
+    abortFader('fadein');
+    abortFader('fadeout');
+  }
+
   /**
    * Persist MyPlaylist only when cloud mode + MyPlaylist is currently active.
    */
@@ -481,6 +487,7 @@ const init = function (): void {
   const $MEDIA_CATEGORY_SELECT = document.getElementById('media-category') as HTMLSelectElement;
   const $MEDIA_VOLUME = document.getElementById('media-volume') as HTMLInputElement | null;
   let optionsModalHideTimer: number | null = null;
+  let optionsBackdropPointerStarted = false;
   if (isElement($MODAL_OPTIONS) && $MODAL_OPTIONS.parentElement !== document.body) {
     document.body.appendChild($MODAL_OPTIONS);
   }
@@ -491,6 +498,46 @@ const init = function (): void {
 
   function getViewportHeight(): number {
     return Math.round(window.visualViewport?.height || window.innerHeight);
+  }
+
+  function getBottomMenuHeight(): number {
+    if (!isElement($MENU)) {
+      return 0;
+    }
+    const rect = $MENU.getBoundingClientRect();
+    return Math.max(0, Math.ceil(getViewportHeight() - rect.top));
+  }
+
+  function getFullWindowPlayerSize(): { width: number; height: number } {
+    const aspectRatio = 16 / 9;
+    const width = Math.max(1, currentWindowSize.width);
+    const bottomReserve = getBottomMenuHeight();
+    const height = Math.max(1, currentWindowSize.height - bottomReserve);
+    const availableRatio = width / height;
+
+    if (availableRatio > aspectRatio) {
+      return {
+        width: Math.floor(height * aspectRatio),
+        height,
+      };
+    }
+
+    return {
+      width,
+      height: Math.floor(width / aspectRatio),
+    };
+  }
+
+  function getStandardPlayerSize(): { width: number; height: number } {
+    const width = currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2;
+    return {
+      width,
+      height: Math.floor((9 * width) / 16),
+    };
+  }
+
+  function getPlayerSizeForCurrentMode(): { width: number; height: number } {
+    return isFullWindowMode() ? getFullWindowPlayerSize() : getStandardPlayerSize();
   }
 
   function syncViewportMetrics(): void {
@@ -504,6 +551,7 @@ const init = function (): void {
     rootStyle.setProperty('--amp-viewport-height', `${height}px`);
     rootStyle.setProperty('--amp-visual-offset-top', `${offsetTop}px`);
     rootStyle.setProperty('--amp-visual-bottom-inset', `${visualBottomInset}px`);
+    rootStyle.setProperty('--amp-bottom-menu-height', `${getBottomMenuHeight()}px`);
     document.body.style.minHeight = `${height}px`;
     document.body.style.height = `${height}px`;
     currentWindowSize.width = width;
@@ -829,6 +877,17 @@ const init = function (): void {
     );
     deleteSelectedIds.clear();
     persistMyPlaylistIfNeeded();
+  }
+
+  function syncDeleteSelectionIndicator(itemElm: HTMLElement, isSelected: boolean): void {
+    const chkElm = itemElm.querySelector('span[data-delete-selector]') as HTMLElement | null;
+    if (!chkElm) return;
+    chkElm.className = isSelected
+      ? 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-red-500 bg-red-500'
+      : 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 dark:border-gray-500';
+    chkElm.innerHTML = isSelected
+      ? '<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>'
+      : '';
   }
 
   function destroyPlaylistSortable(): void {
@@ -1408,11 +1467,16 @@ const init = function (): void {
   }
 
   if (isElement($MODAL_OPTIONS)) {
+    $MODAL_OPTIONS.addEventListener('pointerdown', (evt: PointerEvent) => {
+      optionsBackdropPointerStarted = evt.target === $MODAL_OPTIONS;
+    });
+
     $MODAL_OPTIONS.addEventListener('click', (evt: Event) => {
-      if (evt.target === $MODAL_OPTIONS) {
+      if (evt.target === $MODAL_OPTIONS && optionsBackdropPointerStarted) {
         hideOptionsModal();
         restoreOptionsTriggerFocus();
       }
+      optionsBackdropPointerStarted = false;
     });
   }
 
@@ -1566,6 +1630,7 @@ const init = function (): void {
       if (playlistMode === 'delete') {
         const isSelected = deleteSelectedIds.has(item.amId);
         const chkElm = document.createElement('span');
+        chkElm.setAttribute('data-delete-selector', '');
         chkElm.setAttribute('aria-hidden', 'true');
         chkElm.className = isSelected
           ? 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-red-500 bg-red-500'
@@ -1609,7 +1674,7 @@ const init = function (): void {
           } else {
             deleteSelectedIds.add(amId);
           }
-          updatePlaylist();
+          syncDeleteSelectionIndicator(elm as HTMLElement, deleteSelectedIds.has(amId));
           return;
         }
         if (isPlaylistInteractionLocked()) {
@@ -2076,6 +2141,7 @@ const init = function (): void {
 
     syncWindowFullButtonIcons(enabled);
     updateWindowSize();
+    refreshViewportMetricsAfter(240);
   }
 
   /**
@@ -2600,6 +2666,28 @@ const init = function (): void {
   /**
    * Commit a media item to play.
    */
+  function reportMediaPlaybackIssue(
+    mediaItem: MediaItem,
+    reason: string,
+    details: Record<string, unknown> = {}
+  ): void {
+    const title = mediaItem.title || mediaItem.file || mediaItem.videoid || 'Unknown media';
+    logger('error', 'Media playback issue:', {
+      reason,
+      title,
+      file: mediaItem.file || '',
+      videoid: mediaItem.videoid || '',
+      media: mediaItem,
+      ...details,
+    }, 'force');
+
+    updateNotice({
+      type: 'error',
+      message: `Media could not be loaded: ${escapeHTML(title)}`,
+      delay: 6000,
+    });
+  }
+
   function playItem(object: HTMLElement | null = null, id: number | null = null): void {
     const thisElm = isElement(object) ? (object as HTMLElement) : null;
     const amId = id !== null ? id : Number((thisElm as any)?.dataset?.playlistItem || 0);
@@ -2629,6 +2717,14 @@ const init = function (): void {
       (document.getElementById('btn-close-settings') as HTMLButtonElement)?.click();
     }
 
+    if (!playerType || !mediaSrc) {
+      reportMediaPlaybackIssue(mediaData, 'media_source_missing', {
+        currentPlaylist: AMP_STATUS.playlist || '',
+        currentCategory: AMP_STATUS.ctg,
+      });
+      return;
+    }
+
     setupPlayer(playerType, mediaSrc, mediaData);
   }
 
@@ -2636,6 +2732,7 @@ const init = function (): void {
    * Handle the player to prepare depending on the type of media to play.
    */
   function setupPlayer(type: string | null, src: string | null, mediaData: MediaItem): void {
+    abortPlaybackTimers();
     // update media caption.
     updateMediaCaption(mediaData);
 
@@ -2656,16 +2753,19 @@ const init = function (): void {
           createPlayerTag('video', mediaData);
         } else {
           AMP_STATUS.playertype = null;
-          throw new Error('Unsupported file format');
+          reportMediaPlaybackIssue(mediaData, 'unsupported_file_format', {
+            src,
+            extension,
+          });
         }
         break;
       default:
         AMP_STATUS.playertype = null;
         emitYouTubeSignal('error', 'unsupported_player_specified');
-        if (AMP_STATUS.next !== null) {
-          playItem(null, AMP_STATUS.next);
-        }
-        throw new Error('Unsupported player specified.');
+        reportMediaPlaybackIssue(mediaData, 'unsupported_player_specified', {
+          src,
+          type,
+        });
     }
   }
 
@@ -2706,6 +2806,7 @@ const init = function (): void {
           logger(`onPlayerReady::elapsed ${elapsed * 100}ms:`, 'Playback has started!');
         } else if (elapsed > wait) {
           (document.getElementById('btn-play') as HTMLButtonElement).dispatchEvent(new Event('click'));
+          clearInterval(intervalID);
         }
       }, 100);
     }
@@ -2729,8 +2830,7 @@ const init = function (): void {
 
     if (event.data === YT_ENDED) {
       emitYouTubeSignal('ended');
-      abortSeeking();
-      abortFader('fadeout');
+      abortPlaybackTimers();
 
       $EMBED_WRAPPER.classList.add('w-full', 'h-0', 'opacity-0');
       $EMBED_WRAPPER.classList.remove('w-max', 'h-max');
@@ -2856,9 +2956,7 @@ const init = function (): void {
       logger('error', 'onYTPlayerError:', event, 'force');
     }
 
-    abortSeeking();
-    abortFader('fadeout');
-    abortFader('fadein');
+    abortPlaybackTimers();
     updatePlayStatus(nextId);
     setupPlayer(playerType, mediaSrc, mediaData);
   }
@@ -2934,14 +3032,7 @@ const init = function (): void {
       AMP_STATUS.volume = getDefaultVolume();
     }
 
-    // aspect: 16:9 = w:h -> h = 9w/16
-    const isFullWindow = isFullWindowMode();
-    const adjustSize = {
-      width: isFullWindow ? currentWindowSize.width : (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2),
-      height: isFullWindow
-        ? currentWindowSize.height
-        : Math.floor((9 * (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2)) / 16),
-    };
+    const adjustSize = getPlayerSizeForCurrentMode();
 
     player = new (window as any).YT.Player('ytplayer', {
       height: adjustSize.height,
@@ -2963,6 +3054,7 @@ const init = function (): void {
   function createPlayerTag(tagname: 'audio' | 'video', mediaData: MediaItem): void {
     const playerElm = document.createElement(tagname) as HTMLMediaElement;
     const sourceElm = document.createElement('source');
+    let hasReportedLoadIssue = false;
     playerElm.id = 'html-player';
     playerElm.setAttribute('controls', String(getOption('controls') || ''));
     playerElm.setAttribute('controlslist', 'nodownload');
@@ -2999,21 +3091,23 @@ const init = function (): void {
       playerElm.currentTime = Number(mediaData.start);
     }
 
-    sourceElm.src = mediaData.file || '';
-    sourceElm.setAttribute('type', `audio/${getExt(mediaData.file || '')}`);
-    playerElm.appendChild(sourceElm);
-
-    while ($EMBED_WRAPPER.firstChild) {
-      $EMBED_WRAPPER.removeChild($EMBED_WRAPPER.firstChild);
-    }
-    $EMBED_WRAPPER.appendChild(playerElm);
-
-    $EMBED_WRAPPER.classList.add('max-w-2xl', 'w-max', 'h-max', 'border-0');
-    $EMBED_WRAPPER.classList.remove('border', 'w-full', 'h-0', 'opacity-0');
-
-    $BUTTON_WATCH_TY.href = '#';
-    $BUTTON_WATCH_TY.setAttribute('disabled', '');
-    $OPTIONAL_CONTAINER.classList.add('hidden', 'opacity-0');
+    const reportHtmlMediaLoadIssue = (
+      mediaElement: HTMLMediaElement,
+      mediaItem: MediaItem,
+      evt: Event,
+      reason: string
+    ): void => {
+      if (hasReportedLoadIssue) return;
+      hasReportedLoadIssue = true;
+      reportMediaPlaybackIssue(mediaItem, reason, {
+        src: mediaElement.currentSrc || mediaItem.file || '',
+        networkState: mediaElement.networkState,
+        readyState: mediaElement.readyState,
+        errorCode: mediaElement.error?.code ?? null,
+        errorMessage: mediaElement.error?.message ?? '',
+        eventType: evt.type,
+      });
+    };
 
     playerElm.addEventListener('play', (_evt: Event) => {
       if (
@@ -3071,6 +3165,7 @@ const init = function (): void {
     });
 
     playerElm.addEventListener('ended', (_evt: Event) => {
+      abortPlaybackTimers();
       $EMBED_WRAPPER.classList.remove('max-w-2xl', 'w-max', 'h-max', 'border-0');
 
       // add since v1.2.2
@@ -3107,19 +3202,37 @@ const init = function (): void {
     });
 
     playerElm.addEventListener('error', (evt: Event) => {
-      logger('error', 'Player Error:', mediaData, evt, 'force');
+      reportHtmlMediaLoadIssue(playerElm, mediaData, evt, 'player_error');
     });
 
     playerElm.addEventListener('loadstart', (evt: Event) => {
-      // If the readyState does not change 1 second after the start of loading,
-      // it is skipped as an unsupported medium.
       setTimeout(() => {
-        if ((evt.target as HTMLMediaElement).readyState === 0) {
-          logger('warn', `The player will treat this media (${mediaData.file}) as unsupported and will skip it.`, 'force');
-          (evt.target as HTMLMediaElement).dispatchEvent(new Event('ended'));
+        const target = evt.target as HTMLMediaElement;
+        if (target.readyState === 0 && (target.networkState === 3 || target.error)) {
+          reportHtmlMediaLoadIssue(target, mediaData, evt, 'load_timeout');
         }
-      }, 1500);
+      }, 5000);
     });
+
+    const sourcePath = resolveLocalMediaSrc(mediaData.file || '');
+    sourceElm.src = sourcePath;
+    sourceElm.setAttribute('type', getMediaMimeType(sourcePath, tagname));
+    sourceElm.addEventListener('error', (evt: Event) => {
+      reportHtmlMediaLoadIssue(playerElm, mediaData, evt, 'source_error');
+    });
+    playerElm.appendChild(sourceElm);
+
+    while ($EMBED_WRAPPER.firstChild) {
+      $EMBED_WRAPPER.removeChild($EMBED_WRAPPER.firstChild);
+    }
+    $EMBED_WRAPPER.appendChild(playerElm);
+
+    $EMBED_WRAPPER.classList.add('max-w-2xl', 'w-max', 'h-max', 'border-0');
+    $EMBED_WRAPPER.classList.remove('border', 'w-full', 'h-0', 'opacity-0');
+
+    $BUTTON_WATCH_TY.href = '#';
+    $BUTTON_WATCH_TY.setAttribute('disabled', '');
+    $OPTIONAL_CONTAINER.classList.add('hidden', 'opacity-0');
 
     playerElm.addEventListener('loadedmetadata', (evt: Event) => {
       const self = evt.target as HTMLVideoElement;
@@ -3128,8 +3241,9 @@ const init = function (): void {
           self.setAttribute('poster', './views/images/no-media-placeholder.svg');
         }
         if (isFullWindowMode()) {
-          self.width = currentWindowSize.width;
-          self.height = currentWindowSize.height;
+          const adjustSize = getFullWindowPlayerSize();
+          self.width = adjustSize.width;
+          self.height = adjustSize.height;
         } else if (currentWindowSize.width >= 640) {
           self.width = 640;
           self.height = Math.floor((640 * self.videoHeight) / self.videoWidth);
@@ -3167,6 +3281,7 @@ const init = function (): void {
    * Fade in the volume of the specified media.
    */
   function fadeIn(media: any, period: number, start: number): void {
+    abortFader('fadein');
     const mediaType = isElement(media) ? 'local' : 'youtube';
     const fadeEnd = (start + period) * 1000; // unit milliseconds
     const steps = period * 10;
@@ -3224,6 +3339,7 @@ const init = function (): void {
    * Fade out the volume of the specified media.
    */
   function fadeOut(media: any, period: number, end: number): void {
+    abortFader('fadeout');
     const mediaType = isElement(media) ? 'local' : 'youtube';
     const fadeStart = (end - period) * 1000; // unit milliseconds
     const steps = period * 10;
@@ -3325,15 +3441,10 @@ const init = function (): void {
   function updateWindowSize(): void {
     currentWindowSize.width = getViewportWidth();
     currentWindowSize.height = getViewportHeight();
+    document.documentElement.style.setProperty('--amp-bottom-menu-height', `${getBottomMenuHeight()}px`);
     const isFullWindow = isFullWindowMode();
 
-    // aspect: 16:9 = w:h -> h = 9w/16
-    const adjustPlayerSize = {
-      width: isFullWindow ? currentWindowSize.width : (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2),
-      height: isFullWindow
-        ? currentWindowSize.height
-        : Math.floor((9 * (currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2)) / 16),
-    };
+    const adjustPlayerSize = getPlayerSizeForCurrentMode();
 
     if (player && typeof player === 'object' && typeof player.getIframe === 'function') {
       const YTPlayer = player.getIframe();
@@ -3795,12 +3906,11 @@ const init = function (): void {
           break;
         case 'title':
           elm.addEventListener('input', (evt: Event) => {
-            if ((evt.target as HTMLInputElement).value === '') {
-              setValidated(elm, null);
-            }
+            const value = (evt.target as HTMLInputElement).value.trim();
+            setValidated(elm, value === '' ? null : true);
           });
           elm.addEventListener('change', (evt: Event) => {
-            setValidated(elm, (evt.target as HTMLInputElement).value !== '');
+            setValidated(elm, (evt.target as HTMLInputElement).value.trim() !== '');
           });
           break;
         case 'volume':
@@ -4127,7 +4237,69 @@ function basename(path: string): string {
  * Gets the extension from the given file path.
  */
 function getExt(path: string): string {
-  return path.split('.').pop() || '';
+  const cleanPath = path.split(/[?#]/).shift() || '';
+  return cleanPath.split('.').pop()?.toLowerCase() || '';
+}
+
+function getMediaMimeType(path: string, tagname: 'audio' | 'video'): string {
+  const ext = getExt(path);
+  const mimeTypes: Record<string, string> = {
+    aac: 'audio/aac',
+    mid: 'audio/midi',
+    midi: 'audio/midi',
+    mp3: 'audio/mpeg',
+    m4a: 'audio/mp4',
+    ogg: 'audio/ogg',
+    opus: 'audio/opus',
+    wav: 'audio/wav',
+    weba: 'audio/webm',
+    wma: 'audio/x-ms-wma',
+    avi: 'video/x-msvideo',
+    mpeg: 'video/mpeg',
+    mpg: 'video/mpeg',
+    mp4: 'video/mp4',
+    ogv: 'video/ogg',
+    ts: 'video/mp2t',
+    webm: 'video/webm',
+    '3gp': 'video/3gpp',
+    '3g2': 'video/3gpp2',
+  };
+  return mimeTypes[ext] || `${tagname}/${ext || 'mpeg'}`;
+}
+
+function resolveLocalMediaSrc(path: string): string {
+  const normalizedPath = String(path || '').replace(/\\/g, '/');
+  if (!normalizedPath) {
+    return '';
+  }
+  if (/^(https?:)?\/\//i.test(normalizedPath) || /^(blob|data):/i.test(normalizedPath)) {
+    return normalizedPath;
+  }
+
+  const ambientData = (window as any).AmbientData as AmbientData | undefined;
+  const mediaDir = (ambientData?.mediaDir || './assets/media/').replace(/\\/g, '/').replace(/\/?$/, '/');
+  const mediaDirWithoutDot = mediaDir.replace(/^\.\//, '');
+  const pathWithoutDot = normalizedPath.replace(/^\.\//, '');
+
+  if (pathWithoutDot.startsWith(mediaDirWithoutDot)) {
+    return `${mediaDir}${pathWithoutDot.slice(mediaDirWithoutDot.length)}`;
+  }
+  if (pathWithoutDot.startsWith('assets/media/')) {
+    return `${mediaDir}${pathWithoutDot.slice('assets/media/'.length)}`;
+  }
+
+  return `${mediaDir}${pathWithoutDot.replace(/^\/+/, '')}`;
+}
+
+function escapeHTML(value: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  };
+  return String(value).replace(/[&<>"']/g, (char) => map[char] || char);
 }
 
 /**

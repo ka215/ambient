@@ -16,7 +16,7 @@ test.describe('SC-003 Playlist navigation (next/prev)', () => {
       await expect(page.locator('body')).not.toHaveClass(/amp-full-window/);
     }
 
-    await ambientPage.selectPlaylist('mememori-youtube.json');
+    await ambientPage.selectPlaylist('mememori-yt.json');
     await ambientPage.waitForYouTubeApi();
     // Open playlist drawer, click first item to start playback, then close drawer
     const seqBeforePlay = await ambientPage.getYouTubeSignalSeq();

@@ -234,7 +234,7 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
 
     await ambientPage.openSettingsDrawer();
     await expect(page.locator('#current-playlist')).toHaveValue(MYPLAYLIST_NAME);
-    await page.locator('#current-playlist').selectOption('mememori-youtube.json');
+    await page.locator('#current-playlist').selectOption('mememori-yt.json');
     await page.waitForFunction(() => document.querySelectorAll('#playlist-list-group a[data-playlist-item]').length > 0);
     await ambientPage.closeSettingsDrawer();
 

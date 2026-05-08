@@ -31,7 +31,7 @@ test.describe('SC-008 Layout positioning checks', () => {
 
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
-    await ambientPage.selectPlaylist('mememori-youtube.json');
+    await ambientPage.selectPlaylist('mememori-yt.json');
 
     await ambientPage.openPlaylistDrawer();
     await page.locator('#playlist-list-group a[data-playlist-item]').first().click();
