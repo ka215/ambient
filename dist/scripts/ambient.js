@@ -2768,8 +2768,9 @@ const init = function () {
         if (getOption('seek') && mediaData.hasOwnProperty('start') && mediaData.start !== '') {
             playerElm.currentTime = Number(mediaData.start);
         }
-        sourceElm.src = mediaData.file || '';
-        sourceElm.setAttribute('type', `audio/${getExt(mediaData.file || '')}`);
+        const sourcePath = mediaData.file || '';
+        sourceElm.src = sourcePath;
+        sourceElm.setAttribute('type', getMediaMimeType(sourcePath, tagname));
         playerElm.appendChild(sourceElm);
         while ($EMBED_WRAPPER.firstChild) {
             $EMBED_WRAPPER.removeChild($EMBED_WRAPPER.firstChild);
@@ -3845,7 +3846,33 @@ function basename(path) {
  * Gets the extension from the given file path.
  */
 function getExt(path) {
-    return path.split('.').pop() || '';
+    const cleanPath = path.split(/[?#]/).shift() || '';
+    return cleanPath.split('.').pop()?.toLowerCase() || '';
+}
+function getMediaMimeType(path, tagname) {
+    const ext = getExt(path);
+    const mimeTypes = {
+        aac: 'audio/aac',
+        mid: 'audio/midi',
+        midi: 'audio/midi',
+        mp3: 'audio/mpeg',
+        m4a: 'audio/mp4',
+        ogg: 'audio/ogg',
+        opus: 'audio/opus',
+        wav: 'audio/wav',
+        weba: 'audio/webm',
+        wma: 'audio/x-ms-wma',
+        avi: 'video/x-msvideo',
+        mpeg: 'video/mpeg',
+        mpg: 'video/mpeg',
+        mp4: 'video/mp4',
+        ogv: 'video/ogg',
+        ts: 'video/mp2t',
+        webm: 'video/webm',
+        '3gp': 'video/3gpp',
+        '3g2': 'video/3gpp2',
+    };
+    return mimeTypes[ext] || `${tagname}/${ext || 'mpeg'}`;
 }
 /**
  * Return true if a number is in range, otherwise false.
