@@ -2414,6 +2414,22 @@ const init = function () {
     /**
      * Commit a media item to play.
      */
+    function reportMediaPlaybackIssue(mediaItem, reason, details = {}) {
+        const title = mediaItem.title || mediaItem.file || mediaItem.videoid || 'Unknown media';
+        logger('error', 'Media playback issue:', {
+            reason,
+            title,
+            file: mediaItem.file || '',
+            videoid: mediaItem.videoid || '',
+            media: mediaItem,
+            ...details,
+        }, 'force');
+        updateNotice({
+            type: 'error',
+            message: `Media could not be loaded: ${escapeHTML(title)}`,
+            delay: 6000,
+        });
+    }
     function playItem(object = null, id = null) {
         const thisElm = isElement(object) ? object : null;
         const amId = id !== null ? id : Number(thisElm?.dataset?.playlistItem || 0);
@@ -2436,6 +2452,13 @@ const init = function () {
             // Hide drawers
             document.getElementById('btn-close-playlist')?.click();
             document.getElementById('btn-close-settings')?.click();
+        }
+        if (!playerType || !mediaSrc) {
+            reportMediaPlaybackIssue(mediaData, 'media_source_missing', {
+                currentPlaylist: AMP_STATUS.playlist || '',
+                currentCategory: AMP_STATUS.ctg,
+            });
+            return;
         }
         setupPlayer(playerType, mediaSrc, mediaData);
     }
@@ -2464,16 +2487,19 @@ const init = function () {
                 }
                 else {
                     AMP_STATUS.playertype = null;
-                    throw new Error('Unsupported file format');
+                    reportMediaPlaybackIssue(mediaData, 'unsupported_file_format', {
+                        src,
+                        extension,
+                    });
                 }
                 break;
             default:
                 AMP_STATUS.playertype = null;
                 emitYouTubeSignal('error', 'unsupported_player_specified');
-                if (AMP_STATUS.next !== null) {
-                    playItem(null, AMP_STATUS.next);
-                }
-                throw new Error('Unsupported player specified.');
+                reportMediaPlaybackIssue(mediaData, 'unsupported_player_specified', {
+                    src,
+                    type,
+                });
         }
     }
     /**
@@ -2737,6 +2763,7 @@ const init = function () {
     function createPlayerTag(tagname, mediaData) {
         const playerElm = document.createElement(tagname);
         const sourceElm = document.createElement('source');
+        let hasReportedLoadIssue = false;
         playerElm.id = 'html-player';
         playerElm.setAttribute('controls', String(getOption('controls') || ''));
         playerElm.setAttribute('controlslist', 'nodownload');
@@ -2768,19 +2795,19 @@ const init = function () {
         if (getOption('seek') && mediaData.hasOwnProperty('start') && mediaData.start !== '') {
             playerElm.currentTime = Number(mediaData.start);
         }
-        const sourcePath = mediaData.file || '';
-        sourceElm.src = sourcePath;
-        sourceElm.setAttribute('type', getMediaMimeType(sourcePath, tagname));
-        playerElm.appendChild(sourceElm);
-        while ($EMBED_WRAPPER.firstChild) {
-            $EMBED_WRAPPER.removeChild($EMBED_WRAPPER.firstChild);
-        }
-        $EMBED_WRAPPER.appendChild(playerElm);
-        $EMBED_WRAPPER.classList.add('max-w-2xl', 'w-max', 'h-max', 'border-0');
-        $EMBED_WRAPPER.classList.remove('border', 'w-full', 'h-0', 'opacity-0');
-        $BUTTON_WATCH_TY.href = '#';
-        $BUTTON_WATCH_TY.setAttribute('disabled', '');
-        $OPTIONAL_CONTAINER.classList.add('hidden', 'opacity-0');
+        const reportHtmlMediaLoadIssue = (mediaElement, mediaItem, evt, reason) => {
+            if (hasReportedLoadIssue)
+                return;
+            hasReportedLoadIssue = true;
+            reportMediaPlaybackIssue(mediaItem, reason, {
+                src: mediaElement.currentSrc || mediaItem.file || '',
+                networkState: mediaElement.networkState,
+                readyState: mediaElement.readyState,
+                errorCode: mediaElement.error?.code ?? null,
+                errorMessage: mediaElement.error?.message ?? '',
+                eventType: evt.type,
+            });
+        };
         playerElm.addEventListener('play', (_evt) => {
             if (getOption('seek') &&
                 mediaData.hasOwnProperty('end') &&
@@ -2857,18 +2884,32 @@ const init = function () {
             setupPlayer(playerType, mediaSrc, mediaData);
         });
         playerElm.addEventListener('error', (evt) => {
-            logger('error', 'Player Error:', mediaData, evt, 'force');
+            reportHtmlMediaLoadIssue(playerElm, mediaData, evt, 'player_error');
         });
         playerElm.addEventListener('loadstart', (evt) => {
-            // If the readyState does not change 1 second after the start of loading,
-            // it is skipped as an unsupported medium.
             setTimeout(() => {
-                if (evt.target.readyState === 0) {
-                    logger('warn', `The player will treat this media (${mediaData.file}) as unsupported and will skip it.`, 'force');
-                    evt.target.dispatchEvent(new Event('ended'));
+                const target = evt.target;
+                if (target.readyState === 0 && (target.networkState === 3 || target.error)) {
+                    reportHtmlMediaLoadIssue(target, mediaData, evt, 'load_timeout');
                 }
-            }, 1500);
+            }, 5000);
         });
+        const sourcePath = mediaData.file || '';
+        sourceElm.src = sourcePath;
+        sourceElm.setAttribute('type', getMediaMimeType(sourcePath, tagname));
+        sourceElm.addEventListener('error', (evt) => {
+            reportHtmlMediaLoadIssue(playerElm, mediaData, evt, 'source_error');
+        });
+        playerElm.appendChild(sourceElm);
+        while ($EMBED_WRAPPER.firstChild) {
+            $EMBED_WRAPPER.removeChild($EMBED_WRAPPER.firstChild);
+        }
+        $EMBED_WRAPPER.appendChild(playerElm);
+        $EMBED_WRAPPER.classList.add('max-w-2xl', 'w-max', 'h-max', 'border-0');
+        $EMBED_WRAPPER.classList.remove('border', 'w-full', 'h-0', 'opacity-0');
+        $BUTTON_WATCH_TY.href = '#';
+        $BUTTON_WATCH_TY.setAttribute('disabled', '');
+        $OPTIONAL_CONTAINER.classList.add('hidden', 'opacity-0');
         playerElm.addEventListener('loadedmetadata', (evt) => {
             const self = evt.target;
             if (self.tagName === 'VIDEO') {
@@ -3873,6 +3914,16 @@ function getMediaMimeType(path, tagname) {
         '3g2': 'video/3gpp2',
     };
     return mimeTypes[ext] || `${tagname}/${ext || 'mpeg'}`;
+}
+function escapeHTML(value) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;',
+    };
+    return String(value).replace(/[&<>"']/g, (char) => map[char] || char);
 }
 /**
  * Return true if a number is in range, otherwise false.
