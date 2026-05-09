@@ -16,7 +16,7 @@
             <button
               type="button"
               id="btn-playlist-mode"
-                            class="inline-flex min-w-[8rem] items-center justify-center gap-1.5 px-2 py-1.5 text-gray-500 rounded-lg hover:bg-gray-200 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-gray-300 dark:hover:bg-gray-600 dark:hover:text-white"
+              class="inline-flex min-w-[8rem] items-center justify-center gap-1.5 px-2 py-1.5 text-gray-500 rounded-lg hover:bg-gray-200 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-gray-300 dark:hover:bg-gray-600 dark:hover:text-white"
               aria-haspopup="true"
               aria-expanded="false"
               data-label-normal="<?= __( 'Normal' ) ?>"
@@ -41,7 +41,7 @@
             <div
               id="playlist-mode-menu"
               class="hidden absolute top-10 right-0 z-50 bg-white border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600"
-                            style="min-width: 8rem; box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);"
+              style="min-width: 8rem; box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);"
               role="menu"
               aria-label="<?= __( 'Mode' ) ?>"
             >

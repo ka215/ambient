@@ -22,6 +22,16 @@ class Ambient {
     /** @var ?array<string> */
     protected $playlists;
 
+    /**
+     * Assets (script, style, meta, etc.) structured array for dynamic injection into head and footer.
+     * @var array<string, array<string, array<string>>>
+     * @since v2.2.3
+     */
+    protected $assets = [
+        'head'   => [ 'meta' => [], 'styles' => [], 'scripts' => [], 'inline_scripts' => [] ],
+        'footer' => [ 'scripts' => [], 'inline_scripts' => [] ]
+    ];
+
     /** @var ?object */
     public $amp_error;
 
@@ -105,6 +115,7 @@ class Ambient {
         $relative_app_root = stripslashes( str_replace( $doc_root, '', APP_ROOT ) );// `ambient/`, `/`
         $paths = explode( $relative_app_root, $current_path );
         $_paths = null;
+        $request_name = null;
         if ( isset( $paths[1] ) ) {
             $request_name = str_contains( $paths[1], '/' ) ? strstr( $paths[1], '/', true ) : $paths[1];
             $_paths = str_contains( $paths[1], '/' ) ? explode( '/', substr( $paths[1], strpos( $paths[1], '/' ) + 1 ) ) : null;
@@ -200,7 +211,8 @@ class Ambient {
      * @return void
      */
     protected function set_error( string $message ): void {
-        $caller = next( debug_backtrace() );
+        $backtrace = debug_backtrace();
+        $caller = next( $backtrace );
         $errstr = sprintf( '%s in <strong>%s</strong> called from <strong>%s</strong> on line <strong>%d</strong>', $message, $caller['function'], $caller['file'], (int)$caller['line'] );
         $errstr .= "<br>error handler";
         trigger_error( $errstr, \E_USER_ERROR );
@@ -243,6 +255,56 @@ class Ambient {
         if ( defined( 'DEBUG_MODE' ) && DEBUG_MODE ) {
             // Do currently nothing.
         }
+    }
+
+    /**
+     * Add an asset (script, style, meta, etc.) to a specified position.
+     * 
+     * @param string $position The position to enqueue the asset ('head' or 'footer').
+     * @param string $type The type of asset ('meta', 'styles', 'scripts', etc.).
+     * @param string $content The content of the asset to enqueue.
+     * @since v2.2.3
+     */
+    public function enqueue_asset( string $position, string $type, string $content ): void {
+        if ( isset( $this->assets[$position][$type] ) ) {
+            $this->assets[$position][$type][] = $content;
+        }
+    }
+
+    /**
+     * Get assets for a specified position.
+     * 
+     * @param string $position The position to retrieve assets for ('head' or 'footer').
+     * @return array<string, array<string>> The assets for the specified position.
+     * @since v2.2.3
+     */
+    public function get_assets( string $position ): array {
+        return $this->assets[$position] ?? [];
+    }
+
+    /**
+     * Extend the existing set_property method.
+     * If the property name matches a specific pattern (e.g., 'extra_js_footer'), route it to the enqueue_asset method.
+     * Otherwise, set it as a normal property.
+     * 
+     * @param string $var_name The name of the variable to set.
+     * @param mixed $value The value to set for the variable.
+     * @since v2.2.3
+     */
+    public function set_property( string $var_name, mixed $value ): void {
+        // If a specific name like 'extra_head_script' comes, route it to assets
+        match ( $var_name ) {
+            'extra_head_meta' => $this->enqueue_asset( 'head', 'meta', $value ),
+            'extra_head_script' => $this->enqueue_asset( 'head', 'scripts', $value ),
+            'extra_head_inline_script' => $this->enqueue_asset( 'head', 'inline_scripts', $value ),
+            'extra_head_style' => $this->enqueue_asset( 'head', 'styles', $value ),
+            'extra_footer_script' => $this->enqueue_asset( 'footer', 'scripts', $value ),
+            'extra_footer_inline_script' => $this->enqueue_asset( 'footer', 'inline_scripts', $value ),
+            // Add more cases as needed for other types of assets or positions
+            
+            // If the variable name does not match any specific pattern, set it as a normal property
+            default => $this->$var_name = $value,
+        };
     }
 
     /**

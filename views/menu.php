@@ -173,14 +173,14 @@ if ( $this->menu_type == 1 ) {
             <svg class="icon-window-minimize hidden w-5 h-5 mb-1 text-blue-600 dark:text-blue-500" aria-hidden="true" aria-label="window-minimize" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 9h4m0 0V5m0 4L4 4m15 5h-4m0 0V5m0 4 5-5M5 15h4m0 0v4m0-4-5 5m15-5h-4m0 0v4m0-4 5 5"/>
             </svg>
-            <span class="sr-only"><?= __( 'Window Fullscreen' ) ?></span>
+            <span class="sr-only"><?= __( 'Expand to fill window' ) ?></span>
           </button>
           <div 
             id="tooltip-window-full" 
             role="tooltip" 
             class="absolute z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white transition-opacity duration-300 bg-gray-900 rounded-lg shadow-sm opacity-0 tooltip dark:bg-gray-700"
           >
-            <?= __( 'Window フル表示' ) ?>
+            <?= __( 'Expand to fill window' ) ?>
             <div class="tooltip-arrow" data-popper-arrow></div>
           </div>
         <div class="flex items-center justify-center">
@@ -238,7 +238,7 @@ if ( $this->menu_type == 1 ) {
             <svg class="icon-menu-expand hidden w-5 h-5 mb-1 text-blue-600 dark:text-blue-500" aria-hidden="true" aria-label="menu-expand" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 7h6m0 0V1m0 6L1 1m16 10h-6m0 0v6m0-6 6 6"/>
             </svg>
-            <span class="sr-only"><?= __( 'Minimize Menu' ) ?></span>
+            <span class="sr-only"><?= __( 'Menu Minimize' ) ?></span>
         </button>
         <div 
           id="tooltip-menu-collapse" 
