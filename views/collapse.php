@@ -194,11 +194,11 @@
                         <p
                           id="note-media-category-create-from-playlist-management"
                           class="hidden relative z-20 mt-1 text-sm text-red-600 dark:text-red-400"
-                        ><?= __( "Note: New categories can be added from \"Add New Category\" in \"" ) ?><a
+                        ><?= __( "Note: New categories can be added from &ldquo;Add New Category&rdquo; in &ldquo;" ) ?><a
                             id="link-open-playlist-management-category"
                             href="#collapse-item-body-playlist"
                             class="relative z-10 inline-flex font-medium underline underline-offset-2 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 dark:hover:text-red-300"
-                          ><?= __( 'Playlist Management' ) ?></a><?= __( "\"." ) ?></p>
+                          ><?= __( 'Playlist Management' ) ?></a><?= __( "&rdquo;." ) ?></p>
                     </div>
                     <div
                       class="mb-4"
