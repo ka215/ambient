@@ -2,7 +2,7 @@
   id="player-container" 
   class="flex flex-col items-center max-w-full w-full h-full mt-0 mx-auto mb-16 z-10 overflow-y-auto overflow-x-hidden"
 >
-    <?= amp_component( 'carousel' ); ?>
+    <?php amp_component( 'carousel' ); ?>
     <figure 
       class="w-full flex flex-col items-center gap-1 mt-4 mb-16 select-none"
     >
