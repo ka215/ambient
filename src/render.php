@@ -34,7 +34,13 @@ trait render {
      */
     public function set_localize_script( string $var_name, array $var_pair ): void {
         $script = "var $var_name = ". stripslashes( json_encode( $var_pair ) ) .";";
-        self::$amp_scripts = $script;
+        self::$amp_scripts = empty( self::$amp_scripts )
+            ? $script
+            : implode( "\n", [ self::$amp_scripts, $script ] );
+
+        if ( method_exists( $this, 'enqueue_asset' ) ) {
+            $this->enqueue_asset( 'head', 'inline_scripts', $script );
+        }
     }
 
     /**

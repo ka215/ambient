@@ -1,7 +1,17 @@
 <IfModule mod_rewrite.c>
 RewriteEngine On
 # RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authrozation}]
+
+# Block direct access to environment files and internal PHP entrypoints.
+RewriteRule ^(?:\.env|\.env\..*)$ - [F,L,NC]
+RewriteRule ^(?:custom|functions|autoload)\.php$ - [F,L,NC]
+RewriteRule ^(?:config|src|logs)/.*$ - [F,L,NC]
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.php [QSA,L]
 </IfModule>
+
+ErrorDocument 403 /error.html?code=403
+ErrorDocument 404 /error.html?code=404
+ErrorDocument 500 /error.html?code=500
