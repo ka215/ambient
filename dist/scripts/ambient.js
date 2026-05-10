@@ -183,6 +183,34 @@ const init = function () {
     const MYPLAYLIST_KEY = 'AmbientMyPlaylist';
     const MYPLAYLIST_NAME = 'MyPlaylist.json';
     const DEFAULT_VOLUME = 50;
+    let playlistLoadSeq = 0;
+    let activePlaylistLoadSeq = 0;
+    function isPlaylistLoadActive(seq) {
+        return activePlaylistLoadSeq === seq;
+    }
+    function beginPlaylistLoad(playlist) {
+        const nextSeq = ++playlistLoadSeq;
+        activePlaylistLoadSeq = nextSeq;
+        AMP_STATUS.playlist = playlist;
+        applyCloudEditRestrictions();
+        return nextSeq;
+    }
+    function finishPlaylistLoad(seq) {
+        if (isPlaylistLoadActive(seq)) {
+            activePlaylistLoadSeq = 0;
+        }
+    }
+    function resetPlaylistRuntimeState() {
+        AMP_STATUS.prev = null;
+        AMP_STATUS.current = null;
+        AMP_STATUS.next = null;
+        AMP_STATUS.ctg = -1;
+        AMP_STATUS.category = null;
+        AMP_STATUS.media = [];
+        AMP_STATUS.options = null;
+        clearCategory();
+        updatePlaylist();
+    }
     /**
      * Save the current in-memory state of MyPlaylist to localStorage.
      * Only called in cloud mode when the active playlist is MyPlaylist.
@@ -209,6 +237,10 @@ const init = function () {
      */
     function persistMyPlaylistIfNeeded() {
         const ambientData = window.AmbientData;
+        if (activePlaylistLoadSeq !== 0) {
+            logger('persistMyPlaylistIfNeeded: skipped while playlist load is active');
+            return false;
+        }
         if (ambientData?.isCloud && AMP_STATUS.playlist === MYPLAYLIST_NAME) {
             return saveMyPlaylistToStorage();
         }
@@ -232,49 +264,55 @@ const init = function () {
     function loadMyPlaylistFromStorage() {
         const raw = localStorage.getItem(MYPLAYLIST_KEY);
         if (!raw)
-            return;
+            return false;
         try {
             const data = JSON.parse(raw);
-            if (data && typeof data === 'object') {
-                clearCategory();
-                if (data.hasOwnProperty('options')) {
-                    AMP_STATUS.options = data.options || null;
-                }
-                let media = [];
-                const categoryData = Object.fromEntries(Object.entries(data).filter(([k]) => k !== 'options'));
-                const categories = Object.keys(categoryData);
-                categories.forEach((category, cid) => {
-                    if (categoryData[category] && categoryData[category].length > 0) {
-                        media = media.concat(categoryData[category].map((item) => {
-                            item.catId = cid;
-                            return item;
-                        }));
-                    }
-                });
-                AMP_STATUS.category = categories;
-                if (media.length > 0) {
-                    let amid = 0;
-                    media = media
-                        .filter((item) => item.hasOwnProperty('title') && item.title !== '')
-                        .map((item) => {
-                        item.amId = amid++;
-                        return item;
-                    });
-                }
-                AMP_STATUS.media = media;
-                AMP_STATUS.playlist = MYPLAYLIST_NAME;
-                updatePlaylist();
-                if (AMP_STATUS.current !== null) {
-                    updatePlayStatus(AMP_STATUS.current);
-                }
-                else if (media.length > 0) {
-                    updatePlayStatus(media[0]?.amId ?? 0);
-                }
-                logger('loadMyPlaylistFromStorage: loaded', media.length, 'items');
+            if (!data || typeof data !== 'object' || Array.isArray(data)) {
+                logger('loadMyPlaylistFromStorage: invalid schema', data);
+                return false;
             }
+            const nextOptions = Object.prototype.hasOwnProperty.call(data, 'options')
+                ? data.options || null
+                : null;
+            let media = [];
+            const categoryData = Object.fromEntries(Object.entries(data).filter(([k]) => k !== 'options'));
+            const categories = Object.keys(categoryData);
+            categories.forEach((category, cid) => {
+                const items = categoryData[category];
+                if (!Array.isArray(items) || items.length === 0) {
+                    return;
+                }
+                media = media.concat(items.map((item) => ({
+                    ...item,
+                    catId: cid,
+                })));
+            });
+            if (media.length > 0) {
+                let amid = 0;
+                media = media
+                    .filter((item) => item.hasOwnProperty('title') && item.title !== '')
+                    .map((item) => ({
+                    ...item,
+                    amId: amid++,
+                }));
+            }
+            AMP_STATUS.options = nextOptions;
+            AMP_STATUS.category = categories;
+            AMP_STATUS.media = media;
+            AMP_STATUS.playlist = MYPLAYLIST_NAME;
+            updatePlaylist();
+            if (AMP_STATUS.current !== null) {
+                updatePlayStatus(AMP_STATUS.current);
+            }
+            else if (media.length > 0) {
+                updatePlayStatus(media[0]?.amId ?? 0);
+            }
+            logger('loadMyPlaylistFromStorage: loaded', media.length, 'items');
+            return true;
         }
         catch (e) {
             logger('loadMyPlaylistFromStorage: parse error', e);
+            return false;
         }
     }
     // In cloud mode: if MyPlaylist exists in localStorage, inject it into the
@@ -285,6 +323,7 @@ const init = function () {
         if (!ambientData?.isCloud || localStorage.getItem(MYPLAYLIST_KEY) === null)
             return;
         const $sel = document.getElementById('current-playlist');
+        let injectedOption = null;
         if ($sel) {
             const alreadyExists = Array.from($sel.options).some((opt) => opt.value === MYPLAYLIST_NAME);
             if (!alreadyExists) {
@@ -292,16 +331,29 @@ const init = function () {
                 opt.value = MYPLAYLIST_NAME;
                 opt.textContent = MYPLAYLIST_NAME.replace('.json', '');
                 $sel.appendChild(opt);
-            }
-            for (let i = 0; i < $sel.options.length; i++) {
-                if ($sel.options[i]?.value === MYPLAYLIST_NAME) {
-                    $sel.selectedIndex = i;
-                    break;
-                }
+                injectedOption = opt;
             }
         }
-        AMP_STATUS.playlist = MYPLAYLIST_NAME;
-        loadMyPlaylistFromStorage();
+        resetPlaylistRuntimeState();
+        if (loadMyPlaylistFromStorage()) {
+            if ($sel) {
+                for (let i = 0; i < $sel.options.length; i++) {
+                    if ($sel.options[i]?.value === MYPLAYLIST_NAME) {
+                        $sel.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+            applyCloudEditRestrictions();
+            return;
+        }
+        if ($sel) {
+            injectedOption?.remove();
+            if ($sel.value === MYPLAYLIST_NAME) {
+                $sel.selectedIndex = 0;
+            }
+        }
+        AMP_STATUS.playlist = null;
         applyCloudEditRestrictions();
     }
     // Process global data passed by the system.
@@ -311,55 +363,68 @@ const init = function () {
      * Fetch data of specific playlist.
      */
     async function getPlaylistData(playlist) {
-        initStatus();
-        if (playlist === MYPLAYLIST_NAME) {
-            loadMyPlaylistFromStorage();
-            applyCloudEditRestrictions();
-            return;
-        }
-        const endpointURL = `${BASE_URL}playlist/${playlist}`;
-        const response = await fetchData(endpointURL);
-        if (response && typeof response === 'object' && 'data' in response) {
-            const data = response.data;
-            if (data && data.hasOwnProperty('options')) {
-                AMP_STATUS.options = data.options || null;
-            }
-            if (data && data.hasOwnProperty('media')) {
-                let media = [];
-                if (data.media && Object.keys(data.media).length > 0) {
-                    const categories = Object.keys(data.media);
-                    categories.forEach((category, cid) => {
-                        // Assign index number of category to media item.
-                        if (data.media && data.media[category] && data.media[category].length > 0) {
-                            media = media.concat(data.media[category].map((item) => {
-                                item.catId = cid; // Index number of category starting at 0
-                                return item;
-                            }));
-                        }
-                    });
-                    AMP_STATUS.category = categories;
+        const loadSeq = beginPlaylistLoad(playlist);
+        resetPlaylistRuntimeState();
+        try {
+            if (playlist === MYPLAYLIST_NAME) {
+                const loaded = loadMyPlaylistFromStorage();
+                if (!isPlaylistLoadActive(loadSeq)) {
+                    return;
                 }
-                if (media.length > 0) {
-                    // Filters available media only then Assign unique index number to media item.
-                    let amid = 0;
-                    media = media
-                        .filter((item) => item.hasOwnProperty('title') && item.title !== '')
-                        .map((item) => {
-                        item.amId = amid; // Index number of media starting at 0
-                        amid++;
-                        return item;
-                    });
-                }
-                AMP_STATUS.media = media;
-                updatePlaylist();
-                if (AMP_STATUS.current !== null) {
-                    updatePlayStatus(AMP_STATUS.current);
-                }
-                else if (media.length > 0) {
-                    updatePlayStatus(media[0]?.amId ?? 0);
+                if (!loaded) {
+                    AMP_STATUS.playlist = null;
                 }
                 applyCloudEditRestrictions();
+                return;
             }
+            const endpointURL = `${BASE_URL}playlist/${playlist}`;
+            const response = await fetchData(endpointURL);
+            if (!isPlaylistLoadActive(loadSeq)) {
+                return;
+            }
+            if (response && typeof response === 'object' && 'data' in response) {
+                const data = response.data;
+                if (data && data.hasOwnProperty('options')) {
+                    AMP_STATUS.options = data.options || null;
+                }
+                if (data && data.hasOwnProperty('media')) {
+                    let media = [];
+                    if (data.media && Object.keys(data.media).length > 0) {
+                        const categories = Object.keys(data.media);
+                        categories.forEach((category, cid) => {
+                            if (data.media && data.media[category] && data.media[category].length > 0) {
+                                media = media.concat(data.media[category].map((item) => ({
+                                    ...item,
+                                    catId: cid,
+                                })));
+                            }
+                        });
+                        AMP_STATUS.category = categories;
+                    }
+                    if (media.length > 0) {
+                        let amid = 0;
+                        media = media
+                            .filter((item) => item.hasOwnProperty('title') && item.title !== '')
+                            .map((item) => ({
+                            ...item,
+                            amId: amid++,
+                        }));
+                    }
+                    AMP_STATUS.media = media;
+                    AMP_STATUS.playlist = playlist;
+                    updatePlaylist();
+                    if (AMP_STATUS.current !== null) {
+                        updatePlayStatus(AMP_STATUS.current);
+                    }
+                    else if (media.length > 0) {
+                        updatePlayStatus(media[0]?.amId ?? 0);
+                    }
+                }
+            }
+            applyCloudEditRestrictions();
+        }
+        finally {
+            finishPlaylistLoad(loadSeq);
         }
     }
     /**
@@ -928,8 +993,7 @@ const init = function () {
             if (ambientData.hasOwnProperty('currentPlaylist')) {
                 // If there is only one playlist, load immediately.
                 const currentPlaylist = ambientData.currentPlaylist;
-                AMP_STATUS.playlist = currentPlaylist;
-                getPlaylistData(currentPlaylist);
+                void getPlaylistData(currentPlaylist);
             }
             else if (ambientData.hasOwnProperty('playlists') &&
                 Object.keys(ambientData.playlists || {}).length > 1) {
@@ -2040,11 +2104,8 @@ const init = function () {
                 playlistMode = 'normal';
                 updatePlaylistModeUI();
             }
-            clearCategory();
-            getPlaylistData(newPlaylist);
+            void getPlaylistData(newPlaylist);
         }
-        AMP_STATUS.playlist = newPlaylist;
-        applyCloudEditRestrictions();
     });
     /**
      * Event listener when the category selection field in the settings menu is changed.

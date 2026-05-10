@@ -178,6 +178,21 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
     expect(optionTextsAfter.map((v) => v.trim())).toEqual(['All categories', 'Alpha', 'Beta']);
   });
 
+  test('ignores malformed MyPlaylist localStorage and keeps the app usable', async ({ ambientPage, page }) => {
+    await page.addInitScript(() => {
+      localStorage.clear();
+      localStorage.setItem('AmbientMyPlaylist', '{invalid-json');
+    });
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.waitForPlaylistReady();
+
+    await ambientPage.openSettingsDrawer();
+    await expect(page.locator('#current-playlist')).not.toHaveValue(MYPLAYLIST_NAME);
+    await expect(page.locator('#current-playlist option')).not.toHaveCount(0);
+  });
+
   test('uses playlist option volume for settings and media management defaults', async ({ ambientPage, page }) => {
     const playlist = buildMyPlaylist({
       E2E: [{ title: 'volume-default', videoid: 'dQw4w9WgXcQ' }],
@@ -248,6 +263,42 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
 
     await ambientPage.openPlaylistDrawer();
     await expect(page.locator('#playlist-list-group a[data-playlist-item]')).toHaveCount(2);
+  });
+
+  test('keeps MyPlaylist active when switching back immediately before server playlist fetch settles', async ({ ambientPage, page }) => {
+    await seedMyPlaylist(page, buildMyPlaylist({
+      Replay: [
+        { title: 'race-replay-1', videoid: 'dQw4w9WgXcQ' },
+        { title: 'race-replay-2', videoid: 'gu7T0D50wFk' },
+      ],
+    }));
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.waitForPlaylistReady();
+    await ambientPage.openSettingsDrawer();
+
+    await page.evaluate((playlistName: string) => {
+      const select = document.getElementById('current-playlist') as HTMLSelectElement | null;
+      if (!select) return;
+      select.value = 'mememori-yt.json';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      select.value = playlistName;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    }, MYPLAYLIST_NAME);
+
+    await expect(page.locator('#current-playlist')).toHaveValue(MYPLAYLIST_NAME);
+    await page.waitForTimeout(1500);
+    await expect(page.locator('#current-playlist')).toHaveValue(MYPLAYLIST_NAME);
+    await expect(page.locator('#target-category')).toBeEnabled();
+    await expect(page.locator('#target-category option')).toHaveCount(2);
+    await expect(page.locator('#target-category option').nth(1)).toHaveText('Replay');
+
+    await ambientPage.closeSettingsDrawer();
+    await ambientPage.openPlaylistDrawer();
+    await expect(page.locator('#playlist-list-group a[data-playlist-item]')).toHaveCount(2);
+    await expect(page.locator('#playlist-list-group a[data-playlist-item]').nth(0)).toContainText('race-replay-1');
+    await expect(page.locator('#playlist-list-group a[data-playlist-item]').nth(1)).toContainText('race-replay-2');
   });
 
   test('wraps carousel navigation from last item to first and remains responsive on subsequent next clicks', async ({ ambientPage, page }) => {

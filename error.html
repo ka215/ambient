@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Ambient Error</title>
+  <meta name="theme-color" content="#ffffff">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f8fafc;
+      --bg-accent: radial-gradient(circle at top, rgba(59, 130, 246, 0.08), transparent 48%);
+      --text: #111827;
+      --muted: #4b5563;
+      --link-bg: #111827;
+      --link-text: #ffffff;
+      --link-shadow: 0 16px 32px rgba(17, 24, 39, 0.18);
+      --logo-opacity: 0.12;
+    }
+
+    html.dark {
+      --bg: #1f2937;
+      --bg-accent: radial-gradient(circle at top, rgba(59, 130, 246, 0.18), transparent 48%);
+      --text: #f9fafb;
+      --muted: #cbd5e1;
+      --link-bg: #eff6ff;
+      --link-text: #111827;
+      --link-shadow: 0 16px 32px rgba(15, 23, 42, 0.35);
+      --logo-opacity: 0.08;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: Inter, "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    body {
+      min-height: 100vh;
+      overflow: hidden;
+      background-image: var(--bg-accent);
+    }
+
+    .error-screen {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 20px;
+      isolation: isolate;
+    }
+
+    .error-logo {
+      position: absolute;
+      inset: 50% auto auto 50%;
+      width: min(72vw, 640px);
+      max-width: 640px;
+      transform: translate(-50%, -50%);
+      opacity: var(--logo-opacity);
+      pointer-events: none;
+      user-select: none;
+      z-index: -1;
+    }
+
+    .error-content {
+      width: min(100%, 560px);
+      text-align: center;
+      display: grid;
+      gap: 14px;
+      place-items: center;
+    }
+
+    .error-code {
+      margin: 0;
+      font-size: clamp(2.75rem, 9vw, 4.75rem);
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .error-title {
+      margin: 0;
+      font-size: clamp(1.125rem, 3vw, 1.625rem);
+      font-weight: 600;
+      line-height: 1.4;
+      letter-spacing: 0;
+    }
+
+    .error-message {
+      margin: 0;
+      max-width: 34rem;
+      font-size: 0.95rem;
+      line-height: 1.75;
+      color: var(--muted);
+      letter-spacing: 0;
+    }
+
+    .error-link {
+      margin-top: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 18px;
+      border-radius: 9999px;
+      background: var(--link-bg);
+      color: var(--link-text);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 600;
+      line-height: 1;
+      box-shadow: var(--link-shadow);
+      transition: transform 160ms ease, opacity 160ms ease;
+    }
+
+    .error-link:hover,
+    .error-link:focus-visible {
+      transform: translateY(-1px);
+      opacity: 0.95;
+    }
+
+    .error-link:focus-visible {
+      outline: 2px solid #3b82f6;
+      outline-offset: 3px;
+    }
+
+    @media (max-width: 480px) {
+      .error-screen {
+        padding: 24px 16px;
+      }
+
+      .error-logo {
+        width: min(88vw, 480px);
+      }
+    }
+  </style>
+  <script>
+    (function () {
+      var themeColorMeta = document.querySelector('meta[name="theme-color"]');
+      var shouldUseDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+      try {
+        var userData = localStorage.getItem('AmbientUserData');
+        if (userData) {
+          var parsedUserData = JSON.parse(userData);
+          if (parsedUserData && parsedUserData.options && typeof parsedUserData.options.dark === 'boolean') {
+            shouldUseDark = parsedUserData.options.dark;
+          }
+        }
+
+        var myPlaylistData = localStorage.getItem('AmbientMyPlaylist');
+        if (myPlaylistData) {
+          var parsedPlaylistData = JSON.parse(myPlaylistData);
+          if (
+            parsedPlaylistData &&
+            parsedPlaylistData.options &&
+            typeof parsedPlaylistData.options.dark === 'boolean'
+          ) {
+            shouldUseDark = parsedPlaylistData.options.dark;
+          }
+        }
+      } catch (_error) {
+        // Ignore invalid localStorage payloads and fall back to system theme.
+      }
+
+      if (shouldUseDark) {
+        document.documentElement.classList.add('dark');
+        if (themeColorMeta) {
+          themeColorMeta.setAttribute('content', '#1f2937');
+        }
+      } else if (themeColorMeta) {
+        themeColorMeta.setAttribute('content', '#f8fafc');
+      }
+    })();
+  </script>
+</head>
+<body>
+  <main class="error-screen">
+    <img class="error-logo" src="./views/images/ambient-logo-mono.svg" alt="" aria-hidden="true">
+    <section class="error-content" aria-labelledby="error-title">
+      <p id="error-code" class="error-code">Error</p>
+      <h1 id="error-title" class="error-title">An unexpected error has occurred.</h1>
+      <p id="error-message" class="error-message">
+        The requested page could not be displayed. Please return to the top page and try again.
+      </p>
+      <a class="error-link" href="./">Back to Ambient</a>
+    </section>
+  </main>
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var code = params.get('code') || '';
+      var codeElm = document.getElementById('error-code');
+      var titleElm = document.getElementById('error-title');
+      var messageElm = document.getElementById('error-message');
+
+      var definitions = {
+        '403': {
+          code: '403',
+          title: 'Access denied.',
+          message: 'You do not have permission to access this page or resource.'
+        },
+        '404': {
+          code: '404',
+          title: 'Page not found.',
+          message: 'The page you requested could not be found. The URL may be incorrect or the resource may have been moved.'
+        },
+        '500': {
+          code: '500',
+          title: 'Internal server error.',
+          message: 'A server-side error occurred while processing your request. Please return to the top page and try again later.'
+        }
+      };
+
+      var current = definitions[code] || {
+        code: 'Error',
+        title: 'An unexpected error has occurred.',
+        message: 'The requested page could not be displayed. Please return to the top page and try again.'
+      };
+
+      document.title = 'Ambient ' + current.code;
+      if (codeElm) codeElm.textContent = current.code;
+      if (titleElm) titleElm.textContent = current.title;
+      if (messageElm) messageElm.textContent = current.message;
+    })();
+  </script>
+</body>
+</html>
