@@ -83,8 +83,39 @@ After cloning, copy `.env.example` to `.env` and adjust the environment-specific
 - `DEBUG_MODE` - enable or disable debug logging in browser and PHP output
 - `ASSETS_DIR` - asset directory path relative to the project root
 - `LOGS_DIR` - log directory path relative to the project root
+- `ASSET_MODE` - `build` for built assets, `dev` for Vite dev server assets
+- `VITE_DEV_SERVER_URL` - Vite dev asset URL used only in development mode
 
 Alternatively, you can download the ZIP files from each release version of [Ambient Release Packages](https://github.com/ka215/ambient/releases) and unzip them to the desired installation location.
+
+### Frontend development and build
+
+Ambient now uses Vite as its asset pipeline.
+
+- Development:
+  - `npm run dev`
+- Type check:
+  - `npm run typecheck`
+- Production-style build:
+  - `npm run build`
+
+For local development behind Apache reverse proxy, set:
+
+```env
+ASSET_MODE=dev
+VITE_DEV_SERVER_URL=https://dev-amp.ka2.org/vite
+```
+
+For production-style local verification, set:
+
+```env
+ASSET_MODE=build
+```
+
+Detailed operational instructions:
+
+- `docs/operations/20260510-v2-3-0-vite-development-and-build-runbook.md`
+- `docs/operations/20260510-v2-3-0-vite-development-and-build-runbook-ja.md`
 
 ## Creating Playlists
 

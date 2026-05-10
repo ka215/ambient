@@ -69,8 +69,39 @@ Ambient は現在、以下の設定を `.env` から読み込みます。
 - `DEBUG_MODE`: ブラウザおよび PHP のデバッグログ出力の有効/無効
 - `ASSETS_DIR`: プロジェクトルートからのアセットディレクトリ
 - `LOGS_DIR`: プロジェクトルートからのログディレクトリ
+- `ASSET_MODE`: `build` ならビルド済み asset、`dev` なら Vite dev server を使用
+- `VITE_DEV_SERVER_URL`: 開発モード時に使用する Vite asset URL
 
 リリースページの ZIP を展開して導入する方法でも問題ありません。
+
+### フロントエンド開発とビルド
+
+Ambient は現在、フロントエンドの asset pipeline に Vite を使用します。
+
+- 開発起動:
+  - `npm run dev`
+- 型チェック:
+  - `npm run typecheck`
+- 商用ビルド相当:
+  - `npm run build`
+
+Apache の reverse proxy 配下でローカル開発する場合は、以下を設定します。
+
+```env
+ASSET_MODE=dev
+VITE_DEV_SERVER_URL=https://dev-amp.ka2.org/vite
+```
+
+商用ビルド相当のローカル確認では、以下を設定します。
+
+```env
+ASSET_MODE=build
+```
+
+詳細な運用手順:
+
+- `docs/operations/20260510-v2-3-0-vite-development-and-build-runbook-ja.md`
+- `docs/operations/20260510-v2-3-0-vite-development-and-build-runbook.md`
 
 ## プレイリストの作成
 
