@@ -1,3 +1,17 @@
+/*
+ * Ambient legacy fallback stylesheet.
+ *
+ * This file is no longer the primary styling source for active development.
+ * The canonical frontend style sources are:
+ * - src/styles/tailwind.css
+ * - src/styles/ambient.scss
+ * - src/styles/app.css
+ *
+ * Keep this file only as a build/runtime fallback for legacy PHP asset loading
+ * paths while the fallback branch remains in functions.php.
+ * Do not use this file as the primary target for ongoing UI changes.
+ */
+
 @charset "UTF-8";
 :root {
   --amp-viewport-width: 100vw;

@@ -1,2 +1,2 @@
 @import "./tailwind.css";
-@import "../../views/css/ambient.css";
+@import "./ambient.scss";

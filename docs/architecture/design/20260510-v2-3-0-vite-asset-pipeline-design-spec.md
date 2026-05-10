@@ -65,7 +65,7 @@ Ambient v2.2.x 時点のフロントエンド資産管理は、TypeScript / Tail
 
 1. **ビルド経路が分散**
    - TypeScript と Tailwind と SCSS が別管理
-   - `views/css/ambient.css` の生成経路が `package.json` に未定義
+- `views/css/ambient.css` の生成経路が `package.json` に未定義
 
 2. **公開資産が分散**
    - `dist/` と `views/css/` の二重管理
@@ -396,6 +396,8 @@ v2.3.0 では、以下を正式な目標構成とする。
 - build 出力は `dist/manifest.json` と `dist/assets/*` に集約済み
 - `flowbite` / `sortablejs` は npm import 経由へ移行済み
 - `src/styles/ambient.css` / `ambient.css.map` は廃止
+- `views/css/ambient.css` の Vite bundle 依存は解消済み
+- `views/css/ambient.css` は legacy fallback 専用ファイルとして明示化済み
 
 未完了:
 

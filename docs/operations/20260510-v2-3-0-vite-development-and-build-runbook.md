@@ -30,11 +30,12 @@ It covers:
 `src/styles/app.css` imports:
 
 - `src/styles/tailwind.css`
-- `views/css/ambient.css`
+- `src/styles/ambient.scss`
 
 Note:
-- `views/css/ambient.css` is currently kept as a compatibility layer
-- future cleanup should migrate its remaining rules into `src/styles/*`
+- display and layout rules previously held in `views/css/ambient.css` have already been migrated into `src/styles/*`
+- `views/css/ambient.css` remains only as a legacy build fallback asset
+- `views/css/ambient.css` now carries an explicit legacy-fallback-only header comment and is not the canonical source of truth
 
 ### 2-3. Build outputs
 
@@ -287,14 +288,15 @@ Note:
 
 ## 9. Known Caveats
 
-### 9-1. Compatibility CSS still exists
+### 9-1. Legacy build fallback CSS still exists
 
-`views/css/ambient.css` is still imported into the Vite bundle.
+`views/css/ambient.css` is not part of the Vite bundle input anymore.
+It remains in the repository only for the legacy PHP fallback path when `manifest.json` cannot be used.
 
-Meaning:
+Operational rule:
 
-- migration is operationally valid
-- style ownership is not fully consolidated yet
+- make active UI style changes only in `src/styles/*`
+- do not edit `views/css/ambient.css` unless you are intentionally maintaining the fallback path
 
 ### 9-2. HMR websocket is not fully stable
 
@@ -323,8 +325,28 @@ in production deployment.
 
 ## 10. Recommended Next Actions
 
+### 10-1. Completed
+
 1. Run production-style verification with `ASSET_MODE=build`
 2. Confirm no visual regressions between dev/build modes
-3. After validation, commit the Vite migration set
-4. Later, split compatibility CSS out of `views/css/ambient.css`
-5. Later, stabilize Apache websocket/HMR behavior if needed
+3. Commit the Vite migration set
+
+### 10-2. Clear remaining task for v2.3.0
+
+4. Stabilize Apache websocket/HMR behavior later if needed
+
+Notes:
+
+- this is not currently a blocker
+- manual UI verification and build validation can continue without it
+- treat it primarily as a developer-experience improvement task
+
+### 10-3. Candidate follow-up for v2.4.0 or later
+
+5. Execute the final legacy fallback cleanup/removal plan
+
+Current status:
+
+- `views/css/ambient.css` is already marked as legacy-fallback-only
+- the old fallback branch in `functions.php` remains as a safety valve
+- actual deletion is deferred to a later minor release candidate, such as `v2.4.0`

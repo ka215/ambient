@@ -30,12 +30,13 @@
 `src/styles/app.css` は現在、以下を取り込みます。
 
 - `src/styles/tailwind.css`
-- `views/css/ambient.css`
+- `src/styles/ambient.scss`
 
 補足:
 
-- `views/css/ambient.css` は現時点では互換レイヤーとして残しています
-- 将来的には `src/styles/*` 側へ統合して整理する想定です
+- 旧 `views/css/ambient.css` にあった表示・レイアウト定義は `src/styles/*` へ移管済みです
+- `views/css/ambient.css` は build fallback 用の旧資産としてのみ残しています
+- `views/css/ambient.css` には legacy fallback 専用コメントを付与し、正本ではないことを明示しています
 
 ### 2-3. ビルド成果物
 
@@ -277,14 +278,15 @@ Vite 移行後の現状:
 
 ## 9. 注意点
 
-### 9-1. 互換 CSS が残っている
+### 9-1. build fallback 用の旧 CSS が残っている
 
-`views/css/ambient.css` を Vite bundle に取り込んでいます。
+`views/css/ambient.css` は Vite bundle の入力ではありません。
+ただし `manifest.json` が使えない場合の旧 fallback 経路のため、リポジトリ内には残っています。
 
-意味すること:
+運用ルール:
 
-- Vite 移行としては実用レベルにある
-- ただし CSS の責務分離はまだ完了していない
+- 正本の UI スタイル修正は `src/styles/*` に対して行う
+- `views/css/ambient.css` は fallback 維持目的以外では編集しない
 
 ### 9-2. HMR websocket は未安定
 
@@ -311,8 +313,28 @@ websocket が切れた場合:
 
 ## 10. 次の推奨作業
 
+### 10-1. 完了済み
+
 1. `ASSET_MODE=build` で商用ビルド相当の確認を行う
 2. dev/build 間で見た目差異がないか確認する
-3. 問題なければ Vite 導入差分をコミットする
-4. 後続で `views/css/ambient.css` の中身を `src/styles/*` へ整理移管する
-5. 必要なら別タスクで Apache websocket/HMR の安定化を行う
+3. Vite 導入差分をコミットする
+
+### 10-2. v2.3.0 の明確な残件
+
+4. 必要なら別タスクで Apache websocket/HMR の安定化を行う
+
+補足:
+
+- 現時点では blocker ではない
+- 手動の UI 確認や build 検証は継続可能
+- 主に開発効率改善のための残件として扱う
+
+### 10-3. v2.4.0 以降の候補
+
+5. 旧 fallback 経路の扱いを整理し、最終的な削除方針を実施する
+
+現時点の整理:
+
+- `views/css/ambient.css` は legacy fallback 専用として明示化済み
+- `functions.php` の旧 fallback 分岐は安全弁として残置
+- 実削除は次のマイナーアップ候補 (`v2.4.0`) とする
