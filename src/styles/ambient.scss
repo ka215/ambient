@@ -1,9 +1,9 @@
-@font-face{ 
+@font-face{
     font-family: 'mplus-1p-regular';
-    src: url('../fonts/mplus-1p-regular.eot');
-    src: url('../fonts/mplus-1p-regular.eot?#iefix') format('embedded-opentype'),
-         url('../fontsmplus-1p-regular.woff') format('woff'),
-         url('../fonts/mplus-1p-regular.ttf') format('truetype');
+    src: url('../../views/fonts/mplus-1p-regular.eot');
+    src: url('../../views/fonts/mplus-1p-regular.eot?#iefix') format('embedded-opentype'),
+         url('../../views/fonts/mplus-1p-regular.woff') format('woff'),
+         url('../../views/fonts/mplus-1p-regular.ttf') format('truetype');
 }
 .font-sans {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, mplus-1p-regular, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
@@ -101,4 +101,302 @@ a[aria-current="true"] .playlist-subtitle {
 }
 .text-rotate-0 {
     transform: rotate(0.03deg);
+}
+
+:root {
+    --amp-viewport-width: 100vw;
+    --amp-viewport-height: 100dvh;
+    --amp-visual-offset-top: 0px;
+    --amp-visual-bottom-inset: 0px;
+    --amp-menu-base-bottom: 0px;
+}
+
+html,
+body {
+    width: 100%;
+    min-height: var(--amp-viewport-height, 100dvh);
+    height: var(--amp-viewport-height, 100dvh) !important;
+    overflow: hidden;
+}
+
+@supports not (height: 100dvh) {
+    :root {
+        --amp-viewport-height: 100vh;
+    }
+}
+
+#carousel-wrapper [id^=carousel-item-] {
+    height: 100%;
+}
+
+#carousel-wrapper [id^=carousel-item-]:not(.hidden) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#carousel-wrapper [id^=carousel-item-] > img {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    object-position: center;
+}
+
+#drawer-settings label[id^=toggle-] > div {
+    position: relative;
+    overflow: hidden;
+}
+
+#drawer-settings input:checked ~ .toggle-track::after {
+    left: 22px;
+    transform: none;
+    translate: none;
+}
+
+#drawer-settings .toggle-track::after {
+    will-change: left;
+}
+
+#collapse-menu [data-accordion-target] .accordion-caret {
+    display: inline-flex;
+    min-width: 0.875rem;
+    justify-content: center;
+    align-items: center;
+}
+
+#collapse-menu [data-accordion-target] .accordion-caret .caret-up {
+    display: none;
+}
+
+#collapse-menu [data-accordion-target][aria-expanded=true] .accordion-caret .caret-down {
+    display: none;
+}
+
+#collapse-menu [data-accordion-target][aria-expanded=true] .accordion-caret .caret-up {
+    display: block;
+}
+
+#modal-options #collapse-menu > h2 > [data-accordion-target],
+#modal-options #collapse-menu > div[id^=collapse-item-body-] > div {
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    border-bottom-color: #d1d5db;
+}
+
+.dark #modal-options #collapse-menu > h2 > [data-accordion-target],
+.dark #modal-options #collapse-menu > div[id^=collapse-item-body-] > div {
+    border-bottom-color: #4b5563;
+}
+
+.dark #modal-options #collapse-menu > h2 > [data-accordion-target] {
+    background-color: #2b3441;
+}
+
+.dark #modal-options #collapse-menu > h2 > [data-accordion-target]:hover {
+    background-color: #334155;
+}
+
+.dark #modal-options #collapse-menu > div[id^=collapse-item-body-] > div {
+    background-color: #1f2937;
+}
+
+body.amp-full-window #carousel-container,
+body.amp-full-window #media-caption {
+    display: none;
+}
+
+body.amp-full-window #player-container {
+    margin-bottom: 0;
+    overflow: hidden;
+}
+
+#player-container {
+    padding-top: var(--amp-visual-offset-top, 0px);
+}
+
+body.amp-full-window #player-container > figure {
+    margin-top: 0;
+    margin-bottom: 0;
+    min-height: calc(100vh - var(--amp-bottom-menu-height, 0px));
+    width: 100%;
+    justify-content: center;
+}
+
+@supports (min-height: 100dvh) {
+    body.amp-full-window #player-container > figure {
+        min-height: calc(100dvh - var(--amp-bottom-menu-height, 0px));
+    }
+}
+
+body.amp-full-window #embed-wrapper {
+    width: 100vw !important;
+    height: calc(100vh - var(--amp-bottom-menu-height, 0px)) !important;
+    max-width: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+}
+
+@supports (height: 100dvh) {
+    body.amp-full-window #embed-wrapper {
+        height: calc(100dvh - var(--amp-bottom-menu-height, 0px)) !important;
+    }
+}
+
+body.amp-full-window #ytplayer,
+body.amp-full-window #embed-wrapper iframe,
+body.amp-full-window #embed-wrapper video#html-player {
+    max-width: 100vw;
+    max-height: 100vh;
+}
+
+@supports (max-height: 100dvh) {
+    body.amp-full-window #ytplayer,
+    body.amp-full-window #embed-wrapper iframe,
+    body.amp-full-window #embed-wrapper video#html-player {
+        max-height: 100dvh;
+    }
+}
+
+#menu-container.menu-minimized {
+    width: 4.5rem !important;
+    max-width: 4.5rem !important;
+    height: 3rem;
+    z-index: 60;
+    left: auto;
+    right: 0.75rem;
+    --amp-menu-base-bottom: 0.75rem;
+    bottom: calc(var(--amp-menu-base-bottom, 0.75rem) + env(safe-area-inset-bottom, 0px) + var(--amp-visual-bottom-inset, 0px)) !important;
+    border-radius: 9999px;
+}
+
+#menu-container {
+    --amp-menu-base-bottom: 0px;
+    bottom: calc(var(--amp-menu-base-bottom, 0px) + env(safe-area-inset-bottom, 0px) + var(--amp-visual-bottom-inset, 0px)) !important;
+}
+
+body.amp-full-window #menu-container {
+    --amp-menu-base-bottom: 0px;
+    bottom: 0 !important;
+}
+
+#menu-container.rounded-full:not(.menu-minimized) {
+    --amp-menu-base-bottom: 1rem;
+}
+
+#menu-container.menu-minimized > div {
+    display: flex;
+    width: 100%;
+    max-width: none;
+    align-items: center;
+    justify-content: center;
+}
+
+#menu-container.menu-minimized #btn-playlist,
+#menu-container.menu-minimized #btn-refresh,
+#menu-container.menu-minimized #btn-window-full,
+#menu-container.menu-minimized #btn-play,
+#menu-container.menu-minimized #btn-pause,
+#menu-container.menu-minimized #btn-settings,
+#menu-container.menu-minimized #btn-options,
+#menu-container.menu-minimized [id^=tooltip-] {
+    display: none !important;
+}
+
+#menu-container.menu-minimized #btn-menu-collapse {
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border-width: 0;
+    border-radius: 9999px;
+}
+
+#modal-options #media-category-new {
+    color: #1d4ed8;
+}
+
+.dark #modal-options #media-category-new {
+    color: #93c5fd;
+}
+
+#modal-options :is(input, select, textarea).normal-input,
+#modal-options :is(input, select, textarea).success-input,
+#modal-options :is(input, select, textarea).error-input {
+    color: #111827;
+}
+
+#modal-options .normal-input {
+    border-color: #6b7280;
+}
+
+#modal-options .success-input {
+    border-color: #15803d;
+}
+
+#modal-options .error-input {
+    border-color: #b91c1c;
+}
+
+#modal-options .normal-prefix {
+    border-color: #6b7280;
+    color: #374151;
+}
+
+#modal-options .success-prefix {
+    border-color: #15803d;
+    color: #166534;
+}
+
+#modal-options .error-prefix {
+    border-color: #b91c1c;
+    color: #991b1b;
+}
+
+.dark #modal-options :is(input, select, textarea).normal-input,
+.dark #modal-options :is(input, select, textarea).success-input,
+.dark #modal-options :is(input, select, textarea).error-input {
+    color: #e5e7eb;
+}
+
+.dark #modal-options .success-input {
+    background-color: #111827;
+    border-color: #22c55e;
+}
+
+.dark #modal-options .success-input::placeholder {
+    color: #9ca3af;
+}
+
+.dark #modal-options .normal-text {
+    color: #d1d5db;
+}
+
+.dark #modal-options .normal-input {
+    background-color: #111827;
+    border-color: #374151;
+    color: #e5e7eb;
+}
+
+.dark #modal-options .normal-input::placeholder {
+    color: #9ca3af;
+}
+
+.dark #modal-options .normal-prefix {
+    background-color: #1f2937;
+    border-color: #374151;
+    color: #9ca3af;
+}
+
+.dark #modal-options .success-prefix {
+    background-color: #1f2937;
+    border-color: #22c55e;
+    color: #86efac;
+}
+
+.dark #drawer-settings #current-playlist,
+.dark #drawer-settings #target-category,
+.dark #drawer-settings #language {
+    background-color: #1f2937;
+    border-color: #4b5563;
+    color: #f3f4f6;
 }

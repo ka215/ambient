@@ -4,7 +4,9 @@
  * Ported from ambient.js with full type safety
  */
 /// <reference path="./types/index.ts" />
-declare const Sortable: typeof import('sortablejs') | undefined;
+import 'flowbite';
+import Sortable from 'sortablejs';
+import '../styles/app.css';
 
 // ============================================================================
 // INITIALIZATION
@@ -611,6 +613,22 @@ const init = function (): void {
 
   function getPlayerSizeForCurrentMode(): { width: number; height: number } {
     return isFullWindowMode() ? getFullWindowPlayerSize() : getStandardPlayerSize();
+  }
+
+  function applyHtmlPlayerSize(
+    playerElement: HTMLVideoElement,
+    size: { width: number; height: number }
+  ): void {
+    playerElement.width = size.width;
+    playerElement.height = size.height;
+    playerElement.style.width = `${size.width}px`;
+    playerElement.style.height = `${size.height}px`;
+    playerElement.style.maxWidth = '100%';
+    playerElement.style.maxHeight = isFullWindowMode()
+      ? 'calc(100vh - var(--amp-bottom-menu-height, 0px))'
+      : '100%';
+    playerElement.style.objectFit = 'contain';
+    playerElement.style.display = 'block';
   }
 
   function syncViewportMetrics(): void {
@@ -3311,14 +3329,17 @@ const init = function (): void {
         }
         if (isFullWindowMode()) {
           const adjustSize = getFullWindowPlayerSize();
-          self.width = adjustSize.width;
-          self.height = adjustSize.height;
+          applyHtmlPlayerSize(self, adjustSize);
         } else if (currentWindowSize.width >= 640) {
-          self.width = 640;
-          self.height = Math.floor((640 * self.videoHeight) / self.videoWidth);
+          applyHtmlPlayerSize(self, {
+            width: 640,
+            height: Math.floor((640 * self.videoHeight) / self.videoWidth),
+          });
         } else {
-          self.width = currentWindowSize.width - 2;
-          self.height = Math.floor(((currentWindowSize.width - 2) * self.videoHeight) / self.videoWidth);
+          applyHtmlPlayerSize(self, {
+            width: currentWindowSize.width - 2,
+            height: Math.floor(((currentWindowSize.width - 2) * self.videoHeight) / self.videoWidth),
+          });
         }
       }
     });
@@ -3524,8 +3545,7 @@ const init = function (): void {
     const $HTMLPlayer = document.getElementById('html-player') as HTMLVideoElement;
     if (isElement($HTMLPlayer)) {
       if ($HTMLPlayer.tagName === 'VIDEO') {
-        $HTMLPlayer.width = adjustPlayerSize.width;
-        $HTMLPlayer.height = adjustPlayerSize.height;
+        applyHtmlPlayerSize($HTMLPlayer, adjustPlayerSize);
       }
     }
 

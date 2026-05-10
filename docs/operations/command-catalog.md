@@ -4,20 +4,26 @@ This file lists reusable terminal commands for agents and developers.
 
 ## Frontend Build
 
-- Name: Tailwind Dev Watch
-- Command: npm run tw-dev
-- Purpose: Generate Tailwind CSS in watch mode for active UI development.
+- Name: Vite Dev Server
+- Command: npm run dev
+- Purpose: Start the Vite dev server for local asset development and HMR.
 
-- Name: Tailwind Production Build
-- Command: npm run tw-build
-- Purpose: Generate minified Tailwind CSS output for deployment.
+- Name: Vite Production Build
+- Command: npm run build
+- Purpose: Generate `dist/manifest.json` and `dist/assets/*` for production-style deployment.
+
+- Name: TypeScript Type Check
+- Command: npm run typecheck
+- Purpose: Run TypeScript validation without emitting legacy build artifacts.
+
+- Name: Playwright E2E
+- Command: npm run test:e2e
+- Purpose: Execute the standard E2E matrix for chrome, ipad, and iphone projects.
 
 ## Pending Standard Commands
 
 Define and add when introduced:
 - PHP lint command
-- PHP unit test command
-- E2E execution command (Playwright)
 - Static analysis command
 
 ## Task Mapping Policy

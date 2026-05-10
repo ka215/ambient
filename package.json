@@ -1,11 +1,13 @@
 {
   "name": "ambient",
-  "version": "2.2.4",
+  "version": "2.3.0",
   "scripts": {
-    "ts-dev": "tsc --watch",
-    "ts-build": "tsc",
-    "tw-dev": "tailwindcss -i ./src/styles/tailwindcss.css -o ./dist/tailwindcss.css --watch",
-    "tw-build": "tailwindcss -i ./src/styles/tailwindcss.css -o ./dist/tailwindcss.min.css --minify",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "ts-dev": "tsc --noEmit --watch",
+    "ts-build": "tsc --noEmit",
     "validate:playlists": "node ./scripts/validate-playlists.cjs",
     "release:start": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/release-start.ps1",
     "release:finish": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/release-finish.ps1",
@@ -15,14 +17,16 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
-    "@tailwindcss/cli": "^4.2.4",
+    "@tailwindcss/vite": "^4.3.0",
     "@types/node": "^20.10.0",
     "@types/sortablejs": "^1.15.9",
     "ajv": "^8.17.1",
     "flowbite": "^4.0.1",
     "playwright": "^1.59.1",
+    "sass": "^1.99.0",
     "tailwindcss": "^4.2.4",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1"
   },
   "dependencies": {
     "sortablejs": "^1.15.7"

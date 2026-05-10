@@ -152,8 +152,10 @@ A task is done only when all pass:
 
 - Frequently used commands should be standardized in VS Code tasks and documented.
 - Candidate commands for this repository right now:
-  - npm run tw-dev
-  - npm run tw-build
+  - npm run dev
+  - npm run build
+  - npm run typecheck
+  - npm run test:e2e
 - Add project test commands as they are introduced and keep this list updated.
 
 ## 7. About Dual Instruction Files
