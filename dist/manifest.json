@@ -1,0 +1,28 @@
+{
+  "src/scripts/ambient.ts": {
+    "file": "assets/ambient.js",
+    "name": "ambient",
+    "src": "src/scripts/ambient.ts",
+    "isEntry": true,
+    "css": [
+      "assets/ambient.css"
+    ],
+    "assets": [
+      "assets/mplus-1p-regular.eot",
+      "assets/mplus-1p-regular.woff",
+      "assets/mplus-1p-regular.ttf"
+    ]
+  },
+  "views/fonts/mplus-1p-regular.eot": {
+    "file": "assets/mplus-1p-regular.eot",
+    "src": "views/fonts/mplus-1p-regular.eot"
+  },
+  "views/fonts/mplus-1p-regular.ttf": {
+    "file": "assets/mplus-1p-regular.ttf",
+    "src": "views/fonts/mplus-1p-regular.ttf"
+  },
+  "views/fonts/mplus-1p-regular.woff": {
+    "file": "assets/mplus-1p-regular.woff",
+    "src": "views/fonts/mplus-1p-regular.woff"
+  }
+}
