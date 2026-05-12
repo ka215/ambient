@@ -112,10 +112,10 @@
   class="hidden fixed inset-0 z-[75] flex items-center justify-center p-4"
   role="dialog"
   aria-modal="true"
-  aria-labelledby="modal-playlist-desc-content"
+  aria-labelledby="modal-playlist-desc-title"
 >
     <div id="modal-playlist-desc-backdrop" class="absolute inset-0 bg-black/45 backdrop-blur-xs" aria-hidden="true"></div>
-    <div class="relative z-10 w-full max-w-sm rounded-lg bg-white p-4 shadow-xl dark:bg-gray-700">
+    <div class="playlist-desc-dialog relative z-10 flex w-full max-w-sm flex-col rounded-lg bg-white p-4 shadow-xl dark:bg-gray-700">
         <button
           type="button"
           id="btn-close-playlist-desc"
@@ -126,7 +126,11 @@
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
             </svg>
         </button>
-        <div id="modal-playlist-desc-content" class="playlist-desc-content pr-8 text-sm text-gray-700 dark:text-gray-200"></div>
+        <h3 id="modal-playlist-desc-title" class="pr-8 text-base font-normal text-gray-900 dark:text-white"></h3>
+        <div id="modal-playlist-desc-artist" class="playlist-desc-artist hidden mt-2"></div>
+        <div class="playlist-desc-body">
+            <div id="modal-playlist-desc-content" class="playlist-desc-content text-sm text-gray-700 dark:text-gray-200"></div>
+        </div>
     </div>
 </div>
 

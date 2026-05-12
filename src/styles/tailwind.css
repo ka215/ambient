@@ -57,6 +57,15 @@
         text-overflow: ellipsis !important;
         white-space: nowrap !important;
     }
+    .playlist-item-label--default .icon--playlist-desc,
+    .playlist-item-label--default .icon--playlist-desc * {
+        min-width: auto !important;
+        max-width: none !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        white-space: normal !important;
+        flex-shrink: 0 !important;
+    }
     #playlist-list-group a[data-playlist-item] .playlist-item-label :not(.icon--playlist-desc):not(.icon--playlist-desc *) {
         pointer-events: none !important;
     }

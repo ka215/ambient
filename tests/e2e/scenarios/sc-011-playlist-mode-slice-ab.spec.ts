@@ -172,6 +172,8 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
     await firstItem.locator('[data-playlist-desc-trigger]').click();
 
     await expect(page.locator('#modal-playlist-desc')).toBeVisible();
+    await expect(page.locator('#modal-playlist-desc-title')).toContainText('slice-ab-1');
+    await expect(page.locator('#modal-playlist-desc-artist')).toContainText('E2E Artist Alpha');
     await expect(page.locator('#modal-playlist-desc-content')).toContainText('First item description');
     await expect(page.locator('#btn-play')).toBeVisible();
     await expect(page.locator('#btn-pause')).toBeHidden();

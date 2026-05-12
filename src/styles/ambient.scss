@@ -110,6 +110,8 @@ a[aria-current="true"] .text--playlist-artist {
     align-items: center;
     gap: 0.5rem;
     min-width: 0;
+    overflow: visible;
+    white-space: normal;
 }
 
 .playlist-item-main {
@@ -117,6 +119,7 @@ a[aria-current="true"] .text--playlist-artist {
     min-width: 0;
     flex: 1 1 auto;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .playlist-item-main .text--playlist-title,
@@ -205,10 +208,41 @@ a[aria-current="true"] .text--playlist-artist {
     background-color: rgba(59, 130, 246, 0.2);
 }
 
+.playlist-desc-dialog {
+    max-height: min(calc(100dvh - 4rem), 42rem);
+}
+
+.playlist-desc-body {
+    min-height: 0;
+    overflow: hidden;
+}
+
 .playlist-desc-content {
+    display: block;
+    width: 100%;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #d1d5db;
+    max-height: calc(min(100dvh - 4rem, 42rem) - 8rem);
+    overflow-y: auto;
     white-space: pre-wrap;
     word-break: break-word;
     line-height: 1.5;
+}
+
+.playlist-desc-artist {
+    font-size: 0.75rem;
+    line-height: 1rem;
+    color: #78350f;
+    transform: rotate(0.03deg);
+}
+
+.dark .playlist-desc-artist {
+    color: #f59e0b;
+}
+
+.dark .playlist-desc-content {
+    border-top-color: #4b5563;
 }
 
 :root {
