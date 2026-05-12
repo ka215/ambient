@@ -211,6 +211,10 @@ const init = function (): void {
   // ============================================================================
   const MYPLAYLIST_KEY = 'AmbientMyPlaylist';
   const MYPLAYLIST_NAME = 'MyPlaylist.json';
+  const MEDIA_TITLE_MAX_LENGTH = 100;
+  const MEDIA_ARTIST_MAX_LENGTH = 100;
+  const MEDIA_DESC_MAX_LENGTH = 500;
+  const DISALLOWED_CONTROL_CHARS_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
   const DEFAULT_VOLUME = 50;
   let playlistLoadSeq = 0;
   let activePlaylistLoadSeq = 0;
@@ -286,6 +290,68 @@ const init = function (): void {
     return (window as any).AmbientData as AmbientData | undefined;
   }
 
+  function sanitizeMyPlaylistOptions(
+    options: PlaylistOptions | null | undefined
+  ): PlaylistOptions | null {
+    if (!isObject(options)) {
+      return null;
+    }
+    const nextOptions = { ...options } as PlaylistOptions;
+    if (Object.prototype.hasOwnProperty.call(nextOptions, 'playlist')) {
+      delete nextOptions.playlist;
+    }
+    return nextOptions;
+  }
+
+  function stripHtmlTags(value: string): string {
+    const parser = document.createElement('div');
+    parser.innerHTML = value;
+    return parser.textContent || parser.innerText || '';
+  }
+
+  function clampStringLength(value: string, maxLength: number): string {
+    return value.length > maxLength ? value.slice(0, maxLength) : value;
+  }
+
+  function sanitizeMediaText(value: string, maxLength: number): string {
+    const normalized = stripHtmlTags(String(value || ''))
+      .replace(/\r\n?/g, ' ')
+      .replace(/\s+/g, ' ')
+      .replace(DISALLOWED_CONTROL_CHARS_RE, '')
+      .trim();
+    return clampStringLength(normalized, maxLength);
+  }
+
+  function sanitizeMediaDescInput(value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string {
+    const normalized = stripHtmlTags(String(value || ''))
+      .replace(/\r\n?/g, ' ')
+      .replace(/\t/g, ' ')
+      .replace(DISALLOWED_CONTROL_CHARS_RE, '')
+      .replace(/ {2,}/g, ' ')
+      .trim();
+    return clampStringLength(normalized, maxLength);
+  }
+
+  function sanitizeMediaDesc(value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string {
+    const normalized = sanitizeMediaDescInput(value, maxLength)
+      .replace(/\\n/g, '\n')
+      .split('\n')
+      .map((line) => line.replace(/[^\S\n]+/g, ' ').trim())
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+    return clampStringLength(normalized, maxLength);
+  }
+
+  function sanitizeMediaItemTextFields<T extends Partial<MediaItem>>(item: T): T {
+    return {
+      ...item,
+      title: sanitizeMediaText(String(item.title || ''), MEDIA_TITLE_MAX_LENGTH),
+      artist: sanitizeMediaText(String(item.artist || ''), MEDIA_ARTIST_MAX_LENGTH),
+      desc: sanitizeMediaDesc(String(item.desc || ''), MEDIA_DESC_MAX_LENGTH),
+    };
+  }
+
   function canMutateCurrentPlaylist(): boolean {
     const ambientData = getAmbientData();
     if (ambientData?.isCloud === true) {
@@ -310,7 +376,7 @@ const init = function (): void {
       }
 
       const nextOptions = Object.prototype.hasOwnProperty.call(data, 'options')
-        ? (data as PlaylistData).options || null
+        ? sanitizeMyPlaylistOptions((data as PlaylistData).options || null)
         : null;
       let media: MediaItem[] = [];
       const categoryData = Object.fromEntries(
@@ -325,7 +391,7 @@ const init = function (): void {
         }
         media = media.concat(
           items.map((item: MediaItem) => ({
-            ...item,
+            ...sanitizeMediaItemTextFields(item),
             catId: cid,
           }))
         );
@@ -556,6 +622,12 @@ const init = function (): void {
   const $BUTTON_CLOSE_OPTIONS = document.getElementById('btn-close-options') as HTMLButtonElement;
   const $MODAL_OPTIONS = document.getElementById('modal-options') as HTMLElement;
   const $MODAL_OPTIONS_PANEL = $MODAL_OPTIONS?.querySelector('.modal-dialog-shell') as HTMLElement | null;
+  const $MODAL_PLAYLIST_DESC = document.getElementById('modal-playlist-desc') as HTMLElement | null;
+  const $MODAL_PLAYLIST_DESC_BACKDROP = document.getElementById('modal-playlist-desc-backdrop') as HTMLElement | null;
+  const $MODAL_PLAYLIST_DESC_TITLE = document.getElementById('modal-playlist-desc-title') as HTMLElement | null;
+  const $MODAL_PLAYLIST_DESC_ARTIST = document.getElementById('modal-playlist-desc-artist') as HTMLElement | null;
+  const $MODAL_PLAYLIST_DESC_CONTENT = document.getElementById('modal-playlist-desc-content') as HTMLElement | null;
+  const $BUTTON_CLOSE_PLAYLIST_DESC = document.getElementById('btn-close-playlist-desc') as HTMLButtonElement | null;
   const $COLLAPSE_MENU = document.getElementById('collapse-menu') as HTMLElement;
 
   // Add elements since v1.1.0
@@ -563,8 +635,64 @@ const init = function (): void {
   const $MEDIA_VOLUME = document.getElementById('media-volume') as HTMLInputElement | null;
   let optionsModalHideTimer: number | null = null;
   let optionsBackdropPointerStarted = false;
+  let activePlaylistDescButton: HTMLElement | null = null;
   if (isElement($MODAL_OPTIONS) && $MODAL_OPTIONS.parentElement !== document.body) {
     document.body.appendChild($MODAL_OPTIONS);
+  }
+  if (isElement($MODAL_PLAYLIST_DESC) && $MODAL_PLAYLIST_DESC.parentElement !== document.body) {
+    document.body.appendChild($MODAL_PLAYLIST_DESC);
+  }
+
+  function closePlaylistDescModal(restoreFocus = false): void {
+    if (!isElement($MODAL_PLAYLIST_DESC) || !isElement($MODAL_PLAYLIST_DESC_CONTENT)) {
+      return;
+    }
+    $MODAL_PLAYLIST_DESC.classList.add('hidden');
+    if (isElement($MODAL_PLAYLIST_DESC_TITLE)) {
+      $MODAL_PLAYLIST_DESC_TITLE.textContent = '';
+    }
+    if (isElement($MODAL_PLAYLIST_DESC_ARTIST)) {
+      $MODAL_PLAYLIST_DESC_ARTIST.textContent = '';
+      $MODAL_PLAYLIST_DESC_ARTIST.classList.add('hidden');
+    }
+    $MODAL_PLAYLIST_DESC_CONTENT.textContent = '';
+    if (isElement(activePlaylistDescButton)) {
+      activePlaylistDescButton.classList.remove('is-active');
+      if (restoreFocus) {
+        activePlaylistDescButton.focus();
+      }
+    }
+    activePlaylistDescButton = null;
+  }
+
+  function openPlaylistDescModal(titleText: string, artistText: string, descText: string, button: HTMLElement): void {
+    if (!isElement($MODAL_PLAYLIST_DESC) || !isElement($MODAL_PLAYLIST_DESC_CONTENT)) {
+      return;
+    }
+    if (activePlaylistDescButton === button && !$MODAL_PLAYLIST_DESC.classList.contains('hidden')) {
+      closePlaylistDescModal(true);
+      return;
+    }
+    if (isElement(activePlaylistDescButton)) {
+      activePlaylistDescButton.classList.remove('is-active');
+    }
+    activePlaylistDescButton = button;
+    activePlaylistDescButton.classList.add('is-active');
+    if (isElement($MODAL_PLAYLIST_DESC_TITLE)) {
+      $MODAL_PLAYLIST_DESC_TITLE.textContent = sanitizeMediaText(titleText, MEDIA_TITLE_MAX_LENGTH);
+    }
+    if (isElement($MODAL_PLAYLIST_DESC_ARTIST)) {
+      const normalizedArtistText = sanitizeMediaText(artistText, MEDIA_ARTIST_MAX_LENGTH);
+      if (normalizedArtistText.trim() !== '') {
+        $MODAL_PLAYLIST_DESC_ARTIST.textContent = normalizedArtistText;
+        $MODAL_PLAYLIST_DESC_ARTIST.classList.remove('hidden');
+      } else {
+        $MODAL_PLAYLIST_DESC_ARTIST.textContent = '';
+        $MODAL_PLAYLIST_DESC_ARTIST.classList.add('hidden');
+      }
+    }
+    $MODAL_PLAYLIST_DESC_CONTENT.textContent = sanitizeMediaDesc(descText, MEDIA_DESC_MAX_LENGTH);
+    $MODAL_PLAYLIST_DESC.classList.remove('hidden');
   }
 
   function getViewportWidth(): number {
@@ -976,9 +1104,12 @@ const init = function (): void {
     chkElm.className = isSelected
       ? 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-red-500 bg-red-500'
       : 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 dark:border-gray-500';
-    chkElm.innerHTML = isSelected
-      ? '<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>'
-      : '';
+    while (chkElm.firstChild) {
+      chkElm.removeChild(chkElm.firstChild);
+    }
+    if (isSelected) {
+      chkElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--check'));
+    }
   }
 
   function destroyPlaylistSortable(): void {
@@ -1580,8 +1711,24 @@ const init = function (): void {
     if (evt.key === 'Escape' && isOptionsModalVisible()) {
       hideOptionsModal();
       restoreOptionsTriggerFocus();
+    } else if (evt.key === 'Escape' && isElement($MODAL_PLAYLIST_DESC) && !$MODAL_PLAYLIST_DESC.classList.contains('hidden')) {
+      closePlaylistDescModal(true);
     }
   });
+
+  if (isElement($BUTTON_CLOSE_PLAYLIST_DESC)) {
+    $BUTTON_CLOSE_PLAYLIST_DESC.addEventListener('click', (evt: Event) => {
+      evt.preventDefault();
+      closePlaylistDescModal(true);
+    });
+  }
+
+  if (isElement($MODAL_PLAYLIST_DESC_BACKDROP)) {
+    $MODAL_PLAYLIST_DESC_BACKDROP.addEventListener('click', (evt: Event) => {
+      evt.preventDefault();
+      closePlaylistDescModal(false);
+    });
+  }
 
   /**
    * Open the Options modal with the Media Management accordion expanded.
@@ -1633,11 +1780,57 @@ const init = function (): void {
     }
   }
 
+  function createPlaylistMaskIcon(...classNames: string[]): HTMLSpanElement {
+    const iconElm = document.createElement('span');
+    iconElm.setAttribute('aria-hidden', 'true');
+    iconElm.className = ['playlist-icon-mask', ...classNames].join(' ');
+    return iconElm;
+  }
+
+  function buildDefaultPlaylistLabel(item: MediaItem): HTMLElement {
+    const wrapperElm = document.createElement('span');
+    wrapperElm.className = 'playlist-item-label playlist-item-label--default flex-1';
+
+    const mainElm = document.createElement('span');
+    mainElm.className = 'playlist-item-main';
+
+    const titleElm = document.createElement('span');
+    titleElm.className = 'text--playlist-title';
+    titleElm.textContent = item.title;
+    mainElm.appendChild(titleElm);
+
+    if (item.artist && item.artist.trim() !== '') {
+      const artistElm = document.createElement('span');
+      artistElm.className = 'text--playlist-artist';
+      artistElm.textContent = item.artist;
+      mainElm.appendChild(artistElm);
+    }
+
+    wrapperElm.appendChild(mainElm);
+
+    if (item.desc && item.desc.trim() !== '') {
+      const descButtonElm = document.createElement('span');
+      descButtonElm.className = 'icon--playlist-desc';
+      descButtonElm.setAttribute('data-playlist-desc-trigger', '');
+      descButtonElm.setAttribute('data-desc', item.desc);
+      descButtonElm.setAttribute('data-playlist-title', item.title);
+      descButtonElm.setAttribute('data-playlist-artist', item.artist || '');
+      descButtonElm.setAttribute('aria-label', item.title);
+      descButtonElm.setAttribute('role', 'button');
+      descButtonElm.setAttribute('tabindex', '0');
+      descButtonElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--desc'));
+      wrapperElm.appendChild(descButtonElm);
+    }
+
+    return wrapperElm;
+  }
+
   /**
    * Create a playlist from the data of the AMP_STATUS object.
    */
   function updatePlaylist(): void {
     destroyPlaylistSortable();
+    closePlaylistDescModal(false);
     clearPlaylist();
     const $LIST_NO_MEDIA = document.getElementById('no-media') as HTMLElement;
     let is_no_media =
@@ -1726,56 +1919,32 @@ const init = function (): void {
           ? 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-red-500 bg-red-500'
           : 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 dark:border-gray-500';
         if (isSelected) {
-          chkElm.innerHTML = '<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>';
+          chkElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--check'));
         }
         itemElm.prepend(chkElm);
       } else if (playlistMode === 'reorder') {
         const handleElm = document.createElement('span');
         handleElm.setAttribute('aria-hidden', 'true');
         handleElm.className = 'playlist-reorder-handle flex-shrink-0 order-first inline-flex items-center justify-center w-5 h-5 text-gray-400 cursor-grab active:cursor-grabbing dark:text-gray-500';
-        handleElm.innerHTML = '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01"/></svg>';
+        handleElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--reorder'));
         itemElm.prepend(handleElm);
       }
 
-      let labelText = item.title;
       const format = getOption('playlist');
       if (format) {
-        labelText = filterText(format, item);
-      }
-      const labelElm = document.createElement('span');
-      labelElm.className = 'playlist-item-label flex-1';
-      if (/<.*?[!^<].*?>/gi.test(labelText)) {
-        labelElm.innerHTML = labelText;
+        const labelText = filterText(format, item);
+        const labelElm = document.createElement('span');
+        labelElm.className = 'playlist-item-label flex-1';
+        if (/<.*?[!^<].*?>/gi.test(labelText)) {
+          labelElm.innerHTML = labelText;
+        } else {
+          labelElm.textContent = labelText;
+        }
+        itemElm.appendChild(labelElm);
       } else {
-        labelElm.textContent = labelText;
+        itemElm.appendChild(buildDefaultPlaylistLabel(item));
       }
-      itemElm.appendChild(labelElm);
       $LIST_PLAYLIST.appendChild(itemElm);
-    });
-
-    Array.from($LIST_PLAYLIST.querySelectorAll('a[data-playlist-item]')).forEach((elm) => {
-      elm.addEventListener('click', (evt: Event) => {
-        evt.preventDefault();
-        // Delete mode: toggle item selection
-        if (playlistMode === 'delete') {
-          const amId = Number((elm as HTMLElement).getAttribute('data-playlist-item'));
-          if (deleteSelectedIds.has(amId)) {
-            deleteSelectedIds.delete(amId);
-          } else {
-            deleteSelectedIds.add(amId);
-          }
-          syncDeleteSelectionIndicator(elm as HTMLElement, deleteSelectedIds.has(amId));
-          return;
-        }
-        if (isPlaylistInteractionLocked()) {
-          return;
-        }
-        const target = evt.target as HTMLElement;
-        playItem(target);
-        // Toggle player control buttons shown.
-        $BUTTON_PLAY.classList.add('hidden');
-        $BUTTON_PAUSE.classList.remove('hidden');
-      });
     });
 
     ensurePlaylistSortable();
@@ -1792,7 +1961,7 @@ const init = function (): void {
       const addIconElm = document.createElement('span');
       addIconElm.setAttribute('class', 'flex items-center justify-center h-8 w-8 rounded bg-gray-100 dark:bg-gray-600 text-blue-600 dark:text-blue-400 flex-shrink-0');
       addIconElm.setAttribute('aria-hidden', 'true');
-      addIconElm.innerHTML = '<svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7 7V5"/></svg>';
+      addIconElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--add'));
       addItemElm.appendChild(addIconElm);
       const registerBtn = document.getElementById('btn-add-media-from-drawer');
       const registerText = (registerBtn?.dataset['label'] || registerBtn?.innerText || 'Register media').trim();
@@ -1929,6 +2098,9 @@ const init = function (): void {
    * Getter for optional data of the AMP_STATUS object.
    */
   function getOption(key: string): any {
+    if (AMP_STATUS.playlist === MYPLAYLIST_NAME && key === 'playlist') {
+      return null;
+    }
     if (AMP_STATUS.hasOwnProperty('options') && AMP_STATUS.options !== null) {
       if (!AMP_STATUS.options.hasOwnProperty(key) || AMP_STATUS.options[key] === null || AMP_STATUS.options[key] === '') {
         return null;
@@ -2331,6 +2503,69 @@ const init = function (): void {
       AMP_STATUS.next = null;
     }
     updatePlaylist();
+  });
+
+  $LIST_PLAYLIST.addEventListener('click', (evt: Event) => {
+    const target = evt.target as HTMLElement | null;
+    if (!target) {
+      return;
+    }
+
+    const descTrigger = target.closest('[data-playlist-desc-trigger]') as HTMLElement | null;
+    if (descTrigger) {
+      evt.preventDefault();
+      evt.stopPropagation();
+      const descText = descTrigger.dataset['desc'] || '';
+      const titleText = descTrigger.getAttribute('data-playlist-title') || '';
+      const artistText = descTrigger.getAttribute('data-playlist-artist') || '';
+      if (descText.trim() !== '') {
+        openPlaylistDescModal(titleText, artistText, descText, descTrigger);
+      }
+      return;
+    }
+
+    const itemElm = target.closest('a[data-playlist-item]') as HTMLElement | null;
+    if (!itemElm) {
+      return;
+    }
+
+    evt.preventDefault();
+    if (playlistMode === 'delete') {
+      const amId = Number(itemElm.getAttribute('data-playlist-item'));
+      if (deleteSelectedIds.has(amId)) {
+        deleteSelectedIds.delete(amId);
+      } else {
+        deleteSelectedIds.add(amId);
+      }
+      syncDeleteSelectionIndicator(itemElm, deleteSelectedIds.has(amId));
+      return;
+    }
+    if (isPlaylistInteractionLocked()) {
+      return;
+    }
+    playItem(itemElm);
+    $BUTTON_PLAY.classList.add('hidden');
+    $BUTTON_PAUSE.classList.remove('hidden');
+  });
+
+  $LIST_PLAYLIST.addEventListener('keydown', (evt: KeyboardEvent) => {
+    const target = evt.target as HTMLElement | null;
+    if (!target) {
+      return;
+    }
+    const descTrigger = target.closest('[data-playlist-desc-trigger]') as HTMLElement | null;
+    if (!descTrigger) {
+      return;
+    }
+    if (evt.key === 'Enter' || evt.key === ' ') {
+      evt.preventDefault();
+      const descText = descTrigger.dataset['desc'] || '';
+      const titleText = descTrigger.getAttribute('data-playlist-title') || '';
+      const artistText = descTrigger.getAttribute('data-playlist-artist') || '';
+      if (descText.trim() !== '') {
+        openPlaylistDescModal(titleText, artistText, descText, descTrigger);
+      }
+    }
   });
 
   /**
@@ -3748,7 +3983,7 @@ const init = function (): void {
           break;
         case 'category_new_name': {
           // Text input is shown when no categories exist; value is a new category name
-          const newCatName = (val || '').trim() || 'New Category';
+          const newCatName = sanitizeMediaText(val || '', MEDIA_TITLE_MAX_LENGTH) || 'New Category';
           if (!Array.isArray(AMP_STATUS.category)) AMP_STATUS.category = [];
           let newCatIdx = AMP_STATUS.category.indexOf(newCatName);
           if (newCatIdx === -1) {
@@ -3760,9 +3995,13 @@ const init = function (): void {
           break;
         }
         case 'title':
+          mediaData.title = sanitizeMediaText(val, MEDIA_TITLE_MAX_LENGTH);
+          break;
         case 'artist':
+          mediaData.artist = sanitizeMediaText(val, MEDIA_ARTIST_MAX_LENGTH);
+          break;
         case 'desc':
-          (mediaData as any)[key] = val;
+          mediaData.desc = sanitizeMediaDesc(val, MEDIA_DESC_MAX_LENGTH);
           break;
         case 'volume': {
           const numVolume = Number(val);
@@ -3853,7 +4092,7 @@ const init = function (): void {
       }
       newPlaylist[belongCategory].push(oneData);
     });
-    newPlaylist['options'] = AMP_STATUS.options;
+    newPlaylist['options'] = sanitizeMyPlaylistOptions(AMP_STATUS.options);
     logger('generatePlaylistJson::after:', newPlaylist);
     return JSON.stringify(newPlaylist, null, 2);
   }
@@ -3982,7 +4221,9 @@ const init = function (): void {
           break;
         case 'category_new_name':
           elm.addEventListener('input', (evt: Event) => {
-            const isEmpty = (evt.target as HTMLInputElement).value.trim() === '';
+            const target = evt.target as HTMLInputElement;
+            target.value = sanitizeMediaText(target.value, MEDIA_TITLE_MAX_LENGTH);
+            const isEmpty = target.value.trim() === '';
             if (isEmpty) {
               setValidated(elm, null);
             } else {
@@ -3990,16 +4231,42 @@ const init = function (): void {
             }
           });
           elm.addEventListener('change', (evt: Event) => {
-            setValidated(elm, (evt.target as HTMLInputElement).value.trim() !== '');
+            const target = evt.target as HTMLInputElement;
+            target.value = sanitizeMediaText(target.value, MEDIA_TITLE_MAX_LENGTH);
+            setValidated(elm, target.value.trim() !== '');
           });
           break;
         case 'title':
           elm.addEventListener('input', (evt: Event) => {
-            const value = (evt.target as HTMLInputElement).value.trim();
+            const target = evt.target as HTMLInputElement;
+            target.value = sanitizeMediaText(target.value, MEDIA_TITLE_MAX_LENGTH);
+            const value = target.value.trim();
             setValidated(elm, value === '' ? null : true);
           });
           elm.addEventListener('change', (evt: Event) => {
-            setValidated(elm, (evt.target as HTMLInputElement).value.trim() !== '');
+            const target = evt.target as HTMLInputElement;
+            target.value = sanitizeMediaText(target.value, MEDIA_TITLE_MAX_LENGTH);
+            setValidated(elm, target.value.trim() !== '');
+          });
+          break;
+        case 'artist':
+          elm.addEventListener('input', (evt: Event) => {
+            const target = evt.target as HTMLInputElement;
+            target.value = sanitizeMediaText(target.value, MEDIA_ARTIST_MAX_LENGTH);
+          });
+          elm.addEventListener('change', (evt: Event) => {
+            const target = evt.target as HTMLInputElement;
+            target.value = sanitizeMediaText(target.value, MEDIA_ARTIST_MAX_LENGTH);
+          });
+          break;
+        case 'desc':
+          elm.addEventListener('input', (evt: Event) => {
+            const target = evt.target as HTMLInputElement;
+            target.value = sanitizeMediaDescInput(target.value, MEDIA_DESC_MAX_LENGTH);
+          });
+          elm.addEventListener('change', (evt: Event) => {
+            const target = evt.target as HTMLInputElement;
+            target.value = sanitizeMediaDescInput(target.value, MEDIA_DESC_MAX_LENGTH);
           });
           break;
         case 'volume':

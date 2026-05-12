@@ -106,6 +106,34 @@
     </div>
 </div><!-- /#drawer-playlist -->
 
+<!-- Playlist description modal (v2.3.1) -->
+<div
+  id="modal-playlist-desc"
+  class="hidden fixed inset-0 z-[75] flex items-center justify-center p-4"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="modal-playlist-desc-title"
+>
+    <div id="modal-playlist-desc-backdrop" class="absolute inset-0 bg-black/45 backdrop-blur-xs" aria-hidden="true"></div>
+    <div class="playlist-desc-dialog relative z-10 flex w-full max-w-sm flex-col rounded-lg bg-white p-4 shadow-xl dark:bg-gray-700">
+        <button
+          type="button"
+          id="btn-close-playlist-desc"
+          class="absolute top-2 right-2 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex items-center justify-center dark:hover:bg-gray-600 dark:hover:text-white"
+          aria-label="<?= __( 'Close' ) ?>"
+        >
+            <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+            </svg>
+        </button>
+        <h3 id="modal-playlist-desc-title" class="pr-8 text-base font-normal text-gray-900 dark:text-white"></h3>
+        <div id="modal-playlist-desc-artist" class="playlist-desc-artist hidden mt-2"></div>
+        <div class="playlist-desc-body">
+            <div id="modal-playlist-desc-content" class="playlist-desc-content text-sm text-gray-700 dark:text-gray-200"></div>
+        </div>
+    </div>
+</div>
+
 <!-- Playlist operation confirm modal (v2.2.0) -->
 <div
   id="modal-playlist-confirm"

@@ -224,12 +224,13 @@
                                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 5.917 5.724 10.5 15 1.5"/>
                             </svg></span>
                         </label>
-                        <input 
+                        <input
                           id="media-title"
                           type="text"
                           name="title"
                           class="border text-sm rounded-lg block w-full p-2.5 normal-input"
                           placeholder="<?= __( 'Displayed media title' ) ?>"
+                          maxlength="100"
                           required
                           data-validate="false"
                         />
@@ -242,12 +243,13 @@
                           for="media-artist"
                           class="block mb-2 text-sm font-medium normal-text"
                         ><?= __( 'Artist' ) ?></label>
-                        <input 
+                        <input
                           id="media-artist"
                           type="text"
                           name="artist"
                           class="border text-sm rounded-lg block w-full p-2.5 normal-input"
                           placeholder="<?= __( 'Displayed artist name' ) ?>"
+                          maxlength="100"
                         />
                     </div>
                     <div
@@ -258,12 +260,13 @@
                           for="media-desc"
                           class="block mb-2 text-sm font-medium normal-text"
                         ><?= __( 'Description' ) ?></label>
-                        <input 
+                        <input
                           id="media-desc"
                           type="text"
                           name="desc"
                           class="border text-sm rounded-lg block w-full p-2.5 normal-input"
                           placeholder="<?= __( 'Subtitle or description of media' ) ?>"
+                          maxlength="500"
                         />
                     </div>
                     <div

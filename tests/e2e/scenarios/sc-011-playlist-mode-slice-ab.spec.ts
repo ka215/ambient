@@ -7,6 +7,8 @@ const MYPLAYLIST_NAME = 'MyPlaylist.json';
 type SeedItem = {
   title: string;
   videoid: string;
+  artist?: string;
+  desc?: string;
 };
 
 function buildMyPlaylist(items: SeedItem[]) {
@@ -14,8 +16,8 @@ function buildMyPlaylist(items: SeedItem[]) {
     E2E: items.map((item) => ({
       title: item.title,
       videoid: item.videoid,
-      artist: 'E2E Artist',
-      desc: '',
+      artist: item.artist || 'E2E Artist',
+      desc: item.desc || '',
       start: '',
       end: '',
     })),
@@ -112,9 +114,9 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
     test.skip(browserName !== 'chromium', 'Slice A/B E2E is validated on chromium only.');
 
     await seedMyPlaylist(page, [
-      { title: 'slice-ab-1', videoid: 'dQw4w9WgXcQ' },
-      { title: 'slice-ab-2', videoid: 'gu7T0D50wFk' },
-      { title: 'slice-ab-3', videoid: '3JZ_D3ELwOQ' },
+      { title: 'slice-ab-1', videoid: 'dQw4w9WgXcQ', artist: 'E2E Artist Alpha', desc: 'First item description' },
+      { title: 'slice-ab-2', videoid: 'gu7T0D50wFk', artist: 'E2E Artist Beta' },
+      { title: 'slice-ab-3', videoid: '3JZ_D3ELwOQ', artist: 'E2E Artist Gamma' },
     ]);
 
     await ambientPage.gotoHome();
@@ -159,6 +161,26 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
     // 11rem ~= 176px; keep a safety lower-bound for font/rendering variance.
     // 8rem ~= 128px; keep a safety lower-bound for font/rendering variance.
     expect(menuBox.width).toBeGreaterThanOrEqual(110);
+  });
+
+  test('renders default playlist template with artist row and opens desc modal without starting playback', async ({ page }) => {
+    const firstItem = page.locator('#playlist-list-group a[data-playlist-item]').first();
+    await expect(firstItem.locator('.text--playlist-title')).toContainText('slice-ab-1');
+    await expect(firstItem.locator('.text--playlist-artist')).toContainText('E2E Artist Alpha');
+    await expect(firstItem.locator('[data-playlist-desc-trigger]')).toHaveCount(1);
+
+    await firstItem.locator('[data-playlist-desc-trigger]').click();
+
+    await expect(page.locator('#modal-playlist-desc')).toBeVisible();
+    await expect(page.locator('#modal-playlist-desc-title')).toContainText('slice-ab-1');
+    await expect(page.locator('#modal-playlist-desc-artist')).toContainText('E2E Artist Alpha');
+    await expect(page.locator('#modal-playlist-desc-content')).toContainText('First item description');
+    await expect(page.locator('#btn-play')).toBeVisible();
+    await expect(page.locator('#btn-pause')).toBeHidden();
+    await expect(firstItem.locator('[data-playlist-desc-trigger]')).toHaveClass(/is-active/);
+
+    await page.locator('#btn-close-playlist-desc').click();
+    await expect(page.locator('#modal-playlist-desc')).toBeHidden();
   });
 
   test('locks playback and hides quick add in non-normal mode (Slice A)', async ({ page }) => {

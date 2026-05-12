@@ -214,6 +214,43 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
     await expect(page.locator('#default-media-volume')).toHaveText('35');
   });
 
+  test('drops custom playlist template option from MyPlaylist on load and save', async ({ ambientPage, page }) => {
+    const playlist = buildMyPlaylist({
+      E2E: [{
+        title: 'desc-template-guard',
+        videoid: 'dQw4w9WgXcQ',
+        artist: 'Guard Artist',
+        desc: 'Guard description',
+      }],
+    });
+    (playlist.options as Record<string, unknown>).playlist = '<div>%title%</div>';
+    await seedMyPlaylist(page, playlist);
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.waitForPlaylistReady();
+    await ambientPage.openPlaylistDrawer();
+
+    const firstItem = page.locator('#playlist-list-group a[data-playlist-item]').first();
+    await expect(firstItem.locator('.text--playlist-title')).toContainText('desc-template-guard');
+    await expect(firstItem.locator('.text--playlist-artist')).toContainText('Guard Artist');
+    await expect(firstItem.locator('[data-playlist-desc-trigger]')).toHaveCount(1);
+
+    await page.evaluate(() => {
+      const current = (window as any).document.getElementById('toggle-darkmode')?.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+      if (current) {
+        current.checked = !current.checked;
+        current.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    await expect.poll(async () => page.evaluate(() => {
+      const raw = localStorage.getItem('AmbientMyPlaylist');
+      if (!raw) return null;
+      return JSON.parse(raw).options?.playlist ?? null;
+    })).toBeNull();
+  });
+
   test('falls back to volume 50 when playlist option volume is undefined', async ({ ambientPage, page }) => {
     const playlist = buildMyPlaylist({
       E2E: [{ title: 'volume-fallback', videoid: 'dQw4w9WgXcQ' }],
