@@ -37,9 +37,6 @@
     .delay-2000 {
         transition-delay: 2000ms;
     }
-    #playlist-list-group a * {
-        pointer-events: none !important;
-    }
     #playlist-list-group a[data-playlist-item],
     #playlist-list-group #btn-add-media-from-playlist {
         min-width: 0;
@@ -59,6 +56,9 @@
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         white-space: nowrap !important;
+    }
+    #playlist-list-group a[data-playlist-item] .playlist-item-label :not(.icon--playlist-desc):not(.icon--playlist-desc *) {
+        pointer-events: none !important;
     }
     .volume-range {
         --range-progress: 50%;

@@ -556,6 +556,10 @@ const init = function (): void {
   const $BUTTON_CLOSE_OPTIONS = document.getElementById('btn-close-options') as HTMLButtonElement;
   const $MODAL_OPTIONS = document.getElementById('modal-options') as HTMLElement;
   const $MODAL_OPTIONS_PANEL = $MODAL_OPTIONS?.querySelector('.modal-dialog-shell') as HTMLElement | null;
+  const $MODAL_PLAYLIST_DESC = document.getElementById('modal-playlist-desc') as HTMLElement | null;
+  const $MODAL_PLAYLIST_DESC_BACKDROP = document.getElementById('modal-playlist-desc-backdrop') as HTMLElement | null;
+  const $MODAL_PLAYLIST_DESC_CONTENT = document.getElementById('modal-playlist-desc-content') as HTMLElement | null;
+  const $BUTTON_CLOSE_PLAYLIST_DESC = document.getElementById('btn-close-playlist-desc') as HTMLButtonElement | null;
   const $COLLAPSE_MENU = document.getElementById('collapse-menu') as HTMLElement;
 
   // Add elements since v1.1.0
@@ -563,8 +567,44 @@ const init = function (): void {
   const $MEDIA_VOLUME = document.getElementById('media-volume') as HTMLInputElement | null;
   let optionsModalHideTimer: number | null = null;
   let optionsBackdropPointerStarted = false;
+  let activePlaylistDescButton: HTMLElement | null = null;
   if (isElement($MODAL_OPTIONS) && $MODAL_OPTIONS.parentElement !== document.body) {
     document.body.appendChild($MODAL_OPTIONS);
+  }
+  if (isElement($MODAL_PLAYLIST_DESC) && $MODAL_PLAYLIST_DESC.parentElement !== document.body) {
+    document.body.appendChild($MODAL_PLAYLIST_DESC);
+  }
+
+  function closePlaylistDescModal(restoreFocus = false): void {
+    if (!isElement($MODAL_PLAYLIST_DESC) || !isElement($MODAL_PLAYLIST_DESC_CONTENT)) {
+      return;
+    }
+    $MODAL_PLAYLIST_DESC.classList.add('hidden');
+    $MODAL_PLAYLIST_DESC_CONTENT.textContent = '';
+    if (isElement(activePlaylistDescButton)) {
+      activePlaylistDescButton.classList.remove('is-active');
+      if (restoreFocus) {
+        activePlaylistDescButton.focus();
+      }
+    }
+    activePlaylistDescButton = null;
+  }
+
+  function openPlaylistDescModal(descText: string, button: HTMLElement): void {
+    if (!isElement($MODAL_PLAYLIST_DESC) || !isElement($MODAL_PLAYLIST_DESC_CONTENT)) {
+      return;
+    }
+    if (activePlaylistDescButton === button && !$MODAL_PLAYLIST_DESC.classList.contains('hidden')) {
+      closePlaylistDescModal(true);
+      return;
+    }
+    if (isElement(activePlaylistDescButton)) {
+      activePlaylistDescButton.classList.remove('is-active');
+    }
+    activePlaylistDescButton = button;
+    activePlaylistDescButton.classList.add('is-active');
+    $MODAL_PLAYLIST_DESC_CONTENT.textContent = descText;
+    $MODAL_PLAYLIST_DESC.classList.remove('hidden');
   }
 
   function getViewportWidth(): number {
@@ -976,9 +1016,12 @@ const init = function (): void {
     chkElm.className = isSelected
       ? 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-red-500 bg-red-500'
       : 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 dark:border-gray-500';
-    chkElm.innerHTML = isSelected
-      ? '<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>'
-      : '';
+    while (chkElm.firstChild) {
+      chkElm.removeChild(chkElm.firstChild);
+    }
+    if (isSelected) {
+      chkElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--check'));
+    }
   }
 
   function destroyPlaylistSortable(): void {
@@ -1580,8 +1623,24 @@ const init = function (): void {
     if (evt.key === 'Escape' && isOptionsModalVisible()) {
       hideOptionsModal();
       restoreOptionsTriggerFocus();
+    } else if (evt.key === 'Escape' && isElement($MODAL_PLAYLIST_DESC) && !$MODAL_PLAYLIST_DESC.classList.contains('hidden')) {
+      closePlaylistDescModal(true);
     }
   });
+
+  if (isElement($BUTTON_CLOSE_PLAYLIST_DESC)) {
+    $BUTTON_CLOSE_PLAYLIST_DESC.addEventListener('click', (evt: Event) => {
+      evt.preventDefault();
+      closePlaylistDescModal(true);
+    });
+  }
+
+  if (isElement($MODAL_PLAYLIST_DESC_BACKDROP)) {
+    $MODAL_PLAYLIST_DESC_BACKDROP.addEventListener('click', (evt: Event) => {
+      evt.preventDefault();
+      closePlaylistDescModal(false);
+    });
+  }
 
   /**
    * Open the Options modal with the Media Management accordion expanded.
@@ -1633,11 +1692,55 @@ const init = function (): void {
     }
   }
 
+  function createPlaylistMaskIcon(...classNames: string[]): HTMLSpanElement {
+    const iconElm = document.createElement('span');
+    iconElm.setAttribute('aria-hidden', 'true');
+    iconElm.className = ['playlist-icon-mask', ...classNames].join(' ');
+    return iconElm;
+  }
+
+  function buildDefaultPlaylistLabel(item: MediaItem): HTMLElement {
+    const wrapperElm = document.createElement('span');
+    wrapperElm.className = 'playlist-item-label playlist-item-label--default flex-1';
+
+    const mainElm = document.createElement('span');
+    mainElm.className = 'playlist-item-main';
+
+    const titleElm = document.createElement('span');
+    titleElm.className = 'text--playlist-title';
+    titleElm.textContent = item.title;
+    mainElm.appendChild(titleElm);
+
+    if (item.artist && item.artist.trim() !== '') {
+      const artistElm = document.createElement('span');
+      artistElm.className = 'text--playlist-artist';
+      artistElm.textContent = item.artist;
+      mainElm.appendChild(artistElm);
+    }
+
+    wrapperElm.appendChild(mainElm);
+
+    if (item.desc && item.desc.trim() !== '') {
+      const descButtonElm = document.createElement('span');
+      descButtonElm.className = 'icon--playlist-desc';
+      descButtonElm.setAttribute('data-playlist-desc-trigger', '');
+      descButtonElm.setAttribute('data-desc', item.desc);
+      descButtonElm.setAttribute('aria-label', item.title);
+      descButtonElm.setAttribute('role', 'button');
+      descButtonElm.setAttribute('tabindex', '0');
+      descButtonElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--desc'));
+      wrapperElm.appendChild(descButtonElm);
+    }
+
+    return wrapperElm;
+  }
+
   /**
    * Create a playlist from the data of the AMP_STATUS object.
    */
   function updatePlaylist(): void {
     destroyPlaylistSortable();
+    closePlaylistDescModal(false);
     clearPlaylist();
     const $LIST_NO_MEDIA = document.getElementById('no-media') as HTMLElement;
     let is_no_media =
@@ -1726,56 +1829,32 @@ const init = function (): void {
           ? 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-red-500 bg-red-500'
           : 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 dark:border-gray-500';
         if (isSelected) {
-          chkElm.innerHTML = '<svg class="w-3 h-3 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>';
+          chkElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--check'));
         }
         itemElm.prepend(chkElm);
       } else if (playlistMode === 'reorder') {
         const handleElm = document.createElement('span');
         handleElm.setAttribute('aria-hidden', 'true');
         handleElm.className = 'playlist-reorder-handle flex-shrink-0 order-first inline-flex items-center justify-center w-5 h-5 text-gray-400 cursor-grab active:cursor-grabbing dark:text-gray-500';
-        handleElm.innerHTML = '<svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01"/></svg>';
+        handleElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--reorder'));
         itemElm.prepend(handleElm);
       }
 
-      let labelText = item.title;
       const format = getOption('playlist');
       if (format) {
-        labelText = filterText(format, item);
-      }
-      const labelElm = document.createElement('span');
-      labelElm.className = 'playlist-item-label flex-1';
-      if (/<.*?[!^<].*?>/gi.test(labelText)) {
-        labelElm.innerHTML = labelText;
+        const labelText = filterText(format, item);
+        const labelElm = document.createElement('span');
+        labelElm.className = 'playlist-item-label flex-1';
+        if (/<.*?[!^<].*?>/gi.test(labelText)) {
+          labelElm.innerHTML = labelText;
+        } else {
+          labelElm.textContent = labelText;
+        }
+        itemElm.appendChild(labelElm);
       } else {
-        labelElm.textContent = labelText;
+        itemElm.appendChild(buildDefaultPlaylistLabel(item));
       }
-      itemElm.appendChild(labelElm);
       $LIST_PLAYLIST.appendChild(itemElm);
-    });
-
-    Array.from($LIST_PLAYLIST.querySelectorAll('a[data-playlist-item]')).forEach((elm) => {
-      elm.addEventListener('click', (evt: Event) => {
-        evt.preventDefault();
-        // Delete mode: toggle item selection
-        if (playlistMode === 'delete') {
-          const amId = Number((elm as HTMLElement).getAttribute('data-playlist-item'));
-          if (deleteSelectedIds.has(amId)) {
-            deleteSelectedIds.delete(amId);
-          } else {
-            deleteSelectedIds.add(amId);
-          }
-          syncDeleteSelectionIndicator(elm as HTMLElement, deleteSelectedIds.has(amId));
-          return;
-        }
-        if (isPlaylistInteractionLocked()) {
-          return;
-        }
-        const target = evt.target as HTMLElement;
-        playItem(target);
-        // Toggle player control buttons shown.
-        $BUTTON_PLAY.classList.add('hidden');
-        $BUTTON_PAUSE.classList.remove('hidden');
-      });
     });
 
     ensurePlaylistSortable();
@@ -1792,7 +1871,7 @@ const init = function (): void {
       const addIconElm = document.createElement('span');
       addIconElm.setAttribute('class', 'flex items-center justify-center h-8 w-8 rounded bg-gray-100 dark:bg-gray-600 text-blue-600 dark:text-blue-400 flex-shrink-0');
       addIconElm.setAttribute('aria-hidden', 'true');
-      addIconElm.innerHTML = '<svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7 7V5"/></svg>';
+      addIconElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--add'));
       addItemElm.appendChild(addIconElm);
       const registerBtn = document.getElementById('btn-add-media-from-drawer');
       const registerText = (registerBtn?.dataset['label'] || registerBtn?.innerText || 'Register media').trim();
@@ -2331,6 +2410,65 @@ const init = function (): void {
       AMP_STATUS.next = null;
     }
     updatePlaylist();
+  });
+
+  $LIST_PLAYLIST.addEventListener('click', (evt: Event) => {
+    const target = evt.target as HTMLElement | null;
+    if (!target) {
+      return;
+    }
+
+    const descTrigger = target.closest('[data-playlist-desc-trigger]') as HTMLElement | null;
+    if (descTrigger) {
+      evt.preventDefault();
+      evt.stopPropagation();
+      const descText = descTrigger.dataset['desc'] || '';
+      if (descText.trim() !== '') {
+        openPlaylistDescModal(descText, descTrigger);
+      }
+      return;
+    }
+
+    const itemElm = target.closest('a[data-playlist-item]') as HTMLElement | null;
+    if (!itemElm) {
+      return;
+    }
+
+    evt.preventDefault();
+    if (playlistMode === 'delete') {
+      const amId = Number(itemElm.getAttribute('data-playlist-item'));
+      if (deleteSelectedIds.has(amId)) {
+        deleteSelectedIds.delete(amId);
+      } else {
+        deleteSelectedIds.add(amId);
+      }
+      syncDeleteSelectionIndicator(itemElm, deleteSelectedIds.has(amId));
+      return;
+    }
+    if (isPlaylistInteractionLocked()) {
+      return;
+    }
+    playItem(itemElm);
+    $BUTTON_PLAY.classList.add('hidden');
+    $BUTTON_PAUSE.classList.remove('hidden');
+  });
+
+  $LIST_PLAYLIST.addEventListener('keydown', (evt: KeyboardEvent) => {
+    const target = evt.target as HTMLElement | null;
+    if (!target) {
+      return;
+    }
+    const descTrigger = target.closest('[data-playlist-desc-trigger]') as HTMLElement | null;
+    if (!descTrigger) {
+      return;
+    }
+    if (evt.key === 'Enter' || evt.key === ' ') {
+      evt.preventDefault();
+      const descText = descTrigger.dataset['desc'] || '';
+      if (descText.trim() !== '') {
+        openPlaylistDescModal(descText, descTrigger);
+      }
+    }
   });
 
   /**
