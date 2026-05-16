@@ -2344,18 +2344,31 @@ const init = function (): void {
    * Update the media caption display.
    */
   function updateMediaCaption(mediaData: MediaItem): void {
-    const format = getOption('caption') || '%artist% - %title%';
-    const labelText = filterText(format, mediaData);
     while ($MEDIA_CAPTION.firstChild) {
       $MEDIA_CAPTION.removeChild($MEDIA_CAPTION.firstChild);
     }
     const $textWrap = document.createElement('div');
     $textWrap.classList.add('marquee-inner');
-    if (/<.*?[!^<].*?>/gi.test(labelText)) {
-      $textWrap.innerHTML = labelText;
-    } else {
-      $textWrap.appendChild(document.createTextNode(labelText));
+
+    const titleText = sanitizeMediaText(mediaData.title || '', MEDIA_TITLE_MAX_LENGTH) || 'Unknown media';
+    const artistText = sanitizeMediaText(mediaData.artist || '', MEDIA_ARTIST_MAX_LENGTH);
+    const $title = document.createElement('span');
+    $title.className = 'media-caption-title';
+    $title.textContent = titleText;
+    $textWrap.appendChild($title);
+
+    if (artistText !== '') {
+      const $separator = document.createElement('span');
+      $separator.className = 'media-caption-separator';
+      $separator.textContent = ' ─ ';
+      $textWrap.appendChild($separator);
+
+      const $artist = document.createElement('span');
+      $artist.className = 'media-caption-artist';
+      $artist.textContent = artistText;
+      $textWrap.appendChild($artist);
     }
+
     $MEDIA_CAPTION.appendChild($textWrap);
     toggleMarqueeCaption();
   }
@@ -2364,16 +2377,24 @@ const init = function (): void {
    * Toggle caption marqueeing depending on window size.
    */
   function toggleMarqueeCaption(): void {
-    if ($BODY.classList.contains('amp-full-window')) {
+    const isFullWindowCaptionVisible = $BODY.classList.contains('amp-full-window') && $BODY.classList.contains('amp-menu-minimized');
+    if ($BODY.classList.contains('amp-full-window') && !isFullWindowCaptionVisible) {
       return;
     }
     const $MARQUEE_NODE = $MEDIA_CAPTION.querySelector('.marquee-inner') as HTMLElement | null;
     if (!isElement($MARQUEE_NODE)) {
       return;
     }
+
+    ($MEDIA_CAPTION.querySelectorAll('.marquee-inner[aria-hidden="true"]') as NodeListOf<HTMLElement>).forEach((elm: HTMLElement) => {
+      elm.remove();
+    });
+    $MARQUEE_NODE.getAnimations().forEach((animation: Animation) => animation.cancel());
+
     const $MARQUEE_CLONE = $MARQUEE_NODE.cloneNode(true) as HTMLElement;
-    const marqueeDuration = Math.floor(($MARQUEE_NODE.clientWidth || 0) / 32); // 16px = 1rem
-    if (($MARQUEE_NODE.clientWidth || 0) > currentWindowSize.width || ($MARQUEE_NODE.clientWidth || 0) > 640) {
+    const marqueeDuration = Math.max(8, Math.floor(($MARQUEE_NODE.clientWidth || 0) / 32)); // 16px = 1rem
+    const captionWidth = $MEDIA_CAPTION.clientWidth || currentWindowSize.width;
+    if (($MARQUEE_NODE.clientWidth || 0) > captionWidth || ($MARQUEE_NODE.clientWidth || 0) > 640) {
       // Turn overflow text into a marquee.
       $MARQUEE_CLONE.setAttribute('aria-hidden', 'true');
       $MEDIA_CAPTION.appendChild($MARQUEE_CLONE);
@@ -2477,6 +2498,7 @@ const init = function (): void {
 
     syncWindowFullButtonIcons(enabled);
     updateWindowSize();
+    toggleMarqueeCaption();
     refreshViewportMetricsAfter(240);
   }
 
@@ -2506,7 +2528,9 @@ const init = function (): void {
       return;
     }
     $MENU.classList.toggle('menu-minimized', minimized);
+    $BODY.classList.toggle('amp-menu-minimized', minimized);
     syncMenuCollapseButton(minimized);
+    toggleMarqueeCaption();
   }
 
   /**

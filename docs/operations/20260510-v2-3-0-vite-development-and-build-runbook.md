@@ -34,8 +34,8 @@ It covers:
 
 Note:
 - display and layout rules previously held in `views/css/ambient.css` have already been migrated into `src/styles/*`
-- `views/css/ambient.css` remains only as a legacy build fallback asset
-- `views/css/ambient.css` now carries an explicit legacy-fallback-only header comment and is not the canonical source of truth
+- `views/css/ambient.css` and the old PHP CSS fallback path were removed in v2.3.3
+- the canonical UI style sources are `src/styles/*` and the Vite build output `dist/assets/ambient.css`
 
 ### 2-3. Build outputs
 
@@ -288,15 +288,16 @@ Note:
 
 ## 9. Known Caveats
 
-### 9-1. Legacy build fallback CSS still exists
+### 9-1. Build outputs are required
 
-`views/css/ambient.css` is not part of the Vite bundle input anymore.
-It remains in the repository only for the legacy PHP fallback path when `manifest.json` cannot be used.
+`views/css/ambient.css` and the old PHP CSS fallback path were removed in v2.3.3.
+Build mode now assumes that `dist/manifest.json` and `dist/assets/*` exist.
 
 Operational rule:
 
 - make active UI style changes only in `src/styles/*`
-- do not edit `views/css/ambient.css` unless you are intentionally maintaining the fallback path
+- always run `npm run build` before release/deployment
+- do not deploy build mode without `dist/manifest.json`
 
 ### 9-2. HMR websocket is not fully stable
 
@@ -341,12 +342,11 @@ Notes:
 - manual UI verification and build validation can continue without it
 - treat it primarily as a developer-experience improvement task
 
-### 10-3. Candidate follow-up for v2.4.0 or later
+### 10-3. Completed in v2.3.3
 
-5. Execute the final legacy fallback cleanup/removal plan
+5. Remove the old CSS fallback path
 
-Current status:
+Completed work:
 
-- `views/css/ambient.css` is already marked as legacy-fallback-only
-- the old fallback branch in `functions.php` remains as a safety valve
-- actual deletion is deferred to a later minor release candidate, such as `v2.4.0`
+- removed `views/css/ambient.css`
+- removed the old CSS fallback branch from `functions.php`

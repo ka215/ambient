@@ -11,9 +11,7 @@
     disabled
   >
     <span class="inline-flex items-center justify-center w-10 h-10 rounded-full carousel-button-bg group-focus:outline-none">
-      <svg class="w-4 h-4 text-gray-100 dark:text-gray-900" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
-        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 1 1 5l4 4"/>
-      </svg>
+      <span class="ui-icon-mask ui-icon-mask--chevron-left w-4 h-4 text-gray-100 dark:text-gray-900" aria-hidden="true"></span>
       <span class="sr-only"><?= __( 'Previous Item' ) ?></span>
     </span>
   </button>
@@ -36,9 +34,7 @@
     disabled
   >
     <span class="inline-flex items-center justify-center w-10 h-10 rounded-full carousel-button-bg group-focus:outline-none">
-      <svg class="w-4 h-4 text-gray-100 dark:text-gray-900" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
-        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 9 4-4-4-4"/>
-      </svg>
+      <span class="ui-icon-mask ui-icon-mask--chevron-right w-4 h-4 text-gray-100 dark:text-gray-900" aria-hidden="true"></span>
       <span class="sr-only"><?= __( 'Next Item' ) ?></span>
     </span>
   </button>

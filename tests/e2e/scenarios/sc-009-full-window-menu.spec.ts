@@ -29,6 +29,14 @@ test.describe('SC-009 Full-window and menu-collapse controls', () => {
     await expect(page.locator('#carousel-container')).toBeHidden();
     await expect(page.locator('#media-caption')).toBeHidden();
 
+    await page.locator('#btn-menu-collapse').click();
+    await expect(page.locator('#menu-container')).toHaveClass(/menu-minimized/);
+    await expect(page.locator('#media-caption')).toBeVisible();
+    await expect(page.locator('#media-caption .media-caption-title')).toBeVisible();
+    await page.locator('#btn-menu-collapse').click();
+    await expect(page.locator('#menu-container')).not.toHaveClass(/menu-minimized/);
+    await expect(page.locator('#media-caption')).toBeHidden();
+
     await expect.poll(async () => {
       return page.evaluate(() => {
         const iframe = document.querySelector<HTMLIFrameElement>('#embed-wrapper iframe');

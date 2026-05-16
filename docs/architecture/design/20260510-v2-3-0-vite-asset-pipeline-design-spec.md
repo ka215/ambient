@@ -399,8 +399,13 @@ v2.3.0 では、以下を正式な目標構成とする。
 - `views/css/ambient.css` の Vite bundle 依存は解消済み
 - `views/css/ambient.css` は legacy fallback 専用ファイルとして明示化済み
 
+2026-05-16 / v2.3.3 時点:
+
+- `views/css/ambient.css` は削除済み
+- `functions.php` の旧 CSS fallback 分岐は削除済み
+- build モードは `dist/manifest.json` と `dist/assets/*` を必須成果物として扱う
+
 未完了:
 
 - Apache reverse proxy 配下の HMR WebSocket 安定化
-- 旧 fallback 資産参照の最終撤去時期の確定
 - Vite 構成へ合わせた E2E 一式の再実行と記録

@@ -32,9 +32,7 @@
   data-notice-message="<?= htmlspecialchars( (string) $this->amp_error->getMessage(), ENT_QUOTES, 'UTF-8' ) ?>"
   style="z-index: 10050; width: min(22rem, calc(100vw - 1rem));"
 >
-  <svg class="flex-shrink-0 inline w-5 h-5 mt-0.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
-    <path d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5ZM9.5 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM12 15H8a1 1 0 0 1 0-2h1v-3H8a1 1 0 0 1 0-2h2a1 1 0 0 1 1 1v4h1a1 1 0 0 1 0 2Z"/>
-  </svg>
+  <span class="ui-icon-mask ui-icon-mask--notice-info flex-shrink-0 inline w-5 h-5 mt-0.5" aria-hidden="true"></span>
   <span class="sr-only"><?= __( 'Notify' ) ?></span>
   <div id="alert-message" class="min-w-0 flex-1 text-sm font-medium break-words">
     <span class="font-medium"><?= $this->amp_error->getMessage() ?></span>
@@ -46,8 +44,6 @@
     aria-label="<?= __( 'Dismiss' ) ?>"
   >
     <span class="sr-only"><?= __( 'Dismiss' ) ?></span>
-    <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-      <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-    </svg>
+    <span class="ui-icon-mask ui-icon-mask--close w-3 h-3" aria-hidden="true"></span>
   </button>
 </div><!-- /#alert-notification -->

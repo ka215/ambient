@@ -35,8 +35,8 @@
 補足:
 
 - 旧 `views/css/ambient.css` にあった表示・レイアウト定義は `src/styles/*` へ移管済みです
-- `views/css/ambient.css` は build fallback 用の旧資産としてのみ残しています
-- `views/css/ambient.css` には legacy fallback 専用コメントを付与し、正本ではないことを明示しています
+- `views/css/ambient.css` と PHP 側の旧 CSS fallback 経路は v2.3.3 で削除済みです
+- UI スタイルの正本は `src/styles/*` と Vite build 出力の `dist/assets/ambient.css` です
 
 ### 2-3. ビルド成果物
 
@@ -278,15 +278,16 @@ Vite 移行後の現状:
 
 ## 9. 注意点
 
-### 9-1. build fallback 用の旧 CSS が残っている
+### 9-1. build 成果物が必須
 
-`views/css/ambient.css` は Vite bundle の入力ではありません。
-ただし `manifest.json` が使えない場合の旧 fallback 経路のため、リポジトリ内には残っています。
+`views/css/ambient.css` と PHP 側の旧 CSS fallback 経路は v2.3.3 で削除済みです。
+build モードでは `dist/manifest.json` と `dist/assets/*` が存在することを前提にします。
 
 運用ルール:
 
 - 正本の UI スタイル修正は `src/styles/*` に対して行う
-- `views/css/ambient.css` は fallback 維持目的以外では編集しない
+- 公開前には必ず `npm run build` を実行する
+- `dist/manifest.json` がない状態で build モードを公開しない
 
 ### 9-2. HMR websocket は未安定
 
@@ -329,12 +330,11 @@ websocket が切れた場合:
 - 手動の UI 確認や build 検証は継続可能
 - 主に開発効率改善のための残件として扱う
 
-### 10-3. v2.4.0 以降の候補
+### 10-3. v2.3.3 で完了
 
-5. 旧 fallback 経路の扱いを整理し、最終的な削除方針を実施する
+5. 旧 CSS fallback 経路を削除する
 
-現時点の整理:
+完了内容:
 
-- `views/css/ambient.css` は legacy fallback 専用として明示化済み
-- `functions.php` の旧 fallback 分岐は安全弁として残置
-- 実削除は次のマイナーアップ候補 (`v2.4.0`) とする
+- `views/css/ambient.css` を削除済み
+- `functions.php` の旧 CSS fallback 分岐を削除済み

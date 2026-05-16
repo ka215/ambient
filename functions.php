@@ -155,25 +155,6 @@ function amp_head(): string {
                     }
                 }
             }
-        } else {
-            $styles = glob( VIEWS_DIR . '/css/*.css' );
-            if ( !empty( $styles ) ) {
-                $styles = array_map( function( $value ) {
-                    return sprintf( '<link href="./%s/css/%s?%s" rel="stylesheet" />', basename( VIEWS_DIR ), basename( $value ), filemtime( $value ) );
-                }, $styles );
-                $output[] = implode( "\n", $styles );
-            }
-
-            $tailwind_min = './dist/tailwindcss.min.css';
-            $tailwind_css = './dist/tailwindcss.css';
-            if ( file_exists( $tailwind_min ) ) {
-                $output[] = '<link href="' . $tailwind_min . '?'. filemtime( $tailwind_min ) . '" rel="stylesheet" />';
-            } elseif ( file_exists( $tailwind_css ) ) {
-                $output[] = '<link href="' . $tailwind_css . '?'. filemtime( $tailwind_css ) . '" rel="stylesheet" />';
-            } else {
-                $output[] = '<link href="./dist/tailwindcss.css" rel="stylesheet" />';
-            }
-            $output[] = '<link href="./dist/flowbite.min.css" rel="stylesheet" />';
         }
     }
 
