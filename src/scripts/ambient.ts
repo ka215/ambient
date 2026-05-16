@@ -761,6 +761,48 @@ const init = function (): void {
     $MODAL_PLAYLIST_DESC.classList.remove('hidden');
   }
 
+  function isDarkModeEnabled(): boolean {
+    return isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark ? !!AMP_STATUS.options.dark : false;
+  }
+
+  function getNoMediaImagePath(kind: 'placeholder' | 'thumb' = 'placeholder'): string {
+    const suffix = isDarkModeEnabled() ? '-dark' : '';
+    return `./views/images/no-media-${kind}${suffix}.svg`;
+  }
+
+  function getAmbientPlaceholderPath(): string {
+    const suffix = isDarkModeEnabled() ? '-dark' : '';
+    return `./views/images/ambient-placeholder${suffix}.svg`;
+  }
+
+  function updateNoMediaImageForTheme(image: HTMLImageElement): void {
+    const name = basename(image.src);
+    if (name === 'no-media-placeholder' || name === 'no-media-placeholder-dark') {
+      image.src = getNoMediaImagePath('placeholder');
+      image.removeAttribute('style');
+    }
+    if (name === 'no-media-thumb' || name === 'no-media-thumb-dark') {
+      image.src = getNoMediaImagePath('thumb');
+      image.removeAttribute('style');
+    }
+    if (name === 'ambient-placeholder' || name === 'ambient-placeholder-dark') {
+      image.src = getAmbientPlaceholderPath();
+      image.removeAttribute('style');
+    }
+  }
+
+  function updateNoMediaImagesForTheme(): void {
+    (document.querySelectorAll('img') as NodeListOf<HTMLImageElement>).forEach((image: HTMLImageElement) => {
+      updateNoMediaImageForTheme(image);
+    });
+    (document.querySelectorAll('video#html-player') as NodeListOf<HTMLVideoElement>).forEach((video: HTMLVideoElement) => {
+      const posterName = basename(video.poster || '');
+      if (posterName === 'no-media-placeholder' || posterName === 'no-media-placeholder-dark') {
+        video.poster = getNoMediaImagePath('placeholder');
+      }
+    });
+  }
+
   function getViewportWidth(): number {
     return Math.round(window.visualViewport?.width || window.innerWidth);
   }
@@ -1965,7 +2007,7 @@ const init = function (): void {
       itemElm.setAttribute('data-playlist-item', String(item.amId));
       itemElm.setAttribute('data-id', String(item.amId));
 
-      let imageSrc = './views/images/no-media-thumb.svg';
+      let imageSrc = getNoMediaImagePath('thumb');
       if ((item.image && item.image !== '') || (item.thumb && item.thumb !== '')) {
         const ambientData = (window as any).AmbientData as AmbientData;
         if (ambientData && ambientData.imageDir) {
@@ -2257,7 +2299,7 @@ const init = function (): void {
     $CAROUSEL_NO_MEDIA.classList.add('hidden', 'h-full', 'items-center', 'justify-center', 'duration-700', 'ease-in-out');
     $CAROUSEL_NO_MEDIA.setAttribute('data-carousel-item', '');
     const $NO_MEDIA_IMAGE = document.createElement('img');
-    $NO_MEDIA_IMAGE.src = './views/images/no-media-placeholder.svg';
+    $NO_MEDIA_IMAGE.src = getNoMediaImagePath('placeholder');
     $NO_MEDIA_IMAGE.setAttribute('class', 'block h-full max-w-full object-contain');
     $NO_MEDIA_IMAGE.setAttribute('alt', 'No media available');
     $CAROUSEL_NO_MEDIA.appendChild($NO_MEDIA_IMAGE);
@@ -2310,7 +2352,7 @@ const init = function (): void {
       $COROUSEL_ITEM.setAttribute('data-carousel-item', amId === AMP_STATUS.current ? 'active' : '');
 
       const $COROUSEL_ITEM_IMAGE = document.createElement('img');
-      let mediaImage = './views/images/no-media-placeholder.svg';
+      let mediaImage = getNoMediaImagePath('placeholder');
       const mediaData = (AMP_STATUS.media || []).filter((item: MediaItem) => item.amId === amId).shift();
 
       if (!mediaData) return;
@@ -2328,10 +2370,6 @@ const init = function (): void {
       $COROUSEL_ITEM_IMAGE.classList.add('block', base_aspect, 'max-w-full', 'object-contain');
       $COROUSEL_ITEM_IMAGE.setAttribute('alt', mediaData.title);
 
-      if (basename(mediaImage) === 'no-media-placeholder' && isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark) {
-        $COROUSEL_ITEM_IMAGE.setAttribute('style', 'opacity: .7');
-      }
-
       $COROUSEL_ITEM.appendChild($COROUSEL_ITEM_IMAGE);
       $CAROUSEL_WRAPPER.appendChild($COROUSEL_ITEM);
     });
@@ -2344,18 +2382,31 @@ const init = function (): void {
    * Update the media caption display.
    */
   function updateMediaCaption(mediaData: MediaItem): void {
-    const format = getOption('caption') || '%artist% - %title%';
-    const labelText = filterText(format, mediaData);
     while ($MEDIA_CAPTION.firstChild) {
       $MEDIA_CAPTION.removeChild($MEDIA_CAPTION.firstChild);
     }
     const $textWrap = document.createElement('div');
     $textWrap.classList.add('marquee-inner');
-    if (/<.*?[!^<].*?>/gi.test(labelText)) {
-      $textWrap.innerHTML = labelText;
-    } else {
-      $textWrap.appendChild(document.createTextNode(labelText));
+
+    const titleText = sanitizeMediaText(mediaData.title || '', MEDIA_TITLE_MAX_LENGTH) || 'Unknown media';
+    const artistText = sanitizeMediaText(mediaData.artist || '', MEDIA_ARTIST_MAX_LENGTH);
+    const $title = document.createElement('span');
+    $title.className = 'media-caption-title';
+    $title.textContent = titleText;
+    $textWrap.appendChild($title);
+
+    if (artistText !== '') {
+      const $separator = document.createElement('span');
+      $separator.className = 'media-caption-separator';
+      $separator.textContent = ' ─ ';
+      $textWrap.appendChild($separator);
+
+      const $artist = document.createElement('span');
+      $artist.className = 'media-caption-artist';
+      $artist.textContent = artistText;
+      $textWrap.appendChild($artist);
     }
+
     $MEDIA_CAPTION.appendChild($textWrap);
     toggleMarqueeCaption();
   }
@@ -2364,16 +2415,24 @@ const init = function (): void {
    * Toggle caption marqueeing depending on window size.
    */
   function toggleMarqueeCaption(): void {
-    if ($BODY.classList.contains('amp-full-window')) {
+    const isFullWindowCaptionVisible = $BODY.classList.contains('amp-full-window') && $BODY.classList.contains('amp-menu-minimized');
+    if ($BODY.classList.contains('amp-full-window') && !isFullWindowCaptionVisible) {
       return;
     }
     const $MARQUEE_NODE = $MEDIA_CAPTION.querySelector('.marquee-inner') as HTMLElement | null;
     if (!isElement($MARQUEE_NODE)) {
       return;
     }
+
+    ($MEDIA_CAPTION.querySelectorAll('.marquee-inner[aria-hidden="true"]') as NodeListOf<HTMLElement>).forEach((elm: HTMLElement) => {
+      elm.remove();
+    });
+    $MARQUEE_NODE.getAnimations().forEach((animation: Animation) => animation.cancel());
+
     const $MARQUEE_CLONE = $MARQUEE_NODE.cloneNode(true) as HTMLElement;
-    const marqueeDuration = Math.floor(($MARQUEE_NODE.clientWidth || 0) / 32); // 16px = 1rem
-    if (($MARQUEE_NODE.clientWidth || 0) > currentWindowSize.width || ($MARQUEE_NODE.clientWidth || 0) > 640) {
+    const marqueeDuration = Math.max(8, Math.floor(($MARQUEE_NODE.clientWidth || 0) / 32)); // 16px = 1rem
+    const captionWidth = $MEDIA_CAPTION.clientWidth || currentWindowSize.width;
+    if (($MARQUEE_NODE.clientWidth || 0) > captionWidth || ($MARQUEE_NODE.clientWidth || 0) > 640) {
       // Turn overflow text into a marquee.
       $MARQUEE_CLONE.setAttribute('aria-hidden', 'true');
       $MEDIA_CAPTION.appendChild($MARQUEE_CLONE);
@@ -2477,6 +2536,7 @@ const init = function (): void {
 
     syncWindowFullButtonIcons(enabled);
     updateWindowSize();
+    toggleMarqueeCaption();
     refreshViewportMetricsAfter(240);
   }
 
@@ -2506,7 +2566,9 @@ const init = function (): void {
       return;
     }
     $MENU.classList.toggle('menu-minimized', minimized);
+    $BODY.classList.toggle('amp-menu-minimized', minimized);
     syncMenuCollapseButton(minimized);
+    toggleMarqueeCaption();
   }
 
   /**
@@ -2988,6 +3050,7 @@ const init = function (): void {
     } else {
       document.documentElement.classList.remove('dark');
     }
+    updateNoMediaImagesForTheme();
     const $CAROUSEL_ITEMS = Array.from(document.querySelectorAll('[id^="carousel-item-"]')) as HTMLElement[];
     $CAROUSEL_ITEMS.forEach((item: HTMLElement) => {
       if (isDarkmode) {
@@ -3634,7 +3697,7 @@ const init = function (): void {
       const self = evt.target as HTMLVideoElement;
       if (self.tagName === 'VIDEO') {
         if (!self.videoHeight || !self.videoWidth) {
-          self.setAttribute('poster', './views/images/no-media-placeholder.svg');
+          self.setAttribute('poster', getNoMediaImagePath('placeholder'));
         }
         if (isFullWindowMode()) {
           const adjustSize = getFullWindowPlayerSize();

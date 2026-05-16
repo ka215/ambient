@@ -24,13 +24,12 @@
               id="btn-watch-origin"
               href="#"
               target="_blank"
-              class="text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-full text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700 transition-opacity duration-500 ease-in-out"
+              class="inline-flex items-center gap-2 text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-full text-sm leading-5 px-5 py-2.5 mr-2 mb-2 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700 transition-opacity duration-500 ease-in-out"
+              aria-label="<?= __( 'Watch on YouTube' ) ?>"
               disabled
             >
-                <?= __( 'Watch on YouTube' ) ?>
-                <svg class="inline-block -mt-0.5 w-3 h-3 text-gray-800 dark:text-white" aria-hidden="true" aria-label="external-link" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
-                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11v4.833A1.166 1.166 0 0 1 13.833 17H2.167A1.167 1.167 0 0 1 1 15.833V4.167A1.166 1.166 0 0 1 2.167 3h4.618m4.447-2H17v5.768M9.111 8.889l7.778-7.778"/>
-                </svg>
+                <span class="ui-icon-mask ui-icon-mask--youtube w-5 h-5 text-gray-800 dark:text-white" aria-hidden="true"></span>
+                <span class="watch-origin-label"><?= __( 'Watch on YouTube' ) ?></span>
             </a>
         </div>
     </figure>

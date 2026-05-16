@@ -31,6 +31,27 @@ function amp_add_head_content( string $html, string $type = 'meta' ): void {
     }
 }
 
+/**
+ * Add trusted custom HTML to the "About Ambient" section.
+ * This is intended for site-managed custom.php extensions, not user input.
+ *
+ * @param string $html The HTML content to add.
+ * @since v2.3.3
+ */
+function amp_add_about_content( string $html ): void {
+    if ( isset( $GLOBALS['ambient'] ) ) {
+        $GLOBALS['ambient']->enqueue_content( 'about', $html );
+    }
+}
+
+function amp_get_about_content(): string {
+    if ( !isset( $GLOBALS['ambient'] ) ) {
+        return '';
+    }
+    $content = $GLOBALS['ambient']->get_content_slot( 'about' );
+    return !empty( $content ) ? implode( "\n", $content ) : '';
+}
+
 function is_local(): bool {
     return isset( $GLOBALS['ambient'] ) ? $GLOBALS['ambient']->is_local() : false;
 }
@@ -155,25 +176,6 @@ function amp_head(): string {
                     }
                 }
             }
-        } else {
-            $styles = glob( VIEWS_DIR . '/css/*.css' );
-            if ( !empty( $styles ) ) {
-                $styles = array_map( function( $value ) {
-                    return sprintf( '<link href="./%s/css/%s?%s" rel="stylesheet" />', basename( VIEWS_DIR ), basename( $value ), filemtime( $value ) );
-                }, $styles );
-                $output[] = implode( "\n", $styles );
-            }
-
-            $tailwind_min = './dist/tailwindcss.min.css';
-            $tailwind_css = './dist/tailwindcss.css';
-            if ( file_exists( $tailwind_min ) ) {
-                $output[] = '<link href="' . $tailwind_min . '?'. filemtime( $tailwind_min ) . '" rel="stylesheet" />';
-            } elseif ( file_exists( $tailwind_css ) ) {
-                $output[] = '<link href="' . $tailwind_css . '?'. filemtime( $tailwind_css ) . '" rel="stylesheet" />';
-            } else {
-                $output[] = '<link href="./dist/tailwindcss.css" rel="stylesheet" />';
-            }
-            $output[] = '<link href="./dist/flowbite.min.css" rel="stylesheet" />';
         }
     }
 

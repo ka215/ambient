@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="696.016" height="406.008" viewBox="50.508 623.504 696.016 406.008" role="img" aria-label="Ambient placeholder">
+  <rect x="50.508" y="623.504" width="696.016" height="406.008" rx="10" fill="#111827"/>
+  <polygon fill-rule="evenodd" clip-rule="evenodd" fill="#64748b" points="379.571,753.932 394.571,783.932 316.071,921.432 285.571,921.432"/>
+  <polygon fill-rule="evenodd" clip-rule="evenodd" fill="#94a3b8" points="405.571,711.432 390.571,736.932 497.071,921.432 527.571,921.432"/>
+  <polygon fill-rule="evenodd" clip-rule="evenodd" fill="#cbd5e1" points="351.571,895.932 460.571,895.932 475.071,921.432 336.571,921.432"/>
+  <polygon fill-rule="evenodd" clip-rule="evenodd" fill="#374151" points="405.571,801.932 450.071,878.432 362.571,878.432"/>
+  <rect x="62" y="635" width="672" height="382" rx="8" fill="none" stroke="#242a33" stroke-width="2"/>
+</svg>

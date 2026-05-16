@@ -32,6 +32,15 @@ class Ambient {
         'footer' => [ 'scripts' => [], 'inline_scripts' => [] ]
     ];
 
+    /**
+     * Content slots for trusted custom.php view extensions.
+     * @var array<string, array<string>>
+     * @since v2.3.3
+     */
+    protected $content_slots = [
+        'about' => [],
+    ];
+
     /** @var ?object */
     public $amp_error;
 
@@ -283,6 +292,31 @@ class Ambient {
     }
 
     /**
+     * Add trusted HTML content to a named view slot.
+     *
+     * @param string $slot The slot name.
+     * @param string $content Raw HTML content from site-managed custom.php.
+     * @since v2.3.3
+     */
+    public function enqueue_content( string $slot, string $content ): void {
+        if ( !isset( $this->content_slots[$slot] ) ) {
+            $this->content_slots[$slot] = [];
+        }
+        $this->content_slots[$slot][] = $content;
+    }
+
+    /**
+     * Get trusted custom content for a named view slot.
+     *
+     * @param string $slot The slot name.
+     * @return array<string>
+     * @since v2.3.3
+     */
+    public function get_content_slot( string $slot ): array {
+        return $this->content_slots[$slot] ?? [];
+    }
+
+    /**
      * Extend the existing set_property method.
      * If the property name matches a specific pattern (e.g., 'extra_js_footer'), route it to the enqueue_asset method.
      * Otherwise, set it as a normal property.
@@ -300,6 +334,7 @@ class Ambient {
             'extra_head_style' => $this->enqueue_asset( 'head', 'styles', $value ),
             'extra_footer_script' => $this->enqueue_asset( 'footer', 'scripts', $value ),
             'extra_footer_inline_script' => $this->enqueue_asset( 'footer', 'inline_scripts', $value ),
+            'extra_about_content' => $this->enqueue_content( 'about', $value ),
             // Add more cases as needed for other types of assets or positions
             
             // If the variable name does not match any specific pattern, set it as a normal property

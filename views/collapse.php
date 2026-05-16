@@ -687,6 +687,11 @@
                 <li><a href="https://tailwindcss.com/" target="_blank" rel="nofollow" class="text-blue-600 dark:text-blue-500 hover:underline"><?= __( 'tailwindcss' ) ?></a></li>
                 <li><a href="https://flowbite.com/" target="_blank" rel="nofollow" class="text-blue-600 dark:text-blue-500 hover:underline"><?= __( 'Flowbite' ) ?></a></li>
             </ul>
+            <?php if ( amp_get_about_content() !== '' ) : ?>
+            <div id="about-custom-content" class="my-4 border-t border-gray-300 pt-4 dark:border-gray-700">
+                <?= amp_get_about_content() ?>
+            </div>
+            <?php endif; ?>
             <p class="mb-2 text-right text-gray-500 dark:text-gray-400"><?= __( 'Version:' ) ?> <?= $this->get_version() ?> (<?= is_local() ? 'user' : 'cloud' ?> setup)</p>
             <p class="mt-4 mb-2 pt-4 text-sm text-gray-500 dark:text-gray-400 border-t border-gray-300 dark:border-gray-400">
 MIT License<br>
