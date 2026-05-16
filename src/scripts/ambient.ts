@@ -27,14 +27,6 @@ const init = function (): void {
    * Initialize AMP_STATUS object.
    */
   function initStatus(): AMP_STATUS {
-    // In cloud mode, preserve MyPlaylist data in localStorage across page loads.
-    const ambientData = (window as any).AmbientData as AmbientData | undefined;
-    const isCloud = ambientData?.isCloud === true;
-    const MYPLAYLIST_KEY = 'AmbientMyPlaylist';
-    const hasMyPlaylist = isCloud && localStorage.getItem(MYPLAYLIST_KEY) !== null;
-    if (!hasMyPlaylist) {
-      removeStge();
-    }
     const baseObj = (window as any).$ambient || {};
     return Object.assign(baseObj, {
       prev: null,
@@ -154,12 +146,18 @@ const init = function (): void {
         case /^(prev|current|next|ctg|order|loop)$/i.test(prop):
           // Synchronize to the saved data of web storage when specific properties of AMP_STATUS object are changed.
           saveStge(prop, newValue);
+          if (/^ctg$/i.test(prop)) {
+            savePlaylistContext();
+          }
           if ('current' === prop) {
             changePlaylistFocus();
           }
           if ('order' === prop) {
             changeToggleRandomly();
           }
+          break;
+        case /^playlist$/i.test(prop):
+          savePlaylistContext();
           break;
         case /^media$/i.test(prop):
           togglePlayerControllButtons();
@@ -211,6 +209,7 @@ const init = function (): void {
   // ============================================================================
   const MYPLAYLIST_KEY = 'AmbientMyPlaylist';
   const MYPLAYLIST_NAME = 'MyPlaylist.json';
+  const PLAYLIST_CONTEXT_KEY = 'playlistContext';
   const MEDIA_TITLE_MAX_LENGTH = 100;
   const MEDIA_ARTIST_MAX_LENGTH = 100;
   const MEDIA_DESC_MAX_LENGTH = 500;
@@ -218,6 +217,7 @@ const init = function (): void {
   const DEFAULT_VOLUME = 50;
   let playlistLoadSeq = 0;
   let activePlaylistLoadSeq = 0;
+  let pendingResumeCategoryName: string | null = null;
 
   function isPlaylistLoadActive(seq: number): boolean {
     return activePlaylistLoadSeq === seq;
@@ -301,6 +301,73 @@ const init = function (): void {
       delete nextOptions.playlist;
     }
     return nextOptions;
+  }
+
+  function getCurrentCategoryName(): string {
+    const catId = Number(AMP_STATUS.ctg);
+    if (Number.isInteger(catId) && catId >= 0 && Array.isArray(AMP_STATUS.category)) {
+      return AMP_STATUS.category[catId] || '';
+    }
+    return '';
+  }
+
+  function savePlaylistContext(): void {
+    if (!AMP_STATUS.playlist) {
+      return;
+    }
+    saveStge(PLAYLIST_CONTEXT_KEY, {
+      playlist: AMP_STATUS.playlist,
+      category: getCurrentCategoryName(),
+    });
+  }
+
+  function getSavedPlaylistContext(): { playlist: string; category: string } | null {
+    const context = getStge(PLAYLIST_CONTEXT_KEY);
+    if (!isObject(context)) {
+      return null;
+    }
+    const playlist = typeof context['playlist'] === 'string' ? context['playlist'].trim() : '';
+    const category = typeof context['category'] === 'string' ? context['category'].trim() : '';
+    if (playlist === '') {
+      return null;
+    }
+    return { playlist, category };
+  }
+
+  function isPlaylistAvailableForResume(playlist: string): boolean {
+    const ambientData = getAmbientData();
+    if (playlist === MYPLAYLIST_NAME) {
+      return ambientData?.isCloud === true && localStorage.getItem(MYPLAYLIST_KEY) !== null;
+    }
+    return !!(ambientData?.playlists && Object.prototype.hasOwnProperty.call(ambientData.playlists, playlist));
+  }
+
+  function selectPlaylistOption(playlist: string): void {
+    if (!isElement($SELECT_PLAYLIST)) {
+      return;
+    }
+    const targetOption = Array.from($SELECT_PLAYLIST.options).find((opt) => opt.value === playlist);
+    if (targetOption) {
+      $SELECT_PLAYLIST.value = playlist;
+    }
+  }
+
+  function requestCategoryResume(categoryName: string | null | undefined): void {
+    pendingResumeCategoryName = categoryName && categoryName.trim() !== '' ? categoryName.trim() : null;
+  }
+
+  function applyPendingCategoryResume(): void {
+    if (pendingResumeCategoryName === null) {
+      AMP_STATUS.ctg = -1;
+      syncTargetCategorySelection();
+      return;
+    }
+    const nextCategoryId = Array.isArray(AMP_STATUS.category)
+      ? AMP_STATUS.category.indexOf(pendingResumeCategoryName)
+      : -1;
+    AMP_STATUS.ctg = nextCategoryId >= 0 ? nextCategoryId : -1;
+    pendingResumeCategoryName = null;
+    syncTargetCategorySelection();
   }
 
   function stripHtmlTags(value: string): string {
@@ -411,6 +478,7 @@ const init = function (): void {
       AMP_STATUS.category = categories;
       AMP_STATUS.media = media;
       AMP_STATUS.playlist = MYPLAYLIST_NAME;
+      applyPendingCategoryResume();
       updatePlaylist();
       if (AMP_STATUS.current !== null) {
         updatePlayStatus(AMP_STATUS.current);
@@ -428,11 +496,10 @@ const init = function (): void {
   // In cloud mode: if MyPlaylist exists in localStorage, inject it into the
   // playlist dropdown and load it automatically.
   // NOTE: This block runs after DOM element constants are declared.
-  function initMyPlaylistFromStorage(): void {
+  function ensureMyPlaylistOptionFromStorage(): boolean {
     const ambientData = (window as any).AmbientData as AmbientData | undefined;
-    if (!ambientData?.isCloud || localStorage.getItem(MYPLAYLIST_KEY) === null) return;
+    if (!ambientData?.isCloud || localStorage.getItem(MYPLAYLIST_KEY) === null) return false;
     const $sel = document.getElementById('current-playlist') as HTMLSelectElement | null;
-    let injectedOption: HTMLOptionElement | null = null;
     if ($sel) {
       const alreadyExists = Array.from($sel.options).some(
         (opt) => opt.value === MYPLAYLIST_NAME
@@ -442,24 +509,22 @@ const init = function (): void {
         opt.value = MYPLAYLIST_NAME;
         opt.textContent = MYPLAYLIST_NAME.replace('.json', '');
         $sel.appendChild(opt);
-        injectedOption = opt;
       }
     }
+    return true;
+  }
+
+  function initMyPlaylistFromStorage(): void {
+    if (!ensureMyPlaylistOptionFromStorage()) return;
     resetPlaylistRuntimeState();
     if (loadMyPlaylistFromStorage()) {
-      if ($sel) {
-        for (let i = 0; i < $sel.options.length; i++) {
-          if ($sel.options[i]?.value === MYPLAYLIST_NAME) {
-            $sel.selectedIndex = i;
-            break;
-          }
-        }
-      }
+      selectPlaylistOption(MYPLAYLIST_NAME);
       applyCloudEditRestrictions();
       return;
     }
+    const $sel = document.getElementById('current-playlist') as HTMLSelectElement | null;
     if ($sel) {
-      injectedOption?.remove();
+      Array.from($sel.options).find((opt) => opt.value === MYPLAYLIST_NAME)?.remove();
       if ($sel.value === MYPLAYLIST_NAME) {
         $sel.selectedIndex = 0;
       }
@@ -517,6 +582,7 @@ const init = function (): void {
             });
             AMP_STATUS.category = categories;
           }
+          applyPendingCategoryResume();
           if (media.length > 0) {
             let amid = 0;
             media = media
@@ -1225,14 +1291,22 @@ const init = function (): void {
   // Process global data passed by the system.
   // In cloud mode: load MyPlaylist from localStorage before processing server data.
   // (Placed here, AFTER DOM constants, to avoid const temporal dead zone issues.)
-  initMyPlaylistFromStorage();
+  const savedPlaylistContext = getSavedPlaylistContext();
+  ensureMyPlaylistOptionFromStorage();
   if ((window as any).AmbientData) {
     const ambientData: AmbientData = (window as any).AmbientData;
-    // Skip server playlist loading if cloud+MyPlaylist already loaded from localStorage
-    const skipServerLoad = ambientData?.isCloud === true &&
-      localStorage.getItem(MYPLAYLIST_KEY) !== null;
-    if (!skipServerLoad) {
-      if (ambientData.hasOwnProperty('currentPlaylist')) {
+    if (savedPlaylistContext && isPlaylistAvailableForResume(savedPlaylistContext.playlist)) {
+      requestCategoryResume(savedPlaylistContext.category);
+      selectPlaylistOption(savedPlaylistContext.playlist);
+      void getPlaylistData(savedPlaylistContext.playlist);
+    } else {
+      // Keep the historical cloud behavior: MyPlaylist is auto-loaded when no saved
+      // playlist context is available.
+      const shouldAutoloadMyPlaylist = ambientData?.isCloud === true &&
+        localStorage.getItem(MYPLAYLIST_KEY) !== null;
+      if (shouldAutoloadMyPlaylist) {
+        initMyPlaylistFromStorage();
+      } else if (ambientData.hasOwnProperty('currentPlaylist')) {
         // If there is only one playlist, load immediately.
         const currentPlaylist = ambientData.currentPlaylist as string;
         void getPlaylistData(currentPlaylist);
@@ -5067,31 +5141,24 @@ function saveStge(key: string, data: any): boolean {
   return false;
 }
 
-/**
- * Removes specific properties from user data stored in client-side storage.
- */
-function removeStge(key: string | null = null): boolean {
+function getStge(key: string | null = null): any {
   const appKey = (window as any).APP_KEY;
-
-  if (!key) {
-    (window as any)[(window as any).$ambient.useStorage].removeItem(appKey);
-    return true;
-  }
-
   const _data = (window as any)[(window as any).$ambient.useStorage].getItem(appKey);
+  if (!_data) {
+    return null;
+  }
 
   try {
     const userData = JSON.parse(_data);
-    if (isObject(userData) && userData.hasOwnProperty(key)) {
-      delete userData[key];
-      (window as any)[(window as any).$ambient.useStorage].setItem(appKey, JSON.stringify(userData));
-      return true;
+    if (!isObject(userData)) {
+      return null;
     }
+    return key ? userData[key] ?? null : userData;
   } catch (error) {
     logger(error, _data);
   }
 
-  return false;
+  return null;
 }
 
 /**

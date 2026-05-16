@@ -1,0 +1,71 @@
+name: Bug report
+description: Report a reproducible problem in Ambient.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue. Please check existing issues before submitting a new one.
+  - type: input
+    id: version
+    attributes:
+      label: Ambient version
+      description: Enter the version shown in your deployment or release.
+      placeholder: "v2.3.2"
+    validations:
+      required: false
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - Cloud
+        - Local
+        - Unknown
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      placeholder: "Chrome 125 on Windows 11 / Safari on iPhone"
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Describe what went wrong.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the exact steps needed to reproduce the issue.
+      placeholder: |
+        1. Open Ambient
+        2. Select ...
+        3. Click ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console errors or screenshots
+      description: Attach screenshots or paste relevant browser console errors if available.
+    validations:
+      required: false
