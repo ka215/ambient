@@ -31,6 +31,27 @@ function amp_add_head_content( string $html, string $type = 'meta' ): void {
     }
 }
 
+/**
+ * Add trusted custom HTML to the "About Ambient" section.
+ * This is intended for site-managed custom.php extensions, not user input.
+ *
+ * @param string $html The HTML content to add.
+ * @since v2.3.3
+ */
+function amp_add_about_content( string $html ): void {
+    if ( isset( $GLOBALS['ambient'] ) ) {
+        $GLOBALS['ambient']->enqueue_content( 'about', $html );
+    }
+}
+
+function amp_get_about_content(): string {
+    if ( !isset( $GLOBALS['ambient'] ) ) {
+        return '';
+    }
+    $content = $GLOBALS['ambient']->get_content_slot( 'about' );
+    return !empty( $content ) ? implode( "\n", $content ) : '';
+}
+
 function is_local(): bool {
     return isset( $GLOBALS['ambient'] ) ? $GLOBALS['ambient']->is_local() : false;
 }
