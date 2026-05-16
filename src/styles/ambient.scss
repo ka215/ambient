@@ -172,6 +172,118 @@ a[aria-current="true"] .text--playlist-artist {
     -webkit-mask-image: url("../assets/icons/playlist-reorder.svg");
 }
 
+.ui-icon-mask {
+    display: inline-block;
+    flex-shrink: 0;
+    background-color: currentColor;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+}
+
+.ui-icon-mask--caret-down {
+    mask-image: url("../assets/icons/ui-caret-down.svg");
+    -webkit-mask-image: url("../assets/icons/ui-caret-down.svg");
+}
+
+.ui-icon-mask--caret-up {
+    mask-image: url("../assets/icons/ui-caret-up.svg");
+    -webkit-mask-image: url("../assets/icons/ui-caret-up.svg");
+}
+
+.ui-icon-mask--close {
+    mask-image: url("../assets/icons/ui-close.svg");
+    -webkit-mask-image: url("../assets/icons/ui-close.svg");
+}
+
+.ui-icon-mask--check {
+    mask-image: url("../assets/icons/ui-check.svg");
+    -webkit-mask-image: url("../assets/icons/ui-check.svg");
+}
+
+.ui-icon-mask--playlist {
+    mask-image: url("../assets/icons/ui-playlist.svg");
+    -webkit-mask-image: url("../assets/icons/ui-playlist.svg");
+}
+
+.ui-icon-mask--refresh {
+    mask-image: url("../assets/icons/ui-refresh.svg");
+    -webkit-mask-image: url("../assets/icons/ui-refresh.svg");
+}
+
+.ui-icon-mask--window-expand {
+    mask-image: url("../assets/icons/ui-window-expand.svg");
+    -webkit-mask-image: url("../assets/icons/ui-window-expand.svg");
+}
+
+.ui-icon-mask--window-minimize {
+    mask-image: url("../assets/icons/ui-window-minimize.svg");
+    -webkit-mask-image: url("../assets/icons/ui-window-minimize.svg");
+}
+
+.ui-icon-mask--play {
+    mask-image: url("../assets/icons/ui-play.svg");
+    -webkit-mask-image: url("../assets/icons/ui-play.svg");
+}
+
+.ui-icon-mask--pause {
+    mask-image: url("../assets/icons/ui-pause.svg");
+    -webkit-mask-image: url("../assets/icons/ui-pause.svg");
+}
+
+.ui-icon-mask--menu-compress {
+    mask-image: url("../assets/icons/ui-menu-compress.svg");
+    -webkit-mask-image: url("../assets/icons/ui-menu-compress.svg");
+}
+
+.ui-icon-mask--menu-expand {
+    mask-image: url("../assets/icons/ui-menu-expand.svg");
+    -webkit-mask-image: url("../assets/icons/ui-menu-expand.svg");
+}
+
+.ui-icon-mask--settings {
+    mask-image: url("../assets/icons/ui-settings.svg");
+    -webkit-mask-image: url("../assets/icons/ui-settings.svg");
+}
+
+.ui-icon-mask--options-dots {
+    mask-image: url("../assets/icons/ui-options-dots.svg");
+    -webkit-mask-image: url("../assets/icons/ui-options-dots.svg");
+}
+
+.ui-icon-mask--options-panel {
+    mask-image: url("../assets/icons/ui-options-panel.svg");
+    -webkit-mask-image: url("../assets/icons/ui-options-panel.svg");
+}
+
+.ui-icon-mask--mode-normal {
+    mask-image: url("../assets/icons/ui-mode-normal.svg");
+    -webkit-mask-image: url("../assets/icons/ui-mode-normal.svg");
+}
+
+.ui-icon-mask--mode-change {
+    mask-image: url("../assets/icons/ui-mode-change.svg");
+    -webkit-mask-image: url("../assets/icons/ui-mode-change.svg");
+}
+
+.ui-icon-mask--mode-edit {
+    mask-image: url("../assets/icons/ui-mode-edit.svg");
+    -webkit-mask-image: url("../assets/icons/ui-mode-edit.svg");
+}
+
+.ui-icon-mask--mode-reorder {
+    mask-image: url("../assets/icons/ui-mode-reorder.svg");
+    -webkit-mask-image: url("../assets/icons/ui-mode-reorder.svg");
+}
+
+.ui-icon-mask--mode-delete {
+    mask-image: url("../assets/icons/ui-mode-delete.svg");
+    -webkit-mask-image: url("../assets/icons/ui-mode-delete.svg");
+}
+
 .icon--playlist-desc {
     display: inline-flex;
     align-items: center;

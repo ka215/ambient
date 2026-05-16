@@ -36,6 +36,18 @@ async function seedMyPlaylist(page: Page, playlist: Record<string, unknown> | nu
   }, payload);
 }
 
+async function seedUserPlaylistContext(
+  page: Page,
+  context: { playlist: string; category: string } | null
+): Promise<void> {
+  await page.addInitScript((playlistContext) => {
+    if (!playlistContext) return;
+    localStorage.setItem('AmbientUserData', JSON.stringify({
+      playlistContext,
+    }));
+  }, context);
+}
+
 async function openManagementSection(
   page: Page,
   headingBtnSel: string,
@@ -176,6 +188,50 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
     await ambientPage.openSettingsDrawer();
     const optionTextsAfter = await page.locator('#target-category option').allTextContents();
     expect(optionTextsAfter.map((v) => v.trim())).toEqual(['All categories', 'Alpha', 'Beta']);
+  });
+
+  test('resumes saved MyPlaylist and category selection from AmbientUserData', async ({ ambientPage, page }) => {
+    await seedMyPlaylist(page, buildMyPlaylist({
+      Ambient: [
+        { title: 'Ambient item', videoid: 'dQw4w9WgXcQ' },
+      ],
+      Focus: [
+        { title: 'Focus item', videoid: 'M7lc1UVf-VE' },
+      ],
+    }));
+    await seedUserPlaylistContext(page, {
+      playlist: MYPLAYLIST_NAME,
+      category: 'Focus',
+    });
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.waitForPlaylistReady();
+
+    await expect(page.locator('#current-playlist')).toHaveValue(MYPLAYLIST_NAME);
+    await expect(page.locator('#target-category')).toHaveValue('1');
+    await expect(page.locator('#playlist-list-group [data-playlist-item]')).toHaveCount(1);
+    await expect(page.locator('#playlist-list-group')).toContainText('Focus item');
+  });
+
+  test('falls back to all categories when saved category no longer exists', async ({ ambientPage, page }) => {
+    await seedMyPlaylist(page, buildMyPlaylist({
+      Ambient: [
+        { title: 'Ambient item', videoid: 'dQw4w9WgXcQ' },
+      ],
+    }));
+    await seedUserPlaylistContext(page, {
+      playlist: MYPLAYLIST_NAME,
+      category: 'Missing Category',
+    });
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.waitForPlaylistReady();
+
+    await expect(page.locator('#current-playlist')).toHaveValue(MYPLAYLIST_NAME);
+    await expect(page.locator('#target-category')).toHaveValue('-1');
+    await expect(page.locator('#playlist-list-group')).toContainText('Ambient item');
   });
 
   test('ignores malformed MyPlaylist localStorage and keeps the app usable', async ({ ambientPage, page }) => {

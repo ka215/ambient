@@ -13,8 +13,8 @@
         >
             <span><?= __( 'Media Management' ); ?></span>
           <span class="accordion-caret" aria-hidden="true">
-            <svg class="caret-down w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
-            <svg class="caret-up w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7"/></svg>
+            <span class="caret-down ui-icon-mask ui-icon-mask--caret-down w-4 h-4 shrink-0"></span>
+            <span class="caret-up ui-icon-mask ui-icon-mask--caret-up w-4 h-4 shrink-0"></span>
           </span>
         </button>
     </h2>
@@ -88,9 +88,7 @@
                         <span 
                           id="note-success-youtube-url"
                           class="hidden bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300 inline-flex items-center"
-                        ><svg class="w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 12">
-                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 5.917 5.724 10.5 15 1.5"/>
-                        </svg></span>
+                        ><span class="ui-icon-mask ui-icon-mask--check w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true"></span></span>
                     </label>
                     <div class="flex">
                         <span 
@@ -127,9 +125,7 @@
                         <span 
                           id="note-success-local-media-file"
                           class="hidden bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300 inline-flex items-center"
-                        ><svg class="w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 12">
-                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 5.917 5.724 10.5 15 1.5"/>
-                        </svg></span>
+                        ><span class="ui-icon-mask ui-icon-mask--check w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true"></span></span>
                     </label>
                     <input 
                       id="local-media-file"
@@ -168,9 +164,7 @@
                             <span 
                               id="note-success-media-category"
                               class="hidden bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300 inline-flex items-center"
-                            ><svg class="w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 12">
-                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 5.917 5.724 10.5 15 1.5"/>
-                            </svg></span>
+                            ><span class="ui-icon-mask ui-icon-mask--check w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true"></span></span>
                         </label>
                         <select 
                           id="media-category"
@@ -220,9 +214,7 @@
                             <span 
                               id="note-success-media-title"
                               class="hidden bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300 inline-flex items-center"
-                            ><svg class="w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 12">
-                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 5.917 5.724 10.5 15 1.5"/>
-                            </svg></span>
+                            ><span class="ui-icon-mask ui-icon-mask--check w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true"></span></span>
                         </label>
                         <input
                           id="media-title"
@@ -308,9 +300,7 @@
                                 <span 
                                   id="note-success-seek-start"
                                   class="hidden bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300 inline-flex items-center"
-                                ><svg class="w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 12">
-                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 5.917 5.724 10.5 15 1.5"/>
-                                </svg></span>
+                                ><span class="ui-icon-mask ui-icon-mask--check w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true"></span></span>
                             </label>
                             <input 
                               id="seek-start"
@@ -334,9 +324,7 @@
                                 <span 
                                   id="note-success-seek-end"
                                   class="hidden bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300 inline-flex items-center"
-                                ><svg class="w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 12">
-                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 5.917 5.724 10.5 15 1.5"/>
-                                </svg></span>
+                                ><span class="ui-icon-mask ui-icon-mask--check w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true"></span></span>
                             </label>
                             <input 
                               id="seek-end"
@@ -366,9 +354,7 @@
                                 <span 
                                   id="note-success-fadein-seconds"
                                   class="hidden bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300 inline-flex items-center"
-                                ><svg class="w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 12">
-                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 5.917 5.724 10.5 15 1.5"/>
-                                </svg></span>
+                                ><span class="ui-icon-mask ui-icon-mask--check w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true"></span></span>
                             </label>
                             <input 
                               id="fadein-seconds"
@@ -395,9 +381,7 @@
                                 <span 
                                   id="note-success-fadeout-seconds"
                                   class="hidden bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300 inline-flex items-center"
-                                ><svg class="w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 12">
-                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 5.917 5.724 10.5 15 1.5"/>
-                                </svg></span>
+                                ><span class="ui-icon-mask ui-icon-mask--check w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true"></span></span>
                             </label>
                             <input 
                               id="fadeout-seconds"
@@ -438,8 +422,8 @@
         >
             <span><?= __( 'Playlist Management' ); ?></span>
           <span class="accordion-caret" aria-hidden="true">
-            <svg class="caret-down w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
-            <svg class="caret-up w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7"/></svg>
+            <span class="caret-down ui-icon-mask ui-icon-mask--caret-down w-4 h-4 shrink-0"></span>
+            <span class="caret-up ui-icon-mask ui-icon-mask--caret-up w-4 h-4 shrink-0"></span>
           </span>
         </button>
     </h2>
@@ -482,9 +466,7 @@
                         <span 
                           id="note-success-local-media-directory"
                           class="hidden bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300 inline-flex items-center"
-                        ><svg class="w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 12">
-                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 5.917 5.724 10.5 15 1.5"/>
-                        </svg></span>
+                        ><span class="ui-icon-mask ui-icon-mask--check w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true"></span></span>
                     </label>
                     <input 
                       id="local-media-directory"
@@ -522,9 +504,7 @@
                             <span 
                               id="note-success-symlink-name"
                               class="hidden bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300 inline-flex items-center"
-                            ><svg class="w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 12">
-                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 5.917 5.724 10.5 15 1.5"/>
-                            </svg></span>
+                            ><span class="ui-icon-mask ui-icon-mask--check w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true"></span></span>
                         </label>
                         <input 
                           id="symlink-name"
@@ -576,9 +556,7 @@
                                 <span 
                                   id="note-success-category-name"
                                   class="hidden bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300 inline-flex items-center"
-                                ><svg class="w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 16 12">
-                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 5.917 5.724 10.5 15 1.5"/>
-                                </svg></span>
+                                ><span class="ui-icon-mask ui-icon-mask--check w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true"></span></span>
                             </label>
                             <input 
                               id="category-name"
@@ -657,8 +635,8 @@
         >
             <span><?= __( 'Report an issue' ); ?></span>
           <span class="accordion-caret" aria-hidden="true">
-            <svg class="caret-down w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
-            <svg class="caret-up w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7"/></svg>
+            <span class="caret-down ui-icon-mask ui-icon-mask--caret-down w-4 h-4 shrink-0"></span>
+            <span class="caret-up ui-icon-mask ui-icon-mask--caret-up w-4 h-4 shrink-0"></span>
           </span>
         </button>
     </h2>
@@ -673,7 +651,7 @@
                 <?= __( 'To report bugs or problems, please raise an issue on github.' ) ?><br>
                 <?= __( 'Before reporting a problem, please check to see if a similar issue has already been submitted.' ) ?>
             </p>
-            <p class="text-gray-500 dark:text-gray-400"><a href="https://github.com/ka215/ambient/issues" target="_blank" class="text-blue-600 dark:text-blue-500 hover:underline"><?= __( 'Check out and submit issues.' ) ?></a></p>
+            <p class="text-gray-500 dark:text-gray-400"><a href="https://github.com/ka215/ambient/issues/new?template=bug_report.yml" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-500 hover:underline"><?= __( 'Check out and submit issues.' ) ?></a></p>
         </div>
     </div>
     <!-- About Ambient -->
@@ -687,8 +665,8 @@
         >
             <span><?= __( 'About Ambient' ); ?></span>
           <span class="accordion-caret" aria-hidden="true">
-            <svg class="caret-down w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/></svg>
-            <svg class="caret-up w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 15 7-7 7 7"/></svg>
+            <span class="caret-down ui-icon-mask ui-icon-mask--caret-down w-4 h-4 shrink-0"></span>
+            <span class="caret-up ui-icon-mask ui-icon-mask--caret-up w-4 h-4 shrink-0"></span>
           </span>
         </button>
     </h2>

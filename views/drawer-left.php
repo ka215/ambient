@@ -6,10 +6,7 @@
 >
     <div class="p-4 fixed top-0 left-0 z-10 w-80 h-14 flex flex-nowrap items-center bg-white border-r border-b dark:bg-gray-800 dark:border-gray-600">
         <h5 id="drawer-playlist-label" class="inline-flex flex-1 min-w-0 items-center text-base font-semibold text-gray-500 dark:text-white text-rotate-0">
-            <svg class="w-5 h-5 text-gray-500 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-500 text-rotate-0" aria-hidden="true" aria-label="play-list" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 18 16">
-                <path d="M14.316.051A1 1 0 0 0 13 1v8.473A4.49 4.49 0 0 0 11 9c-2.206 0-4 1.525-4 3.4s1.794 3.4 4 3.4 4-1.526 4-3.4a2.945 2.945 0 0 0-.067-.566c.041-.107.064-.22.067-.334V2.763A2.974 2.974 0 0 1 16 5a1 1 0 0 0 2 0C18 1.322 14.467.1 14.316.051ZM10 3H1a1 1 0 0 1 0-2h9a1 1 0 1 1 0 2Z"/>
-                <path d="M10 7H1a1 1 0 0 1 0-2h9a1 1 0 1 1 0 2Zm-5 4H1a1 1 0 0 1 0-2h4a1 1 0 1 1 0 2Z"/>
-            </svg>
+            <span class="ui-icon-mask ui-icon-mask--playlist w-5 h-5 text-gray-500 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-500 text-rotate-0" aria-hidden="true" aria-label="play-list"></span>
             <span class="ml-2 text-rotate-0"><?= __( 'Playlist' ) ?></span>
         </h5>
             <div class="relative ml-2 inline-flex items-center gap-2">
@@ -31,10 +28,7 @@
               data-confirm-reorder-body="<?= __( 'Apply the current item order to your playlist.' ) ?>"
             >
                 <span id="playlist-mode-button-icon" class="inline-flex items-center justify-center" aria-hidden="true">
-                    <svg class="w-4 h-4 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13v-2a1 1 0 0 0-1-1h-.757l-.707-1.707.535-.536a1 1 0 0 0 0-1.414l-1.414-1.414a1 1 0 0 0-1.414 0l-.536.535L14 4.757V4a1 1 0 0 0-1-1h-2a1 1 0 0 0-1 1v.757l-1.707.707-.536-.535a1 1 0 0 0-1.414 0L4.929 6.343a1 1 0 0 0 0 1.414l.536.536L4.757 10H4a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h.757l.707 1.707-.535.536a1 1 0 0 0 0 1.414l1.414 1.414a1 1 0 0 0 1.414 0l.536-.535 1.707.707V20a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-.757l1.707-.708.536.536a1 1 0 0 0 1.414 0l1.414-1.414a1 1 0 0 0 0-1.414l-.535-.536.707-1.707H20a1 1 0 0 0 1-1Z"/>
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
-                    </svg>
+                    <span class="ui-icon-mask ui-icon-mask--mode-change w-4 h-4 text-gray-800 dark:text-white" aria-hidden="true"></span>
                 </span>
                 <span id="playlist-mode-button-label" class="text-sm font-medium"><?= __( 'Mode Change' ) ?></span>
             </button>
@@ -46,27 +40,19 @@
               aria-label="<?= __( 'Mode' ) ?>"
             >
                 <button type="button" class="playlist-mode-option inline-flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600" data-mode="normal" role="menuitem">
-                    <svg class="playlist-mode-option-icon w-4 h-4 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M9 8h10M9 12h10M9 16h10M4.99 8H5m-.02 4h.01m0 4H5"/>
-                    </svg>
+                    <span class="playlist-mode-option-icon ui-icon-mask ui-icon-mask--mode-normal w-4 h-4 text-gray-800 dark:text-white" aria-hidden="true"></span>
                     <span class="playlist-mode-option-label"><?= __( 'Normal' ) ?></span>
                 </button>
                 <button type="button" class="playlist-mode-option inline-flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed" data-mode="edit" role="menuitem" disabled aria-disabled="true">
-                    <svg class="playlist-mode-option-icon w-4 h-4 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m14.304 4.844 2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565 6.844-6.844a2.015 2.015 0 0 1 2.852 0Z"/>
-                    </svg>
+                    <span class="playlist-mode-option-icon ui-icon-mask ui-icon-mask--mode-edit w-4 h-4 text-gray-800 dark:text-white" aria-hidden="true"></span>
                     <span class="playlist-mode-option-label"><?= __( 'Edit' ) ?></span>
                 </button>
                 <button type="button" class="playlist-mode-option inline-flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600" data-mode="reorder" role="menuitem">
-                    <svg class="playlist-mode-option-icon w-4 h-4 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 20V7m0 13-4-4m4 4 4-4m4-12v13m0-13 4 4m-4-4-4 4"/>
-                    </svg>
+                    <span class="playlist-mode-option-icon ui-icon-mask ui-icon-mask--mode-reorder w-4 h-4 text-gray-800 dark:text-white" aria-hidden="true"></span>
                     <span class="playlist-mode-option-label"><?= __( 'Reorder' ) ?></span>
                 </button>
                 <button type="button" class="playlist-mode-option inline-flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600" data-mode="delete" role="menuitem">
-                    <svg class="playlist-mode-option-icon w-4 h-4 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 7h14m-9 3v8m4-8v8M10 3h4a1 1 0 0 1 1 1v3H9V4a1 1 0 0 1 1-1ZM6 7h12v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7Z"/>
-                    </svg>
+                    <span class="playlist-mode-option-icon ui-icon-mask ui-icon-mask--mode-delete w-4 h-4 text-gray-800 dark:text-white" aria-hidden="true"></span>
                     <span class="playlist-mode-option-label"><?= __( 'Delete' ) ?></span>
                 </button>
             </div>
@@ -78,9 +64,7 @@
           aria-controls="drawer-playlist"
           class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex items-center justify-center dark:hover:bg-gray-600 dark:hover:text-white"
         >
-            <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-            </svg>
+            <span class="ui-icon-mask ui-icon-mask--close w-3 h-3" aria-hidden="true"></span>
             <span class="sr-only"><?= __( 'Close Playlist' ) ?></span>
         </button>
     </div>
@@ -97,9 +81,7 @@
               data-label="<?= __( 'Register media' ) ?>"
               class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
             >
-                <svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7 7V5"/>
-                </svg>
+                <span class="playlist-icon-mask playlist-icon-mask--add w-6 h-6" aria-hidden="true"></span>
                 <?= __( 'Register media' ) ?>
             </button>
         </div>
@@ -122,9 +104,7 @@
           class="absolute top-2 right-2 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex items-center justify-center dark:hover:bg-gray-600 dark:hover:text-white"
           aria-label="<?= __( 'Close' ) ?>"
         >
-            <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-            </svg>
+            <span class="ui-icon-mask ui-icon-mask--close w-3 h-3" aria-hidden="true"></span>
         </button>
         <h3 id="modal-playlist-desc-title" class="pr-8 text-base font-normal text-gray-900 dark:text-white"></h3>
         <div id="modal-playlist-desc-artist" class="playlist-desc-artist hidden mt-2"></div>
