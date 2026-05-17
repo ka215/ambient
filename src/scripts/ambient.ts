@@ -151,6 +151,7 @@ const init = function (): void {
           }
           if ('current' === prop) {
             changePlaylistFocus();
+            savePlaylistContext();
           }
           if ('order' === prop) {
             changeToggleRandomly();
@@ -218,6 +219,22 @@ const init = function (): void {
   let playlistLoadSeq = 0;
   let activePlaylistLoadSeq = 0;
   let pendingResumeCategoryName: string | null = null;
+  let pendingResumeMediaContext: PlaylistResumeMediaContext | null = null;
+
+  interface PlaylistResumeMediaContext {
+    amId: number;
+    category: string;
+    title: string;
+    artist: string;
+    file: string;
+    videoid: string;
+  }
+
+  interface PlaylistResumeContext {
+    playlist: string;
+    category: string;
+    media: PlaylistResumeMediaContext | null;
+  }
 
   function isPlaylistLoadActive(seq: number): boolean {
     return activePlaylistLoadSeq === seq;
@@ -311,6 +328,39 @@ const init = function (): void {
     return '';
   }
 
+  function getMediaCategoryName(mediaItem: MediaItem | null | undefined): string {
+    if (!mediaItem || !Array.isArray(AMP_STATUS.category)) {
+      return '';
+    }
+    return AMP_STATUS.category[mediaItem.catId] || '';
+  }
+
+  function getCurrentMediaItem(): MediaItem | null {
+    if (AMP_STATUS.current === null || !Array.isArray(AMP_STATUS.media)) {
+      return null;
+    }
+    return AMP_STATUS.media.find((item: MediaItem) => item.amId === AMP_STATUS.current) || null;
+  }
+
+  function createResumeMediaContext(mediaItem: MediaItem | null): PlaylistResumeMediaContext | null {
+    if (!mediaItem) {
+      return null;
+    }
+    const currentCategory = getCurrentCategoryName();
+    const mediaCategory = getMediaCategoryName(mediaItem);
+    if (currentCategory !== '' && mediaCategory !== currentCategory) {
+      return null;
+    }
+    return {
+      amId: mediaItem.amId,
+      category: mediaCategory,
+      title: sanitizeMediaText(mediaItem.title || '', MEDIA_TITLE_MAX_LENGTH),
+      artist: sanitizeMediaText(mediaItem.artist || '', MEDIA_ARTIST_MAX_LENGTH),
+      file: typeof mediaItem.file === 'string' ? mediaItem.file : '',
+      videoid: typeof mediaItem.videoid === 'string' ? mediaItem.videoid : '',
+    };
+  }
+
   function savePlaylistContext(): void {
     if (!AMP_STATUS.playlist) {
       return;
@@ -318,10 +368,11 @@ const init = function (): void {
     saveStge(PLAYLIST_CONTEXT_KEY, {
       playlist: AMP_STATUS.playlist,
       category: getCurrentCategoryName(),
+      media: createResumeMediaContext(getCurrentMediaItem()),
     });
   }
 
-  function getSavedPlaylistContext(): { playlist: string; category: string } | null {
+  function getSavedPlaylistContext(): PlaylistResumeContext | null {
     const context = getStge(PLAYLIST_CONTEXT_KEY);
     if (!isObject(context)) {
       return null;
@@ -331,7 +382,22 @@ const init = function (): void {
     if (playlist === '') {
       return null;
     }
-    return { playlist, category };
+    let media: PlaylistResumeMediaContext | null = null;
+    if (isObject(context['media'])) {
+      const source = context['media'] as Record<string, unknown>;
+      const amId = Number(source['amId']);
+      if (Number.isInteger(amId) && amId >= 0) {
+        media = {
+          amId,
+          category: typeof source['category'] === 'string' ? source['category'].trim() : '',
+          title: typeof source['title'] === 'string' ? sanitizeMediaText(source['title'], MEDIA_TITLE_MAX_LENGTH) : '',
+          artist: typeof source['artist'] === 'string' ? sanitizeMediaText(source['artist'], MEDIA_ARTIST_MAX_LENGTH) : '',
+          file: typeof source['file'] === 'string' ? source['file'] : '',
+          videoid: typeof source['videoid'] === 'string' ? source['videoid'] : '',
+        };
+      }
+    }
+    return { playlist, category, media };
   }
 
   function isPlaylistAvailableForResume(playlist: string): boolean {
@@ -356,6 +422,10 @@ const init = function (): void {
     pendingResumeCategoryName = categoryName && categoryName.trim() !== '' ? categoryName.trim() : null;
   }
 
+  function requestMediaResume(mediaContext: PlaylistResumeMediaContext | null | undefined): void {
+    pendingResumeMediaContext = mediaContext || null;
+  }
+
   function applyPendingCategoryResume(): void {
     if (pendingResumeCategoryName === null) {
       AMP_STATUS.ctg = -1;
@@ -368,6 +438,54 @@ const init = function (): void {
     AMP_STATUS.ctg = nextCategoryId >= 0 ? nextCategoryId : -1;
     pendingResumeCategoryName = null;
     syncTargetCategorySelection();
+  }
+
+  function isSameResumeMedia(item: MediaItem, mediaContext: PlaylistResumeMediaContext): boolean {
+    const sameVideo = mediaContext.videoid !== '' && item.videoid === mediaContext.videoid;
+    const sameFile = mediaContext.file !== '' && item.file === mediaContext.file;
+    const sameTitle = sanitizeMediaText(item.title || '', MEDIA_TITLE_MAX_LENGTH) === mediaContext.title;
+    const sameArtist = sanitizeMediaText(item.artist || '', MEDIA_ARTIST_MAX_LENGTH) === mediaContext.artist;
+    return sameVideo || sameFile || (sameTitle && sameArtist);
+  }
+
+  function findResumeMediaItem(mediaContext: PlaylistResumeMediaContext): MediaItem | null {
+    const media = AMP_STATUS.media || [];
+    const expectedCategory = mediaContext.category || pendingResumeCategoryName || '';
+    const isCategoryCompatible = (item: MediaItem): boolean => {
+      if (expectedCategory === '') {
+        return true;
+      }
+      return getMediaCategoryName(item) === expectedCategory;
+    };
+    const exactAmId = media.find((item: MediaItem) =>
+      item.amId === mediaContext.amId &&
+      isCategoryCompatible(item) &&
+      isSameResumeMedia(item, mediaContext)
+    );
+    if (exactAmId) {
+      return exactAmId;
+    }
+    return media.find((item: MediaItem) =>
+      isCategoryCompatible(item) &&
+      isSameResumeMedia(item, mediaContext)
+    ) || null;
+  }
+
+  function applyPendingMediaResume(): boolean {
+    if (pendingResumeMediaContext === null) {
+      return false;
+    }
+    const resumeItem = findResumeMediaItem(pendingResumeMediaContext);
+    pendingResumeMediaContext = null;
+    if (!resumeItem) {
+      return false;
+    }
+    updatePlayStatus(resumeItem.amId);
+    return true;
+  }
+
+  function getDefaultMediaItemForCurrentView(): MediaItem | null {
+    return getPlaylistItemsForCurrentView()[0] || (AMP_STATUS.media || [])[0] || null;
   }
 
   function stripHtmlTags(value: string): string {
@@ -480,10 +598,12 @@ const init = function (): void {
       AMP_STATUS.playlist = MYPLAYLIST_NAME;
       applyPendingCategoryResume();
       updatePlaylist();
-      if (AMP_STATUS.current !== null) {
+      if (applyPendingMediaResume()) {
+        // The saved media item has been restored without autoplay.
+      } else if (AMP_STATUS.current !== null) {
         updatePlayStatus(AMP_STATUS.current);
       } else if (media.length > 0) {
-        updatePlayStatus(media[0]?.amId ?? 0);
+        updatePlayStatus(getDefaultMediaItemForCurrentView()?.amId ?? 0);
       }
       logger('loadMyPlaylistFromStorage: loaded', media.length, 'items');
       return true;
@@ -595,10 +715,12 @@ const init = function (): void {
           AMP_STATUS.media = media;
           AMP_STATUS.playlist = playlist;
           updatePlaylist();
-          if (AMP_STATUS.current !== null) {
+          if (applyPendingMediaResume()) {
+            // The saved media item has been restored without autoplay.
+          } else if (AMP_STATUS.current !== null) {
             updatePlayStatus(AMP_STATUS.current);
           } else if (media.length > 0) {
-            updatePlayStatus(media[0]?.amId ?? 0);
+            updatePlayStatus(getDefaultMediaItemForCurrentView()?.amId ?? 0);
           }
         }
       }
@@ -617,36 +739,57 @@ const init = function (): void {
     const ambientData = getAmbientData();
     if (!ambientData?.isCloud) return;
     const canMutatePlaylist = canMutateCurrentPlaylist();
-    const $BTN_ADD_MEDIA = document.getElementById('btn-add-media');
-    const $BTN_CREATE_CATEGORY = document.getElementById('btn-create-category');
     const $MEDIA_MANAGE_FORM_EL = document.querySelector('form[name="mediaManagement"]') as HTMLFormElement | null;
+    const $PLAYLIST_MANAGE_FORM_EL = document.querySelector('form[name="playlistManagement"]') as HTMLFormElement | null;
     const $PLAYLIST_MANAGE_NOTICE = document.getElementById('cloud-readonly-notice');
+    const readonlyTitle = 'Editing existing playlists is not available in cloud mode.';
+    const mediaControlIds = [
+      'media-type-youtube',
+      'youtube-url',
+      'media-category',
+      'media-category-new',
+      'media-title',
+      'media-artist',
+      'media-desc',
+      'media-volume',
+      'seek-start',
+      'seek-end',
+      'btn-add-media',
+    ];
+    const categoryControlIds = [
+      'category-name',
+      'btn-create-category',
+    ];
+    const setReadonlyState = (ids: string[]): void => {
+      ids.forEach((id) => {
+        const elm = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | HTMLButtonElement | null;
+        if (!elm) return;
+        elm.disabled = !canMutatePlaylist;
+        elm.setAttribute('aria-disabled', String(!canMutatePlaylist));
+        if (!canMutatePlaylist) {
+          elm.setAttribute('title', readonlyTitle);
+        } else {
+          elm.removeAttribute('title');
+        }
+      });
+    };
+
+    setReadonlyState(mediaControlIds);
+    setReadonlyState(categoryControlIds);
+
     if (!canMutatePlaylist) {
-      // Disable add-media button
-      if ($BTN_ADD_MEDIA) {
-        ($BTN_ADD_MEDIA as HTMLButtonElement).disabled = true;
-        $BTN_ADD_MEDIA.setAttribute('title', 'Editing existing playlists is not available in cloud mode.');
-      }
-      // Disable category creation button
-      if ($BTN_CREATE_CATEGORY) {
-        ($BTN_CREATE_CATEGORY as HTMLButtonElement).disabled = true;
-        $BTN_CREATE_CATEGORY.setAttribute('title', 'Editing existing playlists is not available in cloud mode.');
-      }
-      // Visual hint on the media management form
       if ($MEDIA_MANAGE_FORM_EL) {
         $MEDIA_MANAGE_FORM_EL.classList.add('opacity-50');
       }
+      if ($PLAYLIST_MANAGE_FORM_EL) {
+        $PLAYLIST_MANAGE_FORM_EL.querySelector('#playlist-management-field-category')?.classList.add('opacity-50');
+      }
     } else {
-      if ($BTN_ADD_MEDIA) {
-        ($BTN_ADD_MEDIA as HTMLButtonElement).disabled = false;
-        $BTN_ADD_MEDIA.removeAttribute('title');
-      }
-      if ($BTN_CREATE_CATEGORY) {
-        ($BTN_CREATE_CATEGORY as HTMLButtonElement).disabled = false;
-        $BTN_CREATE_CATEGORY.removeAttribute('title');
-      }
       if ($MEDIA_MANAGE_FORM_EL) {
         $MEDIA_MANAGE_FORM_EL.classList.remove('opacity-50');
+      }
+      if ($PLAYLIST_MANAGE_FORM_EL) {
+        $PLAYLIST_MANAGE_FORM_EL.querySelector('#playlist-management-field-category')?.classList.remove('opacity-50');
       }
     }
     void $PLAYLIST_MANAGE_NOTICE;
@@ -1339,6 +1482,7 @@ const init = function (): void {
     const ambientData: AmbientData = (window as any).AmbientData;
     if (savedPlaylistContext && isPlaylistAvailableForResume(savedPlaylistContext.playlist)) {
       requestCategoryResume(savedPlaylistContext.category);
+      requestMediaResume(savedPlaylistContext.media);
       selectPlaylistOption(savedPlaylistContext.playlist);
       void getPlaylistData(savedPlaylistContext.playlist);
     } else {
@@ -2148,6 +2292,7 @@ const init = function (): void {
     if ($catNote) {
       $catNote.classList.add('hidden');
     }
+    applyCloudEditRestrictions();
   }
 
   /**
@@ -2176,6 +2321,7 @@ const init = function (): void {
       $SELECT_CATEGORY.firstElementChild?.removeAttribute('disabled');
       $SELECT_CATEGORY.removeAttribute('disabled');
       syncTargetCategorySelection();
+      applyCloudEditRestrictions();
       return;
     }
 
@@ -2208,6 +2354,7 @@ const init = function (): void {
     $SELECT_CATEGORY.removeAttribute('disabled');
     syncTargetCategorySelection();
     syncMediaCategoryField();
+    applyCloudEditRestrictions();
   }
 
   /**
@@ -4441,6 +4588,15 @@ const init = function (): void {
         case 'add_media':
           elm.addEventListener('click', (_evt: Event) => {
             if (!$MEDIA_MANAGE_FORM) return;
+            if (!canMutateCurrentPlaylist()) {
+              applyCloudEditRestrictions();
+              updateNotice({
+                type: 'error',
+                message: (elm as HTMLElement).dataset['messageFailure'] || '',
+                delay: 2400,
+              });
+              return;
+            }
             const formData = new FormData($MEDIA_MANAGE_FORM);
             const categoryField = $MEDIA_CATEGORY_SELECT.classList.contains('hidden')
               ? 'media-category-new'
@@ -4498,6 +4654,11 @@ const init = function (): void {
           });
         }
         const $BUTTON_ADD_MEDIA = document.getElementById('btn-add-media');
+        if (!canMutateCurrentPlaylist()) {
+          if ($BUTTON_ADD_MEDIA) setAtts($BUTTON_ADD_MEDIA, { disabled: '' }, false);
+          applyCloudEditRestrictions();
+          return;
+        }
         const categoryField = $MEDIA_CATEGORY_SELECT.classList.contains('hidden')
           ? 'media-category-new'
           : 'media-category';
@@ -4553,6 +4714,15 @@ const init = function (): void {
             },
             createCategory(): void {
               const selfElm = document.getElementById('btn-create-category');
+              if (!canMutateCurrentPlaylist()) {
+                applyCloudEditRestrictions();
+                updateNotice({
+                  type: 'error',
+                  message: selfElm?.dataset['messageFailure'] || '',
+                  delay: 2400,
+                });
+                return;
+              }
               try {
               const categoryName = this.getFormData('category_name') as string;
               if (!Array.isArray(AMP_STATUS.category)) AMP_STATUS.category = [];
@@ -4640,6 +4810,11 @@ const init = function (): void {
         const category_contains = ['category-name'];
         const isCategoryContainAll = inArray(category_contains, valid_items, false);
         logger('Check valid items for "Create Category":', valid_items, category_contains, isCategoryContainAll);
+        if (!canMutateCurrentPlaylist()) {
+          if ($BUTTON_CREATE_CATEGORY) setAtts($BUTTON_CREATE_CATEGORY, { disabled: '' }, false);
+          applyCloudEditRestrictions();
+          return;
+        }
         if ($BUTTON_CREATE_CATEGORY) setAtts($BUTTON_CREATE_CATEGORY, { disabled: '' }, isCategoryContainAll);
       }
     }, { childList: true, attributes: true, subtree: true });
@@ -5256,7 +5431,7 @@ function updateNotice(notification: NotificationPayload): void {
   logger('Have notification:', notification);
 
   const classes = {
-    base: 'fixed top-2 right-2 w-full max-w-sm flex items-start gap-3 p-4 z-[10050] text-sm border rounded-lg shadow-xl transition-all duration-200 ease-out ',
+    base: 'fixed top-2 right-2 w-full max-w-sm flex notice-toast notice-toast--hidden items-start gap-3 p-4 z-[10050] text-sm border rounded-lg shadow-xl ',
     info: 'text-blue-800 border-blue-300 bg-blue-50 dark:text-blue-400 dark:border-blue-800 dark:bg-blue-900',
     success: 'text-green-800 border-green-300 bg-green-50 dark:text-green-400 dark:border-green-800 dark:bg-green-900',
     warning: 'text-yellow-800 border-yellow-300 bg-yellow-50 dark:text-yellow-400 dark:border-yellow-800 dark:bg-yellow-900',
@@ -5296,28 +5471,28 @@ function updateNotice(notification: NotificationPayload): void {
   const delay = notification.hasOwnProperty('delay') ? Number(notification.delay) : 0;
   toggleClass($ALERT, {
     hidden: false,
-    'opacity-0': true,
-    '-translate-y-4': true,
+    'notice-toast--hidden': true,
+    'notice-toast--visible': false,
     'pointer-events-none': true,
   });
   window.requestAnimationFrame(() => {
     toggleClass($ALERT, {
-      'opacity-0': false,
-      '-translate-y-4': false,
+      'notice-toast--hidden': false,
+      'notice-toast--visible': true,
       'pointer-events-none': false,
     });
   });
 
   const hideNotice = (): void => {
     toggleClass($ALERT, {
-      'opacity-0': true,
-      '-translate-y-4': true,
+      'notice-toast--hidden': true,
+      'notice-toast--visible': false,
       'pointer-events-none': true,
     });
     noticeCleanupTimerGlobal = window.setTimeout(() => {
       toggleClass($ALERT, { hidden: true });
       noticeCleanupTimerGlobal = null;
-    }, 220);
+    }, 280);
   };
 
   if (delay > 0) {
