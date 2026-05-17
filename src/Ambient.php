@@ -70,7 +70,12 @@ class Ambient {
         if ( empty( $this->playlists ) ) {
             $this->set_warn( $this->__( 'Playlist not found. Please create a new playlist.' ) );
             // Still pass isCloud so the frontend can enable cloud-specific features (e.g. localStorage playlist).
-            $this->set_localize_script( 'AmbientData', [ 'isCloud' => $this->is_cloud() ] );
+            $this->set_localize_script( 'AmbientData', [
+                'isCloud' => $this->is_cloud(),
+                'messages' => [
+                    'mediaLoadFailedPrefix' => $this->__( 'Media could not be loaded: ' ),
+                ],
+            ] );
         } else {
             // Pass all playlist data to JavaScript of view.
             // Normalize separators to forward slashes for cross-platform path replacement.
@@ -83,6 +88,9 @@ class Ambient {
                 'playlists' => $relative_playlists,
                 'isCloud'   => $this->is_cloud(),
                 'mediaDir'  => str_replace( $app_root_normalized, './', str_replace( '\\', '/', MEDIA_DIR ) ),
+                'messages'  => [
+                    'mediaLoadFailedPrefix' => $this->__( 'Media could not be loaded: ' ),
+                ],
             ];
             if ( count( $this->playlists ) > 1 ) {
                 // If there are multiple playlists, prompt you to select a playlist.

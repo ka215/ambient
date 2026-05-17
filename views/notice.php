@@ -25,7 +25,7 @@
 ?>
 <div 
   id="alert-notification"
-  class="<?= $has_notice_message ? 'flex opacity-100 translate-y-0 pointer-events-auto' : 'hidden opacity-0 -translate-y-4 pointer-events-none' ?> fixed top-2 right-2 w-full max-w-sm items-start gap-3 p-4 z-[10050] text-sm text-<?= $base_color ?>-800 border border-<?= $base_color ?>-300 rounded-lg bg-<?= $base_color ?>-50 dark:bg-gray-800 dark:text-<?= $base_color ?>-400 dark:border-<?= $base_color ?>-800 shadow-xl transition-all duration-200 ease-out"
+  class="<?= $has_notice_message ? 'flex notice-toast notice-toast--visible pointer-events-auto' : 'hidden notice-toast notice-toast--hidden pointer-events-none' ?> fixed top-2 right-2 w-full max-w-sm items-start gap-3 p-4 z-[10050] text-sm text-<?= $base_color ?>-800 border border-<?= $base_color ?>-300 rounded-lg bg-<?= $base_color ?>-50 dark:bg-gray-800 dark:text-<?= $base_color ?>-400 dark:border-<?= $base_color ?>-800 shadow-xl"
   role="alert"
   aria-live="polite"
   data-notice-type="<?= $notice_type ?>"

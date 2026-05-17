@@ -4,6 +4,19 @@ import { test } from '../fixtures/ambient-page.fixture';
 
 const MYPLAYLIST_NAME = 'MyPlaylist.json';
 
+type SavedPlaylistContext = {
+  playlist: string;
+  category: string;
+  media?: {
+    amId: number;
+    category: string;
+    title: string;
+    artist?: string;
+    file?: string;
+    videoid?: string;
+  } | null;
+};
+
 function buildMyPlaylist(categories: Record<string, Array<{ title: string; videoid: string; artist?: string; desc?: string }>>) {
   const playlist: Record<string, unknown> = {};
   Object.entries(categories).forEach(([category, items]) => {
@@ -29,19 +42,25 @@ function buildMyPlaylist(categories: Record<string, Array<{ title: string; video
 async function seedMyPlaylist(page: Page, playlist: Record<string, unknown> | null): Promise<void> {
   const payload = playlist ? JSON.stringify(playlist) : null;
   await page.addInitScript((playlistJson) => {
-    localStorage.clear();
     if (playlistJson) {
+      (window as any).__ambientE2ESeeded = true;
       localStorage.setItem('AmbientMyPlaylist', playlistJson);
+      return;
     }
+    if ((window as any).__ambientE2ESeeded) {
+      return;
+    }
+    localStorage.clear();
   }, payload);
 }
 
 async function seedUserPlaylistContext(
   page: Page,
-  context: { playlist: string; category: string } | null
+  context: SavedPlaylistContext | null
 ): Promise<void> {
   await page.addInitScript((playlistContext) => {
     if (!playlistContext) return;
+    (window as any).__ambientE2ESeeded = true;
     localStorage.setItem('AmbientUserData', JSON.stringify({
       playlistContext,
     }));
@@ -190,18 +209,27 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
     expect(optionTextsAfter.map((v) => v.trim())).toEqual(['All categories', 'Alpha', 'Beta']);
   });
 
-  test('resumes saved MyPlaylist and category selection from AmbientUserData', async ({ ambientPage, page }) => {
+  test('resumes saved MyPlaylist, category, and media selection from AmbientUserData', async ({ ambientPage, page }) => {
     await seedMyPlaylist(page, buildMyPlaylist({
       Ambient: [
         { title: 'Ambient item', videoid: 'dQw4w9WgXcQ' },
       ],
       Focus: [
-        { title: 'Focus item', videoid: 'M7lc1UVf-VE' },
+        { title: 'Focus item A', videoid: 'M7lc1UVf-VE' },
+        { title: 'Focus item B', videoid: '3JZ_D3ELwOQ' },
       ],
     }));
     await seedUserPlaylistContext(page, {
       playlist: MYPLAYLIST_NAME,
       category: 'Focus',
+      media: {
+        amId: 2,
+        category: 'Focus',
+        title: 'Focus item B',
+        artist: 'E2E Artist',
+        file: '',
+        videoid: '3JZ_D3ELwOQ',
+      },
     });
 
     await ambientPage.gotoHome();
@@ -210,8 +238,43 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
 
     await expect(page.locator('#current-playlist')).toHaveValue(MYPLAYLIST_NAME);
     await expect(page.locator('#target-category')).toHaveValue('1');
-    await expect(page.locator('#playlist-list-group [data-playlist-item]')).toHaveCount(1);
-    await expect(page.locator('#playlist-list-group')).toContainText('Focus item');
+    await expect(page.locator('#playlist-list-group [data-playlist-item]')).toHaveCount(2);
+    await expect(page.locator('#playlist-list-group a[aria-current="true"]')).toHaveAttribute('data-playlist-item', '2');
+    await expect(page.locator('#playlist-list-group a[aria-current="true"]')).toContainText('Focus item B');
+  });
+
+  test('falls back to the resumed category first item when saved media no longer exists', async ({ ambientPage, page }) => {
+    await seedMyPlaylist(page, buildMyPlaylist({
+      Ambient: [
+        { title: 'Ambient item', videoid: 'dQw4w9WgXcQ' },
+      ],
+      Focus: [
+        { title: 'Focus fallback A', videoid: 'M7lc1UVf-VE' },
+        { title: 'Focus fallback B', videoid: '3JZ_D3ELwOQ' },
+      ],
+    }));
+    await seedUserPlaylistContext(page, {
+      playlist: MYPLAYLIST_NAME,
+      category: 'Focus',
+      media: {
+        amId: 99,
+        category: 'Focus',
+        title: 'Missing media',
+        artist: 'E2E Artist',
+        file: '',
+        videoid: 'missing-video-id',
+      },
+    });
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.waitForPlaylistReady();
+
+    await expect(page.locator('#current-playlist')).toHaveValue(MYPLAYLIST_NAME);
+    await expect(page.locator('#target-category')).toHaveValue('1');
+    await expect(page.locator('#playlist-list-group [data-playlist-item]')).toHaveCount(2);
+    await expect(page.locator('#playlist-list-group a[aria-current="true"]')).toHaveAttribute('data-playlist-item', '1');
+    await expect(page.locator('#playlist-list-group a[aria-current="true"]')).toContainText('Focus fallback A');
   });
 
   test('falls back to all categories when saved category no longer exists', async ({ ambientPage, page }) => {
@@ -247,6 +310,30 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
     await ambientPage.openSettingsDrawer();
     await expect(page.locator('#current-playlist')).not.toHaveValue(MYPLAYLIST_NAME);
     await expect(page.locator('#current-playlist option')).not.toHaveCount(0);
+  });
+
+  test('disables media and category creation controls for cloud JSON playlists', async ({ ambientPage, page }) => {
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.selectPlaylist('debug.json');
+
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+
+    await expect(page.locator('#youtube-url')).toBeDisabled();
+    await expect(page.locator('#media-category')).toBeDisabled();
+    await expect(page.locator('#media-category-new')).toBeDisabled();
+    await expect(page.locator('#media-title')).toBeDisabled();
+    await expect(page.locator('#media-artist')).toBeDisabled();
+    await expect(page.locator('#media-desc')).toBeDisabled();
+    await expect(page.locator('#media-volume')).toBeDisabled();
+    await expect(page.locator('#seek-start')).toBeDisabled();
+    await expect(page.locator('#seek-end')).toBeDisabled();
+    await expect(page.locator('#btn-add-media')).toBeDisabled();
+
+    await openManagementSection(page, '#collapse-item-heading-playlist button', 'collapse-item-body-playlist');
+
+    await expect(page.locator('#category-name')).toBeDisabled();
+    await expect(page.locator('#btn-create-category')).toBeDisabled();
   });
 
   test('uses playlist option volume for settings and media management defaults', async ({ ambientPage, page }) => {

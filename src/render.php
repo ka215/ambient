@@ -33,7 +33,8 @@ trait render {
      * Set any value to be passed to JavaScript in this application's view.
      */
     public function set_localize_script( string $var_name, array $var_pair ): void {
-        $script = "var $var_name = ". stripslashes( json_encode( $var_pair ) ) .";";
+        $json = json_encode( $var_pair, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
+        $script = "var $var_name = ". $json .";";
         self::$amp_scripts = empty( self::$amp_scripts )
             ? $script
             : implode( "\n", [ self::$amp_scripts, $script ] );
