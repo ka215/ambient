@@ -2,6 +2,8 @@
     "$language": "日本語",
     "Ambient Media Player": "Ambientメディアプレイヤー",
     "Get choose your playlist you want to play from the settings menu.": "設定メニューより再生したいプレイリストを選んでください",
+    "Playlist not found. Please create a new playlist.": "プレイリストが見つかりません。新しいプレイリストを作成してください。",
+    "Media could not be loaded: ": "メディアを読み込めませんでした: ",
     "Notify": "お知らせ",
     "Dismiss": "閉じる",
     "Previous Item": "前へ",

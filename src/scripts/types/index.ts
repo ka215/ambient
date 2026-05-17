@@ -94,6 +94,10 @@ interface AmbientData {
   playlists?: {
     [key: string]: string;
   };
+  messages?: {
+    mediaLoadFailedPrefix?: string;
+    [key: string]: string | undefined;
+  };
   isCloud?: boolean;
   [key: string]: any;
 }

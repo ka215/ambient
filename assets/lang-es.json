@@ -2,6 +2,8 @@
     "$language": "Español",
     "Ambient Media Player": "Ambient Player",
     "Get choose your playlist you want to play from the settings menu.": "Selecciona una playlist en el menú de ajustes.",
+    "Playlist not found. Please create a new playlist.": "No se encontró la playlist. Crea una nueva playlist.",
+    "Media could not be loaded: ": "No se pudo cargar el medio: ",
     "Notify": "Notificar",
     "Dismiss": "Cerrar",
     "Previous Item": "Anterior",

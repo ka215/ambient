@@ -307,6 +307,11 @@ const init = function (): void {
     return (window as any).AmbientData as AmbientData | undefined;
   }
 
+  function getLocalizedMessage(key: string, fallback: string = key): string {
+    const messages = getAmbientData()?.messages;
+    return isObject(messages) && typeof messages[key] === 'string' ? messages[key] : fallback;
+  }
+
   function sanitizeMyPlaylistOptions(
     options: PlaylistOptions | null | undefined
   ): PlaylistOptions | null {
@@ -3287,9 +3292,13 @@ const init = function (): void {
       ...details,
     }, 'force');
 
+    const messagePrefix = getLocalizedMessage(
+      'mediaLoadFailedPrefix',
+      'Media could not be loaded: '
+    );
     updateNotice({
       type: 'error',
-      message: `Media could not be loaded: ${escapeHTML(title)}`,
+      message: `${escapeHTML(messagePrefix)}${escapeHTML(title)}`,
       delay: 6000,
     });
   }
