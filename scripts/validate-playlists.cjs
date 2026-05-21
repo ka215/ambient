@@ -28,6 +28,65 @@ function readText(filePath) {
   }
 }
 
+function hasUnsafeScheme(value) {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  if (trimmed === '') return false;
+  const match = trimmed.match(/^([a-z][a-z0-9+.-]*):/i);
+  if (!match) return false;
+  const scheme = String(match[1] || '').toLowerCase();
+  return !['http', 'https'].includes(scheme);
+}
+
+function validateSanitizePolicy(data) {
+  let total = 0;
+  let rejected = 0;
+  const errors = [];
+
+  for (const [category, items] of Object.entries(data)) {
+    if (category === 'options') continue;
+    if (!Array.isArray(items)) {
+      errors.push('/' + category + ' must be an array');
+      continue;
+    }
+    items.forEach((item, index) => {
+      total += 1;
+      if (!item || typeof item !== 'object') {
+        rejected += 1;
+        errors.push('/' + category + '/' + index + ' must be object');
+        return;
+      }
+      const title = typeof item.title === 'string' ? item.title.trim() : '';
+      if (title === '' || title.length > 100) {
+        rejected += 1;
+        errors.push('/' + category + '/' + index + '/title invalid');
+      }
+      if (typeof item.artist === 'string' && item.artist.length > 100) {
+        errors.push('/' + category + '/' + index + '/artist exceeds 100 chars');
+      }
+      if (typeof item.desc === 'string' && item.desc.length > 500) {
+        errors.push('/' + category + '/' + index + '/desc exceeds 500 chars');
+      }
+      ['file', 'image', 'thumb'].forEach((key) => {
+        if (Object.prototype.hasOwnProperty.call(item, key) && hasUnsafeScheme(item[key])) {
+          rejected += 1;
+          errors.push('/' + category + '/' + index + '/' + key + ' has unsafe scheme');
+        }
+      });
+    });
+  }
+
+  if (total === 0) {
+    errors.push('playlist has no media item');
+    return { ok: false, errors };
+  }
+  if (rejected > 10 || rejected / Math.max(1, total) > 0.05) {
+    errors.push('rejected media ratio exceeded threshold (rejected=' + rejected + ', total=' + total + ')');
+    return { ok: false, errors };
+  }
+  return { ok: errors.length === 0, errors };
+}
+
 function main() {
   const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
   const ajv = new Ajv2020({ allErrors: true, strict: false });
@@ -66,6 +125,16 @@ function main() {
         const location = err.instancePath || '/';
         console.error('  - ' + location + ' ' + err.message);
       }
+      continue;
+    }
+
+    const sanitizeResult = validateSanitizePolicy(data);
+    if (!sanitizeResult.ok) {
+      console.warn('[SANITIZE POLICY WARN] ' + file);
+      for (const message of sanitizeResult.errors) {
+        console.warn('  - ' + message);
+      }
+      console.log('[OK] ' + file + ' (schema valid, sanitize warnings)');
       continue;
     }
 

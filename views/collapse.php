@@ -31,7 +31,7 @@
 <?php else: ?>
                 <?= __( 'Add media to the currently active playlist.' ) ?>
                 <?= __( 'Media you add is lost when you switch playlists or end your application session.' ) ?>
-                <?= __( 'If you want the additional media to be permanent, you will need to download the playlist after adding the media.' ) ?>
+                <?= __( 'If you want the additional media to be permanent, you will need to export the playlist after adding the media.' ) ?>
 <?php endif; ?>
             </p>
             <div class="mb-2 text-gray-500 dark:text-gray-400">
@@ -584,8 +584,8 @@
                   id="playlist-management-field-download"
                   class="mb-4"
                 >
-                    <h3 class="text-base font-semibold mb-2 -mx-5 px-5 lead-text"><?= __( 'Download Playlist' ) ?></h3>
-                    <p class="mb-2 text-gray-500 dark:text-gray-400"><?= __( 'Download the currently active playlist in JSON format.' ) ?></p>
+                    <h3 class="text-base font-semibold mb-2 -mx-5 px-5 lead-text"><?= __( 'Export Playlist' ) ?></h3>
+                    <p class="mb-2 text-gray-500 dark:text-gray-400"><?= __( 'Export the currently active playlist in JSON format.' ) ?></p>
                     <div
                       class="flex mb-4"
                     >
@@ -610,12 +610,75 @@
                           type="button"
                           name="download_playlist"
                           class="text-center font-medium rounded-lg text-sm px-5 py-2.5 mr-0 mb-0 text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
-                          data-message-success="<?= __( 'Playlist downloaded successfully.' ) ?>"
-                          data-message-failure="<?= __( 'Failed to download playlist.' ) ?>"
+                          data-message-success="<?= __( 'Playlist exported successfully.' ) ?>"
+                          data-message-failure="<?= __( 'Failed to export playlist.' ) ?>"
                           disabled
-                        ><?= __( 'Download Playlist' ) ?></button>
+                        ><?= __( 'Export Playlist' ) ?></button>
                     </div>
                     
+                </div>
+                <div 
+                  id="playlist-management-field-import"
+                  class="mb-4"
+                >
+                    <h3 class="text-base font-semibold mb-2 -mx-5 px-5 lead-text"><?= __( 'Import Playlist' ) ?></h3>
+                    <p class="mb-2 text-gray-500 dark:text-gray-400"><?= __( 'Import a playlist JSON file.' ) ?></p>
+<?php if ( is_cloud() ): ?>
+                    <p class="mb-2 text-sm text-gray-500 dark:text-gray-300"><?= __( 'In cloud mode, importing replaces MyPlaylist in browser storage.' ) ?></p>
+<?php else: ?>
+                    <p class="mb-2 text-sm text-gray-500 dark:text-gray-300"><?= __( 'In local mode, imported playlists are saved under assets/.' ) ?></p>
+<?php endif; ?>
+                    <label
+                      id="playlist-import-file-label"
+                      for="playlist-import-file"
+                      class="block mb-2 text-sm font-medium normal-text"
+                    >
+                        <span class="required" data-tooltip-target="tooltip-playlist-import-file"><?= __( 'Choose JSON file' ) ?></span>
+                        <div id="tooltip-playlist-import-file" role="tooltip" class="absolute z-10 invisible inline-block px-2 py-2 text-xs font-normal text-white transition-opacity duration-300 bg-red-600 rounded-lg shadow-sm opacity-0 tooltip dark:bg-red-500">
+                            <?= __( 'Required' ) ?>
+                            <div class="tooltip-arrow" data-popper-arrow></div>
+                        </div>
+                        <span 
+                          id="note-error-playlist-import-file"
+                          class="hidden bg-red-100 text-red-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300"
+                        ><?= __( 'Invalid file path' ) ?></span>
+                        <span 
+                          id="note-success-playlist-import-file"
+                          class="hidden bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300 inline-flex items-center"
+                        ><span class="ui-icon-mask ui-icon-mask--check w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true"></span></span>
+                    </label>
+                    <input
+                      id="playlist-import-file"
+                      type="file"
+                      name="import_playlist_file"
+                      accept="application/json,.json"
+                      class="sr-only"
+                      data-validate="false"
+                      data-label-empty="<?= __( 'No file selected' ) ?>"
+                    />
+                    <div class="mt-2 flex items-center gap-3">
+                        <button
+                          id="btn-playlist-import-file-picker"
+                          type="button"
+                          class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-900 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 dark:hover:bg-gray-600"
+                        ><?= __( 'Select file' ) ?></button>
+                        <span
+                          id="playlist-import-file-name"
+                          class="text-sm text-gray-500 dark:text-gray-400"
+                        ><?= __( 'No file selected' ) ?></span>
+                    </div>
+                    <p class="mt-1 mb-4 text-sm text-gray-500 dark:text-gray-300"><?= __( 'Only .json files are accepted.' ) ?></p>
+                    <div class="flex justify-end items-end">
+                        <button 
+                          id="btn-import-playlist"
+                          type="button"
+                          name="import_playlist"
+                          class="text-center font-medium rounded-lg text-sm px-5 py-2.5 mr-0 mb-0 text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+                          data-message-success="<?= __( 'Playlist imported successfully.' ) ?>"
+                          data-message-failure="<?= __( 'Failed to import playlist.' ) ?>"
+                          disabled
+                        ><?= __( 'Import JSON' ) ?></button>
+                    </div>
                 </div>
             </div>
             <div class="hidden p-4 mb-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300" role="alert">

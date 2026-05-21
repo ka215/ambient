@@ -214,6 +214,12 @@ const init = function (): void {
   const MEDIA_TITLE_MAX_LENGTH = 100;
   const MEDIA_ARTIST_MAX_LENGTH = 100;
   const MEDIA_DESC_MAX_LENGTH = 500;
+  const CLOUD_IMPORT_SIZE_LIMIT_BYTES = {
+    mobile: 1 * 1024 * 1024,
+    tablet: 2 * 1024 * 1024,
+    desktop: 4 * 1024 * 1024,
+    unknown: 1 * 1024 * 1024,
+  } as const;
   const DISALLOWED_CONTROL_CHARS_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
   const DEFAULT_VOLUME = 50;
   let playlistLoadSeq = 0;
@@ -236,6 +242,12 @@ const init = function (): void {
     media: PlaylistResumeMediaContext | null;
   }
 
+  interface ImportSanitizeResult {
+    playlist: Record<string, unknown>;
+    rejected: number;
+    total: number;
+  }
+
   function isPlaylistLoadActive(seq: number): boolean {
     return activePlaylistLoadSeq === seq;
   }
@@ -254,14 +266,16 @@ const init = function (): void {
     }
   }
 
-  function resetPlaylistRuntimeState(): void {
+  function resetPlaylistRuntimeState(preserveOptions: boolean = false): void {
     AMP_STATUS.prev = null;
     AMP_STATUS.current = null;
     AMP_STATUS.next = null;
     AMP_STATUS.ctg = -1;
     AMP_STATUS.category = null;
     AMP_STATUS.media = [];
-    AMP_STATUS.options = null;
+    if (!preserveOptions) {
+      AMP_STATUS.options = null;
+    }
     clearCategory();
     updatePlaylist();
   }
@@ -542,6 +556,280 @@ const init = function (): void {
     };
   }
 
+  function isJsonFilename(name: string): boolean {
+    return /\.json$/i.test(name.trim());
+  }
+
+  function isLikelyJsonFile(file: File): boolean {
+    if (isJsonFilename(file.name)) {
+      return true;
+    }
+    const type = (file.type || '').toLowerCase();
+    return type === 'application/json' || type === 'text/json';
+  }
+
+  function parseJsonWithBom(text: string): unknown {
+    const sanitized = text.replace(/^\uFEFF/, '');
+    return JSON.parse(sanitized);
+  }
+
+  function detectCloudImportDeviceTier(): keyof typeof CLOUD_IMPORT_SIZE_LIMIT_BYTES {
+    const ua = navigator.userAgent || '';
+    if (/ipad|tablet|playbook|silk/i.test(ua) || (/android/i.test(ua) && !/mobile/i.test(ua))) {
+      return 'tablet';
+    }
+    if (/mobile|iphone|ipod|android/i.test(ua)) {
+      return 'mobile';
+    }
+    if (/windows|macintosh|linux|x11|cros/i.test(ua)) {
+      return 'desktop';
+    }
+    return 'unknown';
+  }
+
+  function getCloudImportSizeLimitBytes(): number {
+    const tier = detectCloudImportDeviceTier();
+    return CLOUD_IMPORT_SIZE_LIMIT_BYTES[tier] || CLOUD_IMPORT_SIZE_LIMIT_BYTES.unknown;
+  }
+
+  function hasUnsafeScheme(value: string): boolean {
+    const trimmed = value.trim();
+    if (trimmed === '') {
+      return false;
+    }
+    const match = trimmed.match(/^([a-z][a-z0-9+.-]*):/i);
+    if (!match) {
+      return false;
+    }
+    const scheme = (match[1] || '').toLowerCase();
+    return !['http', 'https'].includes(scheme);
+  }
+
+  function normalizeNonNegativeNumber(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed === '' || Number.isNaN(Number(trimmed))) {
+        return null;
+      }
+      const parsed = Number(trimmed);
+      return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+    }
+    return null;
+  }
+
+  function normalizeBoolish(value: unknown): boolean | null {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    if (typeof value === 'number') {
+      if (value === 0) return false;
+      if (value === 1) return true;
+      return null;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim().toLowerCase();
+      if (trimmed === '0' || trimmed === 'false') return false;
+      if (trimmed === '1' || trimmed === 'true') return true;
+    }
+    return null;
+  }
+
+  function validatePlaylistSchemaContract(value: unknown): value is Record<string, unknown> {
+    if (!isObject(value) || Array.isArray(value)) {
+      return false;
+    }
+    for (const [key, item] of Object.entries(value)) {
+      if (key === 'options') {
+        if (!isObject(item) || Array.isArray(item)) {
+          return false;
+        }
+        continue;
+      }
+      if (!Array.isArray(item)) {
+        return false;
+      }
+      for (const media of item) {
+        if (!isObject(media) || Array.isArray(media)) {
+          return false;
+        }
+        if (typeof media.title !== 'string' || media.title.trim() === '') {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  function sanitizeAndNormalizeImportOptions(
+    options: Record<string, unknown>,
+    stripPlaylistTemplate: boolean
+  ): Record<string, unknown> {
+    const normalized: Record<string, unknown> = {};
+    Object.entries(options).forEach(([key, rawValue]) => {
+      if (stripPlaylistTemplate && key === 'playlist') {
+        return;
+      }
+      if (typeof rawValue === 'boolean' || typeof rawValue === 'number' || rawValue === null) {
+        normalized[key] = rawValue;
+        return;
+      }
+      if (typeof rawValue === 'string') {
+        normalized[key] = sanitizeMediaText(rawValue, 500);
+      }
+    });
+
+    if (Object.prototype.hasOwnProperty.call(normalized, 'volume')) {
+      const volume = normalizeNonNegativeNumber(normalized.volume);
+      if (volume === null) {
+        delete normalized.volume;
+      } else {
+        normalized.volume = Math.max(0, Math.min(100, volume));
+      }
+    }
+
+    ['random', 'shuffle', 'seek', 'fader', 'dark', 'autoplay'].forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(normalized, key)) {
+        const boolValue = normalizeBoolish(normalized[key]);
+        if (boolValue === null) {
+          delete normalized[key];
+        } else {
+          normalized[key] = boolValue;
+        }
+      }
+    });
+
+    return normalized;
+  }
+
+  function sanitizeAndNormalizeImportPlaylist(
+    source: Record<string, unknown>,
+    stripPlaylistTemplate: boolean
+  ): ImportSanitizeResult | null {
+    const normalized: Record<string, unknown> = {};
+    let total = 0;
+    let rejected = 0;
+
+    for (const [category, rawItems] of Object.entries(source)) {
+      if (category === 'options') {
+        if (isObject(rawItems) && !Array.isArray(rawItems)) {
+          normalized.options = sanitizeAndNormalizeImportOptions(rawItems, stripPlaylistTemplate);
+        }
+        continue;
+      }
+
+      const safeCategory = sanitizeMediaText(category, 100);
+      if (safeCategory === '' || !Array.isArray(rawItems)) {
+        continue;
+      }
+
+      const normalizedItems: Record<string, unknown>[] = [];
+      rawItems.forEach((rawItem) => {
+        total += 1;
+        if (!isObject(rawItem) || Array.isArray(rawItem)) {
+          rejected += 1;
+          return;
+        }
+
+        const title = sanitizeMediaText(String(rawItem.title || ''), MEDIA_TITLE_MAX_LENGTH);
+        if (title === '') {
+          rejected += 1;
+          return;
+        }
+
+        const item: Record<string, unknown> = { title };
+        const artist = sanitizeMediaText(String(rawItem.artist || ''), MEDIA_ARTIST_MAX_LENGTH);
+        if (artist !== '') item.artist = artist;
+
+        const desc = sanitizeMediaDesc(String(rawItem.desc || ''), MEDIA_DESC_MAX_LENGTH);
+        if (desc !== '') item.desc = desc;
+
+        let hasUnsafeUrl = false;
+        ['file', 'image', 'thumb'].forEach((key) => {
+          if (!Object.prototype.hasOwnProperty.call(rawItem, key)) return;
+          const value = String((rawItem as Record<string, unknown>)[key] || '').trim();
+          if (value === '') return;
+          if (hasUnsafeScheme(value)) {
+            hasUnsafeUrl = true;
+            return;
+          }
+          item[key] = sanitizeMediaText(value, 300);
+        });
+        if (hasUnsafeUrl) {
+          rejected += 1;
+          return;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(rawItem, 'videoid')) {
+          const videoid = sanitizeMediaText(String(rawItem.videoid || ''), 100);
+          if (videoid !== '') {
+            item.videoid = videoid;
+          }
+        }
+
+        ['start', 'end', 'fadein', 'fadeout'].forEach((key) => {
+          if (!Object.prototype.hasOwnProperty.call(rawItem, key)) return;
+          const num = normalizeNonNegativeNumber((rawItem as Record<string, unknown>)[key]);
+          if (num !== null) {
+            item[key] = num;
+          }
+        });
+
+        if (Object.prototype.hasOwnProperty.call(rawItem, 'volume')) {
+          const volume = normalizeNonNegativeNumber(rawItem.volume);
+          if (volume !== null) {
+            item.volume = Math.max(0, Math.min(100, volume));
+          }
+        }
+
+        ['fs', 'cc'].forEach((key) => {
+          if (!Object.prototype.hasOwnProperty.call(rawItem, key)) return;
+          const boolValue = normalizeBoolish((rawItem as Record<string, unknown>)[key]);
+          if (boolValue !== null) {
+            item[key] = boolValue;
+          }
+        });
+
+        if (!item.title) {
+          rejected += 1;
+          return;
+        }
+        normalizedItems.push(item);
+      });
+
+      if (normalizedItems.length > 0) {
+        normalized[safeCategory] = normalizedItems;
+      }
+    }
+
+    if (total === 0) {
+      return null;
+    }
+    if (rejected > 10 || (rejected / Math.max(1, total)) > 0.05) {
+      return null;
+    }
+    const categoryCount = Object.keys(normalized).filter((key) => key !== 'options').length;
+    if (categoryCount === 0) {
+      return null;
+    }
+    return { playlist: normalized, rejected, total };
+  }
+
+  function ensurePlaylistOption(playlistName: string): void {
+    if (!isElement($SELECT_PLAYLIST)) {
+      return;
+    }
+    const alreadyExists = Array.from($SELECT_PLAYLIST.options).some((opt) => opt.value === playlistName);
+    if (!alreadyExists) {
+      const opt = document.createElement('option');
+      opt.value = playlistName;
+      opt.textContent = playlistName.replace(/\.json$/i, '');
+      $SELECT_PLAYLIST.appendChild(opt);
+    }
+  }
+
   function canMutateCurrentPlaylist(): boolean {
     const ambientData = getAmbientData();
     if (ambientData?.isCloud === true) {
@@ -665,9 +953,9 @@ const init = function (): void {
   /**
    * Fetch data of specific playlist.
    */
-  async function getPlaylistData(playlist: string): Promise<void> {
+  async function getPlaylistData(playlist: string, preserveOptionsDuringLoad: boolean = false): Promise<void> {
     const loadSeq = beginPlaylistLoad(playlist);
-    resetPlaylistRuntimeState();
+    resetPlaylistRuntimeState(preserveOptionsDuringLoad);
     try {
       if (playlist === MYPLAYLIST_NAME) {
         const loaded = loadMyPlaylistFromStorage();
@@ -4390,9 +4678,107 @@ const init = function (): void {
     return JSON.stringify(newPlaylist, null, 2);
   }
 
+  async function importPlaylistFromFile(file: File): Promise<{ ok: boolean; message: string }> {
+    const ambientData = getAmbientData();
+    if (!isLikelyJsonFile(file)) {
+      return { ok: false, message: getLocalizedMessage('importUnsupportedFile', 'Only .json files are accepted.') };
+    }
+
+    if (ambientData?.isCloud) {
+      const maxBytes = getCloudImportSizeLimitBytes();
+      if (file.size > maxBytes) {
+        return { ok: false, message: getLocalizedMessage('importCloudSizeError', 'File size exceeds the cloud import limit for this device.') };
+      }
+    }
+
+    let parsed: unknown;
+    try {
+      const text = await file.text();
+      parsed = parseJsonWithBom(text);
+    } catch (_error) {
+      return { ok: false, message: getLocalizedMessage('importParseError', 'The selected file is not valid JSON.') };
+    }
+
+    if (!validatePlaylistSchemaContract(parsed)) {
+      return { ok: false, message: getLocalizedMessage('importSchemaError', 'The selected file does not match the playlist schema.') };
+    }
+
+    const sanitized = sanitizeAndNormalizeImportPlaylist(parsed, ambientData?.isCloud === true);
+    if (!sanitized) {
+      return { ok: false, message: getLocalizedMessage('importSanitizeError', 'Unsafe or invalid media entries exceeded the allowed limit.') };
+    }
+
+    if (!validatePlaylistSchemaContract(sanitized.playlist)) {
+      return { ok: false, message: getLocalizedMessage('importSchemaError', 'The selected file does not match the playlist schema.') };
+    }
+
+    if (ambientData?.isCloud) {
+      try {
+        localStorage.setItem(MYPLAYLIST_KEY, JSON.stringify(sanitized.playlist, null, 2));
+      } catch (_error) {
+        return { ok: false, message: getLocalizedMessage('importPersistError', 'Failed to save imported playlist data.') };
+      }
+      ensureMyPlaylistOptionFromStorage();
+      ensurePlaylistOption(MYPLAYLIST_NAME);
+      selectPlaylistOption(MYPLAYLIST_NAME);
+      requestCategoryResume(null);
+      requestMediaResume(null);
+      await getPlaylistData(MYPLAYLIST_NAME, true);
+      return { ok: true, message: getLocalizedMessage('importCloudReplacedMyPlaylist', 'Import completed. MyPlaylist has been replaced.') };
+    }
+
+    let response: ApiResponse<{ message?: string; filename?: string }> | undefined;
+    try {
+      const rawResponse = await fetch(`${BASE_URL}playlist-import`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filename: file.name,
+          playlist: sanitized.playlist,
+        }),
+        credentials: 'same-origin',
+      });
+      const payload = await rawResponse.json().catch(() => null);
+      if (payload && typeof payload === 'object') {
+        response = payload as ApiResponse<{ message?: string; filename?: string }>;
+      }
+    } catch (_error) {
+      response = undefined;
+    }
+
+    if (!response || response.state !== 'ok' || !response.data?.filename) {
+      const errorMessage = (response && (response as any).data && (response as any).data.message)
+        ? (response as any).data.message
+        : getLocalizedMessage('importPersistError', 'Failed to save imported playlist data.');
+      return { ok: false, message: errorMessage };
+    }
+
+    const importedPlaylistName = response.data.filename;
+    const ambient = getAmbientData();
+    if (ambient) {
+      if (!isObject(ambient.playlists)) {
+        ambient.playlists = {};
+      }
+      ambient.playlists[importedPlaylistName] = `./assets/${importedPlaylistName}`;
+    }
+    ensurePlaylistOption(importedPlaylistName);
+    selectPlaylistOption(importedPlaylistName);
+    requestCategoryResume(null);
+    requestMediaResume(null);
+    await getPlaylistData(importedPlaylistName, true);
+
+    return {
+      ok: true,
+      message: response.data.message || getLocalizedMessage('Playlist imported successfully.', 'Playlist imported successfully.'),
+    };
+  }
+
   function resetPlaylistManageForm(): void {
     if (!$PLAYLIST_MANAGE_FORM) return;
     $PLAYLIST_MANAGE_FORM.reset();
+    const $IMPORT_FILE_NAME = document.getElementById('playlist-import-file-name') as HTMLElement | null;
     $PLAYLIST_MANAGE_ELMS.forEach((child: HTMLElement) => {
       let event: string | null = null;
       if (/^input$/i.test(child.nodeName)) {
@@ -4400,6 +4786,14 @@ const init = function (): void {
         switch (input.type) {
           case 'text':
             event = 'input';
+            break;
+          case 'file':
+            input.value = '';
+            setValidated(input, null);
+            if ($IMPORT_FILE_NAME) {
+              const emptyLabel = input.dataset['labelEmpty'] || 'No file selected';
+              $IMPORT_FILE_NAME.textContent = emptyLabel;
+            }
             break;
           case 'checkbox':
             input.checked = false;
@@ -4696,9 +5090,34 @@ const init = function (): void {
             setValidated(elm, (evt.target as HTMLInputElement).value !== '');
           });
           break;
+        case 'import_playlist_file':
+          {
+          const $IMPORT_PICKER = document.getElementById('btn-playlist-import-file-picker') as HTMLButtonElement | null;
+          const $IMPORT_FILE_NAME = document.getElementById('playlist-import-file-name') as HTMLElement | null;
+          if ($IMPORT_PICKER) {
+            $IMPORT_PICKER.addEventListener('click', () => {
+              (elm as HTMLInputElement).click();
+            });
+          }
+          elm.addEventListener('change', (evt: Event) => {
+            const target = evt.target as HTMLInputElement;
+            const file = target.files && target.files.length > 0 ? target.files[0] : null;
+            if ($IMPORT_FILE_NAME) {
+              const emptyLabel = target.dataset['labelEmpty'] || 'No file selected';
+              $IMPORT_FILE_NAME.textContent = file ? file.name : emptyLabel;
+            }
+            if (!file) {
+              setValidated(elm, null);
+              return;
+            }
+            setValidated(elm, isLikelyJsonFile(file));
+          });
+          }
+          break;
         case 'create_symlink':
         case 'create_category':
-        case 'download_playlist': {
+        case 'download_playlist':
+        case 'import_playlist': {
           const callback = {
             getFormData(oneData: string | null = null): any {
               if (!$PLAYLIST_MANAGE_FORM) return null;
@@ -4786,10 +5205,36 @@ const init = function (): void {
                 delay: 2000,
               });
             },
+            async importPlaylist(): Promise<void> {
+              const selfElm = document.getElementById('btn-import-playlist') as HTMLButtonElement | null;
+              const $INPUT_IMPORT_FILE = document.getElementById('playlist-import-file') as HTMLInputElement | null;
+              const importFile = $INPUT_IMPORT_FILE?.files && $INPUT_IMPORT_FILE.files.length > 0
+                ? $INPUT_IMPORT_FILE.files[0]
+                : null;
+              if (!importFile) {
+                updateNotice({
+                  type: 'error',
+                  message: getLocalizedMessage('importNoFile', 'Please choose a playlist JSON file.'),
+                  delay: 2600,
+                });
+                return;
+              }
+              const result = await importPlaylistFromFile(importFile);
+              if (result.ok) {
+                hideOptionsModal();
+              }
+              updateNotice({
+                type: result.ok ? 'success' : 'error',
+                message: result.message || (result.ok
+                  ? (selfElm?.dataset['messageSuccess'] || '')
+                  : (selfElm?.dataset['messageFailure'] || '')),
+                delay: 2800,
+              });
+            },
           };
-          elm.addEventListener('click', (evt: Event) => {
+          elm.addEventListener('click', async (evt: Event) => {
             const target = evt.target as HTMLInputElement;
-            (callback as any)[snakeToCapital(target.name)]();
+            await (callback as any)[snakeToCapital(target.name)]();
             logger('onClickButton::', target.name);
             resetPlaylistManageForm();
           });
@@ -4822,9 +5267,15 @@ const init = function (): void {
         if (!canMutateCurrentPlaylist()) {
           if ($BUTTON_CREATE_CATEGORY) setAtts($BUTTON_CREATE_CATEGORY, { disabled: '' }, false);
           applyCloudEditRestrictions();
-          return;
+        } else {
+          if ($BUTTON_CREATE_CATEGORY) setAtts($BUTTON_CREATE_CATEGORY, { disabled: '' }, isCategoryContainAll);
         }
-        if ($BUTTON_CREATE_CATEGORY) setAtts($BUTTON_CREATE_CATEGORY, { disabled: '' }, isCategoryContainAll);
+
+        const $BUTTON_IMPORT_PLAYLIST = document.getElementById('btn-import-playlist');
+        const import_contains = ['playlist-import-file'];
+        const isImportContainAll = inArray(import_contains, valid_items, false);
+        logger('Check valid items for "Import Playlist":', valid_items, import_contains, isImportContainAll);
+        if ($BUTTON_IMPORT_PLAYLIST) setAtts($BUTTON_IMPORT_PLAYLIST, { disabled: '' }, isImportContainAll);
       }
     }, { childList: true, attributes: true, subtree: true });
   }
