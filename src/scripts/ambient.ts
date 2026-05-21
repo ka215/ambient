@@ -266,14 +266,16 @@ const init = function (): void {
     }
   }
 
-  function resetPlaylistRuntimeState(): void {
+  function resetPlaylistRuntimeState(preserveOptions: boolean = false): void {
     AMP_STATUS.prev = null;
     AMP_STATUS.current = null;
     AMP_STATUS.next = null;
     AMP_STATUS.ctg = -1;
     AMP_STATUS.category = null;
     AMP_STATUS.media = [];
-    AMP_STATUS.options = null;
+    if (!preserveOptions) {
+      AMP_STATUS.options = null;
+    }
     clearCategory();
     updatePlaylist();
   }
@@ -951,9 +953,9 @@ const init = function (): void {
   /**
    * Fetch data of specific playlist.
    */
-  async function getPlaylistData(playlist: string): Promise<void> {
+  async function getPlaylistData(playlist: string, preserveOptionsDuringLoad: boolean = false): Promise<void> {
     const loadSeq = beginPlaylistLoad(playlist);
-    resetPlaylistRuntimeState();
+    resetPlaylistRuntimeState(preserveOptionsDuringLoad);
     try {
       if (playlist === MYPLAYLIST_NAME) {
         const loaded = loadMyPlaylistFromStorage();
@@ -4721,7 +4723,7 @@ const init = function (): void {
       selectPlaylistOption(MYPLAYLIST_NAME);
       requestCategoryResume(null);
       requestMediaResume(null);
-      await getPlaylistData(MYPLAYLIST_NAME);
+      await getPlaylistData(MYPLAYLIST_NAME, true);
       return { ok: true, message: getLocalizedMessage('importCloudReplacedMyPlaylist', 'Import completed. MyPlaylist has been replaced.') };
     }
 
@@ -4765,7 +4767,7 @@ const init = function (): void {
     selectPlaylistOption(importedPlaylistName);
     requestCategoryResume(null);
     requestMediaResume(null);
-    await getPlaylistData(importedPlaylistName);
+    await getPlaylistData(importedPlaylistName, true);
 
     return {
       ok: true,
@@ -4783,6 +4785,10 @@ const init = function (): void {
         switch (input.type) {
           case 'text':
             event = 'input';
+            break;
+          case 'file':
+            input.value = '';
+            setValidated(input, null);
             break;
           case 'checkbox':
             input.checked = false;
@@ -5196,6 +5202,9 @@ const init = function (): void {
                 return;
               }
               const result = await importPlaylistFromFile(importFile);
+              if (result.ok) {
+                hideOptionsModal();
+              }
               updateNotice({
                 type: result.ok ? 'success' : 'error',
                 message: result.message || (result.ok
