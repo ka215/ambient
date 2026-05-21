@@ -4778,6 +4778,7 @@ const init = function (): void {
   function resetPlaylistManageForm(): void {
     if (!$PLAYLIST_MANAGE_FORM) return;
     $PLAYLIST_MANAGE_FORM.reset();
+    const $IMPORT_FILE_NAME = document.getElementById('playlist-import-file-name') as HTMLElement | null;
     $PLAYLIST_MANAGE_ELMS.forEach((child: HTMLElement) => {
       let event: string | null = null;
       if (/^input$/i.test(child.nodeName)) {
@@ -4789,6 +4790,10 @@ const init = function (): void {
           case 'file':
             input.value = '';
             setValidated(input, null);
+            if ($IMPORT_FILE_NAME) {
+              const emptyLabel = input.dataset['labelEmpty'] || 'No file selected';
+              $IMPORT_FILE_NAME.textContent = emptyLabel;
+            }
             break;
           case 'checkbox':
             input.checked = false;
@@ -5086,15 +5091,28 @@ const init = function (): void {
           });
           break;
         case 'import_playlist_file':
+          {
+          const $IMPORT_PICKER = document.getElementById('btn-playlist-import-file-picker') as HTMLButtonElement | null;
+          const $IMPORT_FILE_NAME = document.getElementById('playlist-import-file-name') as HTMLElement | null;
+          if ($IMPORT_PICKER) {
+            $IMPORT_PICKER.addEventListener('click', () => {
+              (elm as HTMLInputElement).click();
+            });
+          }
           elm.addEventListener('change', (evt: Event) => {
             const target = evt.target as HTMLInputElement;
             const file = target.files && target.files.length > 0 ? target.files[0] : null;
+            if ($IMPORT_FILE_NAME) {
+              const emptyLabel = target.dataset['labelEmpty'] || 'No file selected';
+              $IMPORT_FILE_NAME.textContent = file ? file.name : emptyLabel;
+            }
             if (!file) {
               setValidated(elm, null);
               return;
             }
             setValidated(elm, isLikelyJsonFile(file));
           });
+          }
           break;
         case 'create_symlink':
         case 'create_category':
