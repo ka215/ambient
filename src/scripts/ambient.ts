@@ -4725,10 +4725,26 @@ const init = function (): void {
       return { ok: true, message: getLocalizedMessage('importCloudReplacedMyPlaylist', 'Import completed. MyPlaylist has been replaced.') };
     }
 
-    const response = await fetchData(`${BASE_URL}playlist-import`, 'post', {
-      filename: file.name,
-      playlist: sanitized.playlist,
-    }) as ApiResponse<{ message?: string; filename?: string }> | undefined;
+    let response: ApiResponse<{ message?: string; filename?: string }> | undefined;
+    try {
+      const rawResponse = await fetch(`${BASE_URL}playlist-import`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filename: file.name,
+          playlist: sanitized.playlist,
+        }),
+        credentials: 'same-origin',
+      });
+      const payload = await rawResponse.json().catch(() => null);
+      if (payload && typeof payload === 'object') {
+        response = payload as ApiResponse<{ message?: string; filename?: string }>;
+      }
+    } catch (_error) {
+      response = undefined;
+    }
 
     if (!response || response.state !== 'ok' || !response.data?.filename) {
       const errorMessage = (response && (response as any).data && (response as any).data.message)
@@ -5224,9 +5240,9 @@ const init = function (): void {
         if (!canMutateCurrentPlaylist()) {
           if ($BUTTON_CREATE_CATEGORY) setAtts($BUTTON_CREATE_CATEGORY, { disabled: '' }, false);
           applyCloudEditRestrictions();
-          return;
+        } else {
+          if ($BUTTON_CREATE_CATEGORY) setAtts($BUTTON_CREATE_CATEGORY, { disabled: '' }, isCategoryContainAll);
         }
-        if ($BUTTON_CREATE_CATEGORY) setAtts($BUTTON_CREATE_CATEGORY, { disabled: '' }, isCategoryContainAll);
 
         const $BUTTON_IMPORT_PLAYLIST = document.getElementById('btn-import-playlist');
         const import_contains = ['playlist-import-file'];
