@@ -273,6 +273,466 @@ trait api {
     }
 
     /**
+     * Import playlist JSON and save it to assets/ in local mode.
+     *
+     * Request body:
+     * {
+     *   "filename": "example.json",
+     *   "playlist": { ... }
+     * }
+     */
+    private function import_playlist(): void {
+        if ( !$this->is_local() ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 403,
+                'data'  => [
+                    'message' => $this->__( 'This feature cannot be performed on remote hosts.' ),
+                ],
+            ];
+            return;
+        }
+
+        $raw_input = file_get_contents( 'php://input' );
+        if ( strlen( $raw_input ) > 10 * 1024 * 1024 ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 400,
+                'data'  => [
+                    'message' => $this->__( 'Request body too large.' ),
+                ],
+            ];
+            return;
+        }
+
+        $payload = json_decode( $raw_input, true );
+        if ( json_last_error() !== JSON_ERROR_NONE || !is_array( $payload ) ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 400,
+                'data'  => [
+                    'message' => $this->__( 'Invalid JSON data.' ),
+                ],
+            ];
+            return;
+        }
+
+        $filename = isset( $payload['filename'] ) && is_string( $payload['filename'] )
+            ? trim( $payload['filename'] )
+            : '';
+        if ( $filename === '' ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 400,
+                'data'  => [
+                    'message' => $this->__( 'Please choose a playlist JSON file.' ),
+                ],
+            ];
+            return;
+        }
+
+        $safe_filename = $this->sanitize_import_filename( $filename );
+        if ( $safe_filename === null ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 400,
+                'data'  => [
+                    'message' => $this->__( 'Only .json files are accepted.' ),
+                ],
+            ];
+            return;
+        }
+
+        $playlist = $payload['playlist'] ?? null;
+        if ( !is_array( $playlist ) || !$this->validate_playlist_schema_contract( $playlist ) ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 422,
+                'data'  => [
+                    'message' => $this->__( 'The selected file does not match the playlist schema.' ),
+                ],
+            ];
+            return;
+        }
+
+        $reject_count = 0;
+        $total_items = 0;
+        $normalized = $this->sanitize_and_normalize_playlist( $playlist, $reject_count, $total_items );
+        if ( $normalized === null ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 422,
+                'data'  => [
+                    'message' => $this->__( 'Unsafe or invalid media entries exceeded the allowed limit.' ),
+                ],
+            ];
+            return;
+        }
+
+        if ( !$this->validate_playlist_schema_contract( $normalized ) ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 422,
+                'data'  => [
+                    'message' => $this->__( 'The selected file does not match the playlist schema.' ),
+                ],
+            ];
+            return;
+        }
+
+        $resolved_filename = $this->resolve_available_import_filename( $safe_filename, ASSETS_DIR );
+        if ( $resolved_filename === null ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 500,
+                'data'  => [
+                    'message' => $this->__( 'Failed to save imported playlist data.' ),
+                ],
+            ];
+            return;
+        }
+
+        $target_path = ASSETS_DIR . $resolved_filename;
+
+        $json_content = json_encode( $normalized, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
+        if ( $json_content === false ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 500,
+                'data'  => [
+                    'message' => $this->__( 'Failed to save imported playlist data.' ),
+                ],
+            ];
+            return;
+        }
+
+        $tmp_path = $target_path . '.tmp-' . bin2hex( random_bytes( 8 ) );
+        $written = @file_put_contents( $tmp_path, $json_content );
+        if ( $written === false ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 500,
+                'data'  => [
+                    'message' => $this->__( 'Failed to save imported playlist data.' ),
+                ],
+            ];
+            return;
+        }
+
+        if ( !@rename( $tmp_path, $target_path ) ) {
+            @unlink( $tmp_path );
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 500,
+                'data'  => [
+                    'message' => $this->__( 'Failed to save imported playlist data.' ),
+                ],
+            ];
+            return;
+        }
+
+        $this->api_response = [
+            'state' => 'ok',
+            'code'  => 200,
+            'data'  => [
+                'message' => $this->__( 'Playlist imported successfully.' ),
+                'filename' => $resolved_filename,
+                'rejected' => $reject_count,
+                'total' => $total_items,
+            ],
+        ];
+    }
+
+    private function sanitize_import_filename( string $filename ): ?string {
+        $base = basename( $filename );
+        $name = preg_replace( '/[^A-Za-z0-9._-]/', '_', $base );
+        if ( !is_string( $name ) ) {
+            return null;
+        }
+        $name = trim( $name );
+        if ( $name === '' || !preg_match( '/\.json$/i', $name ) ) {
+            return null;
+        }
+        if ( preg_match( '/^lang(?:-|\.|$)/i', $name ) ) {
+            return null;
+        }
+        return $name;
+    }
+
+    private function resolve_available_import_filename( string $safe_filename, string $target_dir ): ?string {
+        $extension = pathinfo( $safe_filename, PATHINFO_EXTENSION );
+        $base_name = pathinfo( $safe_filename, PATHINFO_FILENAME );
+        $candidate = $safe_filename;
+        $max_attempts = 1000;
+
+        for ( $i = 0; $i <= $max_attempts; $i++ ) {
+            if ( !file_exists( $target_dir . $candidate ) ) {
+                return $candidate;
+            }
+            $candidate = sprintf( '%s-%d.%s', $base_name, $i + 1, $extension );
+        }
+
+        return null;
+    }
+
+    private function validate_playlist_schema_contract( array $playlist ): bool {
+        foreach ( $playlist as $category => $items ) {
+            if ( $category === 'options' ) {
+                if ( !is_array( $items ) ) {
+                    return false;
+                }
+                continue;
+            }
+            if ( !is_string( $category ) || trim( $category ) === '' || !is_array( $items ) ) {
+                return false;
+            }
+            foreach ( $items as $item ) {
+                if ( !is_array( $item ) ) {
+                    return false;
+                }
+                $title = isset( $item['title'] ) && is_string( $item['title'] ) ? trim( $item['title'] ) : '';
+                if ( $title === '' ) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private function sanitize_and_normalize_playlist( array $playlist, int &$reject_count, int &$total_items ): ?array {
+        $normalized = [];
+        $reject_count = 0;
+        $total_items = 0;
+
+        foreach ( $playlist as $category => $items ) {
+            if ( $category === 'options' ) {
+                if ( is_array( $items ) ) {
+                    $normalized['options'] = $this->sanitize_and_normalize_options( $items );
+                }
+                continue;
+            }
+
+            $safe_category = $this->sanitize_text( $category, 100 );
+            if ( $safe_category === '' || !is_array( $items ) ) {
+                continue;
+            }
+
+            $normalized_items = [];
+            foreach ( $items as $item ) {
+                if ( !is_array( $item ) ) {
+                    $reject_count++;
+                    continue;
+                }
+                $total_items++;
+                $safe_item = $this->sanitize_and_normalize_media_item( $item );
+                if ( $safe_item === null ) {
+                    $reject_count++;
+                    continue;
+                }
+                $normalized_items[] = $safe_item;
+            }
+
+            if ( !empty( $normalized_items ) ) {
+                $normalized[$safe_category] = $normalized_items;
+            }
+        }
+
+        if ( $total_items === 0 ) {
+            return null;
+        }
+
+        if ( $reject_count > 10 || ( $reject_count / max( 1, $total_items ) ) > 0.05 ) {
+            return null;
+        }
+
+        if ( count( array_filter( array_keys( $normalized ), function( $key ) {
+            return $key !== 'options';
+        } ) ) === 0 ) {
+            return null;
+        }
+
+        return $normalized;
+    }
+
+    private function sanitize_and_normalize_options( array $options ): array {
+        $normalized = [];
+
+        foreach ( $options as $key => $value ) {
+            if ( !is_string( $key ) || trim( $key ) === '' ) {
+                continue;
+            }
+            if ( is_bool( $value ) ) {
+                $normalized[$key] = $value;
+                continue;
+            }
+            if ( is_int( $value ) || is_float( $value ) ) {
+                $normalized[$key] = $value;
+                continue;
+            }
+            if ( is_string( $value ) ) {
+                $normalized[$key] = $this->sanitize_text( $value, 500 );
+                continue;
+            }
+            if ( $value === null ) {
+                $normalized[$key] = null;
+            }
+        }
+
+        if ( isset( $normalized['volume'] ) ) {
+            $volume = $this->normalize_non_negative_number( $normalized['volume'] );
+            if ( $volume === null ) {
+                unset( $normalized['volume'] );
+            } else {
+                $normalized['volume'] = max( 0, min( 100, $volume ) );
+            }
+        }
+
+        foreach ( [ 'random', 'shuffle', 'seek', 'fader', 'dark', 'autoplay' ] as $key ) {
+            if ( array_key_exists( $key, $normalized ) ) {
+                $bool_value = $this->normalize_boolish( $normalized[$key] );
+                if ( $bool_value === null ) {
+                    unset( $normalized[$key] );
+                } else {
+                    $normalized[$key] = $bool_value;
+                }
+            }
+        }
+
+        return $normalized;
+    }
+
+    private function sanitize_and_normalize_media_item( array $item ): ?array {
+        $title = $this->sanitize_text( (string)( $item['title'] ?? '' ), 100 );
+        if ( $title === '' ) {
+            return null;
+        }
+
+        $normalized = [
+            'title' => $title,
+        ];
+
+        $artist = $this->sanitize_text( (string)( $item['artist'] ?? '' ), 100 );
+        if ( $artist !== '' ) {
+            $normalized['artist'] = $artist;
+        }
+
+        $desc = $this->sanitize_text( (string)( $item['desc'] ?? '' ), 500, true );
+        if ( $desc !== '' ) {
+            $normalized['desc'] = $desc;
+        }
+
+        foreach ( [ 'file', 'image', 'thumb' ] as $key ) {
+            if ( !array_key_exists( $key, $item ) ) {
+                continue;
+            }
+            $value = is_string( $item[$key] ) ? trim( $item[$key] ) : '';
+            if ( $value === '' ) {
+                continue;
+            }
+            if ( $this->has_unsafe_scheme( $value ) ) {
+                return null;
+            }
+            $normalized[$key] = $this->sanitize_text( $value, 300 );
+        }
+
+        if ( array_key_exists( 'videoid', $item ) && is_string( $item['videoid'] ) ) {
+            $videoid = $this->sanitize_text( $item['videoid'], 100 );
+            if ( $videoid !== '' ) {
+                $normalized['videoid'] = $videoid;
+            }
+        }
+
+        foreach ( [ 'start', 'end', 'fadein', 'fadeout' ] as $key ) {
+            if ( array_key_exists( $key, $item ) ) {
+                $number = $this->normalize_non_negative_number( $item[$key] );
+                if ( $number !== null ) {
+                    $normalized[$key] = $number;
+                }
+            }
+        }
+
+        if ( array_key_exists( 'volume', $item ) ) {
+            $volume = $this->normalize_non_negative_number( $item['volume'] );
+            if ( $volume !== null ) {
+                $normalized['volume'] = max( 0, min( 100, $volume ) );
+            }
+        }
+
+        foreach ( [ 'fs', 'cc' ] as $key ) {
+            if ( array_key_exists( $key, $item ) ) {
+                $bool_value = $this->normalize_boolish( $item[$key] );
+                if ( $bool_value !== null ) {
+                    $normalized[$key] = $bool_value;
+                }
+            }
+        }
+
+        return $normalized;
+    }
+
+    private function sanitize_text( string $value, int $max_length, bool $allow_newline = false ): string {
+        $value = strip_tags( $value );
+        $value = preg_replace( '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $value ) ?? '';
+        if ( $allow_newline ) {
+            $value = str_replace( [ "\r\n", "\r" ], "\n", $value );
+            $value = preg_replace( '/\t/u', ' ', $value ) ?? $value;
+            $value = preg_replace( '/ {2,}/u', ' ', $value ) ?? $value;
+            $value = preg_replace( '/\n{3,}/u', "\n\n", $value ) ?? $value;
+        } else {
+            $value = preg_replace( '/\s+/u', ' ', $value ) ?? $value;
+        }
+        $value = trim( $value );
+        if ( mb_strlen( $value ) > $max_length ) {
+            $value = mb_substr( $value, 0, $max_length );
+        }
+        return $value;
+    }
+
+    private function normalize_non_negative_number( $value ): ?float {
+        if ( is_int( $value ) || is_float( $value ) ) {
+            return $value >= 0 ? (float)$value : null;
+        }
+        if ( is_string( $value ) ) {
+            $trimmed = trim( $value );
+            if ( $trimmed === '' || !is_numeric( $trimmed ) ) {
+                return null;
+            }
+            $parsed = (float)$trimmed;
+            return $parsed >= 0 ? $parsed : null;
+        }
+        return null;
+    }
+
+    private function normalize_boolish( $value ): ?bool {
+        if ( is_bool( $value ) ) {
+            return $value;
+        }
+        if ( is_int( $value ) ) {
+            if ( $value === 0 ) return false;
+            if ( $value === 1 ) return true;
+            return null;
+        }
+        if ( is_string( $value ) ) {
+            $trimmed = strtolower( trim( $value ) );
+            if ( $trimmed === '0' || $trimmed === 'false' ) return false;
+            if ( $trimmed === '1' || $trimmed === 'true' ) return true;
+        }
+        return null;
+    }
+
+    private function has_unsafe_scheme( string $value ): bool {
+        $trimmed = trim( $value );
+        if ( $trimmed === '' ) {
+            return false;
+        }
+        if ( preg_match( '/^([a-z][a-z0-9+.-]*):/i', $trimmed, $matches ) ) {
+            $scheme = strtolower( $matches[1] );
+            return !in_array( $scheme, [ 'http', 'https' ], true );
+        }
+        return false;
+    }
+
+    /**
      * Output JSON data as the response of the API endpoint.
      * 
      * @return void

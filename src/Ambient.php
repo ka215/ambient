@@ -74,6 +74,14 @@ class Ambient {
                 'isCloud' => $this->is_cloud(),
                 'messages' => [
                     'mediaLoadFailedPrefix' => $this->__( 'Media could not be loaded: ' ),
+                    'importNoFile' => $this->__( 'Please choose a playlist JSON file.' ),
+                    'importUnsupportedFile' => $this->__( 'Only .json files are accepted.' ),
+                    'importParseError' => $this->__( 'The selected file is not valid JSON.' ),
+                    'importSchemaError' => $this->__( 'The selected file does not match the playlist schema.' ),
+                    'importSanitizeError' => $this->__( 'Unsafe or invalid media entries exceeded the allowed limit.' ),
+                    'importPersistError' => $this->__( 'Failed to save imported playlist data.' ),
+                    'importCloudSizeError' => $this->__( 'File size exceeds the cloud import limit for this device.' ),
+                    'importCloudReplacedMyPlaylist' => $this->__( 'Import completed. MyPlaylist has been replaced.' ),
                 ],
             ] );
         } else {
@@ -90,6 +98,14 @@ class Ambient {
                 'mediaDir'  => str_replace( $app_root_normalized, './', str_replace( '\\', '/', MEDIA_DIR ) ),
                 'messages'  => [
                     'mediaLoadFailedPrefix' => $this->__( 'Media could not be loaded: ' ),
+                    'importNoFile' => $this->__( 'Please choose a playlist JSON file.' ),
+                    'importUnsupportedFile' => $this->__( 'Only .json files are accepted.' ),
+                    'importParseError' => $this->__( 'The selected file is not valid JSON.' ),
+                    'importSchemaError' => $this->__( 'The selected file does not match the playlist schema.' ),
+                    'importSanitizeError' => $this->__( 'Unsafe or invalid media entries exceeded the allowed limit.' ),
+                    'importPersistError' => $this->__( 'Failed to save imported playlist data.' ),
+                    'importCloudSizeError' => $this->__( 'File size exceeds the cloud import limit for this device.' ),
+                    'importCloudReplacedMyPlaylist' => $this->__( 'Import completed. MyPlaylist has been replaced.' ),
                 ],
             ];
             if ( count( $this->playlists ) > 1 ) {
@@ -163,6 +179,10 @@ class Ambient {
                 $method = 'upsert_playlist';
                 $_route = "Add item to playlist \"{$params[0]}\"";
                 $args[] = $params[0];
+                break;
+            case 'post:playlist-import':
+                $method = 'import_playlist';
+                $_route = 'Import playlist JSON';
                 break;
             case 'post:symlink':
                 $method = 'create_symlink';
