@@ -154,6 +154,27 @@ function amp_head(): string {
     // $output[] = '<script src="https://www.youtube.com/iframe_api"></script>';
     // $output[] = '<link href="//mplus-webfonts.sourceforge.jp/mplus_webfonts.css" rel="stylesheet" />';
     $output[] = '<link rel="icon" href="./'. basename( VIEWS_DIR ) .'/images/ambient.ico">';
+        $output[] = "<script>
+(function () {
+    try {
+        var appKey = 'AmbientUserData';
+        var raw = window.localStorage ? window.localStorage.getItem(appKey) : null;
+        if (!raw) return;
+        var parsed = JSON.parse(raw);
+        var options = parsed && typeof parsed === 'object' ? parsed.options : null;
+        if (!options || typeof options !== 'object') return;
+        var dark = options.dark;
+        var isDark = dark === true || dark === 1 || dark === '1' || dark === 'true';
+        if (isDark) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    } catch (_err) {
+        // ignore
+    }
+})();
+</script>";
 
     if ( amp_use_vite_dev_server() ) {
         $vite_origin = amp_vite_dev_origin_url();
@@ -165,6 +186,7 @@ function amp_head(): string {
                 foreach ( $manifest_entry['css'] as $css_file ) {
                     $css_path = amp_built_asset_path( $css_file );
                     $version = file_exists( $css_path ) ? '?'. filemtime( $css_path ) : '';
+                    $output[] = '<link rel="preload" as="style" href="'. amp_built_asset_url( $css_file ) . $version .'" />';
                     $output[] = '<link href="'. amp_built_asset_url( $css_file ) . $version .'" rel="stylesheet" />';
                 }
             }
@@ -200,6 +222,76 @@ function amp_head(): string {
             $output[] = "<style>\n" . implode( "\n", $assets['styles'] ) . "\n</style>";
         }
     }
+
+    $output[] = "<style>
+body.app-boot-pending #app-root {
+    visibility: hidden;
+}
+
+html body.app-boot-pending {
+    overflow: hidden !important;
+}
+
+#app-boot-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 10080;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 0.75rem;
+    background: #f9fafb;
+    color: #111827;
+    width: 100vw;
+    height: 100vh;
+    max-width: 100vw;
+    max-height: 100vh;
+    overflow: hidden;
+}
+
+@supports (height: 100dvh) {
+    #app-boot-splash {
+        height: 100dvh;
+        max-height: 100dvh;
+    }
+}
+
+body.app-boot-pending #app-boot-splash {
+    display: flex;
+}
+
+.dark #app-boot-splash {
+    background: #111827;
+    color: #f3f4f6;
+}
+
+#app-boot-splash .app-boot-spinner {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 9999px;
+    border: 2px solid #d1d5db;
+    border-top-color: #2563eb;
+    animation: app-boot-spin 0.8s linear infinite;
+}
+
+.dark #app-boot-splash .app-boot-spinner {
+    border-color: #4b5563;
+    border-top-color: #60a5fa;
+}
+
+#app-boot-splash .app-boot-label {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+}
+
+@keyframes app-boot-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+</style>";
 
     return implode( "\n", $output );
 }
