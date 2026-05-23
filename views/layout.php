@@ -6,7 +6,12 @@
     <title><?= __( 'Ambient Media Player' ) ?></title>
     <?= amp_head() ?>
 </head>
-<body class="font-sans antialiased w-screen h-screen bg-white dark:bg-gray-800 overflow-hidden">
+<body class="font-sans antialiased w-screen h-screen bg-white dark:bg-gray-800 overflow-hidden app-boot-pending" data-boot="pending">
+<div id="app-boot-splash" aria-live="polite" aria-busy="true">
+    <div class="app-boot-spinner" aria-hidden="true"></div>
+    <p class="app-boot-label"><?= __( 'Loading...' ) ?></p>
+</div>
+<div id="app-root">
 <?php 
     $this->logger($this->amp_error, $this->is_error());
     if ( $this->is_error() ) {
@@ -18,6 +23,7 @@
     amp_component( 'drawer-right' );
     amp_component( 'modal' );
 ?>
+</div>
 <?= amp_footer() ?>
 </body>
 </html>

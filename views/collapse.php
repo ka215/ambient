@@ -633,7 +633,7 @@
                       for="playlist-import-file"
                       class="block mb-2 text-sm font-medium normal-text"
                     >
-                        <span class="required" data-tooltip-target="tooltip-playlist-import-file"><?= __( 'Choose JSON file' ) ?></span>
+                        <span class="required" data-tooltip-target="tooltip-playlist-import-file"><?= __( 'Choose JSON file (Drag and drop supported).' ) ?></span>
                         <div id="tooltip-playlist-import-file" role="tooltip" class="absolute z-10 invisible inline-block px-2 py-2 text-xs font-normal text-white transition-opacity duration-300 bg-red-600 rounded-lg shadow-sm opacity-0 tooltip dark:bg-red-500">
                             <?= __( 'Required' ) ?>
                             <div class="tooltip-arrow" data-popper-arrow></div>
@@ -655,8 +655,9 @@
                       class="sr-only"
                       data-validate="false"
                       data-label-empty="<?= __( 'No file selected' ) ?>"
+                      data-label-drop="<?= __( 'Drop JSON file here' ) ?>"
                     />
-                    <div class="mt-2 flex items-center gap-3">
+                    <div id="playlist-import-dropzone" class="playlist-import-dropzone mt-2 flex items-center gap-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-500 px-3 py-2">
                         <button
                           id="btn-playlist-import-file-picker"
                           type="button"
@@ -667,7 +668,7 @@
                           class="text-sm text-gray-500 dark:text-gray-400"
                         ><?= __( 'No file selected' ) ?></span>
                     </div>
-                    <p class="mt-1 mb-4 text-sm text-gray-500 dark:text-gray-300"><?= __( 'Only .json files are accepted.' ) ?></p>
+                    <p class="mt-1 mb-4 text-xs font-normal text-gray-500 dark:text-gray-400"><?= __( 'Only .json files are accepted.' ) ?></p>
                     <div class="flex justify-end items-end">
                         <button 
                           id="btn-import-playlist"

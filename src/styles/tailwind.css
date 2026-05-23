@@ -239,19 +239,39 @@
 
     /* Carousel button background with opacity and hover support */
     .carousel-button-bg {
-        background-color: rgba(17, 24, 39, 0.7); /* bg-gray-900/70 */
+        background-color: rgba(156, 163, 175, 0.55); /* gray-400/55 */
         transition-property: background-color;
         transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
         transition-duration: 150ms;
     }
     .carousel-button-bg:hover {
-        background-color: rgba(17, 24, 39, 0.85); /* hover: bg-gray-900/85 */
+        background-color: rgba(107, 114, 128, 0.65); /* gray-500/65 */
     }
     .dark .carousel-button-bg {
         background-color: rgba(243, 244, 246, 0.35); /* dark:bg-gray-100/35 */
     }
     .dark .carousel-button-bg:hover {
         background-color: rgba(243, 244, 246, 0.55); /* dark:group-hover: bg-gray-100/55 */
+    }
+
+    .playlist-import-dropzone {
+        transition: border-color 150ms ease, background-color 150ms ease;
+    }
+    .playlist-import-dropzone.is-dragover {
+        border-color: #2563eb;
+        background-color: rgb(239 246 255 / 0.95);
+    }
+    .playlist-import-dropzone.is-invalid {
+        border-color: #dc2626;
+        background-color: rgb(254 242 242 / 0.9);
+    }
+    .dark .playlist-import-dropzone.is-dragover {
+        border-color: #60a5fa;
+        background-color: rgb(30 58 138 / 0.38);
+    }
+    .dark .playlist-import-dropzone.is-invalid {
+        border-color: #b45309;
+        background-color: rgb(69 26 3 / 0.35);
     }
 
     @media (min-width: 1282px) {

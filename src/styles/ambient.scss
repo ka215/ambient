@@ -748,6 +748,18 @@ body.amp-full-window #menu-container.menu-minimized #btn-menu-collapse .ui-icon-
     color: currentColor;
 }
 
+@media (max-width: 630px) {
+    body.amp-full-window #optional-container {
+        z-index: 39;
+    }
+}
+
+@media (hover: none), (pointer: coarse) {
+    #menu-container [id^=tooltip-] {
+        display: none !important;
+    }
+}
+
 #modal-options #media-category-new {
     color: #1d4ed8;
 }

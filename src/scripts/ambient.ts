@@ -22,6 +22,24 @@ const init = function (): void {
 
   useStge();
   const AMP_STATUS = initStatus();
+  let bootGateReleased = false;
+
+  function releaseAppBootGate(): void {
+    if (bootGateReleased) {
+      return;
+    }
+    bootGateReleased = true;
+    const body = document.body;
+    if (body) {
+      body.classList.remove('app-boot-pending');
+      body.setAttribute('data-boot', 'ready');
+    }
+  }
+
+  // Fail-safe: never leave the UI hidden even if initialization errors occur.
+  window.setTimeout(() => {
+    releaseAppBootGate();
+  }, 3500);
 
   /**
    * Initialize AMP_STATUS object.
@@ -526,6 +544,14 @@ const init = function (): void {
     return clampStringLength(normalized, maxLength);
   }
 
+  // Keep spaces while user is typing; normalize strictly on change/save.
+  function sanitizeMediaTextInput(value: string, maxLength: number): string {
+    const normalized = stripHtmlTags(String(value || ''))
+      .replace(/\r\n?/g, ' ')
+      .replace(DISALLOWED_CONTROL_CHARS_RE, '');
+    return clampStringLength(normalized, maxLength);
+  }
+
   function sanitizeMediaDescInput(value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string {
     const normalized = stripHtmlTags(String(value || ''))
       .replace(/\r\n?/g, ' ')
@@ -533,6 +559,14 @@ const init = function (): void {
       .replace(DISALLOWED_CONTROL_CHARS_RE, '')
       .replace(/ {2,}/g, ' ')
       .trim();
+    return clampStringLength(normalized, maxLength);
+  }
+
+  function sanitizeMediaDescInputLive(value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string {
+    const normalized = stripHtmlTags(String(value || ''))
+      .replace(/\r\n?/g, ' ')
+      .replace(/\t/g, ' ')
+      .replace(DISALLOWED_CONTROL_CHARS_RE, '');
     return clampStringLength(normalized, maxLength);
   }
 
@@ -1020,6 +1054,7 @@ const init = function (): void {
       applyCloudEditRestrictions();
     } finally {
       finishPlaylistLoad(loadSeq);
+      releaseAppBootGate();
     }
   }
 
@@ -1785,6 +1820,7 @@ const init = function (): void {
         localStorage.getItem(MYPLAYLIST_KEY) !== null;
       if (shouldAutoloadMyPlaylist) {
         initMyPlaylistFromStorage();
+        releaseAppBootGate();
       } else if (ambientData.hasOwnProperty('currentPlaylist')) {
         // If there is only one playlist, load immediately.
         const currentPlaylist = ambientData.currentPlaylist as string;
@@ -1794,8 +1830,11 @@ const init = function (): void {
         Object.keys(ambientData.playlists || {}).length > 1
       ) {
         // If there are multiple playlists, do nothing yet.
+        releaseAppBootGate();
       }
     }
+  } else {
+    releaseAppBootGate();
   }
 
   /**
@@ -4926,7 +4965,7 @@ const init = function (): void {
         case 'title':
           elm.addEventListener('input', (evt: Event) => {
             const target = evt.target as HTMLInputElement;
-            target.value = sanitizeMediaText(target.value, MEDIA_TITLE_MAX_LENGTH);
+            target.value = sanitizeMediaTextInput(target.value, MEDIA_TITLE_MAX_LENGTH);
             const value = target.value.trim();
             setValidated(elm, value === '' ? null : true);
           });
@@ -4939,7 +4978,7 @@ const init = function (): void {
         case 'artist':
           elm.addEventListener('input', (evt: Event) => {
             const target = evt.target as HTMLInputElement;
-            target.value = sanitizeMediaText(target.value, MEDIA_ARTIST_MAX_LENGTH);
+            target.value = sanitizeMediaTextInput(target.value, MEDIA_ARTIST_MAX_LENGTH);
           });
           elm.addEventListener('change', (evt: Event) => {
             const target = evt.target as HTMLInputElement;
@@ -4949,7 +4988,7 @@ const init = function (): void {
         case 'desc':
           elm.addEventListener('input', (evt: Event) => {
             const target = evt.target as HTMLInputElement;
-            target.value = sanitizeMediaDescInput(target.value, MEDIA_DESC_MAX_LENGTH);
+            target.value = sanitizeMediaDescInputLive(target.value, MEDIA_DESC_MAX_LENGTH);
           });
           elm.addEventListener('change', (evt: Event) => {
             const target = evt.target as HTMLInputElement;
@@ -5094,23 +5133,87 @@ const init = function (): void {
           {
           const $IMPORT_PICKER = document.getElementById('btn-playlist-import-file-picker') as HTMLButtonElement | null;
           const $IMPORT_FILE_NAME = document.getElementById('playlist-import-file-name') as HTMLElement | null;
-          if ($IMPORT_PICKER) {
-            $IMPORT_PICKER.addEventListener('click', () => {
-              (elm as HTMLInputElement).click();
-            });
-          }
-          elm.addEventListener('change', (evt: Event) => {
-            const target = evt.target as HTMLInputElement;
-            const file = target.files && target.files.length > 0 ? target.files[0] : null;
+          const $IMPORT_DROPZONE = document.getElementById('playlist-import-dropzone') as HTMLElement | null;
+          const $IMPORT_INPUT = elm as HTMLInputElement;
+
+          const applyImportFile = (file: File | null): void => {
+            const emptyLabel = $IMPORT_INPUT.dataset['labelEmpty'] || 'No file selected';
             if ($IMPORT_FILE_NAME) {
-              const emptyLabel = target.dataset['labelEmpty'] || 'No file selected';
               $IMPORT_FILE_NAME.textContent = file ? file.name : emptyLabel;
             }
             if (!file) {
               setValidated(elm, null);
+              if ($IMPORT_DROPZONE) {
+                toggleClass($IMPORT_DROPZONE, { 'is-dragover': false, 'is-invalid': false });
+              }
               return;
             }
-            setValidated(elm, isLikelyJsonFile(file));
+            const isValid = isLikelyJsonFile(file);
+            setValidated(elm, isValid);
+            if ($IMPORT_DROPZONE) {
+              toggleClass($IMPORT_DROPZONE, { 'is-dragover': false, 'is-invalid': !isValid });
+            }
+          };
+
+          const isDragLeavingDropzone = (evt: DragEvent): boolean => {
+            if (!$IMPORT_DROPZONE) {
+              return true;
+            }
+            const related = evt.relatedTarget as Node | null;
+            return !(related && $IMPORT_DROPZONE.contains(related));
+          };
+
+          if ($IMPORT_PICKER) {
+            $IMPORT_PICKER.addEventListener('click', () => {
+              $IMPORT_INPUT.click();
+            });
+          }
+
+          if ($IMPORT_DROPZONE) {
+            const onDragOver = (evt: DragEvent): void => {
+              evt.preventDefault();
+              evt.stopPropagation();
+              const dropLabel = $IMPORT_INPUT.dataset['labelDrop'] || 'Drop JSON file here';
+              if ($IMPORT_FILE_NAME && (!$IMPORT_INPUT.files || $IMPORT_INPUT.files.length === 0)) {
+                $IMPORT_FILE_NAME.textContent = dropLabel;
+              }
+              toggleClass($IMPORT_DROPZONE, { 'is-dragover': true, 'is-invalid': false });
+            };
+            $IMPORT_DROPZONE.addEventListener('dragenter', onDragOver);
+            $IMPORT_DROPZONE.addEventListener('dragover', onDragOver);
+            $IMPORT_DROPZONE.addEventListener('dragleave', (evt: DragEvent) => {
+              evt.preventDefault();
+              evt.stopPropagation();
+              if (isDragLeavingDropzone(evt)) {
+                const currentFile = $IMPORT_INPUT.files && $IMPORT_INPUT.files.length > 0
+                  ? $IMPORT_INPUT.files[0]
+                  : null;
+                applyImportFile(currentFile ?? null);
+              }
+            });
+            $IMPORT_DROPZONE.addEventListener('drop', (evt: DragEvent) => {
+              evt.preventDefault();
+              evt.stopPropagation();
+              const file = evt.dataTransfer?.files && evt.dataTransfer.files.length > 0
+                ? evt.dataTransfer.files[0]
+                : null;
+              if (file) {
+                try {
+                  const transfer = new DataTransfer();
+                  transfer.items.add(file);
+                  $IMPORT_INPUT.files = transfer.files;
+                } catch (_error) {
+                  // Some environments may not allow constructing DataTransfer.
+                }
+              }
+              applyImportFile(file ?? null);
+            });
+          }
+
+          elm.addEventListener('change', (evt: Event) => {
+            const target = evt.target as HTMLInputElement;
+            const file = target.files && target.files.length > 0 ? target.files[0] : null;
+            applyImportFile(file ?? null);
           });
           }
           break;
