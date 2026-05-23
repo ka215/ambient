@@ -1,6 +1,6 @@
 <div
   id="carousel-container"
-  class="relative w-full mt-4 flex items-center justify-center gap-2"
+  class="relative w-full mt-0 md:mt-4 xl:mt-2 flex items-center justify-center gap-2"
   data-carousel="static"
 >
   <button 
