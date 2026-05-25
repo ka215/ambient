@@ -1,5 +1,4 @@
 /**
-/**
  * Ambient Media Player v2 - TypeScript Frontend Application
  * Ported from ambient.js with full type safety
  */
@@ -339,6 +338,10 @@ const init = function (): void {
     return (window as any).AmbientData as AmbientData | undefined;
   }
 
+  function isLocalMode(): boolean {
+    return getAmbientData()?.isCloud !== true;
+  }
+
   function getLocalizedMessage(key: string, fallback: string = key): string {
     const messages = getAmbientData()?.messages;
     return isObject(messages) && typeof messages[key] === 'string' ? messages[key] : fallback;
@@ -579,6 +582,22 @@ const init = function (): void {
       .replace(/\n{3,}/g, '\n\n')
       .trim();
     return clampStringLength(normalized, maxLength);
+  }
+
+  function sanitizeMediaEditDescInput(value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string {
+    const normalized = stripHtmlTags(String(value || ''))
+      .replace(/\\n/g, '\n')
+      .replace(/\r\n?/g, '\n')
+      .replace(/\t/g, ' ')
+      .replace(DISALLOWED_CONTROL_CHARS_RE, '');
+    return clampStringLength(normalized, maxLength);
+  }
+
+  function sanitizeMediaEditDescForStorage(value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string {
+    return sanitizeMediaEditDescInput(value, maxLength)
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+      .replace(/\n/g, '\\n');
   }
 
   function sanitizeMediaItemTextFields<T extends Partial<MediaItem>>(item: T): T {
@@ -1165,6 +1184,50 @@ const init = function (): void {
   const $MODAL_PLAYLIST_DESC_ARTIST = document.getElementById('modal-playlist-desc-artist') as HTMLElement | null;
   const $MODAL_PLAYLIST_DESC_CONTENT = document.getElementById('modal-playlist-desc-content') as HTMLElement | null;
   const $BUTTON_CLOSE_PLAYLIST_DESC = document.getElementById('btn-close-playlist-desc') as HTMLButtonElement | null;
+  const $MODAL_MEDIA_EDIT = document.getElementById('modal-media-edit') as HTMLElement | null;
+  const $MODAL_MEDIA_EDIT_TITLE = document.getElementById('modal-media-edit-title') as HTMLElement | null;
+  const $MODAL_MEDIA_EDIT_ITEM_TITLE = document.getElementById('modal-media-edit-item-title') as HTMLElement | null;
+  const $MODAL_MEDIA_EDIT_ITEM_SOURCE = document.getElementById('modal-media-edit-item-source') as HTMLElement | null;
+  const $FORM_MEDIA_EDIT = document.getElementById('form-media-edit') as HTMLFormElement | null;
+  const $MEDIA_EDIT_VALIDATION = document.getElementById('modal-media-edit-validation') as HTMLElement | null;
+  const $MEDIA_EDIT_VALIDATION_LIST = document.getElementById('modal-media-edit-validation-list') as HTMLElement | null;
+  const $MEDIA_EDIT_CATEGORY_COMBOBOX = document.getElementById('modal-media-edit-category-combobox') as HTMLElement | null;
+  const $MEDIA_EDIT_CATEGORY = document.getElementById('modal-media-edit-category') as HTMLInputElement | null;
+  const $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR = document.getElementById('btn-media-edit-category-clear') as HTMLButtonElement | null;
+  const $BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE = document.getElementById('btn-media-edit-category-toggle') as HTMLButtonElement | null;
+  const $MEDIA_EDIT_CATEGORY_DROPDOWN = document.getElementById('modal-media-edit-category-dropdown') as HTMLElement | null;
+  const $MEDIA_EDIT_CATEGORY_OPTIONS = document.getElementById('modal-media-edit-category-options') as HTMLElement | null;
+  const $MEDIA_EDIT_TITLE = document.getElementById('modal-media-edit-title-input') as HTMLInputElement | null;
+  const $MEDIA_EDIT_ARTIST = document.getElementById('modal-media-edit-artist-input') as HTMLInputElement | null;
+  const $MEDIA_EDIT_DESCRIPTION = document.getElementById('modal-media-edit-description') as HTMLTextAreaElement | null;
+  const $MEDIA_EDIT_VOLUME = document.getElementById('modal-media-edit-volume') as HTMLInputElement | null;
+  const $MEDIA_EDIT_VOLUME_VALUE = document.getElementById('modal-media-edit-volume-value') as HTMLElement | null;
+  const $MEDIA_EDIT_THUMBNAIL_PREVIEW = document.getElementById('modal-media-edit-thumbnail-preview') as HTMLImageElement | null;
+  const $MEDIA_EDIT_THUMBNAIL_NAME = document.getElementById('modal-media-edit-thumbnail-name') as HTMLElement | null;
+  const $MEDIA_EDIT_THUMBNAIL_INPUT = document.getElementById('modal-media-edit-thumbnail-input') as HTMLInputElement | null;
+  const $BUTTON_MEDIA_EDIT_THUMBNAIL_PICK = document.getElementById('btn-media-edit-thumbnail-pick') as HTMLButtonElement | null;
+  const $BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE = document.getElementById('btn-media-edit-thumbnail-remove') as HTMLButtonElement | null;
+  const $BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR = document.getElementById('btn-media-edit-thumbnail-clear') as HTMLButtonElement | null;
+  const $MEDIA_EDIT_THUMBNAIL_SECTION = document.getElementById('media-edit-thumbnail-section') as HTMLElement | null;
+  const $MEDIA_EDIT_PREVIEW = document.getElementById('modal-media-edit-preview') as HTMLElement | null;
+  const $MEDIA_EDIT_PREVIEW_ERROR = document.getElementById('modal-media-edit-preview-error') as HTMLElement | null;
+  const $MEDIA_EDIT_PREVIEW_ERROR_MESSAGE = document.getElementById('modal-media-edit-preview-error-message') as HTMLElement | null;
+  const $BUTTON_MEDIA_EDIT_PREVIEW_RETRY = document.getElementById('btn-media-edit-preview-retry') as HTMLButtonElement | null;
+  const $MEDIA_EDIT_SEEK_START = document.getElementById('modal-media-edit-seek-start') as HTMLInputElement | null;
+  const $MEDIA_EDIT_SEEK_END = document.getElementById('modal-media-edit-seek-end') as HTMLInputElement | null;
+  const $MEDIA_EDIT_FADEIN_END = document.getElementById('modal-media-edit-fadein-end') as HTMLInputElement | null;
+  const $MEDIA_EDIT_FADEOUT_START = document.getElementById('modal-media-edit-fadeout-start') as HTMLInputElement | null;
+  const $MEDIA_EDIT_SEEK_START_HMS = document.getElementById('modal-media-edit-seek-start-hms') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_END_HMS = document.getElementById('modal-media-edit-seek-end-hms') as HTMLElement | null;
+  const $MEDIA_EDIT_FADEIN_END_HMS = document.getElementById('modal-media-edit-fadein-end-hms') as HTMLElement | null;
+  const $MEDIA_EDIT_FADEOUT_START_HMS = document.getElementById('modal-media-edit-fadeout-start-hms') as HTMLElement | null;
+  const $BUTTON_MEDIA_EDIT_SYNC_SEEK_START = document.getElementById('btn-media-edit-sync-seek-start') as HTMLButtonElement | null;
+  const $BUTTON_MEDIA_EDIT_SYNC_SEEK_END = document.getElementById('btn-media-edit-sync-seek-end') as HTMLButtonElement | null;
+  const $BUTTON_MEDIA_EDIT_SYNC_FADEIN_END = document.getElementById('btn-media-edit-sync-fadein-end') as HTMLButtonElement | null;
+  const $BUTTON_MEDIA_EDIT_SYNC_FADEOUT_START = document.getElementById('btn-media-edit-sync-fadeout-start') as HTMLButtonElement | null;
+  const $BUTTON_CLOSE_MEDIA_EDIT = document.getElementById('btn-close-media-edit') as HTMLButtonElement | null;
+  const $BUTTON_CANCEL_MEDIA_EDIT = document.getElementById('btn-cancel-media-edit') as HTMLButtonElement | null;
+  const $BUTTON_SAVE_MEDIA_EDIT = document.getElementById('btn-save-media-edit') as HTMLButtonElement | null;
   const $COLLAPSE_MENU = document.getElementById('collapse-menu') as HTMLElement;
 
   // Add elements since v1.1.0
@@ -1178,6 +1241,9 @@ const init = function (): void {
   }
   if (isElement($MODAL_PLAYLIST_DESC) && $MODAL_PLAYLIST_DESC.parentElement !== document.body) {
     document.body.appendChild($MODAL_PLAYLIST_DESC);
+  }
+  if (isElement($MODAL_MEDIA_EDIT) && $MODAL_MEDIA_EDIT.parentElement !== document.body) {
+    document.body.appendChild($MODAL_MEDIA_EDIT);
   }
 
   function closePlaylistDescModal(restoreFocus = false): void {
@@ -1230,6 +1296,1484 @@ const init = function (): void {
     }
     $MODAL_PLAYLIST_DESC_CONTENT.textContent = sanitizeMediaDesc(descText, MEDIA_DESC_MAX_LENGTH);
     $MODAL_PLAYLIST_DESC.classList.remove('hidden');
+  }
+
+  let activeMediaEditTrigger: HTMLElement | null = null;
+  const defaultMediaEditModalTitle = $MODAL_MEDIA_EDIT_TITLE?.textContent?.trim() || 'Media Edit';
+  const MEDIA_EDIT_DRAFT_STORAGE_KEY = 'ambient:media-edit-drafts:v2.5.0';
+  const MEDIA_EDIT_PREVIEW_YT_PLAYER_ID = 'modal-media-edit-preview-yt-player';
+  const MEDIA_EDIT_SAVE_ENDPOINT = 'playlist-save';
+  const MEDIA_EDIT_THUMBNAIL_ENDPOINT = 'thumbnail';
+  const mediaEditDraftStore = new Map<string, MediaEditDraft>();
+  let mediaEditActiveItem: MediaItem | null = null;
+  let mediaEditBaseDraft: MediaEditDraft | null = null;
+  let mediaEditIsDirty = false;
+  let mediaEditPreviewYouTubePlayer: YTPlayer | null = null;
+  let mediaEditPreviewHtmlPlayer: HTMLMediaElement | null = null;
+  let mediaEditPreviewSourceItem: MediaItem | null = null;
+  let mediaEditPreviewType: 'youtube' | 'audio' | 'video' | null = null;
+  let mediaEditPreviewDurationSeconds: number | null = null;
+
+  interface MediaEditDraft {
+    category: string;
+    title: string;
+    artist: string;
+    description: string;
+    volume: number;
+    seekStart: number | null;
+    seekEnd: number | null;
+    fadeInEnd: number | null;
+    fadeOutStart: number | null;
+    thumbnailMode: 'keep' | 'upload' | 'remove';
+    thumbnailName: string;
+    thumbnailMime: string;
+    thumbnailDataUrl: string;
+  }
+
+  interface MediaEditDraftInput {
+    category?: unknown;
+    title?: unknown;
+    artist?: unknown;
+    description?: unknown;
+    volume?: unknown;
+    seekStart?: unknown;
+    seekEnd?: unknown;
+    fadeInEnd?: unknown;
+    fadeOutStart?: unknown;
+    thumbnailMode?: unknown;
+    thumbnailName?: unknown;
+    thumbnailMime?: unknown;
+    thumbnailDataUrl?: unknown;
+  }
+
+  interface MediaEditValidationResult {
+    valid: boolean;
+    messages: string[];
+    invalidFieldIds: string[];
+  }
+
+  function parseMediaTimeToIntegerSeconds(value: unknown): number | null {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value) || value < 0) {
+        return null;
+      }
+      return Math.trunc(value);
+    }
+    const textValue = String(value).trim();
+    if (textValue === '') {
+      return null;
+    }
+    if (/^\d+(\.\d+)?$/.test(textValue)) {
+      const numeric = Number(textValue);
+      if (!Number.isFinite(numeric) || numeric < 0) {
+        return null;
+      }
+      return Math.trunc(numeric);
+    }
+    if (/^(\d+:)?([0-5]?\d:)?[0-5]?\d$/.test(textValue) && textValue.includes(':')) {
+      const times = textValue.split(':');
+      let hours = 0;
+      let minutes = 0;
+      let seconds = 0;
+      if (times.length === 3) {
+        hours = parseInt(times[0] || '0', 10);
+        minutes = parseInt(times[1] || '0', 10);
+        seconds = parseInt(times[2] || '0', 10);
+      } else if (times.length === 2) {
+        minutes = parseInt(times[0] || '0', 10);
+        seconds = parseInt(times[1] || '0', 10);
+      } else {
+        seconds = parseInt(times[0] || '0', 10);
+      }
+      return Math.trunc((hours * 3600) + (minutes * 60) + seconds);
+    }
+    return null;
+  }
+
+  function normalizeMediaEditTimingValue(value: unknown, fallback: number | null = null): number | null {
+    const parsed = parseMediaTimeToIntegerSeconds(value);
+    if (parsed !== null) {
+      return parsed;
+    }
+    return fallback;
+  }
+
+  function toMediaEditTimingInputValue(value: number | null): string {
+    return Number.isInteger(value) && value !== null && value >= 0 ? String(value) : '';
+  }
+
+  function sanitizeMediaEditTimingInputField(field: HTMLInputElement | null): void {
+    if (!isElement(field)) {
+      return;
+    }
+    if (field.value === '') {
+      return;
+    }
+    field.value = field.value.replace(/[^\d]/g, '');
+  }
+
+  function formatSecondsToHHMMSS(value: number | null): string {
+    if (!Number.isInteger(value) || value === null || value < 0) {
+      return 'HH:MM:SS';
+    }
+    const hours = Math.floor(value / 3600);
+    const minutes = Math.floor((value % 3600) / 60);
+    const seconds = value % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  function parseMediaEditItemDurationSeconds(mediaItem: MediaItem | null): number | null {
+    if (!mediaItem) {
+      return null;
+    }
+    const durationCandidate = (mediaItem as unknown as Record<string, unknown>)['duration'];
+    return normalizeMediaEditTimingValue(durationCandidate, null);
+  }
+
+  function resolveMediaEditEffectiveEnd(
+    seekEnd: number | null,
+    duration: number | null,
+    seekStart: number | null,
+    fallbackFadeoutDuration: number | null = null
+  ): number | null {
+    if (seekEnd !== null) {
+      return seekEnd;
+    }
+    if (duration !== null) {
+      return duration;
+    }
+    if (fallbackFadeoutDuration !== null) {
+      return (seekStart ?? 0) + fallbackFadeoutDuration;
+    }
+    return null;
+  }
+
+  function resolveMediaEditKnownDuration(mediaItem: MediaItem | null): number | null {
+    const itemDuration = parseMediaEditItemDurationSeconds(mediaItem);
+    if (itemDuration !== null) {
+      return itemDuration;
+    }
+    if (mediaItem && mediaEditActiveItem && getMediaEditItemIdentity(mediaItem) === getMediaEditItemIdentity(mediaEditActiveItem)) {
+      return mediaEditPreviewDurationSeconds;
+    }
+    return null;
+  }
+
+  function getMediaEditTimingFromStoredDurations(mediaItem: MediaItem): {
+    seekStart: number | null;
+    seekEnd: number | null;
+    fadeInEnd: number | null;
+    fadeOutStart: number | null;
+  } {
+    const seekStart = normalizeMediaEditTimingValue(mediaItem.start, null);
+    const seekEnd = normalizeMediaEditTimingValue(mediaItem.end, null);
+    const storedFadein = normalizeMediaEditTimingValue(mediaItem.fadein, null);
+    const storedFadeout = normalizeMediaEditTimingValue(mediaItem.fadeout, null);
+    const duration = resolveMediaEditKnownDuration(mediaItem);
+    const effectiveEnd = resolveMediaEditEffectiveEnd(seekEnd, duration, seekStart, storedFadeout);
+    return {
+      seekStart,
+      seekEnd,
+      fadeInEnd: storedFadein !== null ? (seekStart ?? 0) + storedFadein : null,
+      fadeOutStart: storedFadeout !== null && effectiveEnd !== null
+        ? Math.max(0, effectiveEnd - storedFadeout)
+        : null,
+    };
+  }
+
+  function getMediaEditComputedFadeDurations(item: MediaItem, draft: MediaEditDraft): {
+    fadein: number | '';
+    fadeout: number | '';
+  } {
+    const seekStart = draft.seekStart ?? 0;
+    const fadein = draft.fadeInEnd !== null
+      ? Math.max(0, draft.fadeInEnd - seekStart)
+      : '';
+
+    const currentStoredFadeout = normalizeMediaEditTimingValue(item.fadeout, null);
+    const effectiveEnd = resolveMediaEditEffectiveEnd(
+      draft.seekEnd,
+      resolveMediaEditKnownDuration(item),
+      draft.seekStart,
+      currentStoredFadeout
+    );
+    const fadeout = draft.fadeOutStart !== null
+      ? (effectiveEnd !== null
+        ? Math.max(0, effectiveEnd - draft.fadeOutStart)
+        : (currentStoredFadeout ?? ''))
+      : '';
+
+    return { fadein, fadeout };
+  }
+
+  function syncMediaEditTimingDisplay(): void {
+    const seekStart = parseMediaTimeToIntegerSeconds($MEDIA_EDIT_SEEK_START?.value || '');
+    const seekEnd = parseMediaTimeToIntegerSeconds($MEDIA_EDIT_SEEK_END?.value || '');
+    const fadeInEnd = parseMediaTimeToIntegerSeconds($MEDIA_EDIT_FADEIN_END?.value || '');
+    const fadeOutStart = parseMediaTimeToIntegerSeconds($MEDIA_EDIT_FADEOUT_START?.value || '');
+    if (isElement($MEDIA_EDIT_SEEK_START_HMS)) {
+      $MEDIA_EDIT_SEEK_START_HMS.textContent = formatSecondsToHHMMSS(seekStart);
+    }
+    if (isElement($MEDIA_EDIT_SEEK_END_HMS)) {
+      $MEDIA_EDIT_SEEK_END_HMS.textContent = formatSecondsToHHMMSS(seekEnd);
+    }
+    if (isElement($MEDIA_EDIT_FADEIN_END_HMS)) {
+      $MEDIA_EDIT_FADEIN_END_HMS.textContent = formatSecondsToHHMMSS(fadeInEnd);
+    }
+    if (isElement($MEDIA_EDIT_FADEOUT_START_HMS)) {
+      $MEDIA_EDIT_FADEOUT_START_HMS.textContent = formatSecondsToHHMMSS(fadeOutStart);
+    }
+  }
+
+  function getMediaEditCategoryOptions(): string[] {
+    if (!Array.isArray(AMP_STATUS.category)) {
+      return [];
+    }
+    const unique = new Set<string>();
+    const options: string[] = [];
+    AMP_STATUS.category.forEach((catName: string) => {
+      const normalized = String(catName).trim();
+      if (normalized !== '' && !unique.has(normalized)) {
+        unique.add(normalized);
+        options.push(normalized);
+      }
+    });
+    return options;
+  }
+
+  function isMediaEditCategoryDropdownVisible(): boolean {
+    return isElement($MEDIA_EDIT_CATEGORY_DROPDOWN)
+      && !$MEDIA_EDIT_CATEGORY_DROPDOWN.classList.contains('hidden');
+  }
+
+  function renderMediaEditCategoryOptions(): void {
+    if (!isElement($MEDIA_EDIT_CATEGORY_OPTIONS)) {
+      return;
+    }
+    const selected = isElement($MEDIA_EDIT_CATEGORY) ? $MEDIA_EDIT_CATEGORY.value.trim() : '';
+    const options = getMediaEditCategoryOptions();
+
+    $MEDIA_EDIT_CATEGORY_OPTIONS.innerHTML = '';
+    if (options.length === 0) {
+      const emptyElm = document.createElement('div');
+      emptyElm.className = 'media-edit-category-option-empty px-3 py-2 text-xs text-gray-500 dark:text-gray-300';
+      emptyElm.textContent = getLocalizedMessage('mediaEditCategoryNoMatches', 'No categories');
+      $MEDIA_EDIT_CATEGORY_OPTIONS.appendChild(emptyElm);
+      return;
+    }
+
+    options.forEach((catName: string) => {
+      const optionElm = document.createElement('button');
+      optionElm.type = 'button';
+      optionElm.className = 'media-edit-category-option block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:text-gray-100 dark:hover:bg-gray-600 dark:focus:ring-blue-900';
+      optionElm.setAttribute('role', 'option');
+      optionElm.setAttribute('aria-selected', selected === catName ? 'true' : 'false');
+      optionElm.textContent = catName;
+      optionElm.addEventListener('click', () => {
+        if (!isElement($MEDIA_EDIT_CATEGORY)) {
+          return;
+        }
+        $MEDIA_EDIT_CATEGORY.value = catName;
+        $MEDIA_EDIT_CATEGORY.dispatchEvent(new Event('input', { bubbles: true }));
+        $MEDIA_EDIT_CATEGORY.dispatchEvent(new Event('change', { bubbles: true }));
+        closeMediaEditCategoryDropdown(true);
+      });
+      $MEDIA_EDIT_CATEGORY_OPTIONS.appendChild(optionElm);
+    });
+  }
+
+  function syncMediaEditCategoryClearButton(): void {
+    if (!isElement($BUTTON_MEDIA_EDIT_CATEGORY_CLEAR)) {
+      return;
+    }
+    const hasValue = isElement($MEDIA_EDIT_CATEGORY)
+      && $MEDIA_EDIT_CATEGORY.value.trim() !== '';
+    $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR.classList.toggle('hidden', !hasValue);
+    $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR.setAttribute('aria-hidden', hasValue ? 'false' : 'true');
+  }
+
+  function setMediaEditCategoryDropdownExpanded(expanded: boolean): void {
+    if (!isElement($MEDIA_EDIT_CATEGORY_DROPDOWN)) {
+      return;
+    }
+    $MEDIA_EDIT_CATEGORY_DROPDOWN.classList.toggle('hidden', !expanded);
+    if (isElement($MEDIA_EDIT_CATEGORY_COMBOBOX)) {
+      $MEDIA_EDIT_CATEGORY_COMBOBOX.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    }
+    if (isElement($BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE)) {
+      $BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    }
+  }
+
+  function closeMediaEditCategoryDropdown(restoreFocus: boolean = false): void {
+    setMediaEditCategoryDropdownExpanded(false);
+    if (restoreFocus && isElement($MEDIA_EDIT_CATEGORY)) {
+      $MEDIA_EDIT_CATEGORY.focus();
+    }
+  }
+
+  function openMediaEditCategoryDropdown(): void {
+    renderMediaEditCategoryOptions();
+    setMediaEditCategoryDropdownExpanded(true);
+  }
+
+  function stepMediaEditTimingField(field: HTMLInputElement, direction: 1 | -1): void {
+    const stepValue = Number(field.step);
+    const step = Number.isFinite(stepValue) && stepValue > 0 ? stepValue : 1;
+    const minValue = field.min !== '' && Number.isFinite(Number(field.min)) ? Number(field.min) : 0;
+    const maxValue = field.max !== '' && Number.isFinite(Number(field.max)) ? Number(field.max) : null;
+    const current = parseMediaTimeToIntegerSeconds(field.value) ?? minValue;
+    let nextValue = current + (step * direction);
+    if (nextValue < minValue) {
+      nextValue = minValue;
+    }
+    if (maxValue !== null && nextValue > maxValue) {
+      nextValue = maxValue;
+    }
+    field.value = toMediaEditTimingInputValue(Math.max(0, Math.trunc(nextValue)));
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function sanitizeMediaEditDraft(
+    draft: MediaEditDraftInput,
+    fallback: MediaEditDraft | null = null
+  ): MediaEditDraft {
+    const fallbackVolume = fallback?.volume ?? getDefaultVolume();
+    return {
+      category: sanitizeMediaText(String(draft.category ?? fallback?.category ?? ''), MEDIA_TITLE_MAX_LENGTH),
+      title: sanitizeMediaText(String(draft.title ?? fallback?.title ?? ''), MEDIA_TITLE_MAX_LENGTH),
+      artist: sanitizeMediaText(String(draft.artist ?? fallback?.artist ?? ''), MEDIA_ARTIST_MAX_LENGTH),
+      description: sanitizeMediaEditDescInput(String(draft.description ?? fallback?.description ?? ''), MEDIA_DESC_MAX_LENGTH),
+      volume: normalizeVolume(draft.volume ?? fallbackVolume, fallbackVolume),
+      seekStart: normalizeMediaEditTimingValue(draft.seekStart, fallback?.seekStart ?? null),
+      seekEnd: normalizeMediaEditTimingValue(draft.seekEnd, fallback?.seekEnd ?? null),
+      fadeInEnd: normalizeMediaEditTimingValue(draft.fadeInEnd, fallback?.fadeInEnd ?? null),
+      fadeOutStart: normalizeMediaEditTimingValue(draft.fadeOutStart, fallback?.fadeOutStart ?? null),
+      thumbnailMode: (draft.thumbnailMode as MediaEditDraft['thumbnailMode'] | undefined) ?? fallback?.thumbnailMode ?? 'keep',
+      thumbnailName: sanitizeMediaText(String(draft.thumbnailName ?? fallback?.thumbnailName ?? ''), 255),
+      thumbnailMime: sanitizeMediaText(String(draft.thumbnailMime ?? fallback?.thumbnailMime ?? ''), 100),
+      thumbnailDataUrl: String(draft.thumbnailDataUrl ?? fallback?.thumbnailDataUrl ?? ''),
+    };
+  }
+
+  function cloneMediaEditDraft(draft: MediaEditDraft): MediaEditDraft {
+    return {
+      category: draft.category,
+      title: draft.title,
+      artist: draft.artist,
+      description: draft.description,
+      volume: draft.volume,
+      seekStart: draft.seekStart,
+      seekEnd: draft.seekEnd,
+      fadeInEnd: draft.fadeInEnd,
+      fadeOutStart: draft.fadeOutStart,
+      thumbnailMode: draft.thumbnailMode,
+      thumbnailName: draft.thumbnailName,
+      thumbnailMime: draft.thumbnailMime,
+      thumbnailDataUrl: draft.thumbnailDataUrl,
+    };
+  }
+
+  function isSameMediaEditDraft(a: MediaEditDraft, b: MediaEditDraft): boolean {
+    return a.category === b.category
+      && a.title === b.title
+      && a.artist === b.artist
+      && a.description === b.description
+      && a.volume === b.volume
+      && a.seekStart === b.seekStart
+      && a.seekEnd === b.seekEnd
+      && a.fadeInEnd === b.fadeInEnd
+      && a.fadeOutStart === b.fadeOutStart
+      && a.thumbnailMode === b.thumbnailMode
+      && a.thumbnailName === b.thumbnailName
+      && a.thumbnailMime === b.thumbnailMime
+      && a.thumbnailDataUrl === b.thumbnailDataUrl;
+  }
+
+  function setMediaEditFieldValidationState(field: HTMLElement | null, validState: boolean | null): void {
+    if (!isElement(field)) {
+      return;
+    }
+    const invalid = validState === false;
+    field.setAttribute('aria-invalid', invalid ? 'true' : 'false');
+    field.classList.toggle('border-red-500', invalid);
+    field.classList.toggle('focus:border-red-500', invalid);
+    field.classList.toggle('focus:ring-red-200', invalid);
+    field.classList.toggle('dark:focus:ring-red-900', invalid);
+  }
+
+  function clearMediaEditValidationView(): void {
+    if (isElement($MEDIA_EDIT_VALIDATION_LIST)) {
+      $MEDIA_EDIT_VALIDATION_LIST.innerHTML = '';
+    }
+    if (isElement($MEDIA_EDIT_VALIDATION)) {
+      $MEDIA_EDIT_VALIDATION.classList.add('hidden');
+    }
+    [
+      $MEDIA_EDIT_CATEGORY,
+      $MEDIA_EDIT_TITLE,
+      $MEDIA_EDIT_SEEK_START,
+      $MEDIA_EDIT_SEEK_END,
+      $MEDIA_EDIT_FADEIN_END,
+      $MEDIA_EDIT_FADEOUT_START,
+    ].forEach((field) => {
+      setMediaEditFieldValidationState(field, null);
+    });
+  }
+
+  function renderMediaEditValidation(result: MediaEditValidationResult): void {
+    const invalidIds = new Set(result.invalidFieldIds);
+    setMediaEditFieldValidationState($MEDIA_EDIT_CATEGORY, !invalidIds.has('modal-media-edit-category'));
+    setMediaEditFieldValidationState($MEDIA_EDIT_TITLE, !invalidIds.has('modal-media-edit-title-input'));
+    setMediaEditFieldValidationState($MEDIA_EDIT_SEEK_START, !invalidIds.has('modal-media-edit-seek-start'));
+    setMediaEditFieldValidationState($MEDIA_EDIT_SEEK_END, !invalidIds.has('modal-media-edit-seek-end'));
+    setMediaEditFieldValidationState($MEDIA_EDIT_FADEIN_END, !invalidIds.has('modal-media-edit-fadein-end'));
+    setMediaEditFieldValidationState($MEDIA_EDIT_FADEOUT_START, !invalidIds.has('modal-media-edit-fadeout-start'));
+
+    if (!isElement($MEDIA_EDIT_VALIDATION) || !isElement($MEDIA_EDIT_VALIDATION_LIST)) {
+      return;
+    }
+    if (result.valid) {
+      $MEDIA_EDIT_VALIDATION.classList.add('hidden');
+      $MEDIA_EDIT_VALIDATION_LIST.innerHTML = '';
+      return;
+    }
+    $MEDIA_EDIT_VALIDATION_LIST.innerHTML = '';
+    result.messages.forEach((message) => {
+      const item = document.createElement('li');
+      item.textContent = message;
+      $MEDIA_EDIT_VALIDATION_LIST.appendChild(item);
+    });
+    $MEDIA_EDIT_VALIDATION.classList.remove('hidden');
+  }
+
+  function validateMediaEditDraft(draft: MediaEditDraft): MediaEditValidationResult {
+    const messages: string[] = [];
+    const invalidFieldIds = new Set<string>();
+    const effectiveEnd = resolveMediaEditEffectiveEnd(
+      draft.seekEnd,
+      resolveMediaEditKnownDuration(mediaEditActiveItem),
+      draft.seekStart,
+      mediaEditActiveItem ? normalizeMediaEditTimingValue(mediaEditActiveItem.fadeout, null) : null
+    );
+
+    if (draft.category.trim() === '') {
+      messages.push(getLocalizedMessage('mediaEditValidationCategoryRequired', 'Category is required.'));
+      invalidFieldIds.add('modal-media-edit-category');
+    }
+
+    if (draft.title.trim() === '') {
+      messages.push(getLocalizedMessage('mediaEditValidationTitleRequired', 'Title is required.'));
+      invalidFieldIds.add('modal-media-edit-title-input');
+    }
+
+    if (draft.seekStart !== null && draft.seekEnd !== null && draft.seekStart > draft.seekEnd) {
+      messages.push(getLocalizedMessage('mediaEditValidationStartEnd', 'Seek start must be less than or equal to seek end.'));
+      invalidFieldIds.add('modal-media-edit-seek-start');
+      invalidFieldIds.add('modal-media-edit-seek-end');
+    }
+
+    if (draft.seekStart !== null && draft.fadeInEnd !== null && draft.seekStart > draft.fadeInEnd) {
+      messages.push(getLocalizedMessage('mediaEditValidationStartFadeIn', 'Seek start must be less than or equal to fade-in end.'));
+      invalidFieldIds.add('modal-media-edit-seek-start');
+      invalidFieldIds.add('modal-media-edit-fadein-end');
+    }
+
+    if (draft.fadeOutStart !== null && effectiveEnd !== null && draft.fadeOutStart > effectiveEnd) {
+      messages.push(getLocalizedMessage('mediaEditValidationFadeOutEnd', 'Fade-out start must be less than or equal to seek end.'));
+      invalidFieldIds.add('modal-media-edit-fadeout-start');
+      invalidFieldIds.add('modal-media-edit-seek-end');
+    }
+
+    if (draft.fadeInEnd !== null && draft.fadeOutStart !== null && draft.fadeInEnd > draft.fadeOutStart) {
+      messages.push(getLocalizedMessage('mediaEditValidationFadeInFadeOut', 'Fade-in end must be less than or equal to fade-out start.'));
+      invalidFieldIds.add('modal-media-edit-fadein-end');
+      invalidFieldIds.add('modal-media-edit-fadeout-start');
+    }
+
+    return {
+      valid: messages.length === 0,
+      messages,
+      invalidFieldIds: Array.from(invalidFieldIds),
+    };
+  }
+
+  function validateAndRenderMediaEditDraftFromForm(): MediaEditValidationResult {
+    const draft = readMediaEditDraftFromForm();
+    const result = validateMediaEditDraft(draft);
+    renderMediaEditValidation(result);
+    return result;
+  }
+
+  function hideMediaEditPreviewError(): void {
+    if (isElement($MEDIA_EDIT_PREVIEW_ERROR)) {
+      $MEDIA_EDIT_PREVIEW_ERROR.classList.add('hidden');
+    }
+    if (isElement($MEDIA_EDIT_PREVIEW_ERROR_MESSAGE)) {
+      $MEDIA_EDIT_PREVIEW_ERROR_MESSAGE.textContent = '';
+    }
+  }
+
+  function showMediaEditPreviewError(message: string): void {
+    if (isElement($MEDIA_EDIT_PREVIEW_ERROR_MESSAGE)) {
+      $MEDIA_EDIT_PREVIEW_ERROR_MESSAGE.textContent = message;
+    }
+    if (isElement($MEDIA_EDIT_PREVIEW_ERROR)) {
+      $MEDIA_EDIT_PREVIEW_ERROR.classList.remove('hidden');
+    }
+  }
+
+  function destroyMediaEditPreviewPlayer(): void {
+    if (mediaEditPreviewYouTubePlayer) {
+      try {
+        mediaEditPreviewYouTubePlayer.destroy();
+      } catch (_error) {
+        // Ignore destroy failures when preview iframe is already gone.
+      }
+      mediaEditPreviewYouTubePlayer = null;
+    }
+    if (mediaEditPreviewHtmlPlayer) {
+      try {
+        mediaEditPreviewHtmlPlayer.pause();
+      } catch (_error) {
+        // Ignore pause failures.
+      }
+      mediaEditPreviewHtmlPlayer.removeAttribute('src');
+      while (mediaEditPreviewHtmlPlayer.firstChild) {
+        mediaEditPreviewHtmlPlayer.removeChild(mediaEditPreviewHtmlPlayer.firstChild);
+      }
+      mediaEditPreviewHtmlPlayer.load();
+      mediaEditPreviewHtmlPlayer = null;
+    }
+    mediaEditPreviewType = null;
+  }
+
+  function clearMediaEditPreviewContainer(): void {
+    if (!isElement($MEDIA_EDIT_PREVIEW)) {
+      return;
+    }
+    $MEDIA_EDIT_PREVIEW.innerHTML = '';
+  }
+
+  function resetMediaEditPreviewState(): void {
+    destroyMediaEditPreviewPlayer();
+    clearMediaEditPreviewContainer();
+    mediaEditPreviewSourceItem = null;
+    mediaEditPreviewDurationSeconds = null;
+    hideMediaEditPreviewError();
+  }
+
+  function getMediaEditPreviewCurrentTime(): number | null {
+    try {
+      if (mediaEditPreviewType === 'youtube' && mediaEditPreviewYouTubePlayer) {
+        const currentTime = mediaEditPreviewYouTubePlayer.getCurrentTime();
+        if (Number.isFinite(currentTime) && currentTime >= 0) {
+          return Math.trunc(currentTime);
+        }
+      }
+      if ((mediaEditPreviewType === 'audio' || mediaEditPreviewType === 'video') && mediaEditPreviewHtmlPlayer) {
+        const currentTime = mediaEditPreviewHtmlPlayer.currentTime;
+        if (Number.isFinite(currentTime) && currentTime >= 0) {
+          return Math.trunc(currentTime);
+        }
+      }
+    } catch (_error) {
+      return null;
+    }
+    return null;
+  }
+
+  function syncMediaEditTimingFieldFromPreview(field: HTMLInputElement | null, label: string): void {
+    if (!isElement(field)) {
+      return;
+    }
+    const currentTime = getMediaEditPreviewCurrentTime();
+    if (currentTime === null) {
+      showMediaEditPreviewError(
+        getLocalizedMessage('mediaEditPreviewSyncFailed', `Unable to sync ${label}. Preview is not ready.`)
+      );
+      return;
+    }
+    hideMediaEditPreviewError();
+    field.value = String(currentTime);
+    syncMediaEditTimingDisplay();
+    syncMediaEditDraftStateFromForm();
+    validateAndRenderMediaEditDraftFromForm();
+  }
+
+  function resolveMediaEditPreviewTagName(path: string): 'audio' | 'video' {
+    const ext = getExt(path);
+    const videoExtSet = new Set(['avi', 'mp4', 'mpeg', 'mpg', 'ogv', 'ts', 'webm', '3gp', '3g2']);
+    return videoExtSet.has(ext) ? 'video' : 'audio';
+  }
+
+  function createMediaEditPreview(mediaItem: MediaItem): void {
+    resetMediaEditPreviewState();
+    mediaEditPreviewSourceItem = mediaItem;
+
+    if (!isElement($MEDIA_EDIT_PREVIEW)) {
+      return;
+    }
+
+    if (mediaItem.videoid && mediaItem.videoid.trim() !== '') {
+      const ytRoot = document.createElement('div');
+      ytRoot.id = MEDIA_EDIT_PREVIEW_YT_PLAYER_ID;
+      ytRoot.className = 'mx-auto aspect-video w-full max-w-3xl';
+      $MEDIA_EDIT_PREVIEW.appendChild(ytRoot);
+
+      const ytApi = (window as any).YT;
+      if (!ytApi || typeof ytApi.Player !== 'function') {
+        showMediaEditPreviewError(
+          getLocalizedMessage('mediaEditPreviewUnavailable', 'Preview is not available. Please retry after the player API loads.')
+        );
+        return;
+      }
+
+      try {
+        mediaEditPreviewType = 'youtube';
+        mediaEditPreviewYouTubePlayer = new ytApi.Player(MEDIA_EDIT_PREVIEW_YT_PLAYER_ID, {
+          height: 270,
+          width: 480,
+          videoId: mediaItem.videoid,
+          playerVars: {
+            autoplay: 0,
+            controls: 1,
+            rel: 0,
+            fs: 0,
+          },
+          events: {
+            onReady: () => {
+              const duration = normalizeMediaEditTimingValue(mediaEditPreviewYouTubePlayer?.getDuration(), null);
+              mediaEditPreviewDurationSeconds = duration;
+              validateAndRenderMediaEditDraftFromForm();
+              hideMediaEditPreviewError();
+            },
+            onStateChange: () => {
+              const duration = normalizeMediaEditTimingValue(mediaEditPreviewYouTubePlayer?.getDuration(), null);
+              if (duration !== null) {
+                mediaEditPreviewDurationSeconds = duration;
+                validateAndRenderMediaEditDraftFromForm();
+              }
+              hideMediaEditPreviewError();
+            },
+            onError: () => {
+              showMediaEditPreviewError(
+                getLocalizedMessage('mediaEditPreviewLoadFailed', 'Failed to load media preview. Please try again.')
+              );
+            },
+          },
+        });
+      } catch (_error) {
+        showMediaEditPreviewError(
+          getLocalizedMessage('mediaEditPreviewLoadFailed', 'Failed to load media preview. Please try again.')
+        );
+      }
+      return;
+    }
+
+    if (mediaItem.file && mediaItem.file.trim() !== '') {
+      const sourcePath = resolveLocalMediaSrc(mediaItem.file);
+      const tagName = resolveMediaEditPreviewTagName(sourcePath);
+      const previewElm = document.createElement(tagName) as HTMLMediaElement;
+      const sourceElm = document.createElement('source');
+      let hasReportedLoadIssue = false;
+
+      previewElm.className = 'mx-auto block w-full max-h-[280px] rounded bg-black';
+      previewElm.setAttribute('controls', 'true');
+      previewElm.setAttribute('preload', 'metadata');
+      previewElm.setAttribute('playsinline', 'true');
+
+      sourceElm.src = sourcePath;
+      sourceElm.setAttribute('type', getMediaMimeType(sourcePath, tagName));
+      previewElm.appendChild(sourceElm);
+
+      const showLoadErrorOnce = (): void => {
+        if (hasReportedLoadIssue) {
+          return;
+        }
+        hasReportedLoadIssue = true;
+        showMediaEditPreviewError(
+          getLocalizedMessage('mediaEditPreviewLoadFailed', 'Failed to load media preview. Please try again.')
+        );
+      };
+
+      previewElm.addEventListener('loadedmetadata', () => {
+        mediaEditPreviewDurationSeconds = normalizeMediaEditTimingValue(previewElm.duration, null);
+        validateAndRenderMediaEditDraftFromForm();
+        hideMediaEditPreviewError();
+      });
+      previewElm.addEventListener('error', () => {
+        showLoadErrorOnce();
+      });
+      sourceElm.addEventListener('error', () => {
+        showLoadErrorOnce();
+      });
+      previewElm.addEventListener('loadstart', () => {
+        window.setTimeout(() => {
+          if (previewElm.readyState === 0 && (previewElm.networkState === 3 || previewElm.error)) {
+            showLoadErrorOnce();
+          }
+        }, 5000);
+      });
+
+      $MEDIA_EDIT_PREVIEW.appendChild(previewElm);
+      mediaEditPreviewType = tagName;
+      mediaEditPreviewHtmlPlayer = previewElm;
+      previewElm.load();
+      return;
+    }
+
+    showMediaEditPreviewError(
+      getLocalizedMessage('mediaEditPreviewNoSource', 'Preview is not available because the media source is missing.')
+    );
+  }
+
+  function setMediaEditDirtyState(isDirty: boolean): void {
+    mediaEditIsDirty = isDirty;
+    if (isElement($MODAL_MEDIA_EDIT)) {
+      $MODAL_MEDIA_EDIT.setAttribute('data-dirty', String(isDirty));
+    }
+  }
+
+  function getMediaEditItemIdentity(mediaItem: MediaItem): string {
+    if (Number.isInteger(mediaItem.amId) && mediaItem.amId >= 0) {
+      return `amId:${mediaItem.amId}`;
+    }
+    if (typeof mediaItem.file === 'string' && mediaItem.file.trim() !== '') {
+      return `file:${mediaItem.file.trim()}`;
+    }
+    if (typeof mediaItem.videoid === 'string' && mediaItem.videoid.trim() !== '') {
+      return `videoid:${mediaItem.videoid.trim()}`;
+    }
+    return `title:${sanitizeMediaText(mediaItem.title || '', MEDIA_TITLE_MAX_LENGTH)}`;
+  }
+
+  function getMediaEditDraftKey(mediaItem: MediaItem): string {
+    const playlistKey = (AMP_STATUS.playlist || '').trim() || '__playlist__';
+    return `${playlistKey}::${getMediaEditItemIdentity(mediaItem)}`;
+  }
+
+  function serializeMediaEditDraftStore(): void {
+    try {
+      const serialized = JSON.stringify(Object.fromEntries(mediaEditDraftStore));
+      window.sessionStorage.setItem(MEDIA_EDIT_DRAFT_STORAGE_KEY, serialized);
+    } catch (_error) {
+      // Ignore storage failures and keep in-memory drafts only.
+    }
+  }
+
+  function hydrateMediaEditDraftStore(): void {
+    try {
+      const raw = window.sessionStorage.getItem(MEDIA_EDIT_DRAFT_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (!isObject(parsed) || Array.isArray(parsed)) {
+        return;
+      }
+      Object.entries(parsed).forEach(([key, value]) => {
+        if (!isObject(value) || Array.isArray(value)) {
+          return;
+        }
+        const normalized = sanitizeMediaEditDraft({
+          category: value['category'],
+          title: value['title'],
+          artist: value['artist'],
+          description: value['description'],
+          volume: value['volume'],
+          seekStart: value['seekStart'],
+          seekEnd: value['seekEnd'],
+          fadeInEnd: value['fadeInEnd'],
+          fadeOutStart: value['fadeOutStart'],
+        });
+        mediaEditDraftStore.set(key, normalized);
+      });
+    } catch (_error) {
+      mediaEditDraftStore.clear();
+    }
+  }
+
+  function setMediaEditDraftByKey(key: string, draft: MediaEditDraft): void {
+    mediaEditDraftStore.set(key, cloneMediaEditDraft(draft));
+    serializeMediaEditDraftStore();
+  }
+
+  function deleteMediaEditDraftByKey(key: string): void {
+    mediaEditDraftStore.delete(key);
+    serializeMediaEditDraftStore();
+  }
+
+  function createMediaEditBaseDraft(mediaItem: MediaItem): MediaEditDraft {
+    const timing = getMediaEditTimingFromStoredDurations(mediaItem);
+    return sanitizeMediaEditDraft({
+      category: getMediaCategoryName(mediaItem),
+      title: mediaItem.title || '',
+      artist: mediaItem.artist || '',
+      description: sanitizeMediaEditDescInput(String(mediaItem.desc || ''), MEDIA_DESC_MAX_LENGTH),
+      volume: mediaItem.volume,
+      seekStart: timing.seekStart,
+      seekEnd: timing.seekEnd,
+      fadeInEnd: timing.fadeInEnd,
+      fadeOutStart: timing.fadeOutStart,
+      thumbnailMode: 'keep',
+      thumbnailName: mediaItem.image || mediaItem.thumb || '',
+      thumbnailMime: '',
+      thumbnailDataUrl: '',
+    }, {
+      category: '',
+      title: '',
+      artist: '',
+      description: '',
+      volume: getDefaultVolume(),
+      seekStart: null,
+      seekEnd: null,
+      fadeInEnd: null,
+      fadeOutStart: null,
+      thumbnailMode: 'keep',
+      thumbnailName: '',
+      thumbnailMime: '',
+      thumbnailDataUrl: '',
+    });
+  }
+
+  function applyMediaEditDraftToForm(draft: MediaEditDraft): void {
+    if (isElement($MEDIA_EDIT_CATEGORY)) {
+      $MEDIA_EDIT_CATEGORY.value = draft.category;
+    }
+    syncMediaEditCategoryClearButton();
+    renderMediaEditCategoryOptions();
+    if (isElement($MEDIA_EDIT_TITLE)) {
+      $MEDIA_EDIT_TITLE.value = draft.title;
+    }
+    if (isElement($MEDIA_EDIT_ARTIST)) {
+      $MEDIA_EDIT_ARTIST.value = draft.artist;
+    }
+    if (isElement($MEDIA_EDIT_DESCRIPTION)) {
+      $MEDIA_EDIT_DESCRIPTION.value = draft.description;
+    }
+    if (isElement($MEDIA_EDIT_VOLUME)) {
+      $MEDIA_EDIT_VOLUME.value = String(draft.volume);
+      syncRangeProgress($MEDIA_EDIT_VOLUME);
+      if (isElement($MEDIA_EDIT_VOLUME_VALUE)) {
+        $MEDIA_EDIT_VOLUME_VALUE.textContent = String(draft.volume);
+      }
+    }
+    if (isElement($MEDIA_EDIT_THUMBNAIL_NAME)) {
+      $MEDIA_EDIT_THUMBNAIL_NAME.textContent = draft.thumbnailMode === 'upload'
+        ? draft.thumbnailName
+        : draft.thumbnailMode === 'remove'
+          ? 'Thumbnail removal pending'
+          : draft.thumbnailName || '';
+    }
+    if (isElement($MEDIA_EDIT_THUMBNAIL_PREVIEW)) {
+      $MEDIA_EDIT_THUMBNAIL_PREVIEW.src = draft.thumbnailMode === 'upload' && draft.thumbnailDataUrl
+        ? draft.thumbnailDataUrl
+        : getMediaEditThumbnailSrc(mediaEditActiveItem, draft);
+    }
+    if (isElement($MEDIA_EDIT_THUMBNAIL_SECTION)) {
+      $MEDIA_EDIT_THUMBNAIL_SECTION.classList.toggle('hidden', !isLocalMode());
+    }
+    const hasThumbnail = draft.thumbnailMode === 'upload'
+      || (draft.thumbnailMode !== 'remove' && (
+        draft.thumbnailName !== ''
+        || !!mediaEditActiveItem?.image
+        || !!mediaEditActiveItem?.thumb
+      ));
+    if (isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR)) {
+      $BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR.classList.toggle('hidden', !hasThumbnail);
+    }
+    if (isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE)) {
+      $BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE.disabled = !hasThumbnail;
+    }
+    if (isElement($MEDIA_EDIT_SEEK_START)) {
+      $MEDIA_EDIT_SEEK_START.value = toMediaEditTimingInputValue(draft.seekStart);
+    }
+    if (isElement($MEDIA_EDIT_SEEK_END)) {
+      $MEDIA_EDIT_SEEK_END.value = toMediaEditTimingInputValue(draft.seekEnd);
+    }
+    if (isElement($MEDIA_EDIT_FADEIN_END)) {
+      $MEDIA_EDIT_FADEIN_END.value = toMediaEditTimingInputValue(draft.fadeInEnd);
+    }
+    if (isElement($MEDIA_EDIT_FADEOUT_START)) {
+      $MEDIA_EDIT_FADEOUT_START.value = toMediaEditTimingInputValue(draft.fadeOutStart);
+    }
+    syncMediaEditTimingDisplay();
+  }
+
+  function findCategoryIndexByName(categoryName: string): number | null {
+    const target = categoryName.trim();
+    if (target === '' || !Array.isArray(AMP_STATUS.category)) {
+      return null;
+    }
+    const index = AMP_STATUS.category.findIndex((name) => String(name).trim() === target);
+    return index >= 0 ? index : null;
+  }
+
+  function getMediaEditWorkingCopyForSave(): MediaItem[] | null {
+    if (!Array.isArray(AMP_STATUS.media) || !mediaEditActiveItem) {
+      return null;
+    }
+    return AMP_STATUS.media.map((item: MediaItem) => ({ ...item }));
+  }
+
+  function applyDraftToMediaItem(item: MediaItem, draft: MediaEditDraft): MediaItem {
+    const nextItem: MediaItem = { ...item };
+    const fadeDurations = getMediaEditComputedFadeDurations(item, draft);
+    const categoryIndex = findCategoryIndexByName(draft.category);
+    if (categoryIndex !== null) {
+      nextItem.catId = categoryIndex;
+    }
+    nextItem.title = draft.title;
+    nextItem.artist = draft.artist || '';
+    nextItem.desc = sanitizeMediaEditDescForStorage(draft.description || '', MEDIA_DESC_MAX_LENGTH);
+    nextItem.volume = draft.volume;
+    nextItem.start = draft.seekStart ?? '';
+    nextItem.end = draft.seekEnd ?? '';
+    nextItem.fadein = fadeDurations.fadein;
+    nextItem.fadeout = fadeDurations.fadeout;
+
+    if (draft.thumbnailMode === 'remove') {
+      nextItem.image = '';
+      nextItem.thumb = '';
+    } else if (draft.thumbnailMode === 'upload' && draft.thumbnailName !== '') {
+      nextItem.image = draft.thumbnailName;
+      nextItem.thumb = '';
+    }
+
+    return nextItem;
+  }
+
+  async function uploadMediaEditThumbnailIfNeeded(draft: MediaEditDraft): Promise<{ ok: boolean; message: string }> {
+    if (draft.thumbnailMode !== 'upload' || draft.thumbnailDataUrl === '' || draft.thumbnailName === '') {
+      return { ok: true, message: '' };
+    }
+
+    if (!isLocalMode()) {
+      return { ok: false, message: getLocalizedMessage('mediaEditThumbnailCloudOnly', 'Thumbnail upload is available only in local mode.') };
+    }
+
+    const base64Body = draft.thumbnailDataUrl.includes(',')
+      ? draft.thumbnailDataUrl.split(',')[1] || ''
+      : draft.thumbnailDataUrl;
+    if (base64Body.trim() === '') {
+      return { ok: false, message: getLocalizedMessage('mediaEditThumbnailInvalidData', 'Invalid image data.') };
+    }
+
+    try {
+      const rawResponse = await fetch(`${BASE_URL}${MEDIA_EDIT_THUMBNAIL_ENDPOINT}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filename: draft.thumbnailName,
+          content: base64Body,
+        }),
+        credentials: 'same-origin',
+      });
+      const payload = await rawResponse.json().catch(() => null) as ApiResponse<{ message?: string }> | null;
+      if (!payload || payload.state !== 'ok') {
+        const message = payload?.data?.message || getLocalizedMessage('mediaEditThumbnailUploadFailed', 'Failed to save thumbnail image.');
+        return { ok: false, message };
+      }
+      return { ok: true, message: payload.data?.message || '' };
+    } catch (_error) {
+      return { ok: false, message: getLocalizedMessage('mediaEditThumbnailUploadFailed', 'Failed to save thumbnail image.') };
+    }
+  }
+
+  async function deleteMediaEditThumbnailIfNeeded(draft: MediaEditDraft): Promise<{ ok: boolean; message: string }> {
+    if (draft.thumbnailMode !== 'remove') {
+      return { ok: true, message: '' };
+    }
+
+    const filename = mediaEditBaseDraft?.thumbnailName || '';
+    if (filename === '') {
+      return { ok: true, message: '' };
+    }
+
+    if (!isLocalMode()) {
+      return { ok: false, message: getLocalizedMessage('mediaEditThumbnailCloudOnly', 'Thumbnail removal is available only in local mode.') };
+    }
+
+    try {
+      const rawResponse = await fetch(`${BASE_URL}${MEDIA_EDIT_THUMBNAIL_ENDPOINT}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ filename }),
+        credentials: 'same-origin',
+      });
+      const payload = await rawResponse.json().catch(() => null) as ApiResponse<{ message?: string }> | null;
+      if (!payload || payload.state !== 'ok') {
+        const message = payload?.data?.message || getLocalizedMessage('mediaEditThumbnailDeleteFailed', 'Failed to delete thumbnail image.');
+        return { ok: false, message };
+      }
+      return { ok: true, message: payload.data?.message || '' };
+    } catch (_error) {
+      return { ok: false, message: getLocalizedMessage('mediaEditThumbnailDeleteFailed', 'Failed to delete thumbnail image.') };
+    }
+  }
+
+  async function persistMediaEditForCurrentPlaylist(workingMedia: MediaItem[]): Promise<{ ok: boolean; message: string }> {
+    const ambientData = getAmbientData();
+    if (ambientData?.isCloud) {
+      const persisted = persistMyPlaylistIfNeeded();
+      return {
+        ok: persisted,
+        message: persisted
+          ? getLocalizedMessage('mediaEditSaveSuccess', 'Media changes were saved successfully.')
+          : getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.'),
+      };
+    }
+
+    const playlistName = AMP_STATUS.playlist || '';
+    if (playlistName === '') {
+      return { ok: false, message: getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.') };
+    }
+
+    try {
+      const payloadText = generatePlaylistJson(false);
+      const payloadObject = parseJsonWithBom(payloadText);
+      const rawResponse = await fetch(`${BASE_URL}${MEDIA_EDIT_SAVE_ENDPOINT}/${encodeURIComponent(playlistName)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payloadObject),
+        credentials: 'same-origin',
+      });
+      const payload = await rawResponse.json().catch(() => null) as ApiResponse<{ message?: string }> | null;
+      if (!payload || payload.state !== 'ok') {
+        const message = payload?.data?.message || getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.');
+        return { ok: false, message };
+      }
+      void workingMedia;
+      return {
+        ok: true,
+        message: payload.data?.message || getLocalizedMessage('mediaEditSaveSuccess', 'Media changes were saved successfully.'),
+      };
+    } catch (_error) {
+      return { ok: false, message: getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.') };
+    }
+  }
+
+  async function saveMediaEdit(): Promise<void> {
+    if (!mediaEditActiveItem || !mediaEditBaseDraft || !Array.isArray(AMP_STATUS.media)) {
+      return;
+    }
+
+    const validation = validateAndRenderMediaEditDraftFromForm();
+    if (!validation.valid) {
+      updateNotice({
+        type: 'error',
+        message: getLocalizedMessage('mediaEditValidationError', 'Please fix the validation errors before saving.'),
+        delay: 2400,
+      });
+      return;
+    }
+
+    const draft = readMediaEditDraftFromForm();
+    let categoryIndex = findCategoryIndexByName(draft.category);
+    if (categoryIndex === null) {
+      if (!Array.isArray(AMP_STATUS.category)) {
+        AMP_STATUS.category = [];
+      }
+      AMP_STATUS.category.push(draft.category.trim());
+      categoryIndex = AMP_STATUS.category.length - 1;
+    }
+
+    if (isElement($BUTTON_SAVE_MEDIA_EDIT)) {
+      $BUTTON_SAVE_MEDIA_EDIT.disabled = true;
+      $BUTTON_SAVE_MEDIA_EDIT.setAttribute('aria-busy', 'true');
+    }
+
+    const workingMedia = getMediaEditWorkingCopyForSave();
+    if (!workingMedia) {
+      if (isElement($BUTTON_SAVE_MEDIA_EDIT)) {
+        $BUTTON_SAVE_MEDIA_EDIT.disabled = false;
+        $BUTTON_SAVE_MEDIA_EDIT.removeAttribute('aria-busy');
+      }
+      return;
+    }
+
+    const targetIndex = workingMedia.findIndex((item) => item.amId === mediaEditActiveItem!.amId);
+    if (targetIndex < 0) {
+      if (isElement($BUTTON_SAVE_MEDIA_EDIT)) {
+        $BUTTON_SAVE_MEDIA_EDIT.disabled = false;
+        $BUTTON_SAVE_MEDIA_EDIT.removeAttribute('aria-busy');
+      }
+      return;
+    }
+
+    const uploadResult = await uploadMediaEditThumbnailIfNeeded(draft);
+    if (!uploadResult.ok) {
+      if (isElement($BUTTON_SAVE_MEDIA_EDIT)) {
+        $BUTTON_SAVE_MEDIA_EDIT.disabled = false;
+        $BUTTON_SAVE_MEDIA_EDIT.removeAttribute('aria-busy');
+      }
+      updateNotice({ type: 'error', message: uploadResult.message, delay: 2600 });
+      return;
+    }
+
+    const deleteResult = await deleteMediaEditThumbnailIfNeeded(draft);
+    if (!deleteResult.ok) {
+      if (isElement($BUTTON_SAVE_MEDIA_EDIT)) {
+        $BUTTON_SAVE_MEDIA_EDIT.disabled = false;
+        $BUTTON_SAVE_MEDIA_EDIT.removeAttribute('aria-busy');
+      }
+      updateNotice({ type: 'error', message: deleteResult.message, delay: 2600 });
+      return;
+    }
+
+    const targetMediaItem = workingMedia[targetIndex];
+    if (!targetMediaItem) {
+      if (isElement($BUTTON_SAVE_MEDIA_EDIT)) {
+        $BUTTON_SAVE_MEDIA_EDIT.disabled = false;
+        $BUTTON_SAVE_MEDIA_EDIT.removeAttribute('aria-busy');
+      }
+      return;
+    }
+
+    workingMedia[targetIndex] = applyDraftToMediaItem(targetMediaItem, draft);
+
+    const previousMedia = AMP_STATUS.media;
+    AMP_STATUS.media = workingMedia;
+    const persistResult = await persistMediaEditForCurrentPlaylist(workingMedia);
+    if (!persistResult.ok) {
+      AMP_STATUS.media = previousMedia;
+      if (isElement($BUTTON_SAVE_MEDIA_EDIT)) {
+        $BUTTON_SAVE_MEDIA_EDIT.disabled = false;
+        $BUTTON_SAVE_MEDIA_EDIT.removeAttribute('aria-busy');
+      }
+      updateNotice({ type: 'error', message: persistResult.message, delay: 2600 });
+      return;
+    }
+
+    const draftKey = getMediaEditDraftKey(mediaEditActiveItem);
+    deleteMediaEditDraftByKey(draftKey);
+    mediaEditBaseDraft = createMediaEditBaseDraft(workingMedia[targetIndex]);
+    setMediaEditDirtyState(false);
+    clearCategory();
+    updateCategory();
+    syncMediaCategoryField();
+    syncMediaEditCategoryClearButton();
+    renderMediaEditCategoryOptions();
+    updatePlaylist();
+    if (AMP_STATUS.current === workingMedia[targetIndex].amId) {
+      updatePlayStatus(workingMedia[targetIndex].amId);
+    }
+    if (isElement($BUTTON_SAVE_MEDIA_EDIT)) {
+      $BUTTON_SAVE_MEDIA_EDIT.disabled = false;
+      $BUTTON_SAVE_MEDIA_EDIT.removeAttribute('aria-busy');
+    }
+    updateNotice({
+      type: 'success',
+      message: persistResult.message || getLocalizedMessage('mediaEditSaveSuccess', 'Media changes were saved successfully.'),
+      delay: 2200,
+    });
+    hideMediaEditModal(true);
+  }
+
+  function readMediaEditDraftFromForm(): MediaEditDraft {
+    const fallback = mediaEditBaseDraft || {
+      category: '',
+      title: '',
+      artist: '',
+      description: '',
+      volume: getDefaultVolume(),
+      seekStart: null,
+      seekEnd: null,
+      fadeInEnd: null,
+      fadeOutStart: null,
+      thumbnailMode: 'keep',
+      thumbnailName: '',
+      thumbnailMime: '',
+      thumbnailDataUrl: '',
+    };
+    const activeDraft = mediaEditActiveItem
+      ? mediaEditDraftStore.get(getMediaEditDraftKey(mediaEditActiveItem)) || null
+      : null;
+    return sanitizeMediaEditDraft({
+      category: $MEDIA_EDIT_CATEGORY?.value,
+      title: $MEDIA_EDIT_TITLE?.value,
+      artist: $MEDIA_EDIT_ARTIST?.value,
+      description: $MEDIA_EDIT_DESCRIPTION?.value,
+      volume: $MEDIA_EDIT_VOLUME ? Number($MEDIA_EDIT_VOLUME.value) : undefined,
+      seekStart: $MEDIA_EDIT_SEEK_START?.value,
+      seekEnd: $MEDIA_EDIT_SEEK_END?.value,
+      fadeInEnd: $MEDIA_EDIT_FADEIN_END?.value,
+      fadeOutStart: $MEDIA_EDIT_FADEOUT_START?.value,
+      thumbnailMode: activeDraft?.thumbnailMode,
+      thumbnailName: activeDraft?.thumbnailName,
+      thumbnailMime: activeDraft?.thumbnailMime,
+      thumbnailDataUrl: activeDraft?.thumbnailDataUrl,
+    }, fallback);
+  }
+
+  function isActiveMediaEditUnsaved(): boolean {
+    if (!mediaEditActiveItem) {
+      return false;
+    }
+    return mediaEditDraftStore.has(getMediaEditDraftKey(mediaEditActiveItem));
+  }
+
+  function syncMediaEditDraftStateFromForm(): void {
+    if (!mediaEditActiveItem || !mediaEditBaseDraft) {
+      return;
+    }
+    const currentDraft = readMediaEditDraftFromForm();
+    const currentKey = getMediaEditDraftKey(mediaEditActiveItem);
+    const isDirty = !isSameMediaEditDraft(currentDraft, mediaEditBaseDraft);
+    if (isDirty) {
+      setMediaEditDraftByKey(currentKey, currentDraft);
+    } else {
+      deleteMediaEditDraftByKey(currentKey);
+    }
+    setMediaEditDirtyState(isDirty);
+  }
+
+  function discardActiveMediaEditDraft(): void {
+    if (mediaEditActiveItem) {
+      deleteMediaEditDraftByKey(getMediaEditDraftKey(mediaEditActiveItem));
+    }
+    setMediaEditDirtyState(false);
+  }
+
+  function clearMediaEditContext(): void {
+    mediaEditActiveItem = null;
+    mediaEditBaseDraft = null;
+    mediaEditPreviewSourceItem = null;
+    setMediaEditDirtyState(false);
+  }
+
+  function confirmDiscardActiveMediaEditIfNeeded(fallbackMessage: string = 'Discard unsaved edits?'): boolean {
+    if (!isActiveMediaEditUnsaved() && !mediaEditIsDirty) {
+      return true;
+    }
+    const message = getLocalizedMessage('Discard unsaved media edits?', fallbackMessage);
+    const shouldDiscard = window.confirm(message);
+    if (!shouldDiscard) {
+      return false;
+    }
+    discardActiveMediaEditDraft();
+    return true;
+  }
+
+  function bindMediaEditForm(mediaItem: MediaItem): void {
+    mediaEditActiveItem = mediaItem;
+    mediaEditBaseDraft = createMediaEditBaseDraft(mediaItem);
+    const draftKey = getMediaEditDraftKey(mediaItem);
+    const sessionDraft = mediaEditDraftStore.get(draftKey) || null;
+    const initialDraft = sessionDraft || mediaEditBaseDraft;
+    applyMediaEditDraftToForm(initialDraft);
+    setMediaEditDirtyState(!isSameMediaEditDraft(initialDraft, mediaEditBaseDraft));
+    validateAndRenderMediaEditDraftFromForm();
+  }
+
+  hydrateMediaEditDraftStore();
+
+  function isMediaEditModalVisible(): boolean {
+    return isElement($MODAL_MEDIA_EDIT) && !$MODAL_MEDIA_EDIT.classList.contains('hidden');
+  }
+
+  function getMediaEditFocusableElements(): HTMLElement[] {
+    if (!isElement($MODAL_MEDIA_EDIT)) {
+      return [];
+    }
+    return Array.from(
+      $MODAL_MEDIA_EDIT.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((elm) => !elm.hasAttribute('disabled'));
+  }
+
+  function trapMediaEditModalFocus(evt: KeyboardEvent): void {
+    if (!isMediaEditModalVisible()) {
+      return;
+    }
+    const focusableElements = getMediaEditFocusableElements();
+    if (focusableElements.length === 0) {
+      evt.preventDefault();
+      $MODAL_MEDIA_EDIT?.focus();
+      return;
+    }
+    const activeElement = document.activeElement as HTMLElement | null;
+    const firstElement = focusableElements[0] || null;
+    const lastElement = focusableElements[focusableElements.length - 1] || null;
+    if (!firstElement || !lastElement) {
+      evt.preventDefault();
+      $MODAL_MEDIA_EDIT?.focus();
+      return;
+    }
+    if (evt.shiftKey && activeElement === firstElement) {
+      evt.preventDefault();
+      lastElement.focus();
+    } else if (!evt.shiftKey && activeElement === lastElement) {
+      evt.preventDefault();
+      firstElement.focus();
+    }
+  }
+
+  function renderMediaEditSourceBadges(mediaItem: MediaItem): void {
+    if (!isElement($MODAL_MEDIA_EDIT_ITEM_SOURCE)) {
+      return;
+    }
+    $MODAL_MEDIA_EDIT_ITEM_SOURCE.innerHTML = '';
+
+    const typeBadge = document.createElement('span');
+    typeBadge.className = 'media-edit-source-badge media-edit-source-badge--type';
+
+    if (mediaItem.videoid && mediaItem.videoid.trim() !== '') {
+      typeBadge.textContent = 'YouTube';
+      const sourceBadge = document.createElement('span');
+      sourceBadge.className = 'media-edit-source-badge';
+      sourceBadge.textContent = mediaItem.videoid.trim();
+      $MODAL_MEDIA_EDIT_ITEM_SOURCE.appendChild(typeBadge);
+      $MODAL_MEDIA_EDIT_ITEM_SOURCE.appendChild(sourceBadge);
+    } else if (mediaItem.file && mediaItem.file.trim() !== '') {
+      const isAudio = /\.(mp3|aac|ogg|flac|wav|m4a|opus)(\?.*)?$/i.test(mediaItem.file);
+      typeBadge.textContent = isAudio ? 'Local audio' : 'Local video';
+      const sourceBadge = document.createElement('span');
+      sourceBadge.className = 'media-edit-source-badge';
+      sourceBadge.textContent = mediaItem.file.trim();
+      $MODAL_MEDIA_EDIT_ITEM_SOURCE.appendChild(typeBadge);
+      $MODAL_MEDIA_EDIT_ITEM_SOURCE.appendChild(sourceBadge);
+    } else {
+      typeBadge.textContent = 'Unknown';
+      $MODAL_MEDIA_EDIT_ITEM_SOURCE.appendChild(typeBadge);
+    }
+
+    const categoryName = getMediaCategoryName(mediaItem);
+    if (categoryName !== '') {
+      const catBadge = document.createElement('span');
+      catBadge.className = 'media-edit-source-badge';
+      catBadge.textContent = categoryName;
+      $MODAL_MEDIA_EDIT_ITEM_SOURCE.appendChild(catBadge);
+    }
+  }
+
+  function getMediaEditThumbnailSrc(mediaItem: MediaItem | null, draft: MediaEditDraft | null = null): string {
+    if (draft?.thumbnailMode === 'upload' && draft.thumbnailDataUrl !== '') {
+      return draft.thumbnailDataUrl;
+    }
+    const ambientData = getAmbientData();
+    if (draft?.thumbnailMode === 'remove') {
+      return getNoMediaImagePath('thumb');
+    }
+    const thumbnailName = draft?.thumbnailName || mediaItem?.image || mediaItem?.thumb || '';
+    if (thumbnailName !== '' && ambientData?.imageDir) {
+      return ambientData.imageDir + thumbnailName;
+    }
+    return getNoMediaImagePath('thumb');
+  }
+
+  function hideMediaEditModal(restoreFocus = false): void {
+    if (!isElement($MODAL_MEDIA_EDIT)) {
+      return;
+    }
+    const editedMediaId = mediaEditActiveItem?.amId ?? null;
+    resetMediaEditPreviewState();
+    clearMediaEditValidationView();
+    $MODAL_MEDIA_EDIT.classList.add('hidden');
+    $MODAL_MEDIA_EDIT.setAttribute('aria-hidden', 'true');
+    if (isElement($MODAL_MEDIA_EDIT_TITLE)) {
+      $MODAL_MEDIA_EDIT_TITLE.textContent = defaultMediaEditModalTitle;
+    }
+    if (isElement($MODAL_MEDIA_EDIT_ITEM_TITLE)) {
+      $MODAL_MEDIA_EDIT_ITEM_TITLE.textContent = '';
+    }
+    if (isElement($MODAL_MEDIA_EDIT_ITEM_SOURCE)) {
+      $MODAL_MEDIA_EDIT_ITEM_SOURCE.innerHTML = '';
+    }
+    closeMediaEditCategoryDropdown(false);
+    const restoreTarget = activeMediaEditTrigger;
+    activeMediaEditTrigger = null;
+    if (restoreFocus) {
+      const preferredFocusId = isMediaPlaybackActive() ? AMP_STATUS.current : editedMediaId;
+      if (!focusPlaylistItemById(preferredFocusId)) {
+        restoreTarget?.focus();
+      }
+    }
+  }
+
+  function closeMediaEditModal(restoreFocus = false): void {
+    hideMediaEditModal(restoreFocus);
+  }
+
+  function cancelMediaEditModal(restoreFocus = false): void {
+    discardActiveMediaEditDraft();
+    hideMediaEditModal(restoreFocus);
+  }
+
+  function isMediaPlaybackActive(): boolean {
+    if (AMP_STATUS.current === null) {
+      return false;
+    }
+    if (AMP_STATUS.playertype === 'youtube' && player && typeof player.getPlayerState === 'function') {
+      try {
+        return player.getPlayerState() === 1;
+      } catch (_error) {
+        return $BUTTON_PLAY.classList.contains('hidden') && !$BUTTON_PAUSE.classList.contains('hidden');
+      }
+    }
+    if (/^(audio|video)$/i.test(String(AMP_STATUS.playertype || ''))) {
+      const mediaElm = document.querySelector(String(AMP_STATUS.playertype)) as HTMLMediaElement | null;
+      if (mediaElm) {
+        return !mediaElm.paused && !mediaElm.ended;
+      }
+    }
+    return $BUTTON_PLAY.classList.contains('hidden') && !$BUTTON_PAUSE.classList.contains('hidden');
+  }
+
+  function focusPlaylistItemById(amId: number | null): boolean {
+    if (amId === null) {
+      return false;
+    }
+    const targetElm = $LIST_PLAYLIST.querySelector(`a[data-playlist-item="${amId}"]`) as HTMLElement | null;
+    if (!targetElm) {
+      return false;
+    }
+    targetElm.focus();
+    targetElm.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    return true;
+  }
+
+  function openMediaEditModal(mediaItem: MediaItem, trigger: HTMLElement): void {
+    if (!isElement($MODAL_MEDIA_EDIT) || !isElement($MODAL_MEDIA_EDIT_TITLE)) {
+      return;
+    }
+    const nextDraftKey = getMediaEditDraftKey(mediaItem);
+    const activeDraftKey = mediaEditActiveItem ? getMediaEditDraftKey(mediaEditActiveItem) : null;
+    if (activeDraftKey !== null && activeDraftKey !== nextDraftKey) {
+      const canSwitch = confirmDiscardActiveMediaEditIfNeeded('Discard unsaved edits and open another item?');
+      if (!canSwitch) {
+        return;
+      }
+    }
+    activeMediaEditTrigger = trigger;
+    closePlaylistModeMenu();
+    if (isElement($MODAL_MEDIA_EDIT_ITEM_TITLE)) {
+      $MODAL_MEDIA_EDIT_ITEM_TITLE.textContent = sanitizeMediaText(mediaItem.title || '', MEDIA_TITLE_MAX_LENGTH) || 'Untitled media';
+    }
+    renderMediaEditSourceBadges(mediaItem);
+    bindMediaEditForm(mediaItem);
+    if (playlistMode === 'edit') {
+      updatePlaylist();
+    }
+    createMediaEditPreview(mediaItem);
+    $MODAL_MEDIA_EDIT_TITLE.textContent = defaultMediaEditModalTitle;
+    $MODAL_MEDIA_EDIT.classList.remove('hidden');
+    $MODAL_MEDIA_EDIT.removeAttribute('aria-hidden');
+    window.requestAnimationFrame(() => {
+      (isElement($BUTTON_CLOSE_MEDIA_EDIT) ? $BUTTON_CLOSE_MEDIA_EDIT : $MODAL_MEDIA_EDIT)?.focus();
+    });
   }
 
   function isDarkModeEnabled(): boolean {
@@ -1379,7 +2923,7 @@ const init = function (): void {
   const $PLAYLIST_MODE_MENU = document.getElementById('playlist-mode-menu') as HTMLElement | null;
   const $PLAYLIST_MODE_BUTTON_ICON = document.getElementById('playlist-mode-button-icon') as HTMLElement | null;
   const $PLAYLIST_MODE_BUTTON_LABEL = document.getElementById('playlist-mode-button-label') as HTMLElement | null;
-  type PlaylistMode = 'normal' | 'reorder' | 'delete';
+  type PlaylistMode = 'normal' | 'edit' | 'reorder' | 'delete';
   let playlistMode: PlaylistMode = 'normal';
   const defaultPlaylistModeButtonIcon = $PLAYLIST_MODE_BUTTON_ICON ? $PLAYLIST_MODE_BUTTON_ICON.innerHTML : '';
   const defaultPlaylistModeButtonLabel =
@@ -1408,6 +2952,8 @@ const init = function (): void {
   function getPlaylistModeLabel(mode: PlaylistMode): string {
     if (!$BUTTON_PLAYLIST_MODE) return mode;
     switch (mode) {
+      case 'edit':
+        return $BUTTON_PLAYLIST_MODE.dataset['labelEdit'] || 'Edit';
       case 'reorder':
         return $BUTTON_PLAYLIST_MODE.dataset['labelReorder'] || 'Reorder';
       case 'delete':
@@ -1419,6 +2965,17 @@ const init = function (): void {
 
   function isPlaylistInteractionLocked(): boolean {
     return playlistMode !== 'normal';
+  }
+
+  function canUseEditMode(): boolean {
+    const ambientData = getAmbientData();
+    if (!AMP_STATUS.playlist || getPlaylistItemsForCurrentView().length === 0) {
+      return false;
+    }
+    if (ambientData?.isCloud === true) {
+      return AMP_STATUS.playlist === MYPLAYLIST_NAME && localStorage.getItem(MYPLAYLIST_KEY) !== null;
+    }
+    return true;
   }
 
   function getPlaylistItemsForCurrentView(): MediaItem[] {
@@ -1469,7 +3026,17 @@ const init = function (): void {
     if ($PLAYLIST_MODE_MENU) {
       Array.from($PLAYLIST_MODE_MENU.querySelectorAll('.playlist-mode-option')).forEach((elm) => {
         const optElm = elm as HTMLButtonElement;
-        const mode = (optElm.dataset['mode'] || '') as PlaylistMode | 'edit';
+        const mode = (optElm.dataset['mode'] || '') as PlaylistMode;
+        if (mode === 'edit') {
+          const canEdit = canUseEditMode();
+          optElm.disabled = !canEdit;
+          optElm.setAttribute('aria-disabled', String(!canEdit));
+          optElm.classList.toggle('text-gray-400', !canEdit);
+          optElm.classList.toggle('dark:text-gray-500', !canEdit);
+          optElm.classList.toggle('cursor-not-allowed', !canEdit);
+          optElm.classList.toggle('hover:bg-gray-100', canEdit);
+          optElm.classList.toggle('dark:hover:bg-gray-600', canEdit);
+        }
         if (mode === 'reorder') {
           const canReorder = canUseReorderMode();
           optElm.disabled = !canReorder;
@@ -1494,13 +3061,16 @@ const init = function (): void {
   function resetPlaylistOperationMode(): void {
     deleteSelectedIds.clear();
     resetReorderState();
+    discardActiveMediaEditDraft();
+    hideMediaEditModal(false);
+    clearMediaEditContext();
     playlistMode = 'normal';
     updatePlaylistModeUI();
   }
 
   function syncPlaylistModeAvailability(visibleItemCount: number): void {
     if (!$BUTTON_PLAYLIST_MODE) return;
-    const canUsePlaylistModes = canMutateCurrentPlaylist() && visibleItemCount > 0;
+    const canUsePlaylistModes = visibleItemCount > 0 && (canUseEditMode() || canMutateCurrentPlaylist());
     if (!canUsePlaylistModes) {
       closePlaylistModeMenu();
       if (playlistMode !== 'normal') {
@@ -1515,7 +3085,12 @@ const init = function (): void {
   }
 
   function setPlaylistMode(nextMode: PlaylistMode): void {
-    if (nextMode !== 'normal' && !canMutateCurrentPlaylist()) {
+    if (nextMode === 'edit' && !canUseEditMode()) {
+      closePlaylistModeMenu();
+      updatePlaylistModeUI();
+      return;
+    }
+    if (nextMode !== 'normal' && nextMode !== 'edit' && !canMutateCurrentPlaylist()) {
       closePlaylistModeMenu();
       syncPlaylistModeAvailability(getPlaylistItemsForCurrentView().length);
       return;
@@ -1532,6 +3107,15 @@ const init = function (): void {
     // If leaving delete mode without selections, clear just in case
     if (playlistMode === 'delete') {
       deleteSelectedIds.clear();
+    }
+    if (playlistMode === 'edit' && nextMode !== 'edit') {
+      if (!confirmDiscardActiveMediaEditIfNeeded()) {
+        closePlaylistModeMenu();
+        updatePlaylistModeUI();
+        return;
+      }
+      hideMediaEditModal(false);
+      clearMediaEditContext();
     }
     if (playlistMode === 'reorder' && nextMode !== 'reorder') {
       resetReorderState();
@@ -1606,7 +3190,7 @@ const init = function (): void {
           return;
         }
         const nextMode = optionElm.dataset['mode'];
-        if (nextMode === 'normal' || nextMode === 'reorder' || nextMode === 'delete') {
+        if (nextMode === 'normal' || nextMode === 'edit' || nextMode === 'reorder' || nextMode === 'delete') {
           setPlaylistMode(nextMode);
         }
       });
@@ -2300,6 +3884,20 @@ const init = function (): void {
     });
 
   document.addEventListener('keydown', (evt: KeyboardEvent) => {
+    if (evt.key === 'Escape' && isMediaEditModalVisible() && isMediaEditCategoryDropdownVisible()) {
+      evt.preventDefault();
+      closeMediaEditCategoryDropdown(true);
+      return;
+    }
+    if (evt.key === 'Escape' && isMediaEditModalVisible()) {
+      evt.preventDefault();
+      closeMediaEditModal(true);
+      return;
+    }
+    if (evt.key === 'Tab' && isMediaEditModalVisible()) {
+      trapMediaEditModalFocus(evt);
+      return;
+    }
     if (evt.key === 'Escape' && isOptionsModalVisible()) {
       hideOptionsModal();
       restoreOptionsTriggerFocus();
@@ -2313,6 +3911,275 @@ const init = function (): void {
       evt.preventDefault();
       closePlaylistDescModal(true);
     });
+  }
+
+  if (isElement($BUTTON_CLOSE_MEDIA_EDIT)) {
+    $BUTTON_CLOSE_MEDIA_EDIT.addEventListener('click', (evt: Event) => {
+      evt.preventDefault();
+      closeMediaEditModal(true);
+    });
+  }
+
+  if (isElement($BUTTON_CANCEL_MEDIA_EDIT)) {
+    $BUTTON_CANCEL_MEDIA_EDIT.addEventListener('click', (evt: Event) => {
+      evt.preventDefault();
+      cancelMediaEditModal(true);
+    });
+  }
+
+  if (isElement($BUTTON_SAVE_MEDIA_EDIT)) {
+    $BUTTON_SAVE_MEDIA_EDIT.addEventListener('click', async (evt: Event) => {
+      evt.preventDefault();
+      await saveMediaEdit();
+    });
+  }
+
+  if (isElement($FORM_MEDIA_EDIT)) {
+    $FORM_MEDIA_EDIT.addEventListener('submit', (evt: Event) => {
+      evt.preventDefault();
+    });
+  }
+
+  if (isElement($BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE)) {
+    $BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE.addEventListener('click', (evt: Event) => {
+      evt.preventDefault();
+      if (isMediaEditCategoryDropdownVisible()) {
+        closeMediaEditCategoryDropdown(true);
+      } else {
+        openMediaEditCategoryDropdown();
+        $MEDIA_EDIT_CATEGORY?.focus();
+      }
+    });
+  }
+
+  if (isElement($BUTTON_MEDIA_EDIT_CATEGORY_CLEAR) && isElement($MEDIA_EDIT_CATEGORY)) {
+    $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR.addEventListener('click', (evt: Event) => {
+      evt.preventDefault();
+      $MEDIA_EDIT_CATEGORY.value = '';
+      syncMediaEditCategoryClearButton();
+      if (isMediaEditCategoryDropdownVisible()) {
+        renderMediaEditCategoryOptions();
+      }
+      $MEDIA_EDIT_CATEGORY.dispatchEvent(new Event('input', { bubbles: true }));
+      $MEDIA_EDIT_CATEGORY.dispatchEvent(new Event('change', { bubbles: true }));
+      $MEDIA_EDIT_CATEGORY.focus();
+    });
+  }
+
+  if (isElement($MEDIA_EDIT_CATEGORY)) {
+    $MEDIA_EDIT_CATEGORY.addEventListener('keydown', (evt: KeyboardEvent) => {
+      if (evt.key === 'ArrowDown') {
+        evt.preventDefault();
+        openMediaEditCategoryDropdown();
+      }
+    });
+    $MEDIA_EDIT_CATEGORY.addEventListener('input', () => {
+      syncMediaEditCategoryClearButton();
+      if (isMediaEditCategoryDropdownVisible()) {
+        renderMediaEditCategoryOptions();
+      }
+    });
+  }
+
+  document.addEventListener('pointerdown', (evt: PointerEvent) => {
+    if (!isMediaEditCategoryDropdownVisible() || !isElement($MEDIA_EDIT_CATEGORY_COMBOBOX)) {
+      return;
+    }
+    const target = evt.target;
+    if (target instanceof Node && !$MEDIA_EDIT_CATEGORY_COMBOBOX.contains(target)) {
+      closeMediaEditCategoryDropdown(false);
+    }
+  });
+
+  [$MEDIA_EDIT_CATEGORY, $MEDIA_EDIT_TITLE, $MEDIA_EDIT_ARTIST, $MEDIA_EDIT_DESCRIPTION]
+    .forEach((field) => {
+      if (!field) {
+        return;
+      }
+      field.addEventListener('input', () => {
+        syncMediaEditDraftStateFromForm();
+        validateAndRenderMediaEditDraftFromForm();
+      });
+      field.addEventListener('change', () => {
+        syncMediaEditDraftStateFromForm();
+        validateAndRenderMediaEditDraftFromForm();
+      });
+    });
+
+  if (isElement($MEDIA_EDIT_VOLUME)) {
+    $MEDIA_EDIT_VOLUME.addEventListener('input', () => {
+      const normalized = readMediaEditDraftFromForm();
+      $MEDIA_EDIT_VOLUME.value = String(normalized.volume);
+      syncRangeProgress($MEDIA_EDIT_VOLUME);
+      if (isElement($MEDIA_EDIT_VOLUME_VALUE)) {
+        $MEDIA_EDIT_VOLUME_VALUE.textContent = String(normalized.volume);
+      }
+      syncMediaEditDraftStateFromForm();
+      validateAndRenderMediaEditDraftFromForm();
+    });
+    $MEDIA_EDIT_VOLUME.addEventListener('blur', () => {
+      const normalized = readMediaEditDraftFromForm();
+      $MEDIA_EDIT_VOLUME.value = String(normalized.volume);
+      syncRangeProgress($MEDIA_EDIT_VOLUME);
+      if (isElement($MEDIA_EDIT_VOLUME_VALUE)) {
+        $MEDIA_EDIT_VOLUME_VALUE.textContent = String(normalized.volume);
+      }
+      syncMediaEditDraftStateFromForm();
+      validateAndRenderMediaEditDraftFromForm();
+    });
+  }
+
+  [$MEDIA_EDIT_SEEK_START, $MEDIA_EDIT_SEEK_END, $MEDIA_EDIT_FADEIN_END, $MEDIA_EDIT_FADEOUT_START]
+    .forEach((field) => {
+      if (!field) {
+        return;
+      }
+      field.addEventListener('input', () => {
+        sanitizeMediaEditTimingInputField(field);
+        syncMediaEditTimingDisplay();
+        syncMediaEditDraftStateFromForm();
+        validateAndRenderMediaEditDraftFromForm();
+      });
+      field.addEventListener('change', () => {
+        sanitizeMediaEditTimingInputField(field);
+        syncMediaEditTimingDisplay();
+        syncMediaEditDraftStateFromForm();
+        validateAndRenderMediaEditDraftFromForm();
+      });
+      field.addEventListener('blur', () => {
+        field.value = toMediaEditTimingInputValue(parseMediaTimeToIntegerSeconds(field.value));
+        syncMediaEditTimingDisplay();
+        syncMediaEditDraftStateFromForm();
+        validateAndRenderMediaEditDraftFromForm();
+      });
+    });
+
+  document.querySelectorAll('.media-edit-timing-stepper-btn').forEach((elm) => {
+    if (!(elm instanceof HTMLButtonElement)) {
+      return;
+    }
+    elm.addEventListener('click', (evt: Event) => {
+      evt.preventDefault();
+      const targetId = elm.dataset['target'] || '';
+      if (targetId === '') {
+        return;
+      }
+      const targetField = document.getElementById(targetId);
+      if (!(targetField instanceof HTMLInputElement)) {
+        return;
+      }
+      const direction: 1 | -1 = elm.dataset['stepDir'] === 'down' ? -1 : 1;
+      stepMediaEditTimingField(targetField, direction);
+    });
+  });
+
+  if (isElement($BUTTON_MEDIA_EDIT_SYNC_SEEK_START)) {
+    $BUTTON_MEDIA_EDIT_SYNC_SEEK_START.addEventListener('click', () => {
+      syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_SEEK_START, 'seek start');
+    });
+  }
+
+  if (isElement($BUTTON_MEDIA_EDIT_SYNC_SEEK_END)) {
+    $BUTTON_MEDIA_EDIT_SYNC_SEEK_END.addEventListener('click', () => {
+      syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_SEEK_END, 'seek end');
+    });
+  }
+
+  if (isElement($BUTTON_MEDIA_EDIT_SYNC_FADEIN_END)) {
+    $BUTTON_MEDIA_EDIT_SYNC_FADEIN_END.addEventListener('click', () => {
+      syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_FADEIN_END, 'fade-in end');
+    });
+  }
+
+  if (isElement($BUTTON_MEDIA_EDIT_SYNC_FADEOUT_START)) {
+    $BUTTON_MEDIA_EDIT_SYNC_FADEOUT_START.addEventListener('click', () => {
+      syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_FADEOUT_START, 'fade-out start');
+    });
+  }
+
+  if (isElement($BUTTON_MEDIA_EDIT_PREVIEW_RETRY)) {
+    $BUTTON_MEDIA_EDIT_PREVIEW_RETRY.addEventListener('click', () => {
+      if (!mediaEditPreviewSourceItem) {
+        return;
+      }
+      createMediaEditPreview(mediaEditPreviewSourceItem);
+    });
+  }
+
+  if (isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_PICK) && isElement($MEDIA_EDIT_THUMBNAIL_INPUT)) {
+    $BUTTON_MEDIA_EDIT_THUMBNAIL_PICK.addEventListener('click', () => {
+      $MEDIA_EDIT_THUMBNAIL_INPUT.click();
+    });
+  }
+
+  if (isElement($MEDIA_EDIT_THUMBNAIL_INPUT)) {
+    $MEDIA_EDIT_THUMBNAIL_INPUT.addEventListener('change', () => {
+      const file = $MEDIA_EDIT_THUMBNAIL_INPUT.files?.[0] || null;
+      if (!file) {
+        return;
+      }
+      const allowed = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+      if (!allowed.includes(file.type)) {
+        updateNotice({
+          type: 'error',
+          message: getLocalizedMessage('mediaEditThumbnailTypeError', 'Only PNG, JPEG, GIF, and WebP images are accepted.'),
+          delay: 2500,
+        });
+        $MEDIA_EDIT_THUMBNAIL_INPUT.value = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (!mediaEditActiveItem) {
+          return;
+        }
+        const current = readMediaEditDraftFromForm();
+        const next = sanitizeMediaEditDraft({
+          ...current,
+          thumbnailMode: 'upload',
+          thumbnailName: file.name,
+          thumbnailMime: file.type,
+          thumbnailDataUrl: typeof reader.result === 'string' ? reader.result : '',
+        }, current);
+        applyMediaEditDraftToForm(next);
+        syncMediaEditDraftStateFromForm();
+      };
+      reader.readAsDataURL(file);
+      $MEDIA_EDIT_THUMBNAIL_INPUT.value = '';
+    });
+  }
+
+  if (isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE) || isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR)) {
+    const removeHandler = (): void => {
+      if (!mediaEditActiveItem) {
+        return;
+      }
+      const current = readMediaEditDraftFromForm();
+      const currentName = current.thumbnailName || mediaEditBaseDraft?.thumbnailName || '';
+      if (currentName === '') {
+        return;
+      }
+      const confirmed = window.confirm(getLocalizedMessage('mediaEditThumbnailRemoveConfirm', 'Remove the current thumbnail image?'));
+      if (!confirmed) {
+        return;
+      }
+      const next = sanitizeMediaEditDraft({
+        ...current,
+        thumbnailMode: 'remove',
+        thumbnailName: currentName,
+        thumbnailMime: '',
+        thumbnailDataUrl: '',
+      }, current);
+      applyMediaEditDraftToForm(next);
+      syncMediaEditDraftStateFromForm();
+    };
+
+    if (isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE)) {
+      $BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE.addEventListener('click', removeHandler);
+    }
+    if (isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR)) {
+      $BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR.addEventListener('click', removeHandler);
+    }
   }
 
   if (isElement($MODAL_PLAYLIST_DESC_BACKDROP)) {
@@ -2520,6 +4387,20 @@ const init = function (): void {
         handleElm.className = 'playlist-reorder-handle flex-shrink-0 order-first inline-flex items-center justify-center w-5 h-5 text-gray-400 cursor-grab active:cursor-grabbing dark:text-gray-500';
         handleElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--reorder'));
         itemElm.prepend(handleElm);
+      } else if (playlistMode === 'edit') {
+        const gutterElm = document.createElement('span');
+        const isSelectedEditTarget = mediaEditActiveItem?.amId === item.amId;
+        gutterElm.setAttribute('aria-hidden', 'true');
+        gutterElm.className = isSelectedEditTarget
+          ? 'playlist-edit-gutter is-selected order-first'
+          : 'playlist-edit-gutter order-first';
+        const iconElm = document.createElement('span');
+        iconElm.className = isSelectedEditTarget
+          ? 'ui-icon-mask ui-icon-mask--mode-edit-filled w-4 h-4'
+          : 'ui-icon-mask ui-icon-mask--mode-edit w-4 h-4';
+        iconElm.setAttribute('aria-hidden', 'true');
+        gutterElm.appendChild(iconElm);
+        itemElm.prepend(gutterElm);
       }
 
       const format = getOption('playlist');
@@ -3080,15 +4961,24 @@ const init = function (): void {
    * Event listener when the playlist selection field in the settings menu is changed.
    */
   $SELECT_PLAYLIST.addEventListener('change', (evt: Event) => {
-    const newPlaylist = (evt.target as HTMLSelectElement).value;
+    const selectElm = evt.target as HTMLSelectElement;
+    const newPlaylist = selectElm.value;
     let oldPlaylist: string | null = null;
     if (AMP_STATUS.hasOwnProperty('playlist')) {
       oldPlaylist = AMP_STATUS.playlist;
     }
     if (oldPlaylist !== newPlaylist) {
       if (playlistMode !== 'normal') {
+        if (playlistMode === 'edit' && !confirmDiscardActiveMediaEditIfNeeded()) {
+          selectElm.value = oldPlaylist || '';
+          return;
+        }
         deleteSelectedIds.clear();
         resetReorderState();
+        if (playlistMode === 'edit') {
+          hideMediaEditModal(false);
+          clearMediaEditContext();
+        }
         playlistMode = 'normal';
         updatePlaylistModeUI();
       }
@@ -3100,15 +4990,24 @@ const init = function (): void {
    * Event listener when the category selection field in the settings menu is changed.
    */
   $SELECT_CATEGORY.addEventListener('change', (evt: Event) => {
+    const selectElm = evt.target as HTMLSelectElement;
     let oldCtgId: number | null = null;
     if (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null) {
       oldCtgId = AMP_STATUS.ctg;
     }
-    const newCtgId = Number((evt.target as HTMLSelectElement).value);
+    const newCtgId = Number(selectElm.value);
     if (oldCtgId !== newCtgId) {
       if (playlistMode !== 'normal') {
+        if (playlistMode === 'edit' && !confirmDiscardActiveMediaEditIfNeeded()) {
+          selectElm.value = oldCtgId !== null ? String(oldCtgId) : '-1';
+          return;
+        }
         deleteSelectedIds.clear();
         resetReorderState();
+        if (playlistMode === 'edit') {
+          hideMediaEditModal(false);
+          clearMediaEditContext();
+        }
         playlistMode = 'normal';
         updatePlaylistModeUI();
       }
@@ -3153,6 +5052,14 @@ const init = function (): void {
         deleteSelectedIds.add(amId);
       }
       syncDeleteSelectionIndicator(itemElm, deleteSelectedIds.has(amId));
+      return;
+    }
+    if (playlistMode === 'edit') {
+      const amId = Number(itemElm.getAttribute('data-playlist-item'));
+      const mediaItem = AMP_STATUS.media?.find((item: MediaItem) => item.amId === amId) || null;
+      if (mediaItem) {
+        openMediaEditModal(mediaItem, itemElm);
+      }
       return;
     }
     if (isPlaylistInteractionLocked()) {

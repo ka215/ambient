@@ -315,6 +315,11 @@ a[aria-current="true"] .text--playlist-artist {
     -webkit-mask-image: url("../assets/icons/ui-mode-edit.svg");
 }
 
+.ui-icon-mask--mode-edit-filled {
+    mask-image: url("../assets/icons/ui-mode-edit-filled.svg");
+    -webkit-mask-image: url("../assets/icons/ui-mode-edit-filled.svg");
+}
+
 .ui-icon-mask--mode-reorder {
     mask-image: url("../assets/icons/ui-mode-reorder.svg");
     -webkit-mask-image: url("../assets/icons/ui-mode-reorder.svg");
