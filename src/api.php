@@ -281,6 +281,190 @@ trait api {
      *   "playlist": { ... }
      * }
      */
+    private function save_media_thumbnail(): void {
+        if ( !$this->is_local() ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 403,
+                'data'  => [
+                    'message' => $this->__( 'This feature cannot be performed on remote hosts.' ),
+                ],
+            ];
+            return;
+        }
+
+        $raw_input = file_get_contents( 'php://input' );
+        if ( strlen( $raw_input ) > 10 * 1024 * 1024 ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 400,
+                'data'  => [
+                    'message' => $this->__( 'Request body too large.' ),
+                ],
+            ];
+            return;
+        }
+
+        $payload = json_decode( $raw_input, true );
+        if ( json_last_error() !== JSON_ERROR_NONE || !is_array( $payload ) ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 400,
+                'data'  => [
+                    'message' => $this->__( 'Invalid JSON data.' ),
+                ],
+            ];
+            return;
+        }
+
+        $filename = isset( $payload['filename'] ) && is_string( $payload['filename'] ) ? trim( $payload['filename'] ) : '';
+        $content = isset( $payload['content'] ) && is_string( $payload['content'] ) ? trim( $payload['content'] ) : '';
+        if ( $filename === '' || $content === '' ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 400,
+                'data'  => [
+                    'message' => $this->__( 'Invalid request data.' ),
+                ],
+            ];
+            return;
+        }
+
+        $safe_filename = $this->sanitize_thumbnail_filename( $filename );
+        if ( $safe_filename === null ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 400,
+                'data'  => [
+                    'message' => $this->__( 'Only image files are accepted.' ),
+                ],
+            ];
+            return;
+        }
+
+        $binary = base64_decode( $content, true );
+        if ( $binary === false ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 400,
+                'data'  => [
+                    'message' => $this->__( 'Invalid image data.' ),
+                ],
+            ];
+            return;
+        }
+
+        $target_path = IMAGES_DIR . $safe_filename;
+        $written = @file_put_contents( $target_path, $binary );
+        if ( $written === false ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 500,
+                'data'  => [
+                    'message' => $this->__( 'Failed to save thumbnail image.' ),
+                ],
+            ];
+            return;
+        }
+
+        $this->api_response = [
+            'state' => 'ok',
+            'code'  => 200,
+            'data'  => [
+                'message' => $this->__( 'Thumbnail image saved successfully.' ),
+                'filename' => $safe_filename,
+            ],
+        ];
+    }
+
+    private function delete_media_thumbnail(): void {
+        if ( !$this->is_local() ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 403,
+                'data'  => [
+                    'message' => $this->__( 'This feature cannot be performed on remote hosts.' ),
+                ],
+            ];
+            return;
+        }
+
+        $raw_input = file_get_contents( 'php://input' );
+        $payload = json_decode( $raw_input, true );
+        if ( json_last_error() !== JSON_ERROR_NONE || !is_array( $payload ) ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 400,
+                'data'  => [
+                    'message' => $this->__( 'Invalid JSON data.' ),
+                ],
+            ];
+            return;
+        }
+
+        $filename = isset( $payload['filename'] ) && is_string( $payload['filename'] ) ? trim( $payload['filename'] ) : '';
+        if ( $filename === '' ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 400,
+                'data'  => [
+                    'message' => $this->__( 'Invalid request data.' ),
+                ],
+            ];
+            return;
+        }
+
+        $safe_filename = $this->sanitize_thumbnail_filename( $filename );
+        if ( $safe_filename === null ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 400,
+                'data'  => [
+                    'message' => $this->__( 'Only image files are accepted.' ),
+                ],
+            ];
+            return;
+        }
+
+        $target_path = IMAGES_DIR . $safe_filename;
+        if ( file_exists( $target_path ) && !@unlink( $target_path ) ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 500,
+                'data'  => [
+                    'message' => $this->__( 'Failed to delete thumbnail image.' ),
+                ],
+            ];
+            return;
+        }
+
+        $this->api_response = [
+            'state' => 'ok',
+            'code'  => 200,
+            'data'  => [
+                'message' => $this->__( 'Thumbnail image deleted successfully.' ),
+                'filename' => $safe_filename,
+            ],
+        ];
+    }
+
+    private function sanitize_thumbnail_filename( string $filename ): ?string {
+        $base = basename( $filename );
+        $safe = preg_replace( '/[^A-Za-z0-9._-]/', '_', $base );
+        if ( !is_string( $safe ) ) {
+            return null;
+        }
+        $safe = trim( $safe );
+        if ( $safe === '' ) {
+            return null;
+        }
+        $extension = strtolower( pathinfo( $safe, PATHINFO_EXTENSION ) );
+        if ( !in_array( $extension, [ 'png', 'jpeg', 'jpg', 'gif', 'webp' ], true ) ) {
+            return null;
+        }
+        return $safe;
+    }
+
     private function import_playlist(): void {
         if ( !$this->is_local() ) {
             $this->api_response = [

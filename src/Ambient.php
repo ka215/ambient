@@ -180,9 +180,22 @@ class Ambient {
                 $_route = "Add item to playlist \"{$params[0]}\"";
                 $args[] = $params[0];
                 break;
+            case 'post:playlist-save':
+                $method = 'upsert_playlist';
+                $_route = "Save playlist \"{$params[0]}\"";
+                $args[] = $params[0];
+                break;
             case 'post:playlist-import':
                 $method = 'import_playlist';
                 $_route = 'Import playlist JSON';
+                break;
+            case 'post:thumbnail':
+                $method = 'save_media_thumbnail';
+                $_route = 'Upload media thumbnail';
+                break;
+            case 'delete:thumbnail':
+                $method = 'delete_media_thumbnail';
+                $_route = 'Delete media thumbnail';
                 break;
             case 'post:symlink':
                 $method = 'create_symlink';
