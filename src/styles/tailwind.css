@@ -104,6 +104,153 @@
         border-color: #60a5fa;
         background: #60a5fa;
     }
+    .media-edit-source-badge {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 9999px;
+        border: 1px solid #d1d5db;
+        background: #ffffff;
+        padding: 0.125rem 0.625rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #374151;
+    }
+    .dark .media-edit-source-badge {
+        border-color: #4b5563;
+        background: #1f2937;
+        color: #d1d5db;
+    }
+    .media-edit-source-badge--type {
+        border-color: #93c5fd;
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
+    .dark .media-edit-source-badge--type {
+        border-color: #1d4ed8;
+        background: rgb(30 58 138 / 0.35);
+        color: #bfdbfe;
+    }
+    .media-edit-timing-input {
+        appearance: textfield;
+        -moz-appearance: textfield;
+    }
+    .media-edit-timing-input::-webkit-outer-spin-button,
+    .media-edit-timing-input::-webkit-inner-spin-button {
+        appearance: none;
+        -webkit-appearance: none;
+        margin: 0;
+        display: none !important;
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .media-edit-timing-input[type="number"] {
+        -moz-appearance: textfield;
+    }
+    .media-edit-category-option[aria-selected="true"] {
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
+    .dark .media-edit-category-option[aria-selected="true"] {
+        background: rgb(30 58 138 / 0.45);
+        color: #bfdbfe;
+    }
+    .media-edit-category-dropdown {
+        margin-top: 0;
+        background: #ffffff;
+        box-shadow: 0 14px 28px rgb(15 23 42 / 0.26);
+    }
+    .dark .media-edit-category-dropdown {
+        background: #1f2937;
+        box-shadow: 0 14px 28px rgb(2 6 23 / 0.5);
+    }
+    .media-edit-timing-stepper {
+        display: flex;
+        flex-direction: column;
+        width: 1.5rem;
+        min-width: 1.5rem;
+        border-left: 1px solid #d1d5db;
+        border-width: 0;
+        background: #ffffff;
+    }
+    .dark .media-edit-timing-stepper {
+        border-left-color: #4b5563;
+        background: #1f2937;
+    }
+    .media-edit-timing-stepper-btn {
+        display: inline-flex;
+        flex: 1 1 0;
+        align-items: center;
+        justify-content: center;
+        color: #4b5563;
+        background: transparent;
+        line-height: 1;
+        border: 0;
+    }
+    .media-edit-timing-stepper-btn:hover {
+        background: #f3f4f6;
+    }
+    .media-edit-timing-stepper-btn:focus-visible {
+        outline: 2px solid #93c5fd;
+        outline-offset: -2px;
+    }
+    .dark .media-edit-timing-stepper-btn {
+        color: #f3f4f6;
+    }
+    .dark .media-edit-timing-stepper-btn:hover {
+        background: #374151;
+    }
+    .media-edit-timing-display {
+        border-left: 1px solid #d1d5db;
+        border-right: 1px solid #d1d5db;
+        background: #f3f4f6;
+    }
+    .dark .media-edit-timing-display {
+        border-left-color: #4b5563;
+        border-right-color: #4b5563;
+        background: #111827;
+    }
+    .media-edit-timing-sync-btn {
+        border-left: 1px solid #d1d5db;
+        background: #f9fafb;
+        color: #374151;
+    }
+    .media-edit-timing-sync-btn:hover {
+        background: #e5e7eb;
+    }
+    .dark .media-edit-timing-sync-btn {
+        border-left-color: #4b5563;
+        background: #374151;
+        color: #e5e7eb;
+    }
+    .dark .media-edit-timing-sync-btn:hover {
+        background: #4b5563;
+    }
+    .playlist-edit-gutter {
+        width: 1.5rem;
+        min-width: 1.5rem;
+        height: 1.5rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #9ca3af;
+        border-radius: 9999px;
+    }
+    .playlist-edit-gutter.is-selected {
+        color: #2563eb;
+    }
+    a[aria-current="true"] .playlist-edit-gutter.is-selected {
+        color: #ffffff;
+    }
+    .dark .playlist-edit-gutter {
+        color: #6b7280;
+    }
+    .dark .playlist-edit-gutter.is-selected {
+        color: #60a5fa;
+    }
+    .dark a[aria-current="true"] .playlist-edit-gutter.is-selected {
+        color: #60a5fa;
+    }
     #media-caption {
         width: inherit;
         max-width: 100%;

@@ -136,3 +136,293 @@
         </div>
     </div>
 </div>
+
+<!-- Playlist media edit modal (v2.5.0 Slice A) -->
+<div
+  id="modal-media-edit"
+  class="hidden fixed inset-0 z-[85] flex h-screen w-screen flex-col bg-white text-gray-900 dark:bg-gray-800 dark:text-white"
+  role="dialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-labelledby="modal-media-edit-title"
+  tabindex="-1"
+>
+    <div class="flex items-start justify-between gap-4 border-b border-gray-200 px-4 py-3 dark:border-gray-600">
+        <h3 id="modal-media-edit-title" class="text-lg font-semibold"><?= __( 'Media Edit' ) ?></h3>
+        <button
+          type="button"
+          id="btn-close-media-edit"
+          class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex items-center justify-center dark:hover:bg-gray-600 dark:hover:text-white"
+          aria-label="<?= __( 'Close' ) ?>"
+        >
+            <span class="ui-icon-mask ui-icon-mask--close w-3 h-3" aria-hidden="true"></span>
+        </button>
+    </div>
+    <div class="flex-1 overflow-y-auto px-4 py-5">
+        <div class="mx-auto flex w-full max-w-5xl flex-col gap-4">
+            <section class="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-700/40">
+                <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400"><?= __( 'Selected item' ) ?></p>
+                <h4 id="modal-media-edit-item-title" class="mt-1 text-2xl font-semibold leading-tight"></h4>
+                <div id="modal-media-edit-item-source" class="mt-3 flex flex-wrap items-center gap-2" aria-live="polite"></div>
+            </section>
+            <section class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-600 dark:bg-gray-700">
+                <form id="form-media-edit" class="grid gap-4 md:grid-cols-2" autocomplete="off">
+                    <div id="modal-media-edit-validation" class="hidden md:col-span-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-700/60 dark:bg-red-900/25 dark:text-red-200" role="alert" aria-live="polite">
+                        <p class="font-medium"><?= __( 'Please fix the following issues:' ) ?></p>
+                        <ul id="modal-media-edit-validation-list" class="mt-1 list-disc pl-5"></ul>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="modal-media-edit-category" class="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+                            <span class="required"><?= __( 'Category' ) ?></span>
+                            <span class="text-xs font-normal text-gray-500 dark:text-gray-400"><?= __( '(max 100 chars)' ) ?></span>
+                        </label>
+                                                <div id="modal-media-edit-category-combobox" class="media-edit-category-combobox relative" role="combobox" aria-haspopup="listbox" aria-owns="modal-media-edit-category-options" aria-expanded="false">
+                                                        <div class="flex items-stretch overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
+                                <input
+                                  type="text"
+                                  id="modal-media-edit-category"
+                                                                    class="block min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-0 dark:text-white"
+                                  maxlength="100"
+                                  autocomplete="off"
+                                  aria-autocomplete="list"
+                                  aria-controls="modal-media-edit-category-options"
+                                >
+                                                                <button
+                                                                    type="button"
+                                                                    id="btn-media-edit-category-clear"
+                                                                    class="media-edit-category-clear hidden w-9 shrink-0 border-0 text-gray-500 hover:bg-transparent hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:text-gray-300 dark:hover:bg-transparent dark:hover:text-red-400 dark:focus:ring-blue-900"
+                                                                    aria-label="<?= __( 'Clear category' ) ?>"
+                                                                >
+                                                                        <span class="ui-icon-mask ui-icon-mask--close m-auto h-3 w-3" aria-hidden="true"></span>
+                                                                </button>
+                                <button
+                                  type="button"
+                                  id="btn-media-edit-category-toggle"
+                                  class="media-edit-category-toggle inline-flex w-9 shrink-0 items-center justify-center border-l border-gray-300 text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700 dark:focus:ring-blue-900"
+                                  aria-label="<?= __( 'Toggle category list' ) ?>"
+                                  aria-expanded="false"
+                                  aria-controls="modal-media-edit-category-options"
+                                >
+                                    <span class="ui-icon-mask ui-icon-mask--caret-down h-3 w-3" aria-hidden="true"></span>
+                                </button>
+                            </div>
+                            <div id="modal-media-edit-category-dropdown" class="media-edit-category-dropdown hidden absolute z-20 mt-0 max-h-52 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800" role="presentation">
+                                <div id="modal-media-edit-category-options" class="py-1" role="listbox" aria-label="<?= __( 'Category options' ) ?>"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="modal-media-edit-title-input" class="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+                            <span class="required"><?= __( 'Title' ) ?></span>
+                            <span class="text-xs font-normal text-gray-500 dark:text-gray-400"><?= __( '(max 100 chars)' ) ?></span>
+                        </label>
+                        <input
+                          type="text"
+                          id="modal-media-edit-title-input"
+                          class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-900"
+                          maxlength="100"
+                        >
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="modal-media-edit-artist-input" class="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+                            <span class="required"><?= __( 'Artist' ) ?></span>
+                            <span class="text-xs font-normal text-gray-500 dark:text-gray-400"><?= __( '(max 100 chars)' ) ?></span>
+                        </label>
+                        <input
+                          type="text"
+                          id="modal-media-edit-artist-input"
+                          class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-900"
+                          maxlength="100"
+                        >
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="modal-media-edit-description" class="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+                            <span class="required"><?= __( 'Description' ) ?></span>
+                            <span class="text-xs font-normal text-gray-500 dark:text-gray-400"><?= __( '(max 500 chars)' ) ?></span>
+                        </label>
+                        <textarea
+                          id="modal-media-edit-description"
+                          rows="5"
+                          class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-900"
+                          maxlength="500"
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label for="modal-media-edit-volume" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">
+                            <?= __( 'Default playback volume' ) ?>
+                        </label>
+                        <div class="flex items-center gap-3">
+                            <input
+                              type="range"
+                              id="modal-media-edit-volume"
+                              min="0"
+                              max="100"
+                              step="1"
+                              value="50"
+                              class="volume-range h-2 flex-1 cursor-pointer appearance-none rounded-lg"
+                            >
+                            <span id="modal-media-edit-volume-value" class="w-8 shrink-0 text-right text-xs font-semibold text-blue-600 dark:text-blue-300">50</span>
+                        </div>
+                    </div>
+                    <div id="media-edit-thumbnail-section" class="md:col-span-2 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-800/60">
+                        <div class="mb-2 flex items-center justify-between gap-2">
+                            <h5 class="text-sm font-semibold text-gray-800 dark:text-gray-100"><?= __( 'Media thumbnail' ) ?></h5>
+                            <div class="flex items-center gap-2">
+                                <button type="button" id="btn-media-edit-thumbnail-pick" class="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-500 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 dark:focus:ring-blue-900">
+                                    <?= __( 'Choose image' ) ?>
+                                </button>
+                                <button type="button" id="btn-media-edit-thumbnail-remove" class="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-500 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 dark:focus:ring-blue-900">
+                                    <?= __( 'Remove' ) ?>
+                                </button>
+                            </div>
+                        </div>
+                        <input type="file" id="modal-media-edit-thumbnail-input" class="hidden" accept="image/png,image/jpeg,image/gif,image/webp">
+                        <div class="flex items-center gap-3">
+                            <div class="relative h-24 w-24 overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-600 dark:bg-gray-900">
+                                <img id="modal-media-edit-thumbnail-preview" class="h-full w-full object-cover" alt="<?= __( 'Thumbnail preview' ) ?>" src="" />
+                                <button type="button" id="btn-media-edit-thumbnail-clear" class="absolute right-1 top-1 inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/80 bg-black/65 text-white hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-white" aria-label="<?= __( 'Remove thumbnail' ) ?>">
+                                    <span class="ui-icon-mask ui-icon-mask--close w-3 h-3" aria-hidden="true"></span>
+                                </button>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <p id="modal-media-edit-thumbnail-name" class="text-sm font-medium text-gray-700 dark:text-gray-200"></p>
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400"><?= __( 'PNG, JPEG, GIF, and WebP are supported.' ) ?></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="md:col-span-2 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-800/60">
+                        <div class="mb-2 flex items-center justify-between gap-2">
+                            <h5 class="text-sm font-semibold text-gray-800 dark:text-gray-100"><?= __( 'Media preview' ) ?></h5>
+                            <button type="button" id="btn-media-edit-preview-retry" class="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-500 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 dark:focus:ring-blue-900">
+                                <?= __( 'Retry' ) ?>
+                            </button>
+                        </div>
+                        <div id="modal-media-edit-preview" class="overflow-hidden rounded-lg border border-gray-200 bg-black/80 p-2 dark:border-gray-600 min-h-[180px]">
+                            <p class="text-sm text-gray-300"><?= __( 'Preview is not available.' ) ?></p>
+                        </div>
+                        <div id="modal-media-edit-preview-error" class="mt-2 hidden rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-700/60 dark:bg-red-900/25 dark:text-red-200" role="alert" aria-live="polite">
+                            <p id="modal-media-edit-preview-error-message"></p>
+                        </div>
+                    </div>
+                    <div class="md:col-span-2 grid gap-3 md:grid-cols-2">
+                        <div class="md:flex md:items-center md:gap-3">
+                            <label for="modal-media-edit-seek-start" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-44"><?= __( 'Seek start (sec)' ) ?></label>
+                            <div class="flex w-full overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
+                                <input
+                                  type="number"
+                                  id="modal-media-edit-seek-start"
+                                  min="0"
+                                  step="1"
+                                  inputmode="numeric"
+                                  class="media-edit-timing-input block min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-0 dark:text-white"
+                                >
+                                <div class="media-edit-timing-stepper" role="group" aria-label="<?= __( 'Seek start adjust' ) ?>">
+                                    <button type="button" class="media-edit-timing-stepper-btn" data-target="modal-media-edit-seek-start" data-step-dir="up" aria-label="<?= __( 'Increase seek start' ) ?>">
+                                        <span class="ui-icon-mask ui-icon-mask--caret-up h-3 w-3" aria-hidden="true"></span>
+                                    </button>
+                                    <button type="button" class="media-edit-timing-stepper-btn" data-target="modal-media-edit-seek-start" data-step-dir="down" aria-label="<?= __( 'Decrease seek start' ) ?>">
+                                        <span class="ui-icon-mask ui-icon-mask--caret-down h-3 w-3" aria-hidden="true"></span>
+                                    </button>
+                                </div>
+                                <span id="modal-media-edit-seek-start-hms" class="media-edit-timing-display inline-flex min-w-[7.5rem] items-center justify-center px-2 text-xs font-medium text-gray-400 dark:text-gray-500">HH:MM:SS</span>
+                                <button type="button" id="btn-media-edit-sync-seek-start" class="media-edit-timing-sync-btn shrink-0 px-3 py-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:text-gray-200 dark:focus:ring-blue-900">
+                                    <?= __( 'Sync' ) ?>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="md:flex md:items-center md:gap-3">
+                            <label for="modal-media-edit-seek-end" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-44"><?= __( 'Seek end (sec)' ) ?></label>
+                            <div class="flex w-full overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
+                                <input
+                                  type="number"
+                                  id="modal-media-edit-seek-end"
+                                  min="0"
+                                  step="1"
+                                  inputmode="numeric"
+                                  class="media-edit-timing-input block min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-0 dark:text-white"
+                                >
+                                <div class="media-edit-timing-stepper" role="group" aria-label="<?= __( 'Seek end adjust' ) ?>">
+                                    <button type="button" class="media-edit-timing-stepper-btn" data-target="modal-media-edit-seek-end" data-step-dir="up" aria-label="<?= __( 'Increase seek end' ) ?>">
+                                        <span class="ui-icon-mask ui-icon-mask--caret-up h-3 w-3" aria-hidden="true"></span>
+                                    </button>
+                                    <button type="button" class="media-edit-timing-stepper-btn" data-target="modal-media-edit-seek-end" data-step-dir="down" aria-label="<?= __( 'Decrease seek end' ) ?>">
+                                        <span class="ui-icon-mask ui-icon-mask--caret-down h-3 w-3" aria-hidden="true"></span>
+                                    </button>
+                                </div>
+                                <span id="modal-media-edit-seek-end-hms" class="media-edit-timing-display inline-flex min-w-[7.5rem] items-center justify-center px-2 text-xs font-medium text-gray-400 dark:text-gray-500">HH:MM:SS</span>
+                                <button type="button" id="btn-media-edit-sync-seek-end" class="media-edit-timing-sync-btn shrink-0 px-3 py-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:text-gray-200 dark:focus:ring-blue-900">
+                                    <?= __( 'Sync' ) ?>
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="md:flex md:items-center md:gap-3">
+                                <label for="modal-media-edit-fadein-end" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-44"><?= __( 'Fade-in end (sec)' ) ?></label>
+                                <div class="flex w-full overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
+                                    <input
+                                      type="number"
+                                      id="modal-media-edit-fadein-end"
+                                      min="0"
+                                      step="1"
+                                      inputmode="numeric"
+                                      class="media-edit-timing-input block min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-0 dark:text-white"
+                                    >
+                                    <div class="media-edit-timing-stepper" role="group" aria-label="<?= __( 'Fade-in end adjust' ) ?>">
+                                        <button type="button" class="media-edit-timing-stepper-btn" data-target="modal-media-edit-fadein-end" data-step-dir="up" aria-label="<?= __( 'Increase fade-in end' ) ?>">
+                                            <span class="ui-icon-mask ui-icon-mask--caret-up h-3 w-3" aria-hidden="true"></span>
+                                        </button>
+                                        <button type="button" class="media-edit-timing-stepper-btn" data-target="modal-media-edit-fadein-end" data-step-dir="down" aria-label="<?= __( 'Decrease fade-in end' ) ?>">
+                                            <span class="ui-icon-mask ui-icon-mask--caret-down h-3 w-3" aria-hidden="true"></span>
+                                        </button>
+                                    </div>
+                                    <span id="modal-media-edit-fadein-end-hms" class="media-edit-timing-display inline-flex min-w-[7.5rem] items-center justify-center px-2 text-xs font-medium text-gray-400 dark:text-gray-500">HH:MM:SS</span>
+                                    <button type="button" id="btn-media-edit-sync-fadein-end" class="media-edit-timing-sync-btn shrink-0 px-3 py-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:text-gray-200 dark:focus:ring-blue-900">
+                                        <?= __( 'Sync' ) ?>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="md:flex md:items-center md:gap-3">
+                                <label for="modal-media-edit-fadeout-start" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-44"><?= __( 'Fade-out start (sec)' ) ?></label>
+                                <div class="flex w-full overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
+                                    <input
+                                      type="number"
+                                      id="modal-media-edit-fadeout-start"
+                                      min="0"
+                                      step="1"
+                                      inputmode="numeric"
+                                      class="media-edit-timing-input block min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-0 dark:text-white"
+                                    >
+                                    <div class="media-edit-timing-stepper" role="group" aria-label="<?= __( 'Fade-out start adjust' ) ?>">
+                                        <button type="button" class="media-edit-timing-stepper-btn" data-target="modal-media-edit-fadeout-start" data-step-dir="up" aria-label="<?= __( 'Increase fade-out start' ) ?>">
+                                            <span class="ui-icon-mask ui-icon-mask--caret-up h-3 w-3" aria-hidden="true"></span>
+                                        </button>
+                                        <button type="button" class="media-edit-timing-stepper-btn" data-target="modal-media-edit-fadeout-start" data-step-dir="down" aria-label="<?= __( 'Decrease fade-out start' ) ?>">
+                                            <span class="ui-icon-mask ui-icon-mask--caret-down h-3 w-3" aria-hidden="true"></span>
+                                        </button>
+                                    </div>
+                                    <span id="modal-media-edit-fadeout-start-hms" class="media-edit-timing-display inline-flex min-w-[7.5rem] items-center justify-center px-2 text-xs font-medium text-gray-400 dark:text-gray-500">HH:MM:SS</span>
+                                    <button type="button" id="btn-media-edit-sync-fadeout-start" class="media-edit-timing-sync-btn shrink-0 px-3 py-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:text-gray-200 dark:focus:ring-blue-900">
+                                        <?= __( 'Sync' ) ?>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="md:col-span-2 text-xs text-gray-500 dark:text-gray-400"><?= __( 'Sync button captures the current seek point from media preview playback.' ) ?></p>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </div>
+    <div class="border-t border-gray-200 bg-white px-4 py-3 dark:border-gray-600 dark:bg-gray-800">
+        <div class="mx-auto flex w-full max-w-5xl justify-end gap-2">
+            <button type="button" id="btn-cancel-media-edit" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:border-gray-500 dark:hover:bg-gray-500">
+                <?= __( 'Cancel' ) ?>
+            </button>
+            <button type="button" id="btn-save-media-edit" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                <?= __( 'Save changes' ) ?>
+            </button>
+        </div>
+    </div>
+</div>
