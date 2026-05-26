@@ -174,7 +174,7 @@
                     <div class="md:col-span-2">
                         <label for="modal-media-edit-category" class="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
                             <span class="required"><?= __( 'Category' ) ?></span>
-                            <span class="text-xs font-normal text-gray-500 dark:text-gray-400">（最大100文字）</span>
+                            <span class="text-xs font-normal text-gray-500 dark:text-gray-400"><?= __( '(max 100 chars)' ) ?></span>
                         </label>
                                                 <div id="modal-media-edit-category-combobox" class="media-edit-category-combobox relative" role="combobox" aria-haspopup="listbox" aria-owns="modal-media-edit-category-options" aria-expanded="false">
                                                         <div class="flex items-stretch overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
@@ -214,7 +214,7 @@
                     <div class="md:col-span-2">
                         <label for="modal-media-edit-title-input" class="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
                             <span class="required"><?= __( 'Title' ) ?></span>
-                            <span class="text-xs font-normal text-gray-500 dark:text-gray-400">（最大100文字）</span>
+                            <span class="text-xs font-normal text-gray-500 dark:text-gray-400"><?= __( '(max 100 chars)' ) ?></span>
                         </label>
                         <input
                           type="text"
@@ -226,7 +226,7 @@
                     <div class="md:col-span-2">
                         <label for="modal-media-edit-artist-input" class="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
                             <span class="required"><?= __( 'Artist' ) ?></span>
-                            <span class="text-xs font-normal text-gray-500 dark:text-gray-400">（最大100文字）</span>
+                            <span class="text-xs font-normal text-gray-500 dark:text-gray-400"><?= __( '(max 100 chars)' ) ?></span>
                         </label>
                         <input
                           type="text"
@@ -238,7 +238,7 @@
                     <div class="md:col-span-2">
                         <label for="modal-media-edit-description" class="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
                             <span class="required"><?= __( 'Description' ) ?></span>
-                            <span class="text-xs font-normal text-gray-500 dark:text-gray-400">（最大500文字）</span>
+                            <span class="text-xs font-normal text-gray-500 dark:text-gray-400"><?= __( '(max 500 chars)' ) ?></span>
                         </label>
                         <textarea
                           id="modal-media-edit-description"

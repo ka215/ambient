@@ -2167,7 +2167,7 @@ const init = function (): void {
       $MEDIA_EDIT_THUMBNAIL_NAME.textContent = draft.thumbnailMode === 'upload'
         ? draft.thumbnailName
         : draft.thumbnailMode === 'remove'
-          ? 'Thumbnail removal pending'
+          ? getLocalizedMessage('mediaEditThumbnailRemovalPending', 'Thumbnail removal pending')
           : draft.thumbnailName || '';
     }
     if (isElement($MEDIA_EDIT_THUMBNAIL_PREVIEW)) {
@@ -2553,7 +2553,9 @@ const init = function (): void {
     setMediaEditDirtyState(false);
   }
 
-  function confirmDiscardActiveMediaEditIfNeeded(fallbackMessage: string = 'Discard unsaved edits?'): boolean {
+  function confirmDiscardActiveMediaEditIfNeeded(
+    fallbackMessage: string = getLocalizedMessage('mediaEditDiscardUnsaved', 'Discard unsaved edits?')
+  ): boolean {
     if (!isActiveMediaEditUnsaved() && !mediaEditIsDirty) {
       return true;
     }
@@ -2631,7 +2633,7 @@ const init = function (): void {
     typeBadge.className = 'media-edit-source-badge media-edit-source-badge--type';
 
     if (mediaItem.videoid && mediaItem.videoid.trim() !== '') {
-      typeBadge.textContent = 'YouTube';
+      typeBadge.textContent = getLocalizedMessage('mediaEditTypeYoutube', 'YouTube');
       const sourceBadge = document.createElement('span');
       sourceBadge.className = 'media-edit-source-badge';
       sourceBadge.textContent = mediaItem.videoid.trim();
@@ -2639,14 +2641,16 @@ const init = function (): void {
       $MODAL_MEDIA_EDIT_ITEM_SOURCE.appendChild(sourceBadge);
     } else if (mediaItem.file && mediaItem.file.trim() !== '') {
       const isAudio = /\.(mp3|aac|ogg|flac|wav|m4a|opus)(\?.*)?$/i.test(mediaItem.file);
-      typeBadge.textContent = isAudio ? 'Local audio' : 'Local video';
+      typeBadge.textContent = isAudio
+        ? getLocalizedMessage('mediaEditTypeLocalAudio', 'Local audio')
+        : getLocalizedMessage('mediaEditTypeLocalVideo', 'Local video');
       const sourceBadge = document.createElement('span');
       sourceBadge.className = 'media-edit-source-badge';
       sourceBadge.textContent = mediaItem.file.trim();
       $MODAL_MEDIA_EDIT_ITEM_SOURCE.appendChild(typeBadge);
       $MODAL_MEDIA_EDIT_ITEM_SOURCE.appendChild(sourceBadge);
     } else {
-      typeBadge.textContent = 'Unknown';
+      typeBadge.textContent = getLocalizedMessage('mediaEditTypeUnknown', 'Unknown');
       $MODAL_MEDIA_EDIT_ITEM_SOURCE.appendChild(typeBadge);
     }
 
@@ -2752,7 +2756,9 @@ const init = function (): void {
     const nextDraftKey = getMediaEditDraftKey(mediaItem);
     const activeDraftKey = mediaEditActiveItem ? getMediaEditDraftKey(mediaEditActiveItem) : null;
     if (activeDraftKey !== null && activeDraftKey !== nextDraftKey) {
-      const canSwitch = confirmDiscardActiveMediaEditIfNeeded('Discard unsaved edits and open another item?');
+      const canSwitch = confirmDiscardActiveMediaEditIfNeeded(
+        getLocalizedMessage('mediaEditDiscardAndOpenAnother', 'Discard unsaved edits and open another item?')
+      );
       if (!canSwitch) {
         return;
       }
@@ -2760,7 +2766,8 @@ const init = function (): void {
     activeMediaEditTrigger = trigger;
     closePlaylistModeMenu();
     if (isElement($MODAL_MEDIA_EDIT_ITEM_TITLE)) {
-      $MODAL_MEDIA_EDIT_ITEM_TITLE.textContent = sanitizeMediaText(mediaItem.title || '', MEDIA_TITLE_MAX_LENGTH) || 'Untitled media';
+      $MODAL_MEDIA_EDIT_ITEM_TITLE.textContent = sanitizeMediaText(mediaItem.title || '', MEDIA_TITLE_MAX_LENGTH)
+        || getLocalizedMessage('mediaEditUntitled', 'Untitled media');
     }
     renderMediaEditSourceBadges(mediaItem);
     bindMediaEditForm(mediaItem);
