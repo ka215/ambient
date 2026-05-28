@@ -173,7 +173,11 @@
                     </div>
                     <div class="md:col-span-2">
                         <label for="modal-media-edit-category" class="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-                            <span class="required"><?= __( 'Category' ) ?></span>
+                            <span class="required" data-tooltip-target="tooltip-modal-media-edit-category-required"><?= __( 'Category' ) ?></span>
+                            <div id="tooltip-modal-media-edit-category-required" role="tooltip" class="absolute z-10 invisible inline-block px-2 py-2 text-xs font-normal text-white transition-opacity duration-300 bg-red-600 rounded-lg shadow-sm opacity-0 tooltip dark:bg-red-500">
+                                <?= __( 'Required' ) ?>
+                                <div class="tooltip-arrow" data-popper-arrow></div>
+                            </div>
                             <span class="text-xs font-normal text-gray-500 dark:text-gray-400"><?= __( '(max 100 chars)' ) ?></span>
                         </label>
                                                 <div id="modal-media-edit-category-combobox" class="media-edit-category-combobox relative" role="combobox" aria-haspopup="listbox" aria-owns="modal-media-edit-category-options" aria-expanded="false">
@@ -213,7 +217,11 @@
                     </div>
                     <div class="md:col-span-2">
                         <label for="modal-media-edit-title-input" class="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-                            <span class="required"><?= __( 'Title' ) ?></span>
+                            <span class="required" data-tooltip-target="tooltip-modal-media-edit-title-required"><?= __( 'Title' ) ?></span>
+                            <div id="tooltip-modal-media-edit-title-required" role="tooltip" class="absolute z-10 invisible inline-block px-2 py-2 text-xs font-normal text-white transition-opacity duration-300 bg-red-600 rounded-lg shadow-sm opacity-0 tooltip dark:bg-red-500">
+                                <?= __( 'Required' ) ?>
+                                <div class="tooltip-arrow" data-popper-arrow></div>
+                            </div>
                             <span class="text-xs font-normal text-gray-500 dark:text-gray-400"><?= __( '(max 100 chars)' ) ?></span>
                         </label>
                         <input
@@ -225,7 +233,7 @@
                     </div>
                     <div class="md:col-span-2">
                         <label for="modal-media-edit-artist-input" class="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-                            <span class="required"><?= __( 'Artist' ) ?></span>
+                            <span><?= __( 'Artist' ) ?></span>
                             <span class="text-xs font-normal text-gray-500 dark:text-gray-400"><?= __( '(max 100 chars)' ) ?></span>
                         </label>
                         <input
@@ -237,7 +245,7 @@
                     </div>
                     <div class="md:col-span-2">
                         <label for="modal-media-edit-description" class="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
-                            <span class="required"><?= __( 'Description' ) ?></span>
+                            <span><?= __( 'Description' ) ?></span>
                             <span class="text-xs font-normal text-gray-500 dark:text-gray-400"><?= __( '(max 500 chars)' ) ?></span>
                         </label>
                         <textarea

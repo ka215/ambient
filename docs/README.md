@@ -58,7 +58,7 @@ npm run test:e2e:debug
 プレイリストは `assets/` 配下の JSON を使用します。
 
 - テンプレート: `assets/PlayList.json`
-- 言語定義: `assets/lang.json`, `assets/lang-ja.json`
+- 言語定義: `assets/langs/lang.json`, `assets/langs/lang-ja.json`（後方互換として `assets/lang*.json` も読み込み可）
 - メディア指定:
   - YouTube: `videoid`
   - ローカル: `file`（`assets/media` からの相対）

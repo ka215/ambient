@@ -33,29 +33,57 @@ trait utils {
      * If there is a JSON file that is defined the translational text, load it.
      */
     protected function load_translation_data() {
-        $files = glob( ASSETS_DIR . '*.[Jj][Ss][Oo][Nn]' );
-        if ( $files ) {
+        if ( !is_array( $this->languages ) ) {
+            $this->languages = [];
+        }
+
+        $lang_dirs = [
+            ASSETS_DIR . 'langs' . DIRECTORY_SEPARATOR,
+            ASSETS_DIR,
+        ];
+
+        foreach ( $lang_dirs as $lang_dir ) {
+            $files = glob( $lang_dir . 'lang*.[Jj][Ss][Oo][Nn]' );
+            if ( !$files ) {
+                continue;
+            }
+
             array_walk( $files, function( $file ) {
-                if ( preg_match( '/^lang(.*)?\.json$/i', basename( $file ), $matches ) ) {
-                    if ( isset( $matches[1] ) ) {
-                        $_key = empty( $matches[1] ) ? 'origin' : trim( $matches[1], '_-' );
-                    }
-                    if ( file_exists( ASSETS_DIR . $matches[0] ) ) {
-                        $_preload = json_decode( file_get_contents( ASSETS_DIR . $matches[0] ), true );
-                        if ( array_key_exists( '$language', $_preload ) ) {
-                            $lang_name = $_preload['$language'];
-                            unset( $_preload['$language'] );
-                        } else {
-                            $lang_name = $_key;
-                        }
-                        $this->languages[$_key] = [
-                            'file' => $matches[0],
-                            'name' => $lang_name,
-                            'data' => $_preload,
-                        ];
-                    }
+                if ( !preg_match( '/^lang(.*)?\.json$/i', basename( $file ), $matches ) ) {
+                    return;
                 }
+
+                $_key = isset( $matches[1] ) && !empty( $matches[1] )
+                    ? trim( $matches[1], '_-' )
+                    : 'origin';
+
+                // Prioritize assets/langs over legacy assets/ by keeping first hit.
+                if ( array_key_exists( $_key, $this->languages ) || !file_exists( $file ) ) {
+                    return;
+                }
+
+                $_preload = json_decode( file_get_contents( $file ), true );
+                if ( !is_array( $_preload ) ) {
+                    return;
+                }
+
+                if ( array_key_exists( '$language', $_preload ) ) {
+                    $lang_name = $_preload['$language'];
+                    unset( $_preload['$language'] );
+                } else {
+                    $lang_name = $_key;
+                }
+
+                $this->languages[$_key] = [
+                    'file' => basename( $file ),
+                    'path' => $file,
+                    'name' => $lang_name,
+                    'data' => $_preload,
+                ];
             } );
+        }
+
+        if ( !empty( $this->languages ) ) {
             if ( count( $this->languages ) > 1 ) {
                 uksort( $this->languages, function( $a, $b ) {
                     if ( $a === 'origin' ) {
@@ -80,10 +108,21 @@ trait utils {
             $this->current_lang = 'origin';
         }
 
-        $target_file = ASSETS_DIR . $this->languages[$this->current_lang]['file'];
+        if ( empty( $this->languages ) ) {
+            $this->current_lang = 'origin';
+            return;
+        }
+
+        if ( !array_key_exists( $this->current_lang, $this->languages ) ) {
+            $this->current_lang = array_key_exists( 'origin', $this->languages )
+                ? 'origin'
+                : array_key_first( $this->languages );
+        }
+
+        $target_file = $this->languages[$this->current_lang]['path'] ?? '';
         //$this->logger( __METHOD__, $this->languages, $this->current_lang, $target_file, $_COOKIE );
 
-        if ( !empty( $this->languages ) && file_exists( $target_file ) ) {
+        if ( !empty( $this->languages ) && !empty( $target_file ) && file_exists( $target_file ) ) {
             $this->translation_data = $this->languages[$this->current_lang]['data'];
         }
         /*

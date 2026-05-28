@@ -350,8 +350,8 @@ Ambient supports the localization of its user interface (UI). By placing a trans
 }
 ```
 
-By overwriting the contents of the bundled `assets/lang.json` in Ambient with the above content, most of the major UI elements will be localized into German. Regarding the translation definition file, it is possible to manage it by separating the files with suffix support, such as having a German translation definition as `lang-de.json`.
-Since version 1.2.0, we can now switch the language from the settings menu. The translation file for the language you want to switch to should be placed as `lang-{langCode}.json` under the `assets` directory.
+By overwriting the contents of the bundled `assets/langs/lang.json` in Ambient with the above content, most of the major UI elements will be localized into German. Regarding the translation definition file, it is possible to manage it by separating the files with suffix support, such as having a German translation definition as `lang-de.json`.
+Since version 1.2.0, we can now switch the language from the settings menu. The translation file for the language you want to switch to should be placed as `lang-{langCode}.json` under the `assets/langs` directory. Legacy `assets/lang-{langCode}.json` is still supported for backward compatibility.
 
 ## References
 

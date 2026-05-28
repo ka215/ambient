@@ -22,22 +22,97 @@ const init = function (): void {
   useStge();
   const AMP_STATUS = initStatus();
   let bootGateReleased = false;
+  let bootGateCompleting = false;
+  let bootGateDelayId: number | null = null;
+  let bootGateFadeId: number | null = null;
+  const bootGateStartedAt = Date.now();
+  const BOOT_SPLASH_MIN_VISIBLE_MS = 2400;
+  const BOOT_SPLASH_FADE_MS = 220;
+
+  function completeAppBootGate(): void {
+    const body = document.body;
+    const splash = document.getElementById('app-boot-splash');
+    if (body) {
+      body.classList.remove('app-boot-transitioning');
+      body.classList.remove('app-boot-pending');
+      body.setAttribute('data-boot', 'ready');
+    }
+    if (splash) {
+      splash.classList.remove('app-boot-fadeout');
+    }
+  }
 
   function releaseAppBootGate(): void {
+    if (bootGateReleased || bootGateCompleting) {
+      return;
+    }
+
+    const startFadeOut = (): void => {
+      if (bootGateCompleting) {
+        return;
+      }
+      bootGateCompleting = true;
+      const body = document.body;
+      const splash = document.getElementById('app-boot-splash');
+      if (body) {
+        body.classList.add('app-boot-transitioning');
+        body.setAttribute('data-boot', 'transition');
+      }
+      if (splash) {
+        splash.classList.add('app-boot-fadeout');
+      }
+      bootGateFadeId = window.setTimeout(() => {
+        bootGateReleased = true;
+        completeAppBootGate();
+      }, BOOT_SPLASH_FADE_MS);
+    };
+
+    const elapsed = Date.now() - bootGateStartedAt;
+    const waitMs = Math.max(0, BOOT_SPLASH_MIN_VISIBLE_MS - elapsed);
+    if (waitMs === 0) {
+      startFadeOut();
+      return;
+    }
+
+    if (bootGateDelayId !== null) {
+      window.clearTimeout(bootGateDelayId);
+      bootGateDelayId = null;
+    }
+    bootGateDelayId = window.setTimeout(() => {
+      bootGateDelayId = null;
+      startFadeOut();
+    }, waitMs);
+  }
+
+  function forceReleaseAppBootGate(): void {
     if (bootGateReleased) {
       return;
     }
+    if (bootGateDelayId !== null) {
+      window.clearTimeout(bootGateDelayId);
+      bootGateDelayId = null;
+    }
+    if (bootGateFadeId !== null) {
+      window.clearTimeout(bootGateFadeId);
+      bootGateFadeId = null;
+    }
+    bootGateCompleting = false;
     bootGateReleased = true;
     const body = document.body;
     if (body) {
+      body.classList.remove('app-boot-transitioning');
       body.classList.remove('app-boot-pending');
       body.setAttribute('data-boot', 'ready');
+    }
+    const splash = document.getElementById('app-boot-splash');
+    if (splash) {
+      splash.classList.remove('app-boot-fadeout');
     }
   }
 
   // Fail-safe: never leave the UI hidden even if initialization errors occur.
   window.setTimeout(() => {
-    releaseAppBootGate();
+    forceReleaseAppBootGate();
   }, 3500);
 
   /**
@@ -888,8 +963,7 @@ const init = function (): void {
     if (ambientData?.isCloud === true) {
       return AMP_STATUS.playlist === MYPLAYLIST_NAME || !AMP_STATUS.playlist;
     }
-    // Local JSON playlist write-back is intentionally left for a later release.
-    return false;
+    return true;
   }
 
   /**
@@ -6942,7 +7016,7 @@ const init = function (): void {
         case 'fadeout':
           break;
         case 'add_media':
-          elm.addEventListener('click', (_evt: Event) => {
+          elm.addEventListener('click', async (_evt: Event) => {
             if (!$MEDIA_MANAGE_FORM) return;
             if (!canMutateCurrentPlaylist()) {
               applyCloudEditRestrictions();
@@ -6977,8 +7051,9 @@ const init = function (): void {
               updatePlayStatus((AMP_STATUS.media || [])[0]?.amId ?? 0);
             }
             if (result) {
-              // Persist cloud MyPlaylist changes immediately and close modal.
-              persisted = persistMyPlaylistIfNeeded();
+              // Persist changes immediately for both cloud(MyPlaylist) and local JSON.
+              const persistResult = await persistMediaEditForCurrentPlaylist(AMP_STATUS.media || []);
+              persisted = persistResult.ok;
               if (persisted) {
                 hideOptionsModal();
               }

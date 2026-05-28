@@ -226,7 +226,7 @@ JSON Schema:
 
 ## ローカライズ
 
-`assets/lang.json` を翻訳定義で上書き、または `lang-{langCode}.json` を追加することで UI を多言語化できます。
+`assets/langs/lang.json` を翻訳定義で上書き、または `assets/langs/lang-{langCode}.json` を追加することで UI を多言語化できます（後方互換として `assets/lang-{langCode}.json` も引き続き読み込めます）。
 `$language` キーで表示言語名を定義し、各 UI 文言をキーとして翻訳値を設定します。
 
 例: `lang-de.json` を配置すればドイツ語 UI に切り替え可能です。
