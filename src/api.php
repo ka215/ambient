@@ -116,20 +116,106 @@ trait api {
      * @return void             At post-processing returns an array for the response.
      */
     private function get_filepath( string $filename ): void {
-        if ( preg_match( '/\[(.*)\]/', $filename ) ) {
-            $extension = pathinfo( $filename, PATHINFO_EXTENSION );
-            $files = $this->recursive_glob( MEDIA_DIR .'*.'. $extension );
-            $files = array_values( array_filter( $files, function( $filepath ) use( $filename ) {
-                return str_contains( $filepath, $filename );
-            } ) );
-        } else {
-            $files = $this->recursive_glob( MEDIA_DIR .'*'. $filename );
+        $normalized_filename = str_replace( '\\', '/', trim( $filename ) );
+        $basename_filename = basename( $normalized_filename );
+        $candidate_needles = array_values( array_unique( array_filter( [
+            $normalized_filename,
+            $basename_filename,
+        ], function( $item ) {
+            return $item !== '';
+        } ) ) );
+        $is_bracket_filename = preg_match( '/\[(.*)\]/', $filename ) === 1;
+        $extension = strtolower( pathinfo( $basename_filename, PATHINFO_EXTENSION ) );
+        $files = [];
+
+        $scan_media = function( string $real_dir, string $logical_dir, array $ancestor_realpaths = [] ) use ( &$scan_media, &$files, $candidate_needles, $is_bracket_filename, $extension ): void {
+            if ( !is_dir( $real_dir ) ) {
+                return;
+            }
+
+            $entries = @scandir( $real_dir );
+            if ( !is_array( $entries ) ) {
+                return;
+            }
+
+            foreach ( $entries as $entry ) {
+                if ( $entry === '.' || $entry === '..' ) {
+                    continue;
+                }
+
+                $absolute_path = $real_dir . DIRECTORY_SEPARATOR . $entry;
+                $logical_path = $logical_dir . '/' . $entry;
+
+                if ( is_dir( $absolute_path ) ) {
+                    $resolved_dir = realpath( $absolute_path );
+                    if ( $resolved_dir === false ) {
+                        continue;
+                    }
+                    if ( in_array( $resolved_dir, $ancestor_realpaths, true ) ) {
+                        continue;
+                    }
+                    $next_ancestors = $ancestor_realpaths;
+                    $next_ancestors[] = $resolved_dir;
+                    $scan_media( $resolved_dir, $logical_path, $next_ancestors );
+                    continue;
+                }
+
+                if ( !is_file( $absolute_path ) ) {
+                    continue;
+                }
+
+                if ( $is_bracket_filename ) {
+                    if ( $extension !== '' && strtolower( pathinfo( $absolute_path, PATHINFO_EXTENSION ) ) !== $extension ) {
+                        continue;
+                    }
+                    $matched = false;
+                    foreach ( $candidate_needles as $needle ) {
+                        if ( str_contains( str_replace( '\\', '/', $absolute_path ), $needle ) || str_contains( $logical_path, $needle ) ) {
+                            $matched = true;
+                            break;
+                        }
+                    }
+                    if ( !$matched ) {
+                        continue;
+                    }
+                } else {
+                    $matched = false;
+                    foreach ( $candidate_needles as $needle ) {
+                        if ( $needle === '' ) {
+                            continue;
+                        }
+                        $lower_needle = strtolower( $needle );
+                        $absolute_normalized = strtolower( str_replace( '\\', '/', $absolute_path ) );
+                        $logical_normalized = strtolower( $logical_path );
+                        if ( str_ends_with( $absolute_normalized, $lower_needle ) || str_ends_with( $logical_normalized, $lower_needle ) || strtolower( basename( $absolute_path ) ) === $lower_needle ) {
+                            $matched = true;
+                            break;
+                        }
+                    }
+                    if ( !$matched ) {
+                        continue;
+                    }
+                }
+
+                $files[] = [
+                    'absolute' => str_replace( '\\', '/', $absolute_path ),
+                    'logical'  => $logical_path,
+                ];
+            }
+        };
+
+        $media_root_real = realpath( MEDIA_DIR );
+        if ( $media_root_real !== false ) {
+            $scan_media( $media_root_real, 'assets/media', [ $media_root_real ] );
         }
-        if ( !empty( $files ) ) {
-            $relative_filepath = str_replace( APP_ROOT, './', $files[0] );
-        } else {
-            $relative_filepath = '';
+
+        $relative_filepath = '';
+        if ( !empty( $files ) && !empty( $files[0]['logical'] ) ) {
+            $relative_filepath = './' . ltrim( str_replace( '\\', '/', (string)$files[0]['logical'] ), './' );
+        } elseif ( $normalized_filename !== '' && file_exists( $normalized_filename ) ) {
+            $relative_filepath = str_replace( '\\', '/', $normalized_filename );
         }
+
         $this->logger( __METHOD__, $filename, $files, $relative_filepath );
         if ( empty( $relative_filepath ) ) {
             $this->api_response = [
