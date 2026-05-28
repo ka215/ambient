@@ -228,6 +228,10 @@ body.app-boot-pending #app-root {
     visibility: hidden;
 }
 
+body.app-boot-pending.app-boot-transitioning #app-root {
+    visibility: visible;
+}
+
 html body.app-boot-pending {
     overflow: hidden !important;
 }
@@ -248,6 +252,9 @@ html body.app-boot-pending {
     max-width: 100vw;
     max-height: 100vh;
     overflow: hidden;
+    opacity: 1;
+    transition: opacity 220ms ease;
+    pointer-events: auto;
 }
 
 @supports (height: 100dvh) {
@@ -261,35 +268,33 @@ body.app-boot-pending #app-boot-splash {
     display: flex;
 }
 
+#app-boot-splash.app-boot-fadeout {
+    opacity: 0;
+    pointer-events: none;
+}
+
 .dark #app-boot-splash {
     background: #111827;
     color: #f3f4f6;
 }
 
-#app-boot-splash .app-boot-spinner {
-    width: 1.75rem;
-    height: 1.75rem;
-    border-radius: 9999px;
-    border: 2px solid #d1d5db;
-    border-top-color: #2563eb;
-    animation: app-boot-spin 0.8s linear infinite;
-}
-
-.dark #app-boot-splash .app-boot-spinner {
-    border-color: #4b5563;
-    border-top-color: #60a5fa;
+#app-boot-splash .app-boot-loader {
+    width: 9rem;
+    height: 9rem;
+    min-width: 9rem;
+    min-height: 9rem;
+    max-width: 9rem;
+    max-height: 9rem;
+    flex: 0 0 auto;
+    border: 0;
+    display: block;
+    pointer-events: none;
 }
 
 #app-boot-splash .app-boot-label {
     margin: 0;
     font-size: 0.875rem;
     line-height: 1.25rem;
-}
-
-@keyframes app-boot-spin {
-    to {
-        transform: rotate(360deg);
-    }
 }
 </style>";
 

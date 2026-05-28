@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <style>
+      /* 全体を回転させるアニメーション */
+      #spinner-group {
+        transform-origin: 50px 60px;
+        animation: main-spin 3s infinite;
+      }
+      /* 各パーツを均等な間隔に配置・解除するアニメーション */
+      #right-leg-wrapper {
+        transform-origin: 50px 60px;
+        animation: right-wrapper-anim 3s infinite;
+      }
+      #left-leg-wrapper {
+        transform-origin: 50px 60px;
+        animation: left-wrapper-anim 3s infinite;
+      }
+      #bottom-wrapper {
+        transform-origin: 50px 60px;
+        animation: bottom-wrapper-anim 3s infinite;
+      }
+      /* 中央の緑の円の脈打ちアニメーション */
+      #center-group {
+        transform-origin: 50px 60px;
+        animation: pulse 3s infinite;
+      }
+
+      /* キーフレームの定義 (緩急をつけるために easing を細かく設定) */
+      @keyframes main-spin {
+        0% { transform: rotate(0deg); animation-timing-function: linear; }
+        35% { transform: rotate(540deg); animation-timing-function: ease-out; }
+        50% { transform: rotate(720deg); }
+        80% { transform: rotate(720deg); animation-timing-function: ease-in; }
+        100% { transform: rotate(900deg); }
+      }
+
+      @keyframes right-wrapper-anim {
+        0% { transform: rotate(-15deg); }
+        35% { transform: rotate(-15deg); animation-timing-function: ease-out; }
+        50% { transform: rotate(0deg); }
+        80% { transform: rotate(0deg); animation-timing-function: ease-in; }
+        100% { transform: rotate(-15deg); }
+      }
+
+      @keyframes left-wrapper-anim {
+        0% { transform: rotate(15deg); }
+        35% { transform: rotate(15deg); animation-timing-function: ease-out; }
+        50% { transform: rotate(0deg); }
+        80% { transform: rotate(0deg); animation-timing-function: ease-in; }
+        100% { transform: rotate(15deg); }
+      }
+
+      @keyframes bottom-wrapper-anim {
+        0% { transform: rotate(45deg); }
+        35% { transform: rotate(45deg); animation-timing-function: ease-out; }
+        50% { transform: rotate(0deg); }
+        80% { transform: rotate(0deg); animation-timing-function: ease-in; }
+        100% { transform: rotate(45deg); }
+      }
+
+      @keyframes pulse {
+        0% { transform: scale(0.8); animation-timing-function: ease-in-out; }
+        17.5% { transform: scale(1.1); animation-timing-function: ease-in-out; }
+        35% { transform: scale(0.8); animation-timing-function: ease-out; }
+        50% { transform: scale(1); }
+        80% { transform: scale(1); animation-timing-function: ease-in; }
+        100% { transform: scale(0.8); }
+      }
+    </style>
+  </defs>
+
+  <!-- 中央の三角形 (Green) -->
+  <g id="center-group">
+    <path fill="#92C18C">
+      <!-- 円から三角形へのパス・モーフィング -->
+      <animate attributeName="d" 
+        values="M 50,45 C 61.55,45 68.77,57.5 63,67.5 C 57.23,77.5 42.77,77.5 37,67.5 C 31.23,57.5 38.45,45 50,45 Z; M 50,45 C 61.55,45 68.77,57.5 63,67.5 C 57.23,77.5 42.77,77.5 37,67.5 C 31.23,57.5 38.45,45 50,45 Z; M 50,43.2 C 55.3,53.8 60.6,64.4 65.9,75 C 55.3,75 44.7,75 34.1,75 C 39.4,64.4 44.7,53.8 50,43.2 Z; M 50,43.2 C 55.3,53.8 60.6,64.4 65.9,75 C 55.3,75 44.7,75 34.1,75 C 39.4,64.4 44.7,53.8 50,43.2 Z; M 50,45 C 61.55,45 68.77,57.5 63,67.5 C 57.23,77.5 42.77,77.5 37,67.5 C 31.23,57.5 38.45,45 50,45 Z" 
+        keyTimes="0; 0.35; 0.5; 0.8; 1" dur="3s" repeatCount="indefinite" />
+    </path>
+  </g>
+
+  <!-- 外側の3パーツ群 -->
+  <g id="spinner-group">
+    
+    <!-- 右の斜め線 (Blue) -->
+    <g id="right-leg-wrapper">
+      <path fill="#4A83B4">
+        <!-- 円弧からロゴのポリゴンへのパス・モーフィング (左上斜辺のベースラインをTeal外側ラインと一直線に一致) -->
+        <animate attributeName="d" 
+          values="M 72,60 C 76,60 80,60 80,60 C 80,76.57 66.57,90 50,90 C 50,86 50,82 50,82 C 62.15,82 72,72.15 72,60 Z; M 72,60 C 76,60 80,60 80,60 C 80,76.57 66.57,90 50,90 C 50,86 50,82 50,82 C 62.15,82 72,72.15 72,60 Z; M 45,20 C 46.7,16.7 48.3,13.3 50,10 C 63.3,36.7 76.7,63.3 90,90 C 86.7,90 83.3,90 80,90 C 68.3,66.7 56.7,43.3 45,20 Z; M 45,20 C 46.7,16.7 48.3,13.3 50,10 C 63.3,36.7 76.7,63.3 90,90 C 86.7,90 83.3,90 80,90 C 68.3,66.7 56.7,43.3 45,20 Z; M 72,60 C 76,60 80,60 80,60 C 80,76.57 66.57,90 50,90 C 50,86 50,82 50,82 C 62.15,82 72,72.15 72,60 Z" 
+          keyTimes="0; 0.35; 0.5; 0.8; 1" dur="3s" repeatCount="indefinite" />
+      </path>
+    </g>
+
+    <!-- 左の斜め線 (Teal) -->
+    <g id="left-leg-wrapper">
+      <path fill="#008E89">
+        <!-- 円弧からロゴのポリゴンへのパス・モーフィング -->
+        <animate attributeName="d" 
+          values="M 20,60 C 24,60 28,60 28,60 C 28,72.15 37.85,82 50,82 C 50,86 50,90 50,90 C 33.43,90 20,76.57 20,60 Z; M 20,60 C 24,60 28,60 28,60 C 28,72.15 37.85,82 50,82 C 50,86 50,90 50,90 C 33.43,90 20,76.57 20,60 Z; M 41.7,26.6 C 43.4,29.9 45.0,33.3 46.7,36.6 C 37.8,54.4 28.9,72.2 20,90 C 16.7,90 13.3,90 10,90 C 20.6,68.9 31.1,47.7 41.7,26.6 Z; M 41.7,26.6 C 43.4,29.9 45.0,33.3 46.7,36.6 C 37.8,54.4 28.9,72.2 20,90 C 16.7,90 13.3,90 10,90 C 20.6,68.9 31.1,47.7 41.7,26.6 Z; M 20,60 C 24,60 28,60 28,60 C 28,72.15 37.85,82 50,82 C 50,86 50,90 50,90 C 33.43,90 20,76.57 20,60 Z" 
+          keyTimes="0; 0.35; 0.5; 0.8; 1" dur="3s" repeatCount="indefinite" />
+      </path>
+    </g>
+
+    <!-- 下の水平線 (Purple) -->
+    <g id="bottom-wrapper">
+      <path fill="#8A66E8">
+        <!-- 円弧からロゴのポリゴンへのパス・モーフィング (両端にGAPを追加し、一番短い棒線に変更) -->
+        <animate attributeName="d" 
+          values="M 28,60 C 28,47.85 37.85,38 50,38 C 50,34 50,30 50,30 C 33.43,30 20,43.43 20,60 C 24,60 28,60 28,60 Z; M 28,60 C 28,47.85 37.85,38 50,38 C 50,34 50,30 50,30 C 33.43,30 20,43.43 20,60 C 24,60 28,60 28,60 Z; M 30.8,81.6 C 43.6,81.6 56.4,81.6 69.2,81.6 C 70.6,84.4 72.0,87.2 73.4,90 C 57.8,90 42.2,90 26.6,90 C 28.0,87.2 29.4,84.4 30.8,81.6 Z; M 30.8,81.6 C 43.6,81.6 56.4,81.6 69.2,81.6 C 70.6,84.4 72.0,87.2 73.4,90 C 57.8,90 42.2,90 26.6,90 C 28.0,87.2 29.4,84.4 30.8,81.6 Z; M 28,60 C 28,47.85 37.85,38 50,38 C 50,34 50,30 50,30 C 33.43,30 20,43.43 20,60 C 24,60 28,60 28,60 Z" 
+          keyTimes="0; 0.35; 0.5; 0.8; 1" dur="3s" repeatCount="indefinite" />
+      </path>
+    </g>
+
+  </g>
+</svg>
