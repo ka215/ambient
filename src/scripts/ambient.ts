@@ -1828,9 +1828,10 @@ const init = function (): void {
   function validateMediaEditDraft(draft: MediaEditDraft): MediaEditValidationResult {
     const messages: string[] = [];
     const invalidFieldIds = new Set<string>();
+    const knownDuration = resolveMediaEditKnownDuration(mediaEditActiveItem);
     const effectiveEnd = resolveMediaEditEffectiveEnd(
       draft.seekEnd,
-      resolveMediaEditKnownDuration(mediaEditActiveItem),
+      knownDuration,
       draft.seekStart,
       mediaEditActiveItem ? normalizeMediaEditTimingValue(mediaEditActiveItem.fadeout, null) : null
     );
@@ -1857,8 +1858,20 @@ const init = function (): void {
       invalidFieldIds.add('modal-media-edit-fadein-end');
     }
 
-    if (draft.fadeOutStart !== null && effectiveEnd !== null && draft.fadeOutStart > effectiveEnd) {
-      messages.push(getLocalizedMessage('mediaEditValidationFadeOutEnd', 'Fade-out start must be less than or equal to seek end.'));
+    if (draft.seekStart !== null && draft.fadeOutStart !== null && draft.seekStart > draft.fadeOutStart) {
+      messages.push(getLocalizedMessage('mediaEditValidationStartFadeOut', 'Seek start must be less than or equal to fade-out start.'));
+      invalidFieldIds.add('modal-media-edit-seek-start');
+      invalidFieldIds.add('modal-media-edit-fadeout-start');
+    }
+
+    if (draft.fadeInEnd !== null && draft.seekEnd !== null && draft.fadeInEnd > draft.seekEnd) {
+      messages.push(getLocalizedMessage('mediaEditValidationFadeInEnd', 'Fade-in end must be less than or equal to seek end.'));
+      invalidFieldIds.add('modal-media-edit-fadein-end');
+      invalidFieldIds.add('modal-media-edit-seek-end');
+    }
+
+    if (draft.fadeOutStart !== null && draft.seekEnd !== null && draft.fadeOutStart >= draft.seekEnd) {
+      messages.push(getLocalizedMessage('mediaEditValidationFadeOutEndStrict', 'Fade-out start must be less than seek end.'));
       invalidFieldIds.add('modal-media-edit-fadeout-start');
       invalidFieldIds.add('modal-media-edit-seek-end');
     }
@@ -1867,6 +1880,17 @@ const init = function (): void {
       messages.push(getLocalizedMessage('mediaEditValidationFadeInFadeOut', 'Fade-in end must be less than or equal to fade-out start.'));
       invalidFieldIds.add('modal-media-edit-fadein-end');
       invalidFieldIds.add('modal-media-edit-fadeout-start');
+    }
+
+    if (draft.seekEnd !== null && knownDuration !== null && draft.seekEnd > knownDuration) {
+      messages.push(getLocalizedMessage('mediaEditValidationEndDuration', 'Seek end must be less than or equal to media duration.'));
+      invalidFieldIds.add('modal-media-edit-seek-end');
+    }
+
+    if (draft.seekEnd === null && draft.fadeOutStart !== null && effectiveEnd !== null && draft.fadeOutStart > effectiveEnd) {
+      messages.push(getLocalizedMessage('mediaEditValidationFadeOutEnd', 'Fade-out start must be less than or equal to seek end.'));
+      invalidFieldIds.add('modal-media-edit-fadeout-start');
+      invalidFieldIds.add('modal-media-edit-seek-end');
     }
 
     return {
