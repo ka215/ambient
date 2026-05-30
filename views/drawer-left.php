@@ -312,9 +312,27 @@
                             <p id="modal-media-edit-preview-error-message"></p>
                         </div>
                     </div>
+                    <div class="md:col-span-2 rounded-xl border border-gray-200 bg-gray-50 px-3 pb-3 pt-2 dark:border-gray-600 dark:bg-gray-800/60">
+                        <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"><?= __( 'Seek timeline' ) ?></p>
+                        <div id="modal-media-edit-seek-timeline" class="media-edit-seek-timeline" aria-live="polite">
+                            <div class="media-edit-seek-timeline__rail" aria-hidden="true"></div>
+                            <div id="modal-media-edit-seek-marker-start" class="media-edit-seek-marker media-edit-seek-marker--start hidden" aria-hidden="true">
+                                <span id="modal-media-edit-seek-marker-start-time" class="media-edit-seek-marker__time">HH:MM:SS</span>
+                            </div>
+                            <div id="modal-media-edit-seek-marker-fadein-end" class="media-edit-seek-marker media-edit-seek-marker--fadein-end hidden" aria-hidden="true">
+                                <span id="modal-media-edit-seek-marker-fadein-end-time" class="media-edit-seek-marker__time">HH:MM:SS</span>
+                            </div>
+                            <div id="modal-media-edit-seek-marker-fadeout-start" class="media-edit-seek-marker media-edit-seek-marker--fadeout-start hidden" aria-hidden="true">
+                                <span id="modal-media-edit-seek-marker-fadeout-start-time" class="media-edit-seek-marker__time">HH:MM:SS</span>
+                            </div>
+                            <div id="modal-media-edit-seek-marker-end" class="media-edit-seek-marker media-edit-seek-marker--end hidden" aria-hidden="true">
+                                <span id="modal-media-edit-seek-marker-end-time" class="media-edit-seek-marker__time">HH:MM:SS</span>
+                            </div>
+                        </div>
+                    </div>
                     <div class="md:col-span-2 grid gap-3 md:grid-cols-2">
                         <div class="md:flex md:items-center md:gap-3">
-                            <label for="modal-media-edit-seek-start" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-44"><?= __( 'Seek start (sec)' ) ?></label>
+                            <label for="modal-media-edit-seek-start" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-44"><span class="media-edit-seek-label media-edit-seek-label--start"><?= __( 'Seek start (sec)' ) ?></span></label>
                             <div class="flex w-full overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
                                 <input
                                   type="number"
@@ -339,7 +357,7 @@
                             </div>
                         </div>
                         <div class="md:flex md:items-center md:gap-3">
-                            <label for="modal-media-edit-seek-end" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-44"><?= __( 'Seek end (sec)' ) ?></label>
+                            <label for="modal-media-edit-seek-end" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-44"><span class="media-edit-seek-label media-edit-seek-label--end"><?= __( 'Seek end (sec)' ) ?></span></label>
                             <div class="flex w-full overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
                                 <input
                                   type="number"
@@ -365,7 +383,7 @@
                         </div>
                         <div>
                             <div class="md:flex md:items-center md:gap-3">
-                                <label for="modal-media-edit-fadein-end" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-44"><?= __( 'Fade-in end (sec)' ) ?></label>
+                                <label for="modal-media-edit-fadein-end" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-44"><span class="media-edit-seek-label media-edit-seek-label--fadein-end"><?= __( 'Fade-in end (sec)' ) ?></span></label>
                                 <div class="flex w-full overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
                                     <input
                                       type="number"
@@ -392,7 +410,7 @@
                         </div>
                         <div>
                             <div class="md:flex md:items-center md:gap-3">
-                                <label for="modal-media-edit-fadeout-start" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-44"><?= __( 'Fade-out start (sec)' ) ?></label>
+                                <label for="modal-media-edit-fadeout-start" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-44"><span class="media-edit-seek-label media-edit-seek-label--fadeout-start"><?= __( 'Fade-out start (sec)' ) ?></span></label>
                                 <div class="flex w-full overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
                                     <input
                                       type="number"

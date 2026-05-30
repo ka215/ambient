@@ -1295,6 +1295,15 @@ const init = function (): void {
   const $MEDIA_EDIT_SEEK_END_HMS = document.getElementById('modal-media-edit-seek-end-hms') as HTMLElement | null;
   const $MEDIA_EDIT_FADEIN_END_HMS = document.getElementById('modal-media-edit-fadein-end-hms') as HTMLElement | null;
   const $MEDIA_EDIT_FADEOUT_START_HMS = document.getElementById('modal-media-edit-fadeout-start-hms') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_TIMELINE = document.getElementById('modal-media-edit-seek-timeline') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_MARKER_START = document.getElementById('modal-media-edit-seek-marker-start') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_MARKER_FADEIN_END = document.getElementById('modal-media-edit-seek-marker-fadein-end') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START = document.getElementById('modal-media-edit-seek-marker-fadeout-start') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_MARKER_END = document.getElementById('modal-media-edit-seek-marker-end') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_MARKER_START_TIME = document.getElementById('modal-media-edit-seek-marker-start-time') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_MARKER_FADEIN_END_TIME = document.getElementById('modal-media-edit-seek-marker-fadein-end-time') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START_TIME = document.getElementById('modal-media-edit-seek-marker-fadeout-start-time') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_MARKER_END_TIME = document.getElementById('modal-media-edit-seek-marker-end-time') as HTMLElement | null;
   const $BUTTON_MEDIA_EDIT_SYNC_SEEK_START = document.getElementById('btn-media-edit-sync-seek-start') as HTMLButtonElement | null;
   const $BUTTON_MEDIA_EDIT_SYNC_SEEK_END = document.getElementById('btn-media-edit-sync-seek-end') as HTMLButtonElement | null;
   const $BUTTON_MEDIA_EDIT_SYNC_FADEIN_END = document.getElementById('btn-media-edit-sync-fadein-end') as HTMLButtonElement | null;
@@ -1499,6 +1508,50 @@ const init = function (): void {
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
 
+  function setMediaEditSeekTimelineMarker(
+    markerElm: HTMLElement | null,
+    markerTimeElm: HTMLElement | null,
+    value: number | null,
+    rangeMax: number
+  ): void {
+    if (!isElement(markerElm) || !isElement(markerTimeElm)) {
+      return;
+    }
+    if (!Number.isInteger(value) || value === null || value < 0) {
+      markerElm.classList.add('hidden');
+      markerTimeElm.textContent = 'HH:MM:SS';
+      return;
+    }
+    const positionPercent = Math.min(99, Math.max(1, (value / rangeMax) * 100));
+    markerElm.style.setProperty('--media-edit-seek-pos', `${positionPercent}%`);
+    markerTimeElm.textContent = formatSecondsToHHMMSS(value);
+    markerElm.classList.remove('hidden');
+  }
+
+  function syncMediaEditSeekTimeline(
+    seekStart: number | null,
+    seekEnd: number | null,
+    fadeInEnd: number | null,
+    fadeOutStart: number | null
+  ): void {
+    if (!isElement($MEDIA_EDIT_SEEK_TIMELINE)) {
+      return;
+    }
+    const knownDuration = resolveMediaEditKnownDuration(mediaEditActiveItem);
+    const rangeMax = Math.max(
+      1,
+      knownDuration ?? 0,
+      seekStart ?? 0,
+      seekEnd ?? 0,
+      fadeInEnd ?? 0,
+      fadeOutStart ?? 0
+    );
+    setMediaEditSeekTimelineMarker($MEDIA_EDIT_SEEK_MARKER_START, $MEDIA_EDIT_SEEK_MARKER_START_TIME, seekStart, rangeMax);
+    setMediaEditSeekTimelineMarker($MEDIA_EDIT_SEEK_MARKER_FADEIN_END, $MEDIA_EDIT_SEEK_MARKER_FADEIN_END_TIME, fadeInEnd, rangeMax);
+    setMediaEditSeekTimelineMarker($MEDIA_EDIT_SEEK_MARKER_FADEOUT_START, $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START_TIME, fadeOutStart, rangeMax);
+    setMediaEditSeekTimelineMarker($MEDIA_EDIT_SEEK_MARKER_END, $MEDIA_EDIT_SEEK_MARKER_END_TIME, seekEnd, rangeMax);
+  }
+
   function parseMediaEditItemDurationSeconds(mediaItem: MediaItem | null): number | null {
     if (!mediaItem) {
       return null;
@@ -1600,6 +1653,7 @@ const init = function (): void {
     if (isElement($MEDIA_EDIT_FADEOUT_START_HMS)) {
       $MEDIA_EDIT_FADEOUT_START_HMS.textContent = formatSecondsToHHMMSS(fadeOutStart);
     }
+    syncMediaEditSeekTimeline(seekStart, seekEnd, fadeInEnd, fadeOutStart);
   }
 
   function getMediaEditCategoryOptions(): string[] {
