@@ -311,10 +311,21 @@
                         <div id="modal-media-edit-preview-error" class="mt-2 hidden rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-700/60 dark:bg-red-900/25 dark:text-red-200" role="alert" aria-live="polite">
                             <p id="modal-media-edit-preview-error-message"></p>
                         </div>
-                    </div>
-                    <div class="md:col-span-2 rounded-xl border border-gray-200 bg-gray-50 px-3 pb-3 pt-2 dark:border-gray-600 dark:bg-gray-800/60">
-                        <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"><?= __( 'Seek timeline' ) ?></p>
-                        <div id="modal-media-edit-seek-timeline" class="media-edit-seek-timeline" aria-live="polite">
+                        <div class="mt-3">
+                            <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"><?= __( 'Seek timeline' ) ?></p>
+                            <div id="modal-media-edit-seek-timeline" class="media-edit-seek-timeline" aria-live="polite">
+                                <div id="modal-media-edit-seek-timeline-loading" class="media-edit-seek-timeline__loading hidden" aria-hidden="true">
+                                    <span class="media-edit-seek-timeline__spinner" aria-hidden="true"></span>
+                                    <span class="media-edit-seek-timeline__loading-text"><?= __( 'Loading duration...' ) ?></span>
+                                </div>
+                                <div class="media-edit-seek-timeline__fixed media-edit-seek-timeline__fixed--start" aria-hidden="true">
+                                    <span class="media-edit-seek-timeline__fixed-dot"></span>
+                                    <span id="modal-media-edit-seek-fixed-start-time" class="media-edit-seek-timeline__fixed-time">0:00</span>
+                                </div>
+                                <div class="media-edit-seek-timeline__fixed media-edit-seek-timeline__fixed--end" aria-hidden="true">
+                                    <span class="media-edit-seek-timeline__fixed-dot"></span>
+                                    <span id="modal-media-edit-seek-fixed-end-time" class="media-edit-seek-timeline__fixed-time">0:00</span>
+                                </div>
                             <div class="media-edit-seek-timeline__rail" aria-hidden="true"></div>
                             <div id="modal-media-edit-seek-marker-start" class="media-edit-seek-marker media-edit-seek-marker--start hidden" aria-hidden="true">
                                 <span id="modal-media-edit-seek-marker-start-time" class="media-edit-seek-marker__time">HH:MM:SS</span>
@@ -327,6 +338,7 @@
                             </div>
                             <div id="modal-media-edit-seek-marker-end" class="media-edit-seek-marker media-edit-seek-marker--end hidden" aria-hidden="true">
                                 <span id="modal-media-edit-seek-marker-end-time" class="media-edit-seek-marker__time">HH:MM:SS</span>
+                            </div>
                             </div>
                         </div>
                     </div>
@@ -435,7 +447,8 @@
                                 </div>
                             </div>
                         </div>
-                        <p class="md:col-span-2 text-xs text-gray-500 dark:text-gray-400"><?= __( 'Sync button captures the current seek point from media preview playback.' ) ?></p>
+                        <p class="md:col-span-2 text-xs text-gray-500 dark:text-gray-400"><?= __( 'Pressing Sync during media preview playback captures the seek position in seconds.' ) ?></p>
+                        <p class="md:col-span-2 text-xs text-gray-500 dark:text-gray-400"><?= __( 'Each seek time setting is applied when &ldquo;Seek and play&rdquo; and &ldquo;Pseudo fader&rdquo; are enabled.' ) ?></p>
                     </div>
                 </form>
             </section>

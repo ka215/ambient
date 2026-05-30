@@ -1296,10 +1296,13 @@ const init = function (): void {
   const $MEDIA_EDIT_FADEIN_END_HMS = document.getElementById('modal-media-edit-fadein-end-hms') as HTMLElement | null;
   const $MEDIA_EDIT_FADEOUT_START_HMS = document.getElementById('modal-media-edit-fadeout-start-hms') as HTMLElement | null;
   const $MEDIA_EDIT_SEEK_TIMELINE = document.getElementById('modal-media-edit-seek-timeline') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_TIMELINE_LOADING = document.getElementById('modal-media-edit-seek-timeline-loading') as HTMLElement | null;
   const $MEDIA_EDIT_SEEK_MARKER_START = document.getElementById('modal-media-edit-seek-marker-start') as HTMLElement | null;
   const $MEDIA_EDIT_SEEK_MARKER_FADEIN_END = document.getElementById('modal-media-edit-seek-marker-fadein-end') as HTMLElement | null;
   const $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START = document.getElementById('modal-media-edit-seek-marker-fadeout-start') as HTMLElement | null;
   const $MEDIA_EDIT_SEEK_MARKER_END = document.getElementById('modal-media-edit-seek-marker-end') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_FIXED_START_TIME = document.getElementById('modal-media-edit-seek-fixed-start-time') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_FIXED_END_TIME = document.getElementById('modal-media-edit-seek-fixed-end-time') as HTMLElement | null;
   const $MEDIA_EDIT_SEEK_MARKER_START_TIME = document.getElementById('modal-media-edit-seek-marker-start-time') as HTMLElement | null;
   const $MEDIA_EDIT_SEEK_MARKER_FADEIN_END_TIME = document.getElementById('modal-media-edit-seek-marker-fadein-end-time') as HTMLElement | null;
   const $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START_TIME = document.getElementById('modal-media-edit-seek-marker-fadeout-start-time') as HTMLElement | null;
@@ -1385,6 +1388,12 @@ const init = function (): void {
   const defaultMediaEditModalTitle = $MODAL_MEDIA_EDIT_TITLE?.textContent?.trim() || 'Media Edit';
   const MEDIA_EDIT_DRAFT_STORAGE_KEY = 'ambient:media-edit-drafts:v2.5.0';
   const MEDIA_EDIT_PREVIEW_YT_PLAYER_ID = 'modal-media-edit-preview-yt-player';
+  const mediaEditDurationSyncTimeoutEnv = Number(import.meta.env.VITE_MEDIA_EDIT_DURATION_SYNC_TIMEOUT_MS);
+  const MEDIA_EDIT_DURATION_SYNC_TIMEOUT_MS = Number.isFinite(mediaEditDurationSyncTimeoutEnv)
+    && mediaEditDurationSyncTimeoutEnv >= 0
+    ? Math.trunc(mediaEditDurationSyncTimeoutEnv)
+    : 5000;
+  const MEDIA_EDIT_DURATION_SYNC_POLL_MS = 250;
   const MEDIA_EDIT_SAVE_ENDPOINT = 'playlist-save';
   const MEDIA_EDIT_THUMBNAIL_ENDPOINT = 'thumbnail';
   const mediaEditDraftStore = new Map<string, MediaEditDraft>();
@@ -1396,6 +1405,9 @@ const init = function (): void {
   let mediaEditPreviewSourceItem: MediaItem | null = null;
   let mediaEditPreviewType: 'youtube' | 'audio' | 'video' | null = null;
   let mediaEditPreviewDurationSeconds: number | null = null;
+  let mediaEditDurationSyncTimerId: number | null = null;
+  let mediaEditDurationSyncTimeoutId: number | null = null;
+  let mediaEditDurationSyncItemKey: string | null = null;
 
   interface MediaEditDraft {
     category: string;
@@ -1508,6 +1520,29 @@ const init = function (): void {
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
 
+  function formatSecondsToTimelineLabel(value: number | null): string {
+    if (!Number.isFinite(value) || value === null || value < 0) {
+      return '0:00';
+    }
+    const total = Math.floor(value);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const seconds = total % 60;
+    const mm = String(minutes).padStart(2, '0');
+    const ss = String(seconds).padStart(2, '0');
+
+    if (hours >= 10) {
+      return `${String(hours).padStart(2, '0')}:${mm}:${ss}`;
+    }
+    if (hours >= 1) {
+      return `${String(hours)}:${mm}:${ss}`;
+    }
+    if (minutes >= 10) {
+      return `${String(minutes).padStart(2, '0')}:${ss}`;
+    }
+    return `${String(minutes)}:${ss}`;
+  }
+
   function setMediaEditSeekTimelineMarker(
     markerElm: HTMLElement | null,
     markerTimeElm: HTMLElement | null,
@@ -1519,12 +1554,12 @@ const init = function (): void {
     }
     if (!Number.isInteger(value) || value === null || value < 0) {
       markerElm.classList.add('hidden');
-      markerTimeElm.textContent = 'HH:MM:SS';
+      markerTimeElm.textContent = '';
       return;
     }
     const positionPercent = Math.min(99, Math.max(1, (value / rangeMax) * 100));
-    markerElm.style.setProperty('--media-edit-seek-pos', `${positionPercent}%`);
-    markerTimeElm.textContent = formatSecondsToHHMMSS(value);
+    markerElm.style.setProperty('--media-edit-seek-pos', `${positionPercent}`);
+    markerTimeElm.textContent = formatSecondsToTimelineLabel(value);
     markerElm.classList.remove('hidden');
   }
 
@@ -1546,10 +1581,81 @@ const init = function (): void {
       fadeInEnd ?? 0,
       fadeOutStart ?? 0
     );
+    if (isElement($MEDIA_EDIT_SEEK_FIXED_START_TIME)) {
+      $MEDIA_EDIT_SEEK_FIXED_START_TIME.textContent = formatSecondsToTimelineLabel(0);
+    }
+    if (isElement($MEDIA_EDIT_SEEK_FIXED_END_TIME)) {
+      $MEDIA_EDIT_SEEK_FIXED_END_TIME.textContent = formatSecondsToTimelineLabel(knownDuration ?? rangeMax);
+    }
     setMediaEditSeekTimelineMarker($MEDIA_EDIT_SEEK_MARKER_START, $MEDIA_EDIT_SEEK_MARKER_START_TIME, seekStart, rangeMax);
     setMediaEditSeekTimelineMarker($MEDIA_EDIT_SEEK_MARKER_FADEIN_END, $MEDIA_EDIT_SEEK_MARKER_FADEIN_END_TIME, fadeInEnd, rangeMax);
     setMediaEditSeekTimelineMarker($MEDIA_EDIT_SEEK_MARKER_FADEOUT_START, $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START_TIME, fadeOutStart, rangeMax);
     setMediaEditSeekTimelineMarker($MEDIA_EDIT_SEEK_MARKER_END, $MEDIA_EDIT_SEEK_MARKER_END_TIME, seekEnd, rangeMax);
+  }
+
+  function setMediaEditSeekTimelineLoading(isLoading: boolean): void {
+    if (isElement($MEDIA_EDIT_SEEK_TIMELINE)) {
+      $MEDIA_EDIT_SEEK_TIMELINE.classList.toggle('is-loading', isLoading);
+      $MEDIA_EDIT_SEEK_TIMELINE.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+    }
+    if (isElement($MEDIA_EDIT_SEEK_TIMELINE_LOADING)) {
+      $MEDIA_EDIT_SEEK_TIMELINE_LOADING.classList.toggle('hidden', !isLoading);
+      $MEDIA_EDIT_SEEK_TIMELINE_LOADING.setAttribute('aria-hidden', isLoading ? 'false' : 'true');
+    }
+  }
+
+  function clearMediaEditDurationSyncWait(): void {
+    if (mediaEditDurationSyncTimerId !== null) {
+      window.clearInterval(mediaEditDurationSyncTimerId);
+      mediaEditDurationSyncTimerId = null;
+    }
+    if (mediaEditDurationSyncTimeoutId !== null) {
+      window.clearTimeout(mediaEditDurationSyncTimeoutId);
+      mediaEditDurationSyncTimeoutId = null;
+    }
+    mediaEditDurationSyncItemKey = null;
+    setMediaEditSeekTimelineLoading(false);
+  }
+
+  function maybeCompleteMediaEditDurationSyncWait(): boolean {
+    if (!mediaEditActiveItem || !mediaEditDurationSyncItemKey) {
+      return false;
+    }
+    if (mediaEditDurationSyncItemKey !== getMediaEditItemIdentity(mediaEditActiveItem)) {
+      clearMediaEditDurationSyncWait();
+      return false;
+    }
+    if (resolveMediaEditKnownDuration(mediaEditActiveItem) === null) {
+      return false;
+    }
+    clearMediaEditDurationSyncWait();
+    syncMediaEditTimingDisplay();
+    return true;
+  }
+
+  function startMediaEditDurationSyncWaitIfNeeded(): void {
+    if (!mediaEditActiveItem || !isElement($MEDIA_EDIT_SEEK_TIMELINE)) {
+      clearMediaEditDurationSyncWait();
+      return;
+    }
+    const itemKey = getMediaEditItemIdentity(mediaEditActiveItem);
+    if (resolveMediaEditKnownDuration(mediaEditActiveItem) !== null) {
+      clearMediaEditDurationSyncWait();
+      return;
+    }
+
+    clearMediaEditDurationSyncWait();
+    mediaEditDurationSyncItemKey = itemKey;
+    setMediaEditSeekTimelineLoading(true);
+
+    mediaEditDurationSyncTimerId = window.setInterval(() => {
+      maybeCompleteMediaEditDurationSyncWait();
+    }, MEDIA_EDIT_DURATION_SYNC_POLL_MS);
+
+    mediaEditDurationSyncTimeoutId = window.setTimeout(() => {
+      clearMediaEditDurationSyncWait();
+      syncMediaEditTimingDisplay();
+    }, MEDIA_EDIT_DURATION_SYNC_TIMEOUT_MS);
   }
 
   function parseMediaEditItemDurationSeconds(mediaItem: MediaItem | null): number | null {
@@ -2012,6 +2118,7 @@ const init = function (): void {
   }
 
   function resetMediaEditPreviewState(): void {
+    clearMediaEditDurationSyncWait();
     destroyMediaEditPreviewPlayer();
     clearMediaEditPreviewContainer();
     mediaEditPreviewSourceItem = null;
@@ -2102,6 +2209,7 @@ const init = function (): void {
               const duration = normalizeMediaEditTimingValue(mediaEditPreviewYouTubePlayer?.getDuration(), null);
               mediaEditPreviewDurationSeconds = duration;
               validateAndRenderMediaEditDraftFromForm();
+              maybeCompleteMediaEditDurationSyncWait();
               hideMediaEditPreviewError();
             },
             onStateChange: () => {
@@ -2109,6 +2217,7 @@ const init = function (): void {
               if (duration !== null) {
                 mediaEditPreviewDurationSeconds = duration;
                 validateAndRenderMediaEditDraftFromForm();
+                maybeCompleteMediaEditDurationSyncWait();
               }
               hideMediaEditPreviewError();
             },
@@ -2156,6 +2265,7 @@ const init = function (): void {
       previewElm.addEventListener('loadedmetadata', () => {
         mediaEditPreviewDurationSeconds = normalizeMediaEditTimingValue(previewElm.duration, null);
         validateAndRenderMediaEditDraftFromForm();
+        maybeCompleteMediaEditDurationSyncWait();
         hideMediaEditPreviewError();
       });
       previewElm.addEventListener('error', () => {
@@ -2927,6 +3037,7 @@ const init = function (): void {
       updatePlaylist();
     }
     createMediaEditPreview(mediaItem);
+    startMediaEditDurationSyncWaitIfNeeded();
     $MODAL_MEDIA_EDIT_TITLE.textContent = defaultMediaEditModalTitle;
     $MODAL_MEDIA_EDIT.classList.remove('hidden');
     $MODAL_MEDIA_EDIT.removeAttribute('aria-hidden');

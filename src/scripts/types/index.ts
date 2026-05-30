@@ -197,3 +197,11 @@ declare var YT: {
   };
 };
 declare var player: YTPlayer | undefined;
+
+interface ImportMetaEnv {
+  readonly VITE_MEDIA_EDIT_DURATION_SYNC_TIMEOUT_MS?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
