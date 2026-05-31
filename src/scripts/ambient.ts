@@ -958,6 +958,29 @@ const init = function (): void {
     }
   }
 
+  function buildEmptyMyPlaylistSeed(): string {
+    const payload: Record<string, unknown> = {
+      options: {},
+    };
+    return JSON.stringify(payload, null, 2);
+  }
+
+  function ensureCloudMyPlaylistSeed(): void {
+    const ambientData = getAmbientData();
+    if (!ambientData?.isCloud) {
+      return;
+    }
+    if (localStorage.getItem(MYPLAYLIST_KEY) !== null) {
+      return;
+    }
+    try {
+      localStorage.setItem(MYPLAYLIST_KEY, buildEmptyMyPlaylistSeed());
+      logger('ensureCloudMyPlaylistSeed: initialized empty MyPlaylist');
+    } catch (error) {
+      logger('ensureCloudMyPlaylistSeed: failed to initialize', error);
+    }
+  }
+
   function canMutateCurrentPlaylist(): boolean {
     const ambientData = getAmbientData();
     if (ambientData?.isCloud === true) {
@@ -1263,8 +1286,6 @@ const init = function (): void {
   const $MODAL_MEDIA_EDIT_ITEM_TITLE = document.getElementById('modal-media-edit-item-title') as HTMLElement | null;
   const $MODAL_MEDIA_EDIT_ITEM_SOURCE = document.getElementById('modal-media-edit-item-source') as HTMLElement | null;
   const $FORM_MEDIA_EDIT = document.getElementById('form-media-edit') as HTMLFormElement | null;
-  const $MEDIA_EDIT_VALIDATION = document.getElementById('modal-media-edit-validation') as HTMLElement | null;
-  const $MEDIA_EDIT_VALIDATION_LIST = document.getElementById('modal-media-edit-validation-list') as HTMLElement | null;
   const $MEDIA_EDIT_CATEGORY_COMBOBOX = document.getElementById('modal-media-edit-category-combobox') as HTMLElement | null;
   const $MEDIA_EDIT_CATEGORY = document.getElementById('modal-media-edit-category') as HTMLInputElement | null;
   const $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR = document.getElementById('btn-media-edit-category-clear') as HTMLButtonElement | null;
@@ -1295,6 +1316,18 @@ const init = function (): void {
   const $MEDIA_EDIT_SEEK_END_HMS = document.getElementById('modal-media-edit-seek-end-hms') as HTMLElement | null;
   const $MEDIA_EDIT_FADEIN_END_HMS = document.getElementById('modal-media-edit-fadein-end-hms') as HTMLElement | null;
   const $MEDIA_EDIT_FADEOUT_START_HMS = document.getElementById('modal-media-edit-fadeout-start-hms') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_TIMELINE = document.getElementById('modal-media-edit-seek-timeline') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_TIMELINE_LOADING = document.getElementById('modal-media-edit-seek-timeline-loading') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_MARKER_START = document.getElementById('modal-media-edit-seek-marker-start') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_MARKER_FADEIN_END = document.getElementById('modal-media-edit-seek-marker-fadein-end') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START = document.getElementById('modal-media-edit-seek-marker-fadeout-start') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_MARKER_END = document.getElementById('modal-media-edit-seek-marker-end') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_FIXED_START_TIME = document.getElementById('modal-media-edit-seek-fixed-start-time') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_FIXED_END_TIME = document.getElementById('modal-media-edit-seek-fixed-end-time') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_MARKER_START_TIME = document.getElementById('modal-media-edit-seek-marker-start-time') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_MARKER_FADEIN_END_TIME = document.getElementById('modal-media-edit-seek-marker-fadein-end-time') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START_TIME = document.getElementById('modal-media-edit-seek-marker-fadeout-start-time') as HTMLElement | null;
+  const $MEDIA_EDIT_SEEK_MARKER_END_TIME = document.getElementById('modal-media-edit-seek-marker-end-time') as HTMLElement | null;
   const $BUTTON_MEDIA_EDIT_SYNC_SEEK_START = document.getElementById('btn-media-edit-sync-seek-start') as HTMLButtonElement | null;
   const $BUTTON_MEDIA_EDIT_SYNC_SEEK_END = document.getElementById('btn-media-edit-sync-seek-end') as HTMLButtonElement | null;
   const $BUTTON_MEDIA_EDIT_SYNC_FADEIN_END = document.getElementById('btn-media-edit-sync-fadein-end') as HTMLButtonElement | null;
@@ -1376,6 +1409,12 @@ const init = function (): void {
   const defaultMediaEditModalTitle = $MODAL_MEDIA_EDIT_TITLE?.textContent?.trim() || 'Media Edit';
   const MEDIA_EDIT_DRAFT_STORAGE_KEY = 'ambient:media-edit-drafts:v2.5.0';
   const MEDIA_EDIT_PREVIEW_YT_PLAYER_ID = 'modal-media-edit-preview-yt-player';
+  const mediaEditDurationSyncTimeoutEnv = Number(import.meta.env.VITE_MEDIA_EDIT_DURATION_SYNC_TIMEOUT_MS);
+  const MEDIA_EDIT_DURATION_SYNC_TIMEOUT_MS = Number.isFinite(mediaEditDurationSyncTimeoutEnv)
+    && mediaEditDurationSyncTimeoutEnv >= 0
+    ? Math.trunc(mediaEditDurationSyncTimeoutEnv)
+    : 5000;
+  const MEDIA_EDIT_DURATION_SYNC_POLL_MS = 250;
   const MEDIA_EDIT_SAVE_ENDPOINT = 'playlist-save';
   const MEDIA_EDIT_THUMBNAIL_ENDPOINT = 'thumbnail';
   const mediaEditDraftStore = new Map<string, MediaEditDraft>();
@@ -1387,6 +1426,9 @@ const init = function (): void {
   let mediaEditPreviewSourceItem: MediaItem | null = null;
   let mediaEditPreviewType: 'youtube' | 'audio' | 'video' | null = null;
   let mediaEditPreviewDurationSeconds: number | null = null;
+  let mediaEditDurationSyncTimerId: number | null = null;
+  let mediaEditDurationSyncTimeoutId: number | null = null;
+  let mediaEditDurationSyncItemKey: string | null = null;
 
   interface MediaEditDraft {
     category: string;
@@ -1424,6 +1466,7 @@ const init = function (): void {
     valid: boolean;
     messages: string[];
     invalidFieldIds: string[];
+    fieldMessages: Record<string, string[]>;
   }
 
   function parseMediaTimeToIntegerSeconds(value: unknown): number | null {
@@ -1497,6 +1540,144 @@ const init = function (): void {
     const minutes = Math.floor((value % 3600) / 60);
     const seconds = value % 60;
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  function formatSecondsToTimelineLabel(value: number | null): string {
+    if (!Number.isFinite(value) || value === null || value < 0) {
+      return '0:00';
+    }
+    const total = Math.floor(value);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const seconds = total % 60;
+    const mm = String(minutes).padStart(2, '0');
+    const ss = String(seconds).padStart(2, '0');
+
+    if (hours >= 10) {
+      return `${String(hours).padStart(2, '0')}:${mm}:${ss}`;
+    }
+    if (hours >= 1) {
+      return `${String(hours)}:${mm}:${ss}`;
+    }
+    if (minutes >= 10) {
+      return `${String(minutes).padStart(2, '0')}:${ss}`;
+    }
+    return `${String(minutes)}:${ss}`;
+  }
+
+  function setMediaEditSeekTimelineMarker(
+    markerElm: HTMLElement | null,
+    markerTimeElm: HTMLElement | null,
+    value: number | null,
+    rangeMax: number
+  ): void {
+    if (!isElement(markerElm) || !isElement(markerTimeElm)) {
+      return;
+    }
+    if (!Number.isInteger(value) || value === null || value < 0) {
+      markerElm.classList.add('hidden');
+      markerTimeElm.textContent = '';
+      return;
+    }
+    const positionPercent = Math.min(99, Math.max(1, (value / rangeMax) * 100));
+    markerElm.style.setProperty('--media-edit-seek-pos', `${positionPercent}`);
+    markerTimeElm.textContent = formatSecondsToTimelineLabel(value);
+    markerElm.classList.remove('hidden');
+  }
+
+  function syncMediaEditSeekTimeline(
+    seekStart: number | null,
+    seekEnd: number | null,
+    fadeInEnd: number | null,
+    fadeOutStart: number | null
+  ): void {
+    if (!isElement($MEDIA_EDIT_SEEK_TIMELINE)) {
+      return;
+    }
+    const knownDuration = resolveMediaEditKnownDuration(mediaEditActiveItem);
+    const rangeMax = Math.max(
+      1,
+      knownDuration ?? 0,
+      seekStart ?? 0,
+      seekEnd ?? 0,
+      fadeInEnd ?? 0,
+      fadeOutStart ?? 0
+    );
+    if (isElement($MEDIA_EDIT_SEEK_FIXED_START_TIME)) {
+      $MEDIA_EDIT_SEEK_FIXED_START_TIME.textContent = formatSecondsToTimelineLabel(0);
+    }
+    if (isElement($MEDIA_EDIT_SEEK_FIXED_END_TIME)) {
+      $MEDIA_EDIT_SEEK_FIXED_END_TIME.textContent = formatSecondsToTimelineLabel(knownDuration ?? rangeMax);
+    }
+    setMediaEditSeekTimelineMarker($MEDIA_EDIT_SEEK_MARKER_START, $MEDIA_EDIT_SEEK_MARKER_START_TIME, seekStart, rangeMax);
+    setMediaEditSeekTimelineMarker($MEDIA_EDIT_SEEK_MARKER_FADEIN_END, $MEDIA_EDIT_SEEK_MARKER_FADEIN_END_TIME, fadeInEnd, rangeMax);
+    setMediaEditSeekTimelineMarker($MEDIA_EDIT_SEEK_MARKER_FADEOUT_START, $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START_TIME, fadeOutStart, rangeMax);
+    setMediaEditSeekTimelineMarker($MEDIA_EDIT_SEEK_MARKER_END, $MEDIA_EDIT_SEEK_MARKER_END_TIME, seekEnd, rangeMax);
+  }
+
+  function setMediaEditSeekTimelineLoading(isLoading: boolean): void {
+    if (isElement($MEDIA_EDIT_SEEK_TIMELINE)) {
+      $MEDIA_EDIT_SEEK_TIMELINE.classList.toggle('is-loading', isLoading);
+      $MEDIA_EDIT_SEEK_TIMELINE.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+    }
+    if (isElement($MEDIA_EDIT_SEEK_TIMELINE_LOADING)) {
+      $MEDIA_EDIT_SEEK_TIMELINE_LOADING.classList.toggle('hidden', !isLoading);
+      $MEDIA_EDIT_SEEK_TIMELINE_LOADING.setAttribute('aria-hidden', isLoading ? 'false' : 'true');
+    }
+  }
+
+  function clearMediaEditDurationSyncWait(): void {
+    if (mediaEditDurationSyncTimerId !== null) {
+      window.clearInterval(mediaEditDurationSyncTimerId);
+      mediaEditDurationSyncTimerId = null;
+    }
+    if (mediaEditDurationSyncTimeoutId !== null) {
+      window.clearTimeout(mediaEditDurationSyncTimeoutId);
+      mediaEditDurationSyncTimeoutId = null;
+    }
+    mediaEditDurationSyncItemKey = null;
+    setMediaEditSeekTimelineLoading(false);
+  }
+
+  function maybeCompleteMediaEditDurationSyncWait(): boolean {
+    if (!mediaEditActiveItem || !mediaEditDurationSyncItemKey) {
+      return false;
+    }
+    if (mediaEditDurationSyncItemKey !== getMediaEditItemIdentity(mediaEditActiveItem)) {
+      clearMediaEditDurationSyncWait();
+      return false;
+    }
+    if (resolveMediaEditKnownDuration(mediaEditActiveItem) === null) {
+      return false;
+    }
+    clearMediaEditDurationSyncWait();
+    syncMediaEditTimingDisplay();
+    return true;
+  }
+
+  function startMediaEditDurationSyncWaitIfNeeded(): void {
+    if (!mediaEditActiveItem || !isElement($MEDIA_EDIT_SEEK_TIMELINE)) {
+      clearMediaEditDurationSyncWait();
+      return;
+    }
+    const itemKey = getMediaEditItemIdentity(mediaEditActiveItem);
+    if (resolveMediaEditKnownDuration(mediaEditActiveItem) !== null) {
+      clearMediaEditDurationSyncWait();
+      return;
+    }
+
+    clearMediaEditDurationSyncWait();
+    mediaEditDurationSyncItemKey = itemKey;
+    setMediaEditSeekTimelineLoading(true);
+
+    mediaEditDurationSyncTimerId = window.setInterval(() => {
+      maybeCompleteMediaEditDurationSyncWait();
+    }, MEDIA_EDIT_DURATION_SYNC_POLL_MS);
+
+    mediaEditDurationSyncTimeoutId = window.setTimeout(() => {
+      clearMediaEditDurationSyncWait();
+      syncMediaEditTimingDisplay();
+    }, MEDIA_EDIT_DURATION_SYNC_TIMEOUT_MS);
   }
 
   function parseMediaEditItemDurationSeconds(mediaItem: MediaItem | null): number | null {
@@ -1600,6 +1781,7 @@ const init = function (): void {
     if (isElement($MEDIA_EDIT_FADEOUT_START_HMS)) {
       $MEDIA_EDIT_FADEOUT_START_HMS.textContent = formatSecondsToHHMMSS(fadeOutStart);
     }
+    syncMediaEditSeekTimeline(seekStart, seekEnd, fadeInEnd, fadeOutStart);
   }
 
   function getMediaEditCategoryOptions(): string[] {
@@ -1778,15 +1960,46 @@ const init = function (): void {
     field.classList.toggle('focus:border-red-500', invalid);
     field.classList.toggle('focus:ring-red-200', invalid);
     field.classList.toggle('dark:focus:ring-red-900', invalid);
+    const group = field.closest<HTMLElement>('[data-media-edit-validation-group]');
+    if (group) {
+      group.classList.toggle('border-red-500', invalid);
+      group.classList.toggle('focus-within:border-red-500', invalid);
+      group.classList.toggle('focus-within:ring-2', invalid);
+      group.classList.toggle('focus-within:ring-red-200', invalid);
+      group.classList.toggle('dark:focus-within:border-red-400', invalid);
+      group.classList.toggle('dark:focus-within:ring-red-900', invalid);
+    }
+  }
+
+  function setMediaEditFieldValidationMessage(fieldId: string, message: string | null): void {
+    const messageElm = document.getElementById(`${fieldId}-error`) as HTMLElement | null;
+    if (!messageElm) {
+      return;
+    }
+    if (message === null || message.trim() === '') {
+      messageElm.textContent = '';
+      messageElm.classList.add('hidden');
+      return;
+    }
+    messageElm.textContent = message;
+    messageElm.classList.remove('hidden');
+  }
+
+  function setMediaEditSaveButtonDisabled(disabled: boolean): void {
+    if (!isElement($BUTTON_SAVE_MEDIA_EDIT)) {
+      return;
+    }
+    $BUTTON_SAVE_MEDIA_EDIT.disabled = disabled;
+    $BUTTON_SAVE_MEDIA_EDIT.setAttribute('aria-disabled', disabled ? 'true' : 'false');
   }
 
   function clearMediaEditValidationView(): void {
-    if (isElement($MEDIA_EDIT_VALIDATION_LIST)) {
-      $MEDIA_EDIT_VALIDATION_LIST.innerHTML = '';
-    }
-    if (isElement($MEDIA_EDIT_VALIDATION)) {
-      $MEDIA_EDIT_VALIDATION.classList.add('hidden');
-    }
+    setMediaEditFieldValidationMessage('modal-media-edit-category', null);
+    setMediaEditFieldValidationMessage('modal-media-edit-title-input', null);
+    setMediaEditFieldValidationMessage('modal-media-edit-seek-start', null);
+    setMediaEditFieldValidationMessage('modal-media-edit-seek-end', null);
+    setMediaEditFieldValidationMessage('modal-media-edit-fadein-end', null);
+    setMediaEditFieldValidationMessage('modal-media-edit-fadeout-start', null);
     [
       $MEDIA_EDIT_CATEGORY,
       $MEDIA_EDIT_TITLE,
@@ -1797,82 +2010,134 @@ const init = function (): void {
     ].forEach((field) => {
       setMediaEditFieldValidationState(field, null);
     });
+    setMediaEditSaveButtonDisabled(false);
   }
 
   function renderMediaEditValidation(result: MediaEditValidationResult): void {
     const invalidIds = new Set(result.invalidFieldIds);
+    const fieldMessages = result.fieldMessages || {};
     setMediaEditFieldValidationState($MEDIA_EDIT_CATEGORY, !invalidIds.has('modal-media-edit-category'));
     setMediaEditFieldValidationState($MEDIA_EDIT_TITLE, !invalidIds.has('modal-media-edit-title-input'));
     setMediaEditFieldValidationState($MEDIA_EDIT_SEEK_START, !invalidIds.has('modal-media-edit-seek-start'));
     setMediaEditFieldValidationState($MEDIA_EDIT_SEEK_END, !invalidIds.has('modal-media-edit-seek-end'));
     setMediaEditFieldValidationState($MEDIA_EDIT_FADEIN_END, !invalidIds.has('modal-media-edit-fadein-end'));
     setMediaEditFieldValidationState($MEDIA_EDIT_FADEOUT_START, !invalidIds.has('modal-media-edit-fadeout-start'));
-
-    if (!isElement($MEDIA_EDIT_VALIDATION) || !isElement($MEDIA_EDIT_VALIDATION_LIST)) {
-      return;
-    }
-    if (result.valid) {
-      $MEDIA_EDIT_VALIDATION.classList.add('hidden');
-      $MEDIA_EDIT_VALIDATION_LIST.innerHTML = '';
-      return;
-    }
-    $MEDIA_EDIT_VALIDATION_LIST.innerHTML = '';
-    result.messages.forEach((message) => {
-      const item = document.createElement('li');
-      item.textContent = message;
-      $MEDIA_EDIT_VALIDATION_LIST.appendChild(item);
-    });
-    $MEDIA_EDIT_VALIDATION.classList.remove('hidden');
+    setMediaEditFieldValidationMessage('modal-media-edit-category', fieldMessages['modal-media-edit-category']?.[0] || null);
+    setMediaEditFieldValidationMessage('modal-media-edit-title-input', fieldMessages['modal-media-edit-title-input']?.[0] || null);
+    setMediaEditFieldValidationMessage('modal-media-edit-seek-start', fieldMessages['modal-media-edit-seek-start']?.[0] || null);
+    setMediaEditFieldValidationMessage('modal-media-edit-seek-end', fieldMessages['modal-media-edit-seek-end']?.[0] || null);
+    setMediaEditFieldValidationMessage('modal-media-edit-fadein-end', fieldMessages['modal-media-edit-fadein-end']?.[0] || null);
+    setMediaEditFieldValidationMessage('modal-media-edit-fadeout-start', fieldMessages['modal-media-edit-fadeout-start']?.[0] || null);
+    setMediaEditSaveButtonDisabled(!result.valid);
   }
 
   function validateMediaEditDraft(draft: MediaEditDraft): MediaEditValidationResult {
     const messages: string[] = [];
     const invalidFieldIds = new Set<string>();
+    const fieldMessages: Record<string, string[]> = {};
+    const addFieldMessage = (fieldId: string, message: string): void => {
+      if (!fieldMessages[fieldId]) {
+        fieldMessages[fieldId] = [];
+      }
+      fieldMessages[fieldId].push(message);
+    };
+    const knownDuration = resolveMediaEditKnownDuration(mediaEditActiveItem);
     const effectiveEnd = resolveMediaEditEffectiveEnd(
       draft.seekEnd,
-      resolveMediaEditKnownDuration(mediaEditActiveItem),
+      knownDuration,
       draft.seekStart,
       mediaEditActiveItem ? normalizeMediaEditTimingValue(mediaEditActiveItem.fadeout, null) : null
     );
 
     if (draft.category.trim() === '') {
-      messages.push(getLocalizedMessage('mediaEditValidationCategoryRequired', 'Category is required.'));
+      const message = getLocalizedMessage('Category is required.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-category', message);
       invalidFieldIds.add('modal-media-edit-category');
     }
 
     if (draft.title.trim() === '') {
-      messages.push(getLocalizedMessage('mediaEditValidationTitleRequired', 'Title is required.'));
+      const message = getLocalizedMessage('Title is required.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-title-input', message);
       invalidFieldIds.add('modal-media-edit-title-input');
     }
 
     if (draft.seekStart !== null && draft.seekEnd !== null && draft.seekStart > draft.seekEnd) {
-      messages.push(getLocalizedMessage('mediaEditValidationStartEnd', 'Seek start must be less than or equal to seek end.'));
+      const message = getLocalizedMessage('Seek start must be less than or equal to seek end.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-seek-start', message);
+      addFieldMessage('modal-media-edit-seek-end', message);
       invalidFieldIds.add('modal-media-edit-seek-start');
       invalidFieldIds.add('modal-media-edit-seek-end');
     }
 
     if (draft.seekStart !== null && draft.fadeInEnd !== null && draft.seekStart > draft.fadeInEnd) {
-      messages.push(getLocalizedMessage('mediaEditValidationStartFadeIn', 'Seek start must be less than or equal to fade-in end.'));
+      const message = getLocalizedMessage('Seek start must be less than or equal to fade-in end.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-seek-start', message);
+      addFieldMessage('modal-media-edit-fadein-end', message);
       invalidFieldIds.add('modal-media-edit-seek-start');
       invalidFieldIds.add('modal-media-edit-fadein-end');
     }
 
-    if (draft.fadeOutStart !== null && effectiveEnd !== null && draft.fadeOutStart > effectiveEnd) {
-      messages.push(getLocalizedMessage('mediaEditValidationFadeOutEnd', 'Fade-out start must be less than or equal to seek end.'));
+    if (draft.seekStart !== null && draft.fadeOutStart !== null && draft.seekStart > draft.fadeOutStart) {
+      const message = getLocalizedMessage('Seek start must be less than or equal to fade-out start.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-seek-start', message);
+      addFieldMessage('modal-media-edit-fadeout-start', message);
+      invalidFieldIds.add('modal-media-edit-seek-start');
+      invalidFieldIds.add('modal-media-edit-fadeout-start');
+    }
+
+    if (draft.fadeInEnd !== null && draft.seekEnd !== null && draft.fadeInEnd > draft.seekEnd) {
+      const message = getLocalizedMessage('Fade-in end must be less than or equal to seek end.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-fadein-end', message);
+      addFieldMessage('modal-media-edit-seek-end', message);
+      invalidFieldIds.add('modal-media-edit-fadein-end');
+      invalidFieldIds.add('modal-media-edit-seek-end');
+    }
+
+    if (draft.fadeOutStart !== null && draft.seekEnd !== null && draft.fadeOutStart >= draft.seekEnd) {
+      const message = getLocalizedMessage('Fade-out start must be less than seek end.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-fadeout-start', message);
+      addFieldMessage('modal-media-edit-seek-end', message);
       invalidFieldIds.add('modal-media-edit-fadeout-start');
       invalidFieldIds.add('modal-media-edit-seek-end');
     }
 
     if (draft.fadeInEnd !== null && draft.fadeOutStart !== null && draft.fadeInEnd > draft.fadeOutStart) {
-      messages.push(getLocalizedMessage('mediaEditValidationFadeInFadeOut', 'Fade-in end must be less than or equal to fade-out start.'));
+      const message = getLocalizedMessage('Fade-in end must be less than or equal to fade-out start.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-fadein-end', message);
+      addFieldMessage('modal-media-edit-fadeout-start', message);
       invalidFieldIds.add('modal-media-edit-fadein-end');
       invalidFieldIds.add('modal-media-edit-fadeout-start');
+    }
+
+    if (draft.seekEnd !== null && knownDuration !== null && draft.seekEnd > knownDuration) {
+      const message = getLocalizedMessage('Seek end must be less than or equal to media duration.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-seek-end', message);
+      invalidFieldIds.add('modal-media-edit-seek-end');
+    }
+
+    if (draft.seekEnd === null && draft.fadeOutStart !== null && effectiveEnd !== null && draft.fadeOutStart > effectiveEnd) {
+      const message = getLocalizedMessage('Fade-out start must be less than or equal to seek end.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-fadeout-start', message);
+      addFieldMessage('modal-media-edit-seek-end', message);
+      invalidFieldIds.add('modal-media-edit-fadeout-start');
+      invalidFieldIds.add('modal-media-edit-seek-end');
     }
 
     return {
       valid: messages.length === 0,
       messages,
       invalidFieldIds: Array.from(invalidFieldIds),
+      fieldMessages,
     };
   }
 
@@ -1934,6 +2199,7 @@ const init = function (): void {
   }
 
   function resetMediaEditPreviewState(): void {
+    clearMediaEditDurationSyncWait();
     destroyMediaEditPreviewPlayer();
     clearMediaEditPreviewContainer();
     mediaEditPreviewSourceItem = null;
@@ -1996,7 +2262,7 @@ const init = function (): void {
     if (mediaItem.videoid && mediaItem.videoid.trim() !== '') {
       const ytRoot = document.createElement('div');
       ytRoot.id = MEDIA_EDIT_PREVIEW_YT_PLAYER_ID;
-      ytRoot.className = 'mx-auto aspect-video w-full max-w-3xl';
+      ytRoot.className = 'media-edit-preview-embed mx-auto aspect-video w-full max-w-3xl';
       $MEDIA_EDIT_PREVIEW.appendChild(ytRoot);
 
       const ytApi = (window as any).YT;
@@ -2024,6 +2290,7 @@ const init = function (): void {
               const duration = normalizeMediaEditTimingValue(mediaEditPreviewYouTubePlayer?.getDuration(), null);
               mediaEditPreviewDurationSeconds = duration;
               validateAndRenderMediaEditDraftFromForm();
+              maybeCompleteMediaEditDurationSyncWait();
               hideMediaEditPreviewError();
             },
             onStateChange: () => {
@@ -2031,6 +2298,7 @@ const init = function (): void {
               if (duration !== null) {
                 mediaEditPreviewDurationSeconds = duration;
                 validateAndRenderMediaEditDraftFromForm();
+                maybeCompleteMediaEditDurationSyncWait();
               }
               hideMediaEditPreviewError();
             },
@@ -2056,7 +2324,7 @@ const init = function (): void {
       const sourceElm = document.createElement('source');
       let hasReportedLoadIssue = false;
 
-      previewElm.className = 'mx-auto block w-full max-h-[280px] rounded bg-black';
+      previewElm.className = 'media-edit-preview-player mx-auto block w-full max-h-[280px] rounded';
       previewElm.setAttribute('controls', 'true');
       previewElm.setAttribute('preload', 'metadata');
       previewElm.setAttribute('playsinline', 'true');
@@ -2078,6 +2346,7 @@ const init = function (): void {
       previewElm.addEventListener('loadedmetadata', () => {
         mediaEditPreviewDurationSeconds = normalizeMediaEditTimingValue(previewElm.duration, null);
         validateAndRenderMediaEditDraftFromForm();
+        maybeCompleteMediaEditDurationSyncWait();
         hideMediaEditPreviewError();
       });
       previewElm.addEventListener('error', () => {
@@ -2445,9 +2714,10 @@ const init = function (): void {
 
     const validation = validateAndRenderMediaEditDraftFromForm();
     if (!validation.valid) {
+      setMediaEditSaveButtonDisabled(true);
       updateNotice({
         type: 'error',
-        message: getLocalizedMessage('mediaEditValidationError', 'Please fix the validation errors before saving.'),
+        message: getLocalizedMessage('Please fix the validation errors before saving.'),
         delay: 2400,
       });
       return;
@@ -2849,6 +3119,7 @@ const init = function (): void {
       updatePlaylist();
     }
     createMediaEditPreview(mediaItem);
+    startMediaEditDurationSyncWaitIfNeeded();
     $MODAL_MEDIA_EDIT_TITLE.textContent = defaultMediaEditModalTitle;
     $MODAL_MEDIA_EDIT.classList.remove('hidden');
     $MODAL_MEDIA_EDIT.removeAttribute('aria-hidden');
@@ -3470,6 +3741,7 @@ const init = function (): void {
   // In cloud mode: load MyPlaylist from localStorage before processing server data.
   // (Placed here, AFTER DOM constants, to avoid const temporal dead zone issues.)
   const savedPlaylistContext = getSavedPlaylistContext();
+  ensureCloudMyPlaylistSeed();
   ensureMyPlaylistOptionFromStorage();
   if ((window as any).AmbientData) {
     const ambientData: AmbientData = (window as any).AmbientData;

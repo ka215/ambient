@@ -67,22 +67,38 @@ class Ambient {
 
         $this->find_playlist();
 
+        $build_frontend_messages = function(): array {
+            $messages = is_array( $this->translation_data )
+                ? $this->translation_data
+                : [];
+
+            $fallback_messages = [
+                'mediaLoadFailedPrefix' => $this->__( 'Media could not be loaded: ' ),
+                'importNoFile' => $this->__( 'Please choose a playlist JSON file.' ),
+                'importUnsupportedFile' => $this->__( 'Only .json files are accepted.' ),
+                'importParseError' => $this->__( 'The selected file is not valid JSON.' ),
+                'importSchemaError' => $this->__( 'The selected file does not match the playlist schema.' ),
+                'importSanitizeError' => $this->__( 'Unsafe or invalid media entries exceeded the allowed limit.' ),
+                'importPersistError' => $this->__( 'Failed to save imported playlist data.' ),
+                'importCloudSizeError' => $this->__( 'File size exceeds the cloud import limit for this device.' ),
+                'importCloudReplacedMyPlaylist' => $this->__( 'Import completed. MyPlaylist has been replaced.' ),
+            ];
+
+            foreach ( $fallback_messages as $key => $value ) {
+                if ( !array_key_exists( $key, $messages ) || $messages[$key] === '' ) {
+                    $messages[$key] = $value;
+                }
+            }
+
+            return $messages;
+        };
+
         if ( empty( $this->playlists ) ) {
             $this->set_warn( $this->__( 'Playlist not found. Please create a new playlist.' ) );
             // Still pass isCloud so the frontend can enable cloud-specific features (e.g. localStorage playlist).
             $this->set_localize_script( 'AmbientData', [
                 'isCloud' => $this->is_cloud(),
-                'messages' => [
-                    'mediaLoadFailedPrefix' => $this->__( 'Media could not be loaded: ' ),
-                    'importNoFile' => $this->__( 'Please choose a playlist JSON file.' ),
-                    'importUnsupportedFile' => $this->__( 'Only .json files are accepted.' ),
-                    'importParseError' => $this->__( 'The selected file is not valid JSON.' ),
-                    'importSchemaError' => $this->__( 'The selected file does not match the playlist schema.' ),
-                    'importSanitizeError' => $this->__( 'Unsafe or invalid media entries exceeded the allowed limit.' ),
-                    'importPersistError' => $this->__( 'Failed to save imported playlist data.' ),
-                    'importCloudSizeError' => $this->__( 'File size exceeds the cloud import limit for this device.' ),
-                    'importCloudReplacedMyPlaylist' => $this->__( 'Import completed. MyPlaylist has been replaced.' ),
-                ],
+                'messages' => $build_frontend_messages(),
             ] );
         } else {
             // Pass all playlist data to JavaScript of view.
@@ -96,17 +112,7 @@ class Ambient {
                 'playlists' => $relative_playlists,
                 'isCloud'   => $this->is_cloud(),
                 'mediaDir'  => str_replace( $app_root_normalized, './', str_replace( '\\', '/', MEDIA_DIR ) ),
-                'messages'  => [
-                    'mediaLoadFailedPrefix' => $this->__( 'Media could not be loaded: ' ),
-                    'importNoFile' => $this->__( 'Please choose a playlist JSON file.' ),
-                    'importUnsupportedFile' => $this->__( 'Only .json files are accepted.' ),
-                    'importParseError' => $this->__( 'The selected file is not valid JSON.' ),
-                    'importSchemaError' => $this->__( 'The selected file does not match the playlist schema.' ),
-                    'importSanitizeError' => $this->__( 'Unsafe or invalid media entries exceeded the allowed limit.' ),
-                    'importPersistError' => $this->__( 'Failed to save imported playlist data.' ),
-                    'importCloudSizeError' => $this->__( 'File size exceeds the cloud import limit for this device.' ),
-                    'importCloudReplacedMyPlaylist' => $this->__( 'Import completed. MyPlaylist has been replaced.' ),
-                ],
+                'messages'  => $build_frontend_messages(),
             ];
             if ( count( $this->playlists ) > 1 ) {
                 // If there are multiple playlists, prompt you to select a playlist.

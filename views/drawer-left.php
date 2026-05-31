@@ -167,10 +167,6 @@
             </section>
             <section class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-600 dark:bg-gray-700">
                 <form id="form-media-edit" class="grid gap-4 md:grid-cols-2" autocomplete="off">
-                    <div id="modal-media-edit-validation" class="hidden md:col-span-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-700/60 dark:bg-red-900/25 dark:text-red-200" role="alert" aria-live="polite">
-                        <p class="font-medium"><?= __( 'Please fix the following issues:' ) ?></p>
-                        <ul id="modal-media-edit-validation-list" class="mt-1 list-disc pl-5"></ul>
-                    </div>
                     <div class="md:col-span-2">
                         <label for="modal-media-edit-category" class="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
                             <span class="required" data-tooltip-target="tooltip-modal-media-edit-category-required"><?= __( 'Category' ) ?></span>
@@ -181,7 +177,7 @@
                             <span class="text-xs font-normal text-gray-500 dark:text-gray-400"><?= __( '(max 100 chars)' ) ?></span>
                         </label>
                                                 <div id="modal-media-edit-category-combobox" class="media-edit-category-combobox relative" role="combobox" aria-haspopup="listbox" aria-owns="modal-media-edit-category-options" aria-expanded="false">
-                                                        <div class="flex items-stretch overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
+                                                    <div data-media-edit-validation-group class="flex items-stretch overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
                                 <input
                                   type="text"
                                   id="modal-media-edit-category"
@@ -213,6 +209,7 @@
                             <div id="modal-media-edit-category-dropdown" class="media-edit-category-dropdown hidden absolute z-20 mt-0 max-h-52 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800" role="presentation">
                                 <div id="modal-media-edit-category-options" class="py-1" role="listbox" aria-label="<?= __( 'Category options' ) ?>"></div>
                             </div>
+                            <p id="modal-media-edit-category-error" class="media-edit-field-error hidden" role="alert" aria-live="polite"></p>
                         </div>
                     </div>
                     <div class="md:col-span-2">
@@ -224,12 +221,15 @@
                             </div>
                             <span class="text-xs font-normal text-gray-500 dark:text-gray-400"><?= __( '(max 100 chars)' ) ?></span>
                         </label>
-                        <input
-                          type="text"
-                          id="modal-media-edit-title-input"
-                          class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-900"
-                          maxlength="100"
-                        >
+                                                <div data-media-edit-validation-group class="rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
+                                                        <input
+                                                            type="text"
+                                                            id="modal-media-edit-title-input"
+                                                            class="block w-full rounded-lg border-0 bg-transparent px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-0 dark:text-white"
+                                                            maxlength="100"
+                                                        >
+                                                </div>
+                                                <p id="modal-media-edit-title-input-error" class="media-edit-field-error hidden" role="alert" aria-live="polite"></p>
                     </div>
                     <div class="md:col-span-2">
                         <label for="modal-media-edit-artist-input" class="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -305,17 +305,48 @@
                                 <?= __( 'Retry' ) ?>
                             </button>
                         </div>
-                        <div id="modal-media-edit-preview" class="overflow-hidden rounded-lg border border-gray-200 bg-black/80 p-2 dark:border-gray-600 min-h-[180px]">
-                            <p class="text-sm text-gray-300"><?= __( 'Preview is not available.' ) ?></p>
+                        <div id="modal-media-edit-preview" class="media-edit-preview-shell overflow-hidden rounded-lg border border-gray-200 p-2 dark:border-gray-600 min-h-[180px]">
+                            <p class="media-edit-preview-empty text-sm"><?= __( 'Preview is not available.' ) ?></p>
                         </div>
                         <div id="modal-media-edit-preview-error" class="mt-2 hidden rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-700/60 dark:bg-red-900/25 dark:text-red-200" role="alert" aria-live="polite">
                             <p id="modal-media-edit-preview-error-message"></p>
                         </div>
+                        <div class="mt-3">
+                            <p class="text-xs font-medium uppercase tracking-wide text-gray-700 dark:text-gray-300"><?= __( 'Seek event timeline' ) ?></p>
+                            <div id="modal-media-edit-seek-timeline" class="media-edit-seek-timeline" aria-live="polite">
+                                <div id="modal-media-edit-seek-timeline-loading" class="media-edit-seek-timeline__loading hidden" aria-hidden="true">
+                                    <span class="media-edit-seek-timeline__spinner" aria-hidden="true"></span>
+                                    <span class="media-edit-seek-timeline__loading-text"><?= __( 'Loading duration...' ) ?></span>
+                                </div>
+                                <div class="media-edit-seek-timeline__fixed media-edit-seek-timeline__fixed--start" aria-hidden="true">
+                                    <span class="media-edit-seek-timeline__fixed-dot"></span>
+                                    <span id="modal-media-edit-seek-fixed-start-time" class="media-edit-seek-timeline__fixed-time">0:00</span>
+                                </div>
+                                <div class="media-edit-seek-timeline__fixed media-edit-seek-timeline__fixed--end" aria-hidden="true">
+                                    <span class="media-edit-seek-timeline__fixed-dot"></span>
+                                    <span id="modal-media-edit-seek-fixed-end-time" class="media-edit-seek-timeline__fixed-time">0:00</span>
+                                </div>
+                            <div class="media-edit-seek-timeline__rail" aria-hidden="true"></div>
+                            <div id="modal-media-edit-seek-marker-start" class="media-edit-seek-marker media-edit-seek-marker--start hidden" aria-hidden="true">
+                                <span id="modal-media-edit-seek-marker-start-time" class="media-edit-seek-marker__time">HH:MM:SS</span>
+                            </div>
+                            <div id="modal-media-edit-seek-marker-fadein-end" class="media-edit-seek-marker media-edit-seek-marker--fadein-end hidden" aria-hidden="true">
+                                <span id="modal-media-edit-seek-marker-fadein-end-time" class="media-edit-seek-marker__time">HH:MM:SS</span>
+                            </div>
+                            <div id="modal-media-edit-seek-marker-fadeout-start" class="media-edit-seek-marker media-edit-seek-marker--fadeout-start hidden" aria-hidden="true">
+                                <span id="modal-media-edit-seek-marker-fadeout-start-time" class="media-edit-seek-marker__time">HH:MM:SS</span>
+                            </div>
+                            <div id="modal-media-edit-seek-marker-end" class="media-edit-seek-marker media-edit-seek-marker--end hidden" aria-hidden="true">
+                                <span id="modal-media-edit-seek-marker-end-time" class="media-edit-seek-marker__time">HH:MM:SS</span>
+                            </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="md:col-span-2 grid gap-3 md:grid-cols-2">
-                        <div class="md:flex md:items-center md:gap-3">
-                            <label for="modal-media-edit-seek-start" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-44"><?= __( 'Seek start (sec)' ) ?></label>
-                            <div class="flex w-full overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
+                        <div class="flex flex-col">
+                            <div class="md:flex md:flex-nowrap md:items-center md:justify-between">
+                                <label for="modal-media-edit-seek-start" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-1/2"><span class="media-edit-seek-label media-edit-seek-label--start"><?= __( 'Seek start (sec)' ) ?></span></label>
+                                <div data-media-edit-validation-group class="flex w-full md:w-auto overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
                                 <input
                                   type="number"
                                   id="modal-media-edit-seek-start"
@@ -336,11 +367,14 @@
                                 <button type="button" id="btn-media-edit-sync-seek-start" class="media-edit-timing-sync-btn shrink-0 px-3 py-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:text-gray-200 dark:focus:ring-blue-900">
                                     <?= __( 'Sync' ) ?>
                                 </button>
+                                </div>
                             </div>
+                            <p id="modal-media-edit-seek-start-error" class="media-edit-field-error media-edit-field-error--seek hidden w-full" role="alert" aria-live="polite"></p>
                         </div>
-                        <div class="md:flex md:items-center md:gap-3">
-                            <label for="modal-media-edit-seek-end" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-44"><?= __( 'Seek end (sec)' ) ?></label>
-                            <div class="flex w-full overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
+                        <div class="flex flex-col">
+                            <div class="md:flex md:flex-nowrap md:items-center md:justify-between">
+                                <label for="modal-media-edit-seek-end" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-1/2"><span class="media-edit-seek-label media-edit-seek-label--end"><?= __( 'Seek end (sec)' ) ?></span></label>
+                                <div data-media-edit-validation-group class="flex w-full md:w-auto overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
                                 <input
                                   type="number"
                                   id="modal-media-edit-seek-end"
@@ -361,12 +395,14 @@
                                 <button type="button" id="btn-media-edit-sync-seek-end" class="media-edit-timing-sync-btn shrink-0 px-3 py-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:text-gray-200 dark:focus:ring-blue-900">
                                     <?= __( 'Sync' ) ?>
                                 </button>
+                                </div>
                             </div>
+                            <p id="modal-media-edit-seek-end-error" class="media-edit-field-error media-edit-field-error--seek hidden w-full" role="alert" aria-live="polite"></p>
                         </div>
-                        <div>
-                            <div class="md:flex md:items-center md:gap-3">
-                                <label for="modal-media-edit-fadein-end" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-44"><?= __( 'Fade-in end (sec)' ) ?></label>
-                                <div class="flex w-full overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
+                        <div class="flex flex-col">
+                            <div class="md:flex md:flex-nowrap md:items-center md:justify-between">
+                                <label for="modal-media-edit-fadein-end" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-1/2"><span class="media-edit-seek-label media-edit-seek-label--fadein-end"><?= __( 'Fade-in end (sec)' ) ?></span></label>
+                                <div data-media-edit-validation-group class="flex w-full md:w-auto overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
                                     <input
                                       type="number"
                                       id="modal-media-edit-fadein-end"
@@ -389,11 +425,12 @@
                                     </button>
                                 </div>
                             </div>
+                            <p id="modal-media-edit-fadein-end-error" class="media-edit-field-error media-edit-field-error--seek hidden w-full" role="alert" aria-live="polite"></p>
                         </div>
-                        <div>
-                            <div class="md:flex md:items-center md:gap-3">
-                                <label for="modal-media-edit-fadeout-start" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-44"><?= __( 'Fade-out start (sec)' ) ?></label>
-                                <div class="flex w-full overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
+                        <div class="flex flex-col">
+                            <div class="md:flex md:flex-nowrap md:items-center md:justify-between">
+                                <label for="modal-media-edit-fadeout-start" class="mb-1 block shrink-0 text-sm font-medium text-gray-700 dark:text-gray-200 md:mb-0 md:w-1/2"><span class="media-edit-seek-label media-edit-seek-label--fadeout-start"><?= __( 'Fade-out start (sec)' ) ?></span></label>
+                                <div data-media-edit-validation-group class="flex w-full md:w-auto overflow-hidden rounded-lg border border-gray-300 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:focus-within:border-blue-400 dark:focus-within:ring-blue-900">
                                     <input
                                       type="number"
                                       id="modal-media-edit-fadeout-start"
@@ -416,8 +453,10 @@
                                     </button>
                                 </div>
                             </div>
+                            <p id="modal-media-edit-fadeout-start-error" class="media-edit-field-error media-edit-field-error--seek hidden w-full" role="alert" aria-live="polite"></p>
                         </div>
-                        <p class="md:col-span-2 text-xs text-gray-500 dark:text-gray-400"><?= __( 'Sync button captures the current seek point from media preview playback.' ) ?></p>
+                        <p class="md:col-span-2 text-xs text-gray-500 dark:text-gray-400"><?= __( 'Pressing Sync during media preview playback captures the seek position in seconds.' ) ?></p>
+                        <p class="md:col-span-2 text-xs text-gray-500 dark:text-gray-400"><?= __( 'Each seek time setting is applied when &ldquo;Seek and play&rdquo; and &ldquo;Pseudo fader&rdquo; are enabled.' ) ?></p>
                     </div>
                 </form>
             </section>
