@@ -65,6 +65,41 @@ async function openMediaEditFromFirstPlaylistItem(page: Page): Promise<void> {
   await expect(page.locator('#modal-media-edit')).toBeVisible();
 }
 
+async function assertJapaneseValidationMessagesInjected(page: Page): Promise<void> {
+  await expect.poll(async () => {
+    return page.evaluate(() => {
+      return (window as any).AmbientData?.messages?.['Category is required.'] || null;
+    });
+  }, { timeout: 20_000 }).toBe('カテゴリーは必須です。');
+
+  await expect.poll(async () => {
+    return page.evaluate(() => {
+      return (window as any).AmbientData?.messages?.['Please fix the validation errors before saving.'] || null;
+    });
+  }, { timeout: 20_000 }).toBe('保存前に入力エラーを修正してください。');
+}
+
+async function assertJapaneseValidationUiIfPlayable(ambientPage: any, page: Page): Promise<void> {
+  await ambientPage.openPlaylistDrawer();
+  const hasPlaylistItems = await page.evaluate(() => {
+    return document.querySelectorAll('#playlist-list-group a[data-playlist-item]').length > 0;
+  });
+
+  if (!hasPlaylistItems) {
+    return;
+  }
+
+  await openMediaEditFromFirstPlaylistItem(page);
+
+  await page.locator('#modal-media-edit-category').fill('');
+  await page.locator('#modal-media-edit-title-input').fill('');
+  await expect(page.locator('#btn-save-media-edit')).toBeDisabled();
+
+  await expect(page.locator('#modal-media-edit-category-error')).toHaveText('カテゴリーは必須です。');
+  await expect(page.locator('#modal-media-edit-title-input-error')).toHaveText('タイトルは必須です。');
+  await expect(page.locator('#modal-media-edit-category-error')).not.toContainText('Category is required.');
+}
+
 test.describe('SC-015 Media edit modal refinements', () => {
   test('supports refined category combobox UX, timing pseudo spinner, and save category propagation', async ({ ambientPage, page, browserName }) => {
     test.skip(browserName !== 'chromium', 'Media edit E2E is validated on chromium only.');
@@ -75,10 +110,22 @@ test.describe('SC-015 Media edit modal refinements', () => {
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
 
-    const isCloudMode = await page.evaluate(() => {
-      return Boolean((window as any).AmbientData?.isCloud === true);
+    await ambientPage.openSettingsDrawer();
+    const playlistToSelect = await page.evaluate(() => {
+      const select = document.getElementById('current-playlist') as HTMLSelectElement | null;
+      if (!select) {
+        return null;
+      }
+      const values = Array.from(select.options)
+        .map((opt) => String(opt.value || '').trim())
+        .filter((value) => value !== '');
+      return values[0] || null;
     });
-    test.skip(!isCloudMode, 'Media edit save path requires cloud mode (MyPlaylist mutability).');
+    await ambientPage.closeSettingsDrawer();
+
+    if (playlistToSelect) {
+      await ambientPage.selectPlaylist(playlistToSelect);
+    }
 
     await expect.poll(async () => {
       return page.evaluate(() => {
@@ -133,5 +180,51 @@ test.describe('SC-015 Media edit modal refinements', () => {
     const targetCategoryOptions = (await page.locator('#target-category option').allTextContents()).map((text) => text.trim());
     expect(targetCategoryOptions).toContain(newCategory);
     await ambientPage.closeSettingsDrawer();
+  });
+
+  test('shows JA validation messages in cloud mode when lang cookie is ja', async ({ ambientPage, page }) => {
+
+    const baseUrl = process.env.E2E_BASE_URL || 'https://dev-amp.ka2.org/';
+    await page.context().addCookies([
+      {
+        name: 'lang',
+        value: 'ja',
+        url: baseUrl,
+      },
+    ]);
+
+    await seedMyPlaylist(page);
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+
+    const isCloudMode = await page.evaluate(() => {
+      return Boolean((window as any).AmbientData?.isCloud === true);
+    });
+    test.skip(!isCloudMode, 'Cloud-mode scenario only.');
+
+    await assertJapaneseValidationMessagesInjected(page);
+    await assertJapaneseValidationUiIfPlayable(ambientPage, page);
+  });
+
+  test('shows JA validation messages in local mode when lang cookie is ja', async ({ ambientPage, page }) => {
+    const baseUrl = process.env.E2E_BASE_URL || 'https://dev-amp.ka2.org/';
+    await page.context().addCookies([
+      {
+        name: 'lang',
+        value: 'ja',
+        url: baseUrl,
+      },
+    ]);
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+
+    const isCloudMode = await page.evaluate(() => {
+      return Boolean((window as any).AmbientData?.isCloud === true);
+    });
+    test.skip(isCloudMode, 'Local-mode scenario only.');
+
+    await assertJapaneseValidationMessagesInjected(page);
+    await assertJapaneseValidationUiIfPlayable(ambientPage, page);
   });
 });

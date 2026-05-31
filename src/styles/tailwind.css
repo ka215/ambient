@@ -229,7 +229,7 @@
         text-align: right;
     }
     .dark .media-edit-field-error {
-        color: #fca5a5;
+        color: #f87171;
     }
     [data-media-edit-validation-group][aria-invalid="true"],
     [data-media-edit-validation-group].border-red-500 {
@@ -316,7 +316,7 @@
         --media-edit-seek-marker-color: #16a34a;
     }
     .media-edit-seek-label--fadeout-start {
-        --media-edit-seek-marker-color: #f97316;
+        --media-edit-seek-marker-color: #c026d3;
     }
     .media-edit-seek-label--end {
         --media-edit-seek-marker-color: #dc2626;
@@ -511,8 +511,8 @@
         --media-edit-seek-label-border-color: #16a34a;
     }
     .media-edit-seek-marker--fadeout-start {
-        --media-edit-seek-marker-color: #f97316;
-        --media-edit-seek-label-border-color: #f97316;
+        --media-edit-seek-marker-color: #c026d3;
+        --media-edit-seek-label-border-color: #c026d3;
     }
     .media-edit-seek-marker--end {
         --media-edit-seek-marker-color: #dc2626;
