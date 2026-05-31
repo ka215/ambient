@@ -312,6 +312,53 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
     await expect(page.locator('#current-playlist option')).not.toHaveCount(0);
   });
 
+  test('bootstraps an empty MyPlaylist in cloud when localStorage is missing', async ({ ambientPage, page }) => {
+    await page.addInitScript(() => {
+      localStorage.clear();
+    });
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.waitForPlaylistReady();
+
+    await ambientPage.openSettingsDrawer();
+    await expect(page.locator('#current-playlist')).toHaveValue(MYPLAYLIST_NAME);
+    await expect(page.locator('#current-playlist option[value="MyPlaylist.json"]')).toHaveCount(1);
+    await ambientPage.closeSettingsDrawer();
+
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+    await page.evaluate(() => {
+      const url = document.getElementById('youtube-url') as HTMLInputElement | null;
+      const title = document.getElementById('media-title') as HTMLInputElement | null;
+      const categoryInput = document.getElementById('media-category-new') as HTMLInputElement | null;
+      if (url) {
+        url.value = 'https://music.youtube.com/watch?v=dQw4w9WgXcQ';
+        url.dispatchEvent(new Event('input', { bubbles: true }));
+        url.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (title) {
+        title.value = 'cloud-seed-e2e-item';
+        title.dispatchEvent(new Event('input', { bubbles: true }));
+        title.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (categoryInput) {
+        categoryInput.dispatchEvent(new Event('input', { bubbles: true }));
+        categoryInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    await expect(page.locator('#youtube-videoid')).toHaveValue('dQw4w9WgXcQ');
+    await expect(page.locator('#btn-add-media')).toBeEnabled();
+    await expect.poll(async () => page.evaluate(() => {
+      const raw = localStorage.getItem('AmbientMyPlaylist');
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch (_error) {
+        return null;
+      }
+    })).toEqual({ options: {} });
+  });
+
   test('disables media and category creation controls for cloud JSON playlists', async ({ ambientPage, page }) => {
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
