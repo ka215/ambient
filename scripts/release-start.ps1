@@ -32,7 +32,7 @@ function Assert-CleanWorktree {
 
 function Invoke-NpmScript {
   param([Parameter(Mandatory = $true)][string]$ScriptName)
-  & npm run $ScriptName
+  & cmd /c "npm run $ScriptName"
   if ($LASTEXITCODE -ne 0) {
     throw "npm run $ScriptName failed with exit code $LASTEXITCODE"
   }
