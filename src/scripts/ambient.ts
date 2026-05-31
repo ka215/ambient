@@ -2050,21 +2050,21 @@ const init = function (): void {
     );
 
     if (draft.category.trim() === '') {
-      const message = getLocalizedMessage('mediaEditValidationCategoryRequired', 'Category is required.');
+      const message = getLocalizedMessage('Category is required.');
       messages.push(message);
       addFieldMessage('modal-media-edit-category', message);
       invalidFieldIds.add('modal-media-edit-category');
     }
 
     if (draft.title.trim() === '') {
-      const message = getLocalizedMessage('mediaEditValidationTitleRequired', 'Title is required.');
+      const message = getLocalizedMessage('Title is required.');
       messages.push(message);
       addFieldMessage('modal-media-edit-title-input', message);
       invalidFieldIds.add('modal-media-edit-title-input');
     }
 
     if (draft.seekStart !== null && draft.seekEnd !== null && draft.seekStart > draft.seekEnd) {
-      const message = getLocalizedMessage('mediaEditValidationStartEnd', 'Seek start must be less than or equal to seek end.');
+      const message = getLocalizedMessage('Seek start must be less than or equal to seek end.');
       messages.push(message);
       addFieldMessage('modal-media-edit-seek-start', message);
       addFieldMessage('modal-media-edit-seek-end', message);
@@ -2073,7 +2073,7 @@ const init = function (): void {
     }
 
     if (draft.seekStart !== null && draft.fadeInEnd !== null && draft.seekStart > draft.fadeInEnd) {
-      const message = getLocalizedMessage('mediaEditValidationStartFadeIn', 'Seek start must be less than or equal to fade-in end.');
+      const message = getLocalizedMessage('Seek start must be less than or equal to fade-in end.');
       messages.push(message);
       addFieldMessage('modal-media-edit-seek-start', message);
       addFieldMessage('modal-media-edit-fadein-end', message);
@@ -2082,7 +2082,7 @@ const init = function (): void {
     }
 
     if (draft.seekStart !== null && draft.fadeOutStart !== null && draft.seekStart > draft.fadeOutStart) {
-      const message = getLocalizedMessage('mediaEditValidationStartFadeOut', 'Seek start must be less than or equal to fade-out start.');
+      const message = getLocalizedMessage('Seek start must be less than or equal to fade-out start.');
       messages.push(message);
       addFieldMessage('modal-media-edit-seek-start', message);
       addFieldMessage('modal-media-edit-fadeout-start', message);
@@ -2091,7 +2091,7 @@ const init = function (): void {
     }
 
     if (draft.fadeInEnd !== null && draft.seekEnd !== null && draft.fadeInEnd > draft.seekEnd) {
-      const message = getLocalizedMessage('mediaEditValidationFadeInEnd', 'Fade-in end must be less than or equal to seek end.');
+      const message = getLocalizedMessage('Fade-in end must be less than or equal to seek end.');
       messages.push(message);
       addFieldMessage('modal-media-edit-fadein-end', message);
       addFieldMessage('modal-media-edit-seek-end', message);
@@ -2100,7 +2100,7 @@ const init = function (): void {
     }
 
     if (draft.fadeOutStart !== null && draft.seekEnd !== null && draft.fadeOutStart >= draft.seekEnd) {
-      const message = getLocalizedMessage('mediaEditValidationFadeOutEndStrict', 'Fade-out start must be less than seek end.');
+      const message = getLocalizedMessage('Fade-out start must be less than seek end.');
       messages.push(message);
       addFieldMessage('modal-media-edit-fadeout-start', message);
       addFieldMessage('modal-media-edit-seek-end', message);
@@ -2109,7 +2109,7 @@ const init = function (): void {
     }
 
     if (draft.fadeInEnd !== null && draft.fadeOutStart !== null && draft.fadeInEnd > draft.fadeOutStart) {
-      const message = getLocalizedMessage('mediaEditValidationFadeInFadeOut', 'Fade-in end must be less than or equal to fade-out start.');
+      const message = getLocalizedMessage('Fade-in end must be less than or equal to fade-out start.');
       messages.push(message);
       addFieldMessage('modal-media-edit-fadein-end', message);
       addFieldMessage('modal-media-edit-fadeout-start', message);
@@ -2118,14 +2118,14 @@ const init = function (): void {
     }
 
     if (draft.seekEnd !== null && knownDuration !== null && draft.seekEnd > knownDuration) {
-      const message = getLocalizedMessage('mediaEditValidationEndDuration', 'Seek end must be less than or equal to media duration.');
+      const message = getLocalizedMessage('Seek end must be less than or equal to media duration.');
       messages.push(message);
       addFieldMessage('modal-media-edit-seek-end', message);
       invalidFieldIds.add('modal-media-edit-seek-end');
     }
 
     if (draft.seekEnd === null && draft.fadeOutStart !== null && effectiveEnd !== null && draft.fadeOutStart > effectiveEnd) {
-      const message = getLocalizedMessage('mediaEditValidationFadeOutEnd', 'Fade-out start must be less than or equal to seek end.');
+      const message = getLocalizedMessage('Fade-out start must be less than or equal to seek end.');
       messages.push(message);
       addFieldMessage('modal-media-edit-fadeout-start', message);
       addFieldMessage('modal-media-edit-seek-end', message);
@@ -2717,7 +2717,7 @@ const init = function (): void {
       setMediaEditSaveButtonDisabled(true);
       updateNotice({
         type: 'error',
-        message: getLocalizedMessage('mediaEditValidationError', 'Please fix the validation errors before saving.'),
+        message: getLocalizedMessage('Please fix the validation errors before saving.'),
         delay: 2400,
       });
       return;
