@@ -226,6 +226,40 @@
     .dark .media-edit-timing-sync-btn:hover {
         background: #4b5563;
     }
+    .media-edit-preview-shell {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000000;
+        color: #cbd5e1;
+    }
+    .media-edit-preview-empty {
+        margin: 0;
+        color: inherit;
+    }
+    .media-edit-preview-embed,
+    .media-edit-preview-player {
+        border-radius: 0.5rem;
+        border: 1px solid #111827;
+        background: #000000;
+        box-shadow: 0 10px 24px rgb(15 23 42 / 0.16);
+    }
+    .dark .media-edit-preview-embed,
+    .dark .media-edit-preview-player {
+        border-color: #111827;
+        background: #000000;
+        box-shadow: 0 10px 26px rgb(2 6 23 / 0.45);
+    }
+    .media-edit-preview-embed iframe {
+        border-radius: inherit;
+    }
+    .media-edit-preview-player {
+        border: 0;
+        color-scheme: light;
+    }
+    .dark .media-edit-preview-player {
+        color-scheme: dark;
+    }
     .media-edit-seek-label {
         --media-edit-seek-marker-color: #2563eb;
         --media-edit-seek-ring-color: #ffffff;

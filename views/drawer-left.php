@@ -305,8 +305,8 @@
                                 <?= __( 'Retry' ) ?>
                             </button>
                         </div>
-                        <div id="modal-media-edit-preview" class="overflow-hidden rounded-lg border border-gray-200 bg-black/80 p-2 dark:border-gray-600 min-h-[180px]">
-                            <p class="text-sm text-gray-300"><?= __( 'Preview is not available.' ) ?></p>
+                        <div id="modal-media-edit-preview" class="media-edit-preview-shell overflow-hidden rounded-lg border border-gray-200 p-2 dark:border-gray-600 min-h-[180px]">
+                            <p class="media-edit-preview-empty text-sm"><?= __( 'Preview is not available.' ) ?></p>
                         </div>
                         <div id="modal-media-edit-preview-error" class="mt-2 hidden rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-700/60 dark:bg-red-900/25 dark:text-red-200" role="alert" aria-live="polite">
                             <p id="modal-media-edit-preview-error-message"></p>

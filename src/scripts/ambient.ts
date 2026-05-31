@@ -2181,7 +2181,7 @@ const init = function (): void {
     if (mediaItem.videoid && mediaItem.videoid.trim() !== '') {
       const ytRoot = document.createElement('div');
       ytRoot.id = MEDIA_EDIT_PREVIEW_YT_PLAYER_ID;
-      ytRoot.className = 'mx-auto aspect-video w-full max-w-3xl';
+      ytRoot.className = 'media-edit-preview-embed mx-auto aspect-video w-full max-w-3xl';
       $MEDIA_EDIT_PREVIEW.appendChild(ytRoot);
 
       const ytApi = (window as any).YT;
@@ -2243,7 +2243,7 @@ const init = function (): void {
       const sourceElm = document.createElement('source');
       let hasReportedLoadIssue = false;
 
-      previewElm.className = 'mx-auto block w-full max-h-[280px] rounded bg-black';
+      previewElm.className = 'media-edit-preview-player mx-auto block w-full max-h-[280px] rounded';
       previewElm.setAttribute('controls', 'true');
       previewElm.setAttribute('preload', 'metadata');
       previewElm.setAttribute('playsinline', 'true');
