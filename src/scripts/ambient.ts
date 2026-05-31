@@ -1286,8 +1286,6 @@ const init = function (): void {
   const $MODAL_MEDIA_EDIT_ITEM_TITLE = document.getElementById('modal-media-edit-item-title') as HTMLElement | null;
   const $MODAL_MEDIA_EDIT_ITEM_SOURCE = document.getElementById('modal-media-edit-item-source') as HTMLElement | null;
   const $FORM_MEDIA_EDIT = document.getElementById('form-media-edit') as HTMLFormElement | null;
-  const $MEDIA_EDIT_VALIDATION = document.getElementById('modal-media-edit-validation') as HTMLElement | null;
-  const $MEDIA_EDIT_VALIDATION_LIST = document.getElementById('modal-media-edit-validation-list') as HTMLElement | null;
   const $MEDIA_EDIT_CATEGORY_COMBOBOX = document.getElementById('modal-media-edit-category-combobox') as HTMLElement | null;
   const $MEDIA_EDIT_CATEGORY = document.getElementById('modal-media-edit-category') as HTMLInputElement | null;
   const $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR = document.getElementById('btn-media-edit-category-clear') as HTMLButtonElement | null;
@@ -1468,6 +1466,7 @@ const init = function (): void {
     valid: boolean;
     messages: string[];
     invalidFieldIds: string[];
+    fieldMessages: Record<string, string[]>;
   }
 
   function parseMediaTimeToIntegerSeconds(value: unknown): number | null {
@@ -1961,15 +1960,46 @@ const init = function (): void {
     field.classList.toggle('focus:border-red-500', invalid);
     field.classList.toggle('focus:ring-red-200', invalid);
     field.classList.toggle('dark:focus:ring-red-900', invalid);
+    const group = field.closest<HTMLElement>('[data-media-edit-validation-group]');
+    if (group) {
+      group.classList.toggle('border-red-500', invalid);
+      group.classList.toggle('focus-within:border-red-500', invalid);
+      group.classList.toggle('focus-within:ring-2', invalid);
+      group.classList.toggle('focus-within:ring-red-200', invalid);
+      group.classList.toggle('dark:focus-within:border-red-400', invalid);
+      group.classList.toggle('dark:focus-within:ring-red-900', invalid);
+    }
+  }
+
+  function setMediaEditFieldValidationMessage(fieldId: string, message: string | null): void {
+    const messageElm = document.getElementById(`${fieldId}-error`) as HTMLElement | null;
+    if (!messageElm) {
+      return;
+    }
+    if (message === null || message.trim() === '') {
+      messageElm.textContent = '';
+      messageElm.classList.add('hidden');
+      return;
+    }
+    messageElm.textContent = message;
+    messageElm.classList.remove('hidden');
+  }
+
+  function setMediaEditSaveButtonDisabled(disabled: boolean): void {
+    if (!isElement($BUTTON_SAVE_MEDIA_EDIT)) {
+      return;
+    }
+    $BUTTON_SAVE_MEDIA_EDIT.disabled = disabled;
+    $BUTTON_SAVE_MEDIA_EDIT.setAttribute('aria-disabled', disabled ? 'true' : 'false');
   }
 
   function clearMediaEditValidationView(): void {
-    if (isElement($MEDIA_EDIT_VALIDATION_LIST)) {
-      $MEDIA_EDIT_VALIDATION_LIST.innerHTML = '';
-    }
-    if (isElement($MEDIA_EDIT_VALIDATION)) {
-      $MEDIA_EDIT_VALIDATION.classList.add('hidden');
-    }
+    setMediaEditFieldValidationMessage('modal-media-edit-category', null);
+    setMediaEditFieldValidationMessage('modal-media-edit-title-input', null);
+    setMediaEditFieldValidationMessage('modal-media-edit-seek-start', null);
+    setMediaEditFieldValidationMessage('modal-media-edit-seek-end', null);
+    setMediaEditFieldValidationMessage('modal-media-edit-fadein-end', null);
+    setMediaEditFieldValidationMessage('modal-media-edit-fadeout-start', null);
     [
       $MEDIA_EDIT_CATEGORY,
       $MEDIA_EDIT_TITLE,
@@ -1980,37 +2010,37 @@ const init = function (): void {
     ].forEach((field) => {
       setMediaEditFieldValidationState(field, null);
     });
+    setMediaEditSaveButtonDisabled(false);
   }
 
   function renderMediaEditValidation(result: MediaEditValidationResult): void {
     const invalidIds = new Set(result.invalidFieldIds);
+    const fieldMessages = result.fieldMessages || {};
     setMediaEditFieldValidationState($MEDIA_EDIT_CATEGORY, !invalidIds.has('modal-media-edit-category'));
     setMediaEditFieldValidationState($MEDIA_EDIT_TITLE, !invalidIds.has('modal-media-edit-title-input'));
     setMediaEditFieldValidationState($MEDIA_EDIT_SEEK_START, !invalidIds.has('modal-media-edit-seek-start'));
     setMediaEditFieldValidationState($MEDIA_EDIT_SEEK_END, !invalidIds.has('modal-media-edit-seek-end'));
     setMediaEditFieldValidationState($MEDIA_EDIT_FADEIN_END, !invalidIds.has('modal-media-edit-fadein-end'));
     setMediaEditFieldValidationState($MEDIA_EDIT_FADEOUT_START, !invalidIds.has('modal-media-edit-fadeout-start'));
-
-    if (!isElement($MEDIA_EDIT_VALIDATION) || !isElement($MEDIA_EDIT_VALIDATION_LIST)) {
-      return;
-    }
-    if (result.valid) {
-      $MEDIA_EDIT_VALIDATION.classList.add('hidden');
-      $MEDIA_EDIT_VALIDATION_LIST.innerHTML = '';
-      return;
-    }
-    $MEDIA_EDIT_VALIDATION_LIST.innerHTML = '';
-    result.messages.forEach((message) => {
-      const item = document.createElement('li');
-      item.textContent = message;
-      $MEDIA_EDIT_VALIDATION_LIST.appendChild(item);
-    });
-    $MEDIA_EDIT_VALIDATION.classList.remove('hidden');
+    setMediaEditFieldValidationMessage('modal-media-edit-category', fieldMessages['modal-media-edit-category']?.[0] || null);
+    setMediaEditFieldValidationMessage('modal-media-edit-title-input', fieldMessages['modal-media-edit-title-input']?.[0] || null);
+    setMediaEditFieldValidationMessage('modal-media-edit-seek-start', fieldMessages['modal-media-edit-seek-start']?.[0] || null);
+    setMediaEditFieldValidationMessage('modal-media-edit-seek-end', fieldMessages['modal-media-edit-seek-end']?.[0] || null);
+    setMediaEditFieldValidationMessage('modal-media-edit-fadein-end', fieldMessages['modal-media-edit-fadein-end']?.[0] || null);
+    setMediaEditFieldValidationMessage('modal-media-edit-fadeout-start', fieldMessages['modal-media-edit-fadeout-start']?.[0] || null);
+    setMediaEditSaveButtonDisabled(!result.valid);
   }
 
   function validateMediaEditDraft(draft: MediaEditDraft): MediaEditValidationResult {
     const messages: string[] = [];
     const invalidFieldIds = new Set<string>();
+    const fieldMessages: Record<string, string[]> = {};
+    const addFieldMessage = (fieldId: string, message: string): void => {
+      if (!fieldMessages[fieldId]) {
+        fieldMessages[fieldId] = [];
+      }
+      fieldMessages[fieldId].push(message);
+    };
     const knownDuration = resolveMediaEditKnownDuration(mediaEditActiveItem);
     const effectiveEnd = resolveMediaEditEffectiveEnd(
       draft.seekEnd,
@@ -2020,58 +2050,85 @@ const init = function (): void {
     );
 
     if (draft.category.trim() === '') {
-      messages.push(getLocalizedMessage('mediaEditValidationCategoryRequired', 'Category is required.'));
+      const message = getLocalizedMessage('mediaEditValidationCategoryRequired', 'Category is required.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-category', message);
       invalidFieldIds.add('modal-media-edit-category');
     }
 
     if (draft.title.trim() === '') {
-      messages.push(getLocalizedMessage('mediaEditValidationTitleRequired', 'Title is required.'));
+      const message = getLocalizedMessage('mediaEditValidationTitleRequired', 'Title is required.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-title-input', message);
       invalidFieldIds.add('modal-media-edit-title-input');
     }
 
     if (draft.seekStart !== null && draft.seekEnd !== null && draft.seekStart > draft.seekEnd) {
-      messages.push(getLocalizedMessage('mediaEditValidationStartEnd', 'Seek start must be less than or equal to seek end.'));
+      const message = getLocalizedMessage('mediaEditValidationStartEnd', 'Seek start must be less than or equal to seek end.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-seek-start', message);
+      addFieldMessage('modal-media-edit-seek-end', message);
       invalidFieldIds.add('modal-media-edit-seek-start');
       invalidFieldIds.add('modal-media-edit-seek-end');
     }
 
     if (draft.seekStart !== null && draft.fadeInEnd !== null && draft.seekStart > draft.fadeInEnd) {
-      messages.push(getLocalizedMessage('mediaEditValidationStartFadeIn', 'Seek start must be less than or equal to fade-in end.'));
+      const message = getLocalizedMessage('mediaEditValidationStartFadeIn', 'Seek start must be less than or equal to fade-in end.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-seek-start', message);
+      addFieldMessage('modal-media-edit-fadein-end', message);
       invalidFieldIds.add('modal-media-edit-seek-start');
       invalidFieldIds.add('modal-media-edit-fadein-end');
     }
 
     if (draft.seekStart !== null && draft.fadeOutStart !== null && draft.seekStart > draft.fadeOutStart) {
-      messages.push(getLocalizedMessage('mediaEditValidationStartFadeOut', 'Seek start must be less than or equal to fade-out start.'));
+      const message = getLocalizedMessage('mediaEditValidationStartFadeOut', 'Seek start must be less than or equal to fade-out start.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-seek-start', message);
+      addFieldMessage('modal-media-edit-fadeout-start', message);
       invalidFieldIds.add('modal-media-edit-seek-start');
       invalidFieldIds.add('modal-media-edit-fadeout-start');
     }
 
     if (draft.fadeInEnd !== null && draft.seekEnd !== null && draft.fadeInEnd > draft.seekEnd) {
-      messages.push(getLocalizedMessage('mediaEditValidationFadeInEnd', 'Fade-in end must be less than or equal to seek end.'));
+      const message = getLocalizedMessage('mediaEditValidationFadeInEnd', 'Fade-in end must be less than or equal to seek end.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-fadein-end', message);
+      addFieldMessage('modal-media-edit-seek-end', message);
       invalidFieldIds.add('modal-media-edit-fadein-end');
       invalidFieldIds.add('modal-media-edit-seek-end');
     }
 
     if (draft.fadeOutStart !== null && draft.seekEnd !== null && draft.fadeOutStart >= draft.seekEnd) {
-      messages.push(getLocalizedMessage('mediaEditValidationFadeOutEndStrict', 'Fade-out start must be less than seek end.'));
+      const message = getLocalizedMessage('mediaEditValidationFadeOutEndStrict', 'Fade-out start must be less than seek end.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-fadeout-start', message);
+      addFieldMessage('modal-media-edit-seek-end', message);
       invalidFieldIds.add('modal-media-edit-fadeout-start');
       invalidFieldIds.add('modal-media-edit-seek-end');
     }
 
     if (draft.fadeInEnd !== null && draft.fadeOutStart !== null && draft.fadeInEnd > draft.fadeOutStart) {
-      messages.push(getLocalizedMessage('mediaEditValidationFadeInFadeOut', 'Fade-in end must be less than or equal to fade-out start.'));
+      const message = getLocalizedMessage('mediaEditValidationFadeInFadeOut', 'Fade-in end must be less than or equal to fade-out start.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-fadein-end', message);
+      addFieldMessage('modal-media-edit-fadeout-start', message);
       invalidFieldIds.add('modal-media-edit-fadein-end');
       invalidFieldIds.add('modal-media-edit-fadeout-start');
     }
 
     if (draft.seekEnd !== null && knownDuration !== null && draft.seekEnd > knownDuration) {
-      messages.push(getLocalizedMessage('mediaEditValidationEndDuration', 'Seek end must be less than or equal to media duration.'));
+      const message = getLocalizedMessage('mediaEditValidationEndDuration', 'Seek end must be less than or equal to media duration.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-seek-end', message);
       invalidFieldIds.add('modal-media-edit-seek-end');
     }
 
     if (draft.seekEnd === null && draft.fadeOutStart !== null && effectiveEnd !== null && draft.fadeOutStart > effectiveEnd) {
-      messages.push(getLocalizedMessage('mediaEditValidationFadeOutEnd', 'Fade-out start must be less than or equal to seek end.'));
+      const message = getLocalizedMessage('mediaEditValidationFadeOutEnd', 'Fade-out start must be less than or equal to seek end.');
+      messages.push(message);
+      addFieldMessage('modal-media-edit-fadeout-start', message);
+      addFieldMessage('modal-media-edit-seek-end', message);
       invalidFieldIds.add('modal-media-edit-fadeout-start');
       invalidFieldIds.add('modal-media-edit-seek-end');
     }
@@ -2080,6 +2137,7 @@ const init = function (): void {
       valid: messages.length === 0,
       messages,
       invalidFieldIds: Array.from(invalidFieldIds),
+      fieldMessages,
     };
   }
 
@@ -2656,6 +2714,7 @@ const init = function (): void {
 
     const validation = validateAndRenderMediaEditDraftFromForm();
     if (!validation.valid) {
+      setMediaEditSaveButtonDisabled(true);
       updateNotice({
         type: 'error',
         message: getLocalizedMessage('mediaEditValidationError', 'Please fix the validation errors before saving.'),

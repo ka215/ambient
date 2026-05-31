@@ -218,6 +218,32 @@
     .media-edit-timing-sync-btn:hover {
         background: #e5e7eb;
     }
+    .media-edit-field-error {
+        margin-top: 0.35rem;
+        min-height: 1rem;
+        font-size: 0.75rem;
+        line-height: 1rem;
+        color: #dc2626;
+    }
+    .media-edit-field-error--seek {
+        text-align: right;
+    }
+    .dark .media-edit-field-error {
+        color: #fca5a5;
+    }
+    [data-media-edit-validation-group][aria-invalid="true"],
+    [data-media-edit-validation-group].border-red-500 {
+        border-color: #ef4444 !important;
+    }
+    [data-media-edit-validation-group].border-red-500:focus-within,
+    [data-media-edit-validation-group].focus-within\:border-red-500:focus-within {
+        border-color: #dc2626 !important;
+        box-shadow: 0 0 0 2px rgb(254 202 202 / 0.85) !important;
+    }
+    .dark [data-media-edit-validation-group].border-red-500:focus-within,
+    .dark [data-media-edit-validation-group].focus-within\:border-red-500:focus-within {
+        box-shadow: 0 0 0 2px rgb(127 29 29 / 0.7) !important;
+    }
     .dark .media-edit-timing-sync-btn {
         border-left-color: #4b5563;
         background: #374151;
@@ -266,12 +292,13 @@
         --media-edit-seek-outline-color: #94a3b8;
         display: inline-flex;
         align-items: center;
-        gap: 0.35rem;
+        gap: 0.4rem;
+        white-space: nowrap;
     }
     .media-edit-seek-label::before {
         content: "";
-        width: 0.58rem;
-        height: 0.58rem;
+        width: 0.9rem;
+        height: 0.9rem;
         border-radius: 9999px;
         border: 2px solid var(--media-edit-seek-ring-color);
         background: var(--media-edit-seek-marker-color);
