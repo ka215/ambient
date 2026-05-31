@@ -958,6 +958,29 @@ const init = function (): void {
     }
   }
 
+  function buildEmptyMyPlaylistSeed(): string {
+    const payload: Record<string, unknown> = {
+      options: {},
+    };
+    return JSON.stringify(payload, null, 2);
+  }
+
+  function ensureCloudMyPlaylistSeed(): void {
+    const ambientData = getAmbientData();
+    if (!ambientData?.isCloud) {
+      return;
+    }
+    if (localStorage.getItem(MYPLAYLIST_KEY) !== null) {
+      return;
+    }
+    try {
+      localStorage.setItem(MYPLAYLIST_KEY, buildEmptyMyPlaylistSeed());
+      logger('ensureCloudMyPlaylistSeed: initialized empty MyPlaylist');
+    } catch (error) {
+      logger('ensureCloudMyPlaylistSeed: failed to initialize', error);
+    }
+  }
+
   function canMutateCurrentPlaylist(): boolean {
     const ambientData = getAmbientData();
     if (ambientData?.isCloud === true) {
@@ -3659,6 +3682,7 @@ const init = function (): void {
   // In cloud mode: load MyPlaylist from localStorage before processing server data.
   // (Placed here, AFTER DOM constants, to avoid const temporal dead zone issues.)
   const savedPlaylistContext = getSavedPlaylistContext();
+  ensureCloudMyPlaylistSeed();
   ensureMyPlaylistOptionFromStorage();
   if ((window as any).AmbientData) {
     const ambientData: AmbientData = (window as any).AmbientData;
