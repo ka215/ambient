@@ -20,6 +20,26 @@ This file lists reusable terminal commands for agents and developers.
 - Command: npm run test:e2e
 - Purpose: Execute the standard E2E matrix for chrome, ipad, and iphone projects.
 
+- Name: Release Start
+- Command: npm run release:start -- <version>
+- Purpose: Start a release branch with typecheck, build, and dist drift checks before version bumping.
+
+- Name: Release Finish
+- Command: npm run release:finish -- <version>
+- Purpose: Finish a release branch, sync main back to dev, and optionally run public verification.
+
+- Name: Playwright Public E2E (Tagged)
+- Command: npm run test:e2e:public
+- Purpose: Execute all public-release tagged E2E scenarios (grep: @public-release) against E2E_BASE_URL.
+
+- Name: Release Public Verification
+- Command: npm run release:verify:public
+- Purpose: Run public-release tagged E2E against production base URL by default (https://amp.ka2.org/).
+
+- Name: Release Finish Public Verification Flag
+- Command: npm run release:finish -- <version> -- -RunPublicE2E
+- Purpose: Run the public verification pass from the release finish flow. Use -PublicE2EBaseUrl to override the default https://amp.ka2.org/ URL.
+
 ## Pending Standard Commands
 
 Define and add when introduced:
