@@ -7,7 +7,9 @@ param(
   [string]$MainBranch = 'main',
   [string]$DevBranch = 'dev',
   [switch]$AllowMergeCommit,
-  [switch]$KeepReleaseBranch
+  [switch]$KeepReleaseBranch,
+  [switch]$RunPublicE2E,
+  [string]$PublicE2EBaseUrl = 'https://amp.ka2.org/'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -44,6 +46,14 @@ if ($AllowMergeCommit) {
   Invoke-Git @('merge', '--ff-only', $MainBranch)
 }
 Invoke-Git @('push', $Remote, $DevBranch)
+
+if ($RunPublicE2E) {
+  Write-Host "Running public E2E verification against: $PublicE2EBaseUrl"
+  & npm run release:verify:public -- -BaseUrl $PublicE2EBaseUrl
+  if ($LASTEXITCODE -ne 0) {
+    throw "Public E2E verification failed with exit code $LASTEXITCODE"
+  }
+}
 
 if (!$KeepReleaseBranch) {
   & git show-ref --verify --quiet "refs/heads/$releaseBranch"

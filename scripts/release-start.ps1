@@ -30,6 +30,24 @@ function Assert-CleanWorktree {
   }
 }
 
+function Invoke-NpmScript {
+  param([Parameter(Mandatory = $true)][string]$ScriptName)
+  & cmd /c "npm run $ScriptName"
+  if ($LASTEXITCODE -ne 0) {
+    throw "npm run $ScriptName failed with exit code $LASTEXITCODE"
+  }
+}
+
+function Assert-NoDistDiff {
+  $distStatus = & git status --porcelain -- dist
+  if ($LASTEXITCODE -ne 0) {
+    throw 'git status for dist failed'
+  }
+  if ($distStatus) {
+    throw "Build produced dist differences. Resolve and commit before starting release.`n$distStatus"
+  }
+}
+
 function Update-PackageVersion {
   param([string]$NextVersion)
   $packagePath = Join-Path (Get-Location) 'package.json'
@@ -59,6 +77,12 @@ Invoke-Git @('checkout', $BaseBranch)
 if (!$SkipPull) {
   Invoke-Git @('pull', '--ff-only', $Remote, $BaseBranch)
 }
+
+Write-Host 'Running release gates: typecheck, build, and dist drift check.'
+Invoke-NpmScript 'typecheck'
+Invoke-NpmScript 'build'
+Assert-NoDistDiff
+Write-Host 'Release gates passed.'
 
 $existingBranch = & git branch --list $releaseBranch
 if ($existingBranch) {

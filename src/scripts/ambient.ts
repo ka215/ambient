@@ -6,6 +6,31 @@
 import 'flowbite';
 import Sortable from 'sortablejs';
 import '../styles/app.css';
+import {
+  basename as sharedBasename,
+  clampStringLength as sharedClampStringLength,
+  escapeHTML as sharedEscapeHTML,
+  getExt as sharedGetExt,
+  hasUnsafeScheme as sharedHasUnsafeScheme,
+  isJsonFilename as sharedIsJsonFilename,
+  parseJsonWithBom as sharedParseJsonWithBom,
+  snakeToCapital as sharedSnakeToCapital,
+} from './shared/string';
+import {
+  formatSecondsToHHMMSS as sharedFormatSecondsToHHMMSS,
+  formatSecondsToTimelineLabel as sharedFormatSecondsToTimelineLabel,
+  parseMediaTimeToIntegerSeconds as sharedParseMediaTimeToIntegerSeconds,
+  toMediaEditTimingInputValue as sharedToMediaEditTimingInputValue,
+} from './shared/time';
+import {
+  inArray as sharedInArray,
+  inRange as sharedInRange,
+  isBooleanString as sharedIsBooleanString,
+  isNumberString as sharedIsNumberString,
+  isObject as sharedIsObject,
+  normalizeBoolish as sharedNormalizeBoolish,
+  normalizeNonNegativeNumber as sharedNormalizeNonNegativeNumber,
+} from './shared/validation';
 
 // ============================================================================
 // INITIALIZATION
@@ -609,8 +634,9 @@ const init = function (): void {
     return parser.textContent || parser.innerText || '';
   }
 
+  // [MODULE-BOUNDARY][v2.5.3-P0][EXTRACT-BL-001]: shared pure string/time/validation adapters
   function clampStringLength(value: string, maxLength: number): string {
-    return value.length > maxLength ? value.slice(0, maxLength) : value;
+    return sharedClampStringLength(value, maxLength);
   }
 
   function sanitizeMediaText(value: string, maxLength: number): string {
@@ -685,7 +711,7 @@ const init = function (): void {
   }
 
   function isJsonFilename(name: string): boolean {
-    return /\.json$/i.test(name.trim());
+    return sharedIsJsonFilename(name);
   }
 
   function isLikelyJsonFile(file: File): boolean {
@@ -697,8 +723,7 @@ const init = function (): void {
   }
 
   function parseJsonWithBom(text: string): unknown {
-    const sanitized = text.replace(/^\uFEFF/, '');
-    return JSON.parse(sanitized);
+    return sharedParseJsonWithBom(text);
   }
 
   function detectCloudImportDeviceTier(): keyof typeof CLOUD_IMPORT_SIZE_LIMIT_BYTES {
@@ -721,48 +746,15 @@ const init = function (): void {
   }
 
   function hasUnsafeScheme(value: string): boolean {
-    const trimmed = value.trim();
-    if (trimmed === '') {
-      return false;
-    }
-    const match = trimmed.match(/^([a-z][a-z0-9+.-]*):/i);
-    if (!match) {
-      return false;
-    }
-    const scheme = (match[1] || '').toLowerCase();
-    return !['http', 'https'].includes(scheme);
+    return sharedHasUnsafeScheme(value);
   }
 
   function normalizeNonNegativeNumber(value: unknown): number | null {
-    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
-      return value;
-    }
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (trimmed === '' || Number.isNaN(Number(trimmed))) {
-        return null;
-      }
-      const parsed = Number(trimmed);
-      return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-    }
-    return null;
+    return sharedNormalizeNonNegativeNumber(value);
   }
 
   function normalizeBoolish(value: unknown): boolean | null {
-    if (typeof value === 'boolean') {
-      return value;
-    }
-    if (typeof value === 'number') {
-      if (value === 0) return false;
-      if (value === 1) return true;
-      return null;
-    }
-    if (typeof value === 'string') {
-      const trimmed = value.trim().toLowerCase();
-      if (trimmed === '0' || trimmed === 'false') return false;
-      if (trimmed === '1' || trimmed === 'true') return true;
-    }
-    return null;
+    return sharedNormalizeBoolish(value);
   }
 
   function validatePlaylistSchemaContract(value: unknown): value is Record<string, unknown> {
@@ -1469,45 +1461,9 @@ const init = function (): void {
     fieldMessages: Record<string, string[]>;
   }
 
+  // [MODULE-BOUNDARY][v2.5.3-P0][EXTRACT-BL-002]: shared time adapters for media-edit timing
   function parseMediaTimeToIntegerSeconds(value: unknown): number | null {
-    if (value === null || value === undefined || value === '') {
-      return null;
-    }
-    if (typeof value === 'number') {
-      if (!Number.isFinite(value) || value < 0) {
-        return null;
-      }
-      return Math.trunc(value);
-    }
-    const textValue = String(value).trim();
-    if (textValue === '') {
-      return null;
-    }
-    if (/^\d+(\.\d+)?$/.test(textValue)) {
-      const numeric = Number(textValue);
-      if (!Number.isFinite(numeric) || numeric < 0) {
-        return null;
-      }
-      return Math.trunc(numeric);
-    }
-    if (/^(\d+:)?([0-5]?\d:)?[0-5]?\d$/.test(textValue) && textValue.includes(':')) {
-      const times = textValue.split(':');
-      let hours = 0;
-      let minutes = 0;
-      let seconds = 0;
-      if (times.length === 3) {
-        hours = parseInt(times[0] || '0', 10);
-        minutes = parseInt(times[1] || '0', 10);
-        seconds = parseInt(times[2] || '0', 10);
-      } else if (times.length === 2) {
-        minutes = parseInt(times[0] || '0', 10);
-        seconds = parseInt(times[1] || '0', 10);
-      } else {
-        seconds = parseInt(times[0] || '0', 10);
-      }
-      return Math.trunc((hours * 3600) + (minutes * 60) + seconds);
-    }
-    return null;
+    return sharedParseMediaTimeToIntegerSeconds(value);
   }
 
   function normalizeMediaEditTimingValue(value: unknown, fallback: number | null = null): number | null {
@@ -1519,7 +1475,7 @@ const init = function (): void {
   }
 
   function toMediaEditTimingInputValue(value: number | null): string {
-    return Number.isInteger(value) && value !== null && value >= 0 ? String(value) : '';
+    return sharedToMediaEditTimingInputValue(value);
   }
 
   function sanitizeMediaEditTimingInputField(field: HTMLInputElement | null): void {
@@ -1533,36 +1489,11 @@ const init = function (): void {
   }
 
   function formatSecondsToHHMMSS(value: number | null): string {
-    if (!Number.isInteger(value) || value === null || value < 0) {
-      return 'HH:MM:SS';
-    }
-    const hours = Math.floor(value / 3600);
-    const minutes = Math.floor((value % 3600) / 60);
-    const seconds = value % 60;
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    return sharedFormatSecondsToHHMMSS(value);
   }
 
   function formatSecondsToTimelineLabel(value: number | null): string {
-    if (!Number.isFinite(value) || value === null || value < 0) {
-      return '0:00';
-    }
-    const total = Math.floor(value);
-    const hours = Math.floor(total / 3600);
-    const minutes = Math.floor((total % 3600) / 60);
-    const seconds = total % 60;
-    const mm = String(minutes).padStart(2, '0');
-    const ss = String(seconds).padStart(2, '0');
-
-    if (hours >= 10) {
-      return `${String(hours).padStart(2, '0')}:${mm}:${ss}`;
-    }
-    if (hours >= 1) {
-      return `${String(hours)}:${mm}:${ss}`;
-    }
-    if (minutes >= 10) {
-      return `${String(minutes).padStart(2, '0')}:${ss}`;
-    }
-    return `${String(minutes)}:${ss}`;
+    return sharedFormatSecondsToTimelineLabel(value);
   }
 
   function setMediaEditSeekTimelineMarker(
@@ -7689,11 +7620,13 @@ function execDebug(): void {
 // UTILITY FUNCTIONS (SHARED LIBRARY)
 // ============================================================================
 
+// [MODULE-BOUNDARY][v2.5.3-P0][EXTRACT-BL-003]: pure tail utility wrappers delegated to src/scripts/shared/*
+
 /**
  * Finds whether the given variable is an object.
  */
 function isObject(value: any): value is Record<string, any> {
-  return value !== null && typeof value === 'object';
+  return sharedIsObject(value);
 }
 
 /**
@@ -7707,14 +7640,14 @@ function isElement(node: any): node is HTMLElement {
  * Determines if the given variable is a numeric string.
  */
 function isNumberString(numstr: any): numstr is string {
-  return typeof numstr === 'string' && numstr !== '' && !isNaN(Number(numstr));
+  return sharedIsNumberString(numstr);
 }
 
 /**
  * Determines if the given variable is a boolean string.
  */
 function isBooleanString(boolstr: any): boolstr is string {
-  return typeof boolstr === 'string' && boolstr !== '' && /^(true|false)$/i.test(boolstr);
+  return sharedIsBooleanString(boolstr);
 }
 
 /**
@@ -7722,15 +7655,14 @@ function isBooleanString(boolstr: any): boolstr is string {
  * this function will return the trailing name component.
  */
 function basename(path: string): string {
-  return path.split(/[\/\\]/).pop()?.split('.').shift() || '';
+  return sharedBasename(path);
 }
 
 /**
  * Gets the extension from the given file path.
  */
 function getExt(path: string): string {
-  const cleanPath = path.split(/[?#]/).shift() || '';
-  return cleanPath.split('.').pop()?.toLowerCase() || '';
+  return sharedGetExt(path);
 }
 
 function getMediaMimeType(path: string, tagname: 'audio' | 'video'): string {
@@ -7784,38 +7716,22 @@ function resolveLocalMediaSrc(path: string): string {
 }
 
 function escapeHTML(value: string): string {
-  const map: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;',
-  };
-  return String(value).replace(/[&<>"']/g, (char) => map[char] || char);
+  return sharedEscapeHTML(value);
 }
 
 /**
  * Return true if a number is in range, otherwise false.
  */
 function inRange(num: any, min: number, max: number): boolean {
-  if (isNaN(Number(num))) {
-    return false;
-  } else {
-    num = Number(num);
-    return (num - min) * (num - max) <= 0;
-  }
+  return sharedInRange(num, min, max);
 }
 
 function inArray(contains: any | any[], targetArray: any[], at_least_one: boolean = false): boolean {
-  if (!Array.isArray(targetArray)) return false;
-  const items = Array.isArray(contains) ? contains : [contains];
-  return at_least_one
-    ? items.some((item: any) => targetArray.includes(item))
-    : items.every((item: any) => targetArray.includes(item));
+  return sharedInArray(contains, targetArray, at_least_one);
 }
 
 function snakeToCapital(str: string): string {
-  return str.replace(/_./g, (match: string) => match.charAt(1).toUpperCase());
+  return sharedSnakeToCapital(str);
 }
 
 function setValidated(targetElement: HTMLElement, result: boolean | null = null): void {
