@@ -444,7 +444,11 @@ const init = function (): void {
 
   function getLocalizedMessage(key: string, fallback: string = key): string {
     const messages = getAmbientData()?.messages;
-    return isObject(messages) && typeof messages[key] === 'string' ? messages[key] : fallback;
+    if (!isObject(messages) || typeof messages[key] !== 'string') {
+      return fallback;
+    }
+    const localized = messages[key];
+    return localized.trim() === '' ? fallback : localized;
   }
 
   function sanitizeMyPlaylistOptions(
