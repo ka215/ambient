@@ -8,12 +8,53 @@ function amp_set_var( string $var_name, mixed $value ): void {
 }
 
 /**
+ * Minify inline asset content for styles and scripts.
+ *
+ * @param string $content Raw inline content.
+ * @param string $type Asset type ('styles' or 'inline_scripts').
+ * @return string
+ */
+function amp_minify_inline_asset_content( string $content, string $type ): string {
+    if ( $type === 'styles' ) {
+        $content = preg_replace( '#/\*[\s\S]*?\*/#', '', $content ) ?? $content;
+        $content = preg_replace( '/\s+/', ' ', $content ) ?? $content;
+        $content = preg_replace( '/\s*([{}:;,>])\s*/', '$1', $content ) ?? $content;
+        return trim( $content );
+    }
+
+    if ( $type === 'inline_scripts' ) {
+        $content = preg_replace( '#/\*[\s\S]*?\*/#', '', $content ) ?? $content;
+
+        $lines = preg_split( '/\R/', $content ) ?: [];
+        foreach ( $lines as &$line ) {
+            if ( preg_match( '/^\s*\/\//', $line ) ) {
+                $line = '';
+                continue;
+            }
+            $line = preg_replace( '/(^|[;{}(),\s])\/\/[^\r\n]*/', '$1', $line ) ?? $line;
+        }
+        unset( $line );
+
+        $content = implode( ' ', $lines );
+        $content = preg_replace( '/\s+/', ' ', $content ) ?? $content;
+        return trim( $content );
+    }
+
+    return $content;
+}
+
+/**
  * Add custom JavaScript to the footer.
  * @param string $content The JavaScript code to add.
  * @param string $type The type of the script (e.g., 'scripts' or 'inline_scripts'). Default is 'scripts'.
+ * @param bool $minify Minify inline script/style content when true.
  * @since v2.2.3
  */
-function amp_add_footer_script( string $content, string $type = 'scripts' ): void {
+function amp_add_footer_script( string $content, string $type = 'scripts', bool $minify = false ): void {
+    if ( $minify && in_array( $type, [ 'inline_scripts', 'styles' ], true ) ) {
+        $content = amp_minify_inline_asset_content( $content, $type );
+    }
+
     if ( isset( $GLOBALS['ambient'] ) ) {
         $GLOBALS['ambient']->enqueue_asset( 'footer', $type, $content );
     }
@@ -23,9 +64,14 @@ function amp_add_footer_script( string $content, string $type = 'scripts' ): voi
  * Add custom content to the head.
  * @param string $html The HTML code to add to the head.
  * @param string $type The type of the head asset (e.g., 'meta', 'scripts', 'inline_scripts', or 'styles'). Default is 'meta'.
+ * @param bool $minify Minify inline script/style content when true.
  * @since v2.2.3
  */
-function amp_add_head_content( string $html, string $type = 'meta' ): void {
+function amp_add_head_content( string $html, string $type = 'meta', bool $minify = false ): void {
+    if ( $minify && in_array( $type, [ 'inline_scripts', 'styles' ], true ) ) {
+        $html = amp_minify_inline_asset_content( $html, $type );
+    }
+
     if ( isset( $GLOBALS['ambient'] ) ) {
         $GLOBALS['ambient']->enqueue_asset( 'head', $type, $html );
     }
