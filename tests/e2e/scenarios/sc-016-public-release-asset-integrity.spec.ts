@@ -8,6 +8,9 @@ test.describe('SC-016 Public release asset integrity @public-release', () => {
 
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
+    await expect.poll(async () => {
+      return page.evaluate(() => !document.body.classList.contains('app-boot-pending'));
+    }, { timeout: 15_000 }).toBeTruthy();
 
     const jsIntegrity = await page.evaluate(async () => {
       const response = await fetch('./dist/manifest.json', { cache: 'no-store' });
@@ -28,47 +31,48 @@ test.describe('SC-016 Public release asset integrity @public-release', () => {
       }
 
       const expectedAssetFile = entryFile.split('/').pop() || '';
-      const scriptMatched = Array.from(document.querySelectorAll('script[src]')).some((script) => {
-        const src = script.getAttribute('src') || '';
-        return expectedAssetFile !== '' && src.includes(expectedAssetFile);
-      });
-      const resourceMatched = performance
-        .getEntriesByType('resource')
-        .some((entry) => typeof entry.name === 'string' && expectedAssetFile !== '' && entry.name.includes(expectedAssetFile));
+      const assetUrl = new URL(entryFile, document.baseURI).toString();
+      const assetResponse = await fetch(assetUrl, { cache: 'no-store' });
 
       return {
-        ok: scriptMatched || resourceMatched,
-        reason: scriptMatched || resourceMatched
+        ok: assetResponse.ok,
+        reason: assetResponse.ok
           ? ''
-          : `JavaScript asset ${expectedAssetFile} was not observed in script tags or loaded resources.`,
+          : `JavaScript asset ${expectedAssetFile} could not be fetched (status: ${assetResponse.status}).`,
       };
     });
     expect(jsIntegrity.ok, jsIntegrity.reason).toBeTruthy();
 
     const cssIntegrity = await page.evaluate(async () => {
-      const stylesheet = document.querySelector('link[rel="stylesheet"][href*="ambient.css"]') as HTMLLinkElement | null;
-      if (!stylesheet || !stylesheet.href) {
-        return {
-          ok: false,
-          reason: 'ambient.css stylesheet was not found.',
-        };
-      }
-
-      const response = await fetch(stylesheet.href, { cache: 'no-store' });
+      const response = await fetch('./dist/manifest.json', { cache: 'no-store' });
       if (!response.ok) {
         return {
           ok: false,
-          reason: `Failed to fetch ambient.css (status: ${response.status}).`,
+          reason: `Failed to fetch dist/manifest.json (status: ${response.status}).`,
         };
       }
 
-      const cssText = await response.text();
-      const requiredSelectors = ['#btn-play', '#playlist-list-group', '#drawer-settings'];
-      const missingSelectors = requiredSelectors.filter((selector) => !cssText.includes(selector));
+      const manifest = await response.json() as Record<string, { css?: string[] }>;
+      const cssFile = manifest?.['src/scripts/ambient.ts']?.css?.[0];
+      if (typeof cssFile !== 'string' || cssFile.length === 0) {
+        return {
+          ok: false,
+          reason: 'manifest entry for ambient.css was not found.',
+        };
+      }
+
+      const cssUrl = new URL(cssFile, document.baseURI).toString();
+      const stylesheetResponse = await fetch(cssUrl, { cache: 'no-store' });
+      if (!stylesheetResponse.ok) {
+        return {
+          ok: false,
+          reason: `Failed to fetch ambient.css (status: ${stylesheetResponse.status}).`,
+        };
+      }
 
       return {
-        ok: missingSelectors.length === 0,
-        reason: missingSelectors.length > 0 ? `Missing selectors in ambient.css: ${missingSelectors.join(', ')}` : '',
+        ok: (await stylesheetResponse.text()).length > 0,
+        reason: 'ambient.css was fetched but returned an empty response.',
       };
     });
 

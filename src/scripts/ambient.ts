@@ -7519,9 +7519,6 @@ const init = function (): void {
                 return;
               }
               const result = await importPlaylistFromFile(importFile);
-              if (result.ok) {
-                hideOptionsModal();
-              }
               updateNotice({
                 type: result.ok ? 'success' : 'error',
                 message: result.message || (result.ok
@@ -7529,6 +7526,9 @@ const init = function (): void {
                   : (selfElm?.dataset['messageFailure'] || '')),
                 delay: 2800,
               });
+              if (result.ok) {
+                hideOptionsModal();
+              }
             },
           };
           elm.addEventListener('click', async (evt: Event) => {
@@ -8195,6 +8195,9 @@ function updateNotice(notification: NotificationPayload): void {
 
   setAtts($ALERT, { class: classes.base + classes[classKey] });
   setAtts($BUTTON_ALERT_DISMISS, { class: classes.btnbase + classes[btnClassKey] });
+  $ALERT.style.display = 'flex';
+  $ALERT.style.visibility = 'visible';
+  $ALERT.style.opacity = '1';
   $ALERT.style.zIndex = '10050';
   $ALERT.style.width = 'min(22rem, calc(100vw - 1rem))';
 
@@ -8235,6 +8238,8 @@ function updateNotice(notification: NotificationPayload): void {
     });
     noticeCleanupTimerGlobal = window.setTimeout(() => {
       toggleClass($ALERT, { hidden: true });
+      $ALERT.style.visibility = 'hidden';
+      $ALERT.style.opacity = '0';
       noticeCleanupTimerGlobal = null;
     }, 280);
   };

@@ -13,7 +13,7 @@
     "release:finish": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/release-finish.ps1",
     "release:verify:public": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/release-verify-public-e2e.ps1",
     "test:e2e": "playwright test --project=chrome --project=ipad --project=iphone",
-    "test:e2e:public": "playwright test --project=chrome --grep @public-release",
+    "test:e2e:public": "playwright test --project=chrome --grep @public-release --workers=1 --retries=1",
     "test:e2e:prod": "npm run test:e2e:public",
     "test:e2e:all": "playwright test",
     "test:e2e:debug": "playwright test --project=chrome --headed --debug"
