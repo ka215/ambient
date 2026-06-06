@@ -363,7 +363,7 @@
                                         <span class="ui-icon-mask ui-icon-mask--caret-down h-3 w-3" aria-hidden="true"></span>
                                     </button>
                                 </div>
-                                <span id="modal-media-edit-seek-start-hms" class="media-edit-timing-display inline-flex min-w-[7.5rem] items-center justify-center px-2 text-xs font-medium text-gray-400 dark:text-gray-500">HH:MM:SS</span>
+                                <span id="modal-media-edit-seek-start-hms" class="media-edit-timing-display inline-flex min-w-[5.5rem] items-center justify-center px-2 text-xs font-medium text-gray-400 dark:text-gray-500">HH:MM:SS</span>
                                 <button type="button" id="btn-media-edit-sync-seek-start" class="media-edit-timing-sync-btn shrink-0 px-3 py-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:text-gray-200 dark:focus:ring-blue-900">
                                     <?= __( 'Sync' ) ?>
                                 </button>
@@ -391,7 +391,7 @@
                                         <span class="ui-icon-mask ui-icon-mask--caret-down h-3 w-3" aria-hidden="true"></span>
                                     </button>
                                 </div>
-                                <span id="modal-media-edit-seek-end-hms" class="media-edit-timing-display inline-flex min-w-[7.5rem] items-center justify-center px-2 text-xs font-medium text-gray-400 dark:text-gray-500">HH:MM:SS</span>
+                                <span id="modal-media-edit-seek-end-hms" class="media-edit-timing-display inline-flex min-w-[5.5rem] items-center justify-center px-2 text-xs font-medium text-gray-400 dark:text-gray-500">HH:MM:SS</span>
                                 <button type="button" id="btn-media-edit-sync-seek-end" class="media-edit-timing-sync-btn shrink-0 px-3 py-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:text-gray-200 dark:focus:ring-blue-900">
                                     <?= __( 'Sync' ) ?>
                                 </button>
@@ -419,7 +419,7 @@
                                             <span class="ui-icon-mask ui-icon-mask--caret-down h-3 w-3" aria-hidden="true"></span>
                                         </button>
                                     </div>
-                                    <span id="modal-media-edit-fadein-end-hms" class="media-edit-timing-display inline-flex min-w-[7.5rem] items-center justify-center px-2 text-xs font-medium text-gray-400 dark:text-gray-500">HH:MM:SS</span>
+                                    <span id="modal-media-edit-fadein-end-hms" class="media-edit-timing-display inline-flex min-w-[5.5rem] items-center justify-center px-2 text-xs font-medium text-gray-400 dark:text-gray-500">HH:MM:SS</span>
                                     <button type="button" id="btn-media-edit-sync-fadein-end" class="media-edit-timing-sync-btn shrink-0 px-3 py-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:text-gray-200 dark:focus:ring-blue-900">
                                         <?= __( 'Sync' ) ?>
                                     </button>
@@ -447,7 +447,7 @@
                                             <span class="ui-icon-mask ui-icon-mask--caret-down h-3 w-3" aria-hidden="true"></span>
                                         </button>
                                     </div>
-                                    <span id="modal-media-edit-fadeout-start-hms" class="media-edit-timing-display inline-flex min-w-[7.5rem] items-center justify-center px-2 text-xs font-medium text-gray-400 dark:text-gray-500">HH:MM:SS</span>
+                                    <span id="modal-media-edit-fadeout-start-hms" class="media-edit-timing-display inline-flex min-w-[5.5rem] items-center justify-center px-2 text-xs font-medium text-gray-400 dark:text-gray-500">HH:MM:SS</span>
                                     <button type="button" id="btn-media-edit-sync-fadeout-start" class="media-edit-timing-sync-btn shrink-0 px-3 py-2 text-xs font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:text-gray-200 dark:focus:ring-blue-900">
                                         <?= __( 'Sync' ) ?>
                                     </button>

@@ -78,7 +78,8 @@ if (!$SkipPull) {
   Invoke-Git @('pull', '--ff-only', $Remote, $BaseBranch)
 }
 
-Write-Host 'Running release gates: typecheck, build, and dist drift check.'
+Write-Host 'Running release gates: i18n check, typecheck, build, and dist drift check.'
+Invoke-NpmScript 'check:i18n'
 Invoke-NpmScript 'typecheck'
 Invoke-NpmScript 'build'
 Assert-NoDistDiff

@@ -165,3 +165,14 @@ This repository currently keeps both .github/copilot-instructions.md and AGENTS.
 - AGENTS.md: full team operating model
 
 Avoid duplicating detailed content across both files.
+
+## 8. Terminal & Process Management
+- Use `jq` for parsing or manipulating JSON data, and `yq` for YAML data, rather than using generic text processing tools like `grep` or `awk`.
+- Use `rg` (ripgrep) as the primary tool for search operations. Prefer `rg --files` for listing files.
+- After completing any task in a terminal, always run the `exit` command to close the session.
+- Do not leave background processes running after your work is done.
+- On Windows, when using Git Bash (bash.exe), be aware that orphaned child processes may remain; always include a cleanup step for lingering processes at the end of a work sequence.
+
+## 9. Cleanup Rules
+- After running multiple Git operations or build tasks in succession, consider cleaning up idle Git processes by running:
+  `powershell.exe -Command "Get-Process | Where-Object { $_.Name -match 'git-remote-https|ssh-agent' } | Stop-Process -Force"`
