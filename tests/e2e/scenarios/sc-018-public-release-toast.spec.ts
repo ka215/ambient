@@ -31,6 +31,9 @@ test.describe('SC-018 Public release toast smoke @public-release', () => {
     await ambientPage.waitForBaseUi();
     await ambientPage.waitForPlaylistReady();
 
+    const isCloud = await page.evaluate(() => Boolean((window as any).AmbientData?.isCloud));
+    test.skip(!isCloud, 'SC-018 is intended for cloud/public environment only.');
+
     await page.locator('#btn-options').click();
     await page.waitForFunction(() => {
       const modal = document.getElementById('modal-options');

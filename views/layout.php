@@ -20,9 +20,7 @@
 <div id="app-root">
 <?php 
     $this->logger($this->amp_error, $this->is_error());
-    if ( $this->is_error() ) {
-        amp_component( 'notice' );
-    }
+    amp_component( 'notice' );
     amp_component( 'player' );
     amp_component( 'menu' );
     amp_component( 'drawer-left' );

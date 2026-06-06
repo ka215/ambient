@@ -11,6 +11,9 @@ test.describe('SC-001 Player initialization on page load', () => {
     await ambientPage.waitForBaseUi();
     await ambientPage.waitForPlaylistReady();
 
+    // Toast container must always exist to satisfy updateNotice DOM contract.
+    await expect(page.locator('#alert-notification')).toHaveCount(1);
+
     // Assert
     const items = page.locator('#playlist-list-group a[data-playlist-item]');
     const count = await items.count();
