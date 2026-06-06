@@ -24,6 +24,10 @@ This file lists reusable terminal commands for agents and developers.
 - Command: npm run release:start -- <version>
 - Purpose: Start a release branch with typecheck, build, and dist drift checks before version bumping.
 
+- Name: Release Prepare
+- Command: npm run release:prepare -- <version>
+- Purpose: Build and commit dist artifacts on feature/v<version>, then merge the feature branch into dev before release:start.
+
 - Name: Release Finish
 - Command: npm run release:finish -- <version>
 - Purpose: Finish a release branch, sync main back to dev, and optionally run public verification.
