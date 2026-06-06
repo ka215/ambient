@@ -5,7 +5,8 @@ param(
 
   [string]$Remote = 'origin',
   [string]$DevBranch = 'dev',
-  [string]$FeatureBranchPrefix = 'feature/v'
+  [string]$FeatureBranchPrefix = 'feature/v',
+  [switch]$SkipDevPush
 )
 
 $ErrorActionPreference = 'Stop'
@@ -74,6 +75,7 @@ if (Test-LocalBranchExists -Branch $featureBranch) {
 
 Write-Host "Running release checks on $featureBranch"
 Invoke-NpmScript 'check:i18n'
+Invoke-NpmScript 'typecheck'
 Write-Host "Running production build on $featureBranch"
 Invoke-NpmScript 'build'
 
@@ -91,6 +93,11 @@ if ($distStatus) {
 }
 
 Invoke-Git @('checkout', $DevBranch)
-Invoke-Git @('merge', $featureBranch)
+Invoke-Git @('pull', '--ff-only', $Remote, $DevBranch)
+Invoke-Git @('merge', '--no-edit', $featureBranch)
+
+if (!$SkipDevPush) {
+  Invoke-Git @('push', $Remote, $DevBranch)
+}
 
 Write-Host "Release preparation completed: $featureBranch merged into $DevBranch"
