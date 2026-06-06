@@ -31,17 +31,26 @@ function findSourceUsedMissingKeys(baseKeySet) {
   walk(path.join(root, 'views'), targets);
 
   const used = new Set();
-  const rePhp = /__\(\s*"([^"]+)"\s*\)|__\(\s*'([^']+)'\s*\)/g;
-  const reTs = /getLocalizedMessage\(\s*"([^"]+)"|getLocalizedMessage\(\s*'([^']+)'/g;
+  const quotedString = String.raw`(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)')`;
+  const rePhp = new RegExp(String.raw`__\(\s*${quotedString}\s*\)`, 'g');
+  const reTs = new RegExp(String.raw`getLocalizedMessage\(\s*${quotedString}`, 'g');
+
+  function decodeQuotedLiteral(value) {
+    return value
+      .replace(/\\(["'\\])/g, '$1')
+      .replace(/\\n/g, '\n')
+      .replace(/\\r/g, '\r')
+      .replace(/\\t/g, '\t');
+  }
 
   for (const file of targets) {
     const text = fs.readFileSync(file, 'utf8');
     let match;
     while ((match = rePhp.exec(text))) {
-      used.add(match[1] || match[2]);
+      used.add(decodeQuotedLiteral(match[1] || match[2]));
     }
     while ((match = reTs.exec(text))) {
-      used.add(match[1] || match[2]);
+      used.add(decodeQuotedLiteral(match[1] || match[2]));
     }
   }
 

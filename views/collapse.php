@@ -29,9 +29,7 @@
                 <?= __( 'Added media is saved to MyPlaylist, which is stored in your browser\'s local storage and loaded automatically when you access Ambient.' ) ?>
                 <?= __( 'Existing playlists in cloud mode are read-only. Editing is not available.' ) ?>
 <?php else: ?>
-                <?= __( 'Add media to the currently active playlist.' ) ?>
-                <?= __( 'Media you add is lost when you switch playlists or end your application session.' ) ?>
-                <?= __( 'If you want the additional media to be permanent, you will need to export the playlist after adding the media.' ) ?>
+                <?= __( 'In local mode, added media is saved directly to the active playlist JSON file and remains available after you switch playlists or restart Ambient.' ) ?>
 <?php endif; ?>
             </p>
             <div class="mb-2 text-gray-500 dark:text-gray-400">
