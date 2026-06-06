@@ -250,13 +250,28 @@ trait api {
             $error_message = $this->__( 'A link with the same name already exists.' );
         } else {
             if ( DIRECTORY_SEPARATOR === '\\' ) {
-                // Use `mklink` on Windows OS.
-                $command = 'mklink';
-                $exec_command = sprintf( '%s /D "%s" "%s"', $command, MEDIA_DIR . $symlink_name, $local_media_dir );
+                // Prefer PowerShell New-Item for symbolic links and fallback to mklink.
+                $link_path = MEDIA_DIR . $symlink_name;
+                $ps_target = str_replace( "'", "''", $local_media_dir );
+                $ps_link   = str_replace( "'", "''", $link_path );
+
+                $ps_script = "try { New-Item -ItemType SymbolicLink -Path '$ps_link' -Target '$ps_target' -ErrorAction Stop | Out-Null; exit 0 } catch { Write-Output \$_.Exception.Message; exit 1 }";
+                $exec_command = sprintf( 'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "%s"', $ps_script );
+                $output = [];
+                $returnCode = 0;
                 exec( $exec_command, $output, $returnCode );
-                $this->logger( __METHOD__, 'for Windows', $exec_command, $output, $returnCode );
+                $this->logger( __METHOD__, 'for Windows PowerShell New-Item', $exec_command, $output, $returnCode );
+
                 if ( $returnCode !== 0 ) {
-                    $error_message = $this->__( 'Failed to create symbolic link.' );
+                    $fallback_command = sprintf( 'cmd /c mklink /D "%s" "%s"', $link_path, $local_media_dir );
+                    $fallback_output = [];
+                    $fallback_return_code = 0;
+                    exec( $fallback_command, $fallback_output, $fallback_return_code );
+                    $this->logger( __METHOD__, 'for Windows mklink fallback', $fallback_command, $fallback_output, $fallback_return_code );
+
+                    if ( $fallback_return_code !== 0 ) {
+                        $error_message = $this->__( 'Failed to create symbolic link.' );
+                    }
                 }
             } else {
                 // Use `ln` on Linux OS etc.
