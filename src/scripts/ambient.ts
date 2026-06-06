@@ -7601,7 +7601,7 @@ const init = function (): void {
       updateNotice({
         type: initialType,
         message: initialMessage,
-        delay: 2800,
+        delay: 5000,
       });
     }
   }
