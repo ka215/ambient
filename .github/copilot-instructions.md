@@ -36,6 +36,7 @@ These instructions apply to all coding tasks in this workspace.
 - Keep generated outputs in designated docs/ folders for auditability.
 
 ## Terminal & Process Management
+- Use `jq` for parsing or manipulating JSON data, and `yq` for YAML data, rather than using generic text processing tools like `grep` or `awk`.
 - Use `rg` (ripgrep) as the primary tool for search operations. Prefer `rg --files` for listing files.
 - After completing any task in a terminal, always run the `exit` command to close the session.
 - Do not leave background processes running after your work is done.

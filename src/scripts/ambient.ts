@@ -444,7 +444,11 @@ const init = function (): void {
 
   function getLocalizedMessage(key: string, fallback: string = key): string {
     const messages = getAmbientData()?.messages;
-    return isObject(messages) && typeof messages[key] === 'string' ? messages[key] : fallback;
+    if (!isObject(messages) || typeof messages[key] !== 'string') {
+      return fallback;
+    }
+    const localized = messages[key];
+    return localized.trim() === '' ? fallback : localized;
   }
 
   function sanitizeMyPlaylistOptions(
@@ -2814,6 +2818,20 @@ const init = function (): void {
     setMediaEditDirtyState(isDirty);
   }
 
+  function applyMediaEditDraftState(nextDraft: MediaEditDraft): void {
+    if (!mediaEditActiveItem || !mediaEditBaseDraft) {
+      return;
+    }
+    const currentKey = getMediaEditDraftKey(mediaEditActiveItem);
+    const isDirty = !isSameMediaEditDraft(nextDraft, mediaEditBaseDraft);
+    if (isDirty) {
+      setMediaEditDraftByKey(currentKey, nextDraft);
+    } else {
+      deleteMediaEditDraftByKey(currentKey);
+    }
+    setMediaEditDirtyState(isDirty);
+  }
+
   function discardActiveMediaEditDraft(): void {
     if (mediaEditActiveItem) {
       deleteMediaEditDraftByKey(getMediaEditDraftKey(mediaEditActiveItem));
@@ -4426,7 +4444,7 @@ const init = function (): void {
           thumbnailDataUrl: typeof reader.result === 'string' ? reader.result : '',
         }, current);
         applyMediaEditDraftToForm(next);
-        syncMediaEditDraftStateFromForm();
+        applyMediaEditDraftState(next);
       };
       reader.readAsDataURL(file);
       $MEDIA_EDIT_THUMBNAIL_INPUT.value = '';
@@ -4455,7 +4473,7 @@ const init = function (): void {
         thumbnailDataUrl: '',
       }, current);
       applyMediaEditDraftToForm(next);
-      syncMediaEditDraftStateFromForm();
+      applyMediaEditDraftState(next);
     };
 
     if (isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE)) {
@@ -7515,9 +7533,6 @@ const init = function (): void {
                 return;
               }
               const result = await importPlaylistFromFile(importFile);
-              if (result.ok) {
-                hideOptionsModal();
-              }
               updateNotice({
                 type: result.ok ? 'success' : 'error',
                 message: result.message || (result.ok
@@ -7525,6 +7540,9 @@ const init = function (): void {
                   : (selfElm?.dataset['messageFailure'] || '')),
                 delay: 2800,
               });
+              if (result.ok) {
+                hideOptionsModal();
+              }
             },
           };
           elm.addEventListener('click', async (evt: Event) => {
@@ -8191,6 +8209,9 @@ function updateNotice(notification: NotificationPayload): void {
 
   setAtts($ALERT, { class: classes.base + classes[classKey] });
   setAtts($BUTTON_ALERT_DISMISS, { class: classes.btnbase + classes[btnClassKey] });
+  $ALERT.style.display = 'flex';
+  $ALERT.style.visibility = 'visible';
+  $ALERT.style.opacity = '1';
   $ALERT.style.zIndex = '10050';
   $ALERT.style.width = 'min(22rem, calc(100vw - 1rem))';
 
@@ -8231,6 +8252,8 @@ function updateNotice(notification: NotificationPayload): void {
     });
     noticeCleanupTimerGlobal = window.setTimeout(() => {
       toggleClass($ALERT, { hidden: true });
+      $ALERT.style.visibility = 'hidden';
+      $ALERT.style.opacity = '0';
       noticeCleanupTimerGlobal = null;
     }, 280);
   };
