@@ -961,19 +961,21 @@ const init = function (): void {
     return JSON.stringify(payload, null, 2);
   }
 
-  function ensureCloudMyPlaylistSeed(): void {
+  function ensureCloudMyPlaylistSeed(): boolean {
     const ambientData = getAmbientData();
     if (!ambientData?.isCloud) {
-      return;
+      return false;
     }
     if (localStorage.getItem(MYPLAYLIST_KEY) !== null) {
-      return;
+      return false;
     }
     try {
       localStorage.setItem(MYPLAYLIST_KEY, buildEmptyMyPlaylistSeed());
       logger('ensureCloudMyPlaylistSeed: initialized empty MyPlaylist');
+      return true;
     } catch (error) {
       logger('ensureCloudMyPlaylistSeed: failed to initialize', error);
+      return false;
     }
   }
 
@@ -3690,7 +3692,7 @@ const init = function (): void {
   // In cloud mode: load MyPlaylist from localStorage before processing server data.
   // (Placed here, AFTER DOM constants, to avoid const temporal dead zone issues.)
   const savedPlaylistContext = getSavedPlaylistContext();
-  ensureCloudMyPlaylistSeed();
+  const createdEmptyCloudMyPlaylistSeed = ensureCloudMyPlaylistSeed();
   ensureMyPlaylistOptionFromStorage();
   if ((window as any).AmbientData) {
     const ambientData: AmbientData = (window as any).AmbientData;
@@ -3700,22 +3702,22 @@ const init = function (): void {
       selectPlaylistOption(savedPlaylistContext.playlist);
       void getPlaylistData(savedPlaylistContext.playlist);
     } else {
-      // Keep the historical cloud behavior: MyPlaylist is auto-loaded when no saved
-      // playlist context is available.
+      const hasCurrentPlaylist = ambientData.hasOwnProperty('currentPlaylist');
+      const playlistCount = Object.keys(ambientData.playlists || {}).length;
       const shouldAutoloadMyPlaylist = ambientData?.isCloud === true &&
-        localStorage.getItem(MYPLAYLIST_KEY) !== null;
+        localStorage.getItem(MYPLAYLIST_KEY) !== null &&
+        (!createdEmptyCloudMyPlaylistSeed || !hasCurrentPlaylist);
       if (shouldAutoloadMyPlaylist) {
         initMyPlaylistFromStorage();
         releaseAppBootGate();
-      } else if (ambientData.hasOwnProperty('currentPlaylist')) {
+      } else if (hasCurrentPlaylist) {
         // If there is only one playlist, load immediately.
         const currentPlaylist = ambientData.currentPlaylist as string;
         void getPlaylistData(currentPlaylist);
-      } else if (
-        ambientData.hasOwnProperty('playlists') &&
-        Object.keys(ambientData.playlists || {}).length > 1
-      ) {
+      } else if (ambientData.hasOwnProperty('playlists') && playlistCount > 1) {
         // If there are multiple playlists, do nothing yet.
+        releaseAppBootGate();
+      } else {
         releaseAppBootGate();
       }
     }

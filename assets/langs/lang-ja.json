@@ -53,6 +53,7 @@
     "Close options": "オプションを閉じる",
     "Media Management": "メディア管理",
     "Add media to the currently active playlist.": "現在アクティブなプレイリストにメディアを追加します。",
+    "Added media is saved to MyPlaylist, which is stored in your browser's local storage and loaded automatically when you access Ambient.": "追加したメディアは、ブラウザのローカルストレージに保存される MyPlaylist に保存され、Ambient にアクセスすると自動的に読み込まれます。",
     "Existing playlists in cloud mode are read-only. Editing is not available.": "クラウド環境では既存のプレイリストは読み取り専用です。編集はできません。",
     "New Category": "新しいカテゴリー",
     "Media you add is lost when you switch playlists or end your application session.": "追加したメディアは、プレイリストを切り替えるか、アプリケーションのセッションが終了すると失われます。",

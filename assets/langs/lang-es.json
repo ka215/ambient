@@ -49,6 +49,7 @@
     "Close options": "Cerrar opciones",
     "Media Management": "Gestión de medios",
     "Add media to the currently active playlist.": "Añadir a la playlist activa.",
+    "Added media is saved to MyPlaylist, which is stored in your browser's local storage and loaded automatically when you access Ambient.": "Los medios añadidos se guardan en MyPlaylist, almacenada en el almacenamiento local del navegador y cargada automáticamente al acceder a Ambient.",
     "Media you add is lost when you switch playlists or end your application session.": "Los medios añadidos se perderán al cambiar de playlist o cerrar.",
     "If you want the additional media to be permanent, you will need to export the playlist after adding the media.": "Para que sean permanentes, exporta la playlist después de añadir medios.",
     "YouTube Media": "Medios de YouTube",
