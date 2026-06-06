@@ -72,6 +72,8 @@ if (Test-LocalBranchExists -Branch $featureBranch) {
   throw "Feature branch '$featureBranch' was not found locally or on remote '$Remote'."
 }
 
+Write-Host "Running release checks on $featureBranch"
+Invoke-NpmScript 'check:i18n'
 Write-Host "Running production build on $featureBranch"
 Invoke-NpmScript 'build'
 

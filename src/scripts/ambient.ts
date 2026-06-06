@@ -2818,6 +2818,20 @@ const init = function (): void {
     setMediaEditDirtyState(isDirty);
   }
 
+  function applyMediaEditDraftState(nextDraft: MediaEditDraft): void {
+    if (!mediaEditActiveItem || !mediaEditBaseDraft) {
+      return;
+    }
+    const currentKey = getMediaEditDraftKey(mediaEditActiveItem);
+    const isDirty = !isSameMediaEditDraft(nextDraft, mediaEditBaseDraft);
+    if (isDirty) {
+      setMediaEditDraftByKey(currentKey, nextDraft);
+    } else {
+      deleteMediaEditDraftByKey(currentKey);
+    }
+    setMediaEditDirtyState(isDirty);
+  }
+
   function discardActiveMediaEditDraft(): void {
     if (mediaEditActiveItem) {
       deleteMediaEditDraftByKey(getMediaEditDraftKey(mediaEditActiveItem));
@@ -4430,7 +4444,7 @@ const init = function (): void {
           thumbnailDataUrl: typeof reader.result === 'string' ? reader.result : '',
         }, current);
         applyMediaEditDraftToForm(next);
-        syncMediaEditDraftStateFromForm();
+        applyMediaEditDraftState(next);
       };
       reader.readAsDataURL(file);
       $MEDIA_EDIT_THUMBNAIL_INPUT.value = '';
@@ -4459,7 +4473,7 @@ const init = function (): void {
         thumbnailDataUrl: '',
       }, current);
       applyMediaEditDraftToForm(next);
-      syncMediaEditDraftStateFromForm();
+      applyMediaEditDraftState(next);
     };
 
     if (isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE)) {
