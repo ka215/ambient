@@ -1,24 +1,20 @@
 {
-    "新しいカテゴリー": [
-        {
-            "file": "209_BPM80.mp3",
-            "title": "209_BPM80",
-            "desc": "",
-            "artist": "",
-            "videoid": "",
-            "image": "amp-demo-qr.png",
-            "start": "",
-            "end": ""
-        },
-        {
-            "file": "SRW30\/[ACCA13区監察課]Shadow_and_Truth.mp3",
-            "title": "[ACCA13区監察課]Shadow_and_Truth",
-            "desc": "",
-            "artist": "",
-            "videoid": "",
-            "start": "",
-            "end": ""
-        }
+    "Category #1": [
+        { "file": "", "title": "", "desc": "", "artist": "", "videoid": "", "image": "" }
     ],
-    "options": []
+    "Category #2": [
+        { "file": "", "title": "", "desc": "", "artist": "", "videoid": "", "image": "", "start": "", "end": "" }
+    ],
+    "Category #3": [
+        { "file": "", "title": "", "desc": "", "artist": "", "videoid": "", "image": "", "start": "", "end": "" }
+    ],
+    "options": {
+        "autoplay": true,
+        "random": false,
+        "seek": false,
+        "dark": false,
+        "background": "",
+        "caption": "%artist% - %title% - %desc%",
+        "playlist": "%artist% - %title%"
+    }
 }
