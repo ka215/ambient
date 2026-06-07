@@ -3444,10 +3444,7 @@ const init = function (): void {
           const title = $BUTTON_PLAYLIST_MODE.dataset['confirmDeleteTitle'] || 'Delete selected items?';
           const body = $BUTTON_PLAYLIST_MODE.dataset['confirmDeleteBody'] || 'Selected items will be removed from your playlist.';
           openPlaylistConfirmModal(title, body, () => {
-            applyDeleteSelections();
-            playlistMode = 'normal';
-            updatePlaylistModeUI();
-            updatePlaylist();
+            void commitDeleteSelections();
           });
           return;
         }
@@ -3551,17 +3548,51 @@ const init = function (): void {
     closePlaylistConfirmModal();
   }
 
-  function applyDeleteSelections(): void {
+  async function persistCurrentPlaylistMutation(): Promise<{ ok: boolean; message: string }> {
+    return persistMediaEditForCurrentPlaylist(AMP_STATUS.media || []);
+  }
+
+  async function commitDeleteSelections(): Promise<void> {
     if (!canMutateCurrentPlaylist()) {
       deleteSelectedIds.clear();
+      updateNotice({
+        type: 'error',
+        message: getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.'),
+        delay: 2600,
+      });
       return;
     }
-    if (!AMP_STATUS.media || deleteSelectedIds.size === 0) return;
-    AMP_STATUS.media = (AMP_STATUS.media as MediaItem[]).filter(
+
+    if (!AMP_STATUS.media || deleteSelectedIds.size === 0) {
+      return;
+    }
+
+    const previousMedia = AMP_STATUS.media;
+    AMP_STATUS.media = previousMedia.filter(
       (item: MediaItem) => !deleteSelectedIds.has(item.amId)
     );
     deleteSelectedIds.clear();
-    persistMyPlaylistIfNeeded();
+    playlistMode = 'normal';
+    updatePlaylistModeUI();
+    updatePlaylist();
+
+    const persistResult = await persistCurrentPlaylistMutation();
+    if (!persistResult.ok) {
+      AMP_STATUS.media = previousMedia;
+      updatePlaylist();
+      updateNotice({
+        type: 'error',
+        message: persistResult.message || getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.'),
+        delay: 2600,
+      });
+      return;
+    }
+
+    updateNotice({
+      type: 'success',
+      message: persistResult.message || getLocalizedMessage('Playlist saved successfully.', 'Playlist saved successfully.'),
+      delay: 2200,
+    });
   }
 
   function syncDeleteSelectionIndicator(itemElm: HTMLElement, isSelected: boolean): void {
@@ -3692,25 +3723,27 @@ const init = function (): void {
   // In cloud mode: load MyPlaylist from localStorage before processing server data.
   // (Placed here, AFTER DOM constants, to avoid const temporal dead zone issues.)
   const savedPlaylistContext = getSavedPlaylistContext();
-  const createdEmptyCloudMyPlaylistSeed = ensureCloudMyPlaylistSeed();
+  ensureCloudMyPlaylistSeed();
   ensureMyPlaylistOptionFromStorage();
   if ((window as any).AmbientData) {
     const ambientData: AmbientData = (window as any).AmbientData;
-    if (savedPlaylistContext && isPlaylistAvailableForResume(savedPlaylistContext.playlist)) {
+    if (
+      savedPlaylistContext &&
+      (!ambientData.isCloud || savedPlaylistContext.playlist === MYPLAYLIST_NAME) &&
+      isPlaylistAvailableForResume(savedPlaylistContext.playlist)
+    ) {
       requestCategoryResume(savedPlaylistContext.category);
       requestMediaResume(savedPlaylistContext.media);
       selectPlaylistOption(savedPlaylistContext.playlist);
       void getPlaylistData(savedPlaylistContext.playlist);
     } else {
-      const hasCurrentPlaylist = ambientData.hasOwnProperty('currentPlaylist');
       const playlistCount = Object.keys(ambientData.playlists || {}).length;
       const shouldAutoloadMyPlaylist = ambientData?.isCloud === true &&
-        localStorage.getItem(MYPLAYLIST_KEY) !== null &&
-        (!createdEmptyCloudMyPlaylistSeed || !hasCurrentPlaylist);
+        localStorage.getItem(MYPLAYLIST_KEY) !== null;
       if (shouldAutoloadMyPlaylist) {
         initMyPlaylistFromStorage();
         releaseAppBootGate();
-      } else if (hasCurrentPlaylist) {
+      } else if (ambientData.hasOwnProperty('currentPlaylist')) {
         // If there is only one playlist, load immediately.
         const currentPlaylist = ambientData.currentPlaylist as string;
         void getPlaylistData(currentPlaylist);

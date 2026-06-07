@@ -153,6 +153,8 @@ trait utils {
      * Search playlist json or yaml file from assets dir.
      */
     protected function find_playlist(): void {
+        $this->playlists = [];
+
         // php requires PECL yaml module extension to support yaml files.
         // $results = glob( ASSETS_DIR . '*.{[Jj][Ss][Oo][Nn],[Yy][Aa][Mm][Ll]}', GLOB_BRACE );
         $results = glob( ASSETS_DIR . '*.[Jj][Ss][Oo][Nn]' );
@@ -162,6 +164,33 @@ trait utils {
                     $this->playlists[basename( $value )] = $value;
                 }
             } );
+        }
+
+        if ( empty( $this->playlists ) && $this->is_local() ) {
+            $this->create_default_playlist();
+        }
+    }
+
+    /**
+     * Create the default local playlist when no playlist JSON exists.
+     */
+    protected function create_default_playlist(): void {
+        $playlist_file = ASSETS_DIR . 'PlayList.json';
+        $default_data = json_encode( [ 'options' => new \stdClass() ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+        if ( $default_data === false ) {
+            $default_data = "{\n    \"options\": {}\n}";
+        }
+
+        if ( !is_dir( ASSETS_DIR ) ) {
+            @mkdir( ASSETS_DIR, 0755, true );
+        }
+
+        if ( !file_exists( $playlist_file ) ) {
+            @file_put_contents( $playlist_file, $default_data . "\n", LOCK_EX );
+        }
+
+        if ( file_exists( $playlist_file ) ) {
+            $this->playlists['PlayList.json'] = $playlist_file;
         }
     }
 
