@@ -65,10 +65,11 @@ trait api {
                     $file_ext = strtolower( pathinfo( $this->playlists[$playlist_file], PATHINFO_EXTENSION ) );
                     $raw_data = file_get_contents( $this->playlists[$playlist_file] );
                     if ( $file_ext === 'json' ) {
-                        $playlist_data = json_decode( $raw_data, true );
+                        $playlist_data = $this->normalize_playlist_data( json_decode( $raw_data, true ) );
                     } else {
                         // php requires PECL yaml module extension.
                         //$playlist_data = yaml_parse( $raw_data );
+                        $playlist_data = [];
                     }
                     if ( array_key_exists( 'options', $playlist_data ) ) {
                         $playlist_options = $playlist_data['options'];
@@ -79,7 +80,11 @@ trait api {
                         'code'  => 200,
                         'data'  => [
                             'filename' => $playlist_file,
-                            'src'      => str_replace( APP_ROOT, '.', $this->playlists[$playlist_file] ),
+                        'src'      => str_replace(
+                            str_replace( '\\', '/', APP_ROOT ),
+                            '.',
+                            str_replace( '\\', '/', $this->playlists[$playlist_file] )
+                        ),
                             'media'    => $this->filter_media( $playlist_data ),
                             'options'  => isset( $playlist_options ) ? $playlist_options : null,
                         ],
@@ -106,6 +111,42 @@ trait api {
                 ];
             }
         }
+    }
+
+    /**
+     * Normalize empty, malformed, or legacy playlist payloads into a safe category map.
+     *
+     * @param mixed $playlist_data
+     * @return array
+     */
+    private function normalize_playlist_data( $playlist_data ): array {
+        if ( !is_array( $playlist_data ) ) {
+            return [];
+        }
+
+        if (
+            array_key_exists( 'media', $playlist_data ) &&
+            is_array( $playlist_data['media'] )
+        ) {
+            $normalized = $playlist_data['media'];
+            if ( array_key_exists( 'options', $playlist_data ) ) {
+                $normalized['options'] = is_array( $playlist_data['options'] )
+                    ? $playlist_data['options']
+                    : null;
+            }
+            return $normalized;
+        }
+
+        foreach ( $playlist_data as $category => $items ) {
+            if ( $category === 'options' ) {
+                continue;
+            }
+            if ( !is_array( $items ) ) {
+                unset( $playlist_data[$category] );
+            }
+        }
+
+        return $playlist_data;
     }
 
     /**

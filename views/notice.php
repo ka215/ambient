@@ -6,7 +6,10 @@
     'warning' => 'yellow',
     'default' => 'gray',
   ];
-  switch( $this->amp_error->getCode() ) {
+  $notice_error = $this->amp_error instanceof \Throwable ? $this->amp_error : null;
+  $notice_code = $notice_error ? $notice_error->getCode() : 0;
+  $notice_message = $notice_error ? (string) $notice_error->getMessage() : '';
+  switch( $notice_code ) {
     case \E_USER_ERROR:
       $notice_type = 'error';
       break;
@@ -21,7 +24,7 @@
       break;
   }
   $base_color = $notice_color[$notice_type];
-  $has_notice_message = trim( (string) $this->amp_error->getMessage() ) !== '';
+  $has_notice_message = trim( $notice_message ) !== '';
 ?>
 <div 
   id="alert-notification"
@@ -29,13 +32,13 @@
   role="alert"
   aria-live="polite"
   data-notice-type="<?= $notice_type ?>"
-  data-notice-message="<?= htmlspecialchars( (string) $this->amp_error->getMessage(), ENT_QUOTES, 'UTF-8' ) ?>"
+  data-notice-message="<?= htmlspecialchars( $notice_message, ENT_QUOTES, 'UTF-8' ) ?>"
   style="z-index: 10050; width: min(22rem, calc(100vw - 1rem));"
 >
   <span class="ui-icon-mask ui-icon-mask--notice-info flex-shrink-0 inline w-5 h-5 mt-0.5" aria-hidden="true"></span>
   <span class="sr-only"><?= __( 'Notify' ) ?></span>
   <div id="alert-message" class="min-w-0 flex-1 text-sm font-medium break-words">
-    <span class="font-medium"><?= $this->amp_error->getMessage() ?></span>
+    <span class="font-medium"><?= htmlspecialchars( $notice_message, ENT_QUOTES, 'UTF-8' ) ?></span>
   </div>
   <button 
     id="btn-alert-dismiss"

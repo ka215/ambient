@@ -3692,25 +3692,27 @@ const init = function (): void {
   // In cloud mode: load MyPlaylist from localStorage before processing server data.
   // (Placed here, AFTER DOM constants, to avoid const temporal dead zone issues.)
   const savedPlaylistContext = getSavedPlaylistContext();
-  const createdEmptyCloudMyPlaylistSeed = ensureCloudMyPlaylistSeed();
+  ensureCloudMyPlaylistSeed();
   ensureMyPlaylistOptionFromStorage();
   if ((window as any).AmbientData) {
     const ambientData: AmbientData = (window as any).AmbientData;
-    if (savedPlaylistContext && isPlaylistAvailableForResume(savedPlaylistContext.playlist)) {
+    if (
+      savedPlaylistContext &&
+      (!ambientData.isCloud || savedPlaylistContext.playlist === MYPLAYLIST_NAME) &&
+      isPlaylistAvailableForResume(savedPlaylistContext.playlist)
+    ) {
       requestCategoryResume(savedPlaylistContext.category);
       requestMediaResume(savedPlaylistContext.media);
       selectPlaylistOption(savedPlaylistContext.playlist);
       void getPlaylistData(savedPlaylistContext.playlist);
     } else {
-      const hasCurrentPlaylist = ambientData.hasOwnProperty('currentPlaylist');
       const playlistCount = Object.keys(ambientData.playlists || {}).length;
       const shouldAutoloadMyPlaylist = ambientData?.isCloud === true &&
-        localStorage.getItem(MYPLAYLIST_KEY) !== null &&
-        (!createdEmptyCloudMyPlaylistSeed || !hasCurrentPlaylist);
+        localStorage.getItem(MYPLAYLIST_KEY) !== null;
       if (shouldAutoloadMyPlaylist) {
         initMyPlaylistFromStorage();
         releaseAppBootGate();
-      } else if (hasCurrentPlaylist) {
+      } else if (ambientData.hasOwnProperty('currentPlaylist')) {
         // If there is only one playlist, load immediately.
         const currentPlaylist = ambientData.currentPlaylist as string;
         void getPlaylistData(currentPlaylist);

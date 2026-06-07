@@ -150,18 +150,29 @@ class Ambient {
         $uri = isset( $_SERVER['REQUEST_URI'] ) ? urldecode( $_SERVER['REQUEST_URI'] ) : '';
         $current_url  = $protocol . "://" . $host . $uri;
         $current_path = parse_url( $current_url, PHP_URL_PATH );// `/ambient/playlist/~.json`, `/playlist/`
-        $doc_root = DIRECTORY_SEPARATOR === '/' ? $_SERVER['DOCUMENT_ROOT'] : str_replace( '/', DIRECTORY_SEPARATOR, $_SERVER['DOCUMENT_ROOT'] );
-        $relative_app_root = stripslashes( str_replace( $doc_root, '', APP_ROOT ) );// `ambient/`, `/`
-        $paths = explode( $relative_app_root, $current_path );
-        $_paths = null;
-        $request_name = null;
-        if ( isset( $paths[1] ) ) {
-            $request_name = str_contains( $paths[1], '/' ) ? strstr( $paths[1], '/', true ) : $paths[1];
-            $_paths = str_contains( $paths[1], '/' ) ? explode( '/', substr( $paths[1], strpos( $paths[1], '/' ) + 1 ) ) : null;
+        $current_path = '/' . ltrim( str_replace( '\\', '/', (string)$current_path ), '/' );
+        $script_name = str_replace( '\\', '/', $_SERVER['SCRIPT_NAME'] ?? '' );
+        $base_path = rtrim( str_replace( '\\', '/', dirname( $script_name ) ), '/' );
+        if ( $base_path === '/' || $base_path === '.' ) {
+            $base_path = '';
         }
-        if ( count( $paths ) > 2 ) {
-            $_paths = array_slice( $paths, 2 );
+
+        $relative_request_path = ltrim( $current_path, '/' );
+        if ( $base_path !== '' && str_starts_with( $current_path, $base_path . '/' ) ) {
+            $relative_request_path = ltrim( substr( $current_path, strlen( $base_path ) + 1 ), '/' );
+        } elseif ( $base_path !== '' && $current_path === $base_path ) {
+            $relative_request_path = '';
         }
+
+        $paths = array_values( array_filter( explode( '/', $relative_request_path ), function( $path ) {
+            return $path !== '';
+        } ) );
+        $app_dir_name = basename( rtrim( str_replace( '\\', '/', APP_ROOT ), '/' ) );
+        if ( !empty( $paths ) && $app_dir_name !== '' && $paths[0] === $app_dir_name ) {
+            $paths = array_slice( $paths, 1 );
+        }
+        $request_name = $paths[0] ?? null;
+        $_paths = count( $paths ) > 1 ? array_slice( $paths, 1 ) : null;
         $request_route = strtolower( $_SERVER['REQUEST_METHOD'] ) .':'. $request_name;
         $params = !empty( $_paths ) ? array_values( array_map( function( $_path ) { return htmlspecialchars( $_path ); }, $_paths ) ) : null;
         $args = [];

@@ -8,13 +8,13 @@
 </head>
 <body class="font-sans antialiased w-screen h-screen bg-white dark:bg-gray-800 overflow-hidden app-boot-pending" data-boot="pending">
 <div id="app-boot-splash" aria-live="polite" aria-busy="true">
-    <object
+    <img
         class="app-boot-loader"
-        type="image/svg+xml"
-        data="./views/images/ambient-loading-type1.svg"
+        src="./views/images/ambient-loading-type1.svg"
+        alt=""
         aria-hidden="true"
         tabindex="-1"
-    ></object>
+    >
     <p class="app-boot-label"><?= __( 'Loading...' ) ?></p>
 </div>
 <div id="app-root">
