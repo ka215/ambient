@@ -63,6 +63,8 @@
     "Invalid URL": "",
     "Copy and paste full text of the YouTube video URL includes schema.": "",
     "Local Media File": "",
+    "Choose media file (Drag and drop supported).": "",
+    "Drop media file here": "",
     "Invalid file path": "",
     "File not found in media directory.": "",
     "Only media files that are relatively accessible from the Ambient media directory are valid.": "",

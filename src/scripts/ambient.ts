@@ -65,6 +65,10 @@ const init = function (): void {
     if (splash) {
       splash.classList.remove('app-boot-fadeout');
     }
+    window.setTimeout(() => {
+      syncViewportMetrics();
+      updateWindowSize();
+    }, 0);
   }
 
   function releaseAppBootGate(): void {
@@ -133,6 +137,10 @@ const init = function (): void {
     if (splash) {
       splash.classList.remove('app-boot-fadeout');
     }
+    window.setTimeout(() => {
+      syncViewportMetrics();
+      updateWindowSize();
+    }, 0);
   }
 
   // Fail-safe: never leave the UI hidden even if initialization errors occur.
@@ -724,6 +732,14 @@ const init = function (): void {
     }
     const type = (file.type || '').toLowerCase();
     return type === 'application/json' || type === 'text/json';
+  }
+
+  function isLikelyMediaFile(file: File): boolean {
+    const type = (file.type || '').toLowerCase();
+    if (/^(audio|video)\//.test(type)) {
+      return true;
+    }
+    return /(\.(aac|avi|flac|m4a|mid|midi|mp3|mp4|mpeg|mpg|ogg|ogv|opus|ts|wav|weba|webm|wma|3gp|3g2))$/i.test(file.name);
   }
 
   function parseJsonWithBom(text: string): unknown {
@@ -2261,7 +2277,11 @@ const init = function (): void {
       const sourceElm = document.createElement('source');
       let hasReportedLoadIssue = false;
 
-      previewElm.className = 'media-edit-preview-player mx-auto block w-full max-h-[280px] rounded';
+      previewElm.className = [
+        'media-edit-preview-player',
+        tagName === 'audio' ? 'ambient-audio-player' : '',
+        'mx-auto block w-full max-h-[280px] rounded',
+      ].filter(Boolean).join(' ');
       previewElm.setAttribute('controls', 'true');
       previewElm.setAttribute('preload', 'metadata');
       previewElm.setAttribute('playsinline', 'true');
@@ -6242,6 +6262,9 @@ const init = function (): void {
     const sourceElm = document.createElement('source');
     let hasReportedLoadIssue = false;
     playerElm.id = 'html-player';
+    if (tagname === 'audio') {
+      playerElm.className = 'ambient-audio-player';
+    }
     playerElm.setAttribute('controls', String(getOption('controls') || ''));
     playerElm.setAttribute('controlslist', 'nodownload');
     playerElm.setAttribute('autoplay', String(getOption('autoplay') || ''));
@@ -6267,10 +6290,6 @@ const init = function (): void {
       playerElm.volume = 0;
     } else {
       playerElm.volume = normalizeVolume(AMP_STATUS.volume, getDefaultVolume()) / 100;
-    }
-
-    if (tagname === 'audio' && isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark) {
-      setStyles(playerElm, 'opacity: .7');
     }
 
     if (getOption('seek') && mediaData.hasOwnProperty('start') && mediaData.start !== '') {
@@ -6751,6 +6770,9 @@ const init = function (): void {
   function resetMediaManageForm(): void {
     if (!$MEDIA_MANAGE_FORM) return;
     $MEDIA_MANAGE_FORM.reset();
+    const $LOCAL_MEDIA_FILE_NAME = document.getElementById('local-media-file-name') as HTMLElement | null;
+    const $LOCAL_MEDIA_FILE_INPUT = document.getElementById('local-media-file') as HTMLInputElement | null;
+    const $LOCAL_MEDIA_DROPZONE = document.getElementById('local-media-dropzone') as HTMLElement | null;
     $MEDIA_MANAGE_ELMS.forEach((child: HTMLElement) => {
       let event: string | null = null;
       if (/^input$/i.test(child.nodeName)) {
@@ -6778,6 +6800,12 @@ const init = function (): void {
         child.dispatchEvent(new Event(event));
       }
     });
+    if ($LOCAL_MEDIA_FILE_NAME && $LOCAL_MEDIA_FILE_INPUT) {
+      $LOCAL_MEDIA_FILE_NAME.textContent = $LOCAL_MEDIA_FILE_INPUT.dataset['labelEmpty'] || 'No file selected';
+    }
+    if ($LOCAL_MEDIA_DROPZONE) {
+      toggleClass($LOCAL_MEDIA_DROPZONE, { 'is-dragover': false, 'is-invalid': false });
+    }
     syncMediaVolumeField();
   }
 
@@ -7099,6 +7127,9 @@ const init = function (): void {
       const $INPUT_VIDEOID     = document.getElementById('youtube-videoid') as HTMLInputElement | null;
       const $INPUT_FILEPATH    = document.getElementById('local-media-filepath') as HTMLInputElement | null;
       const $INPUT_MEDIA_TITLE = document.getElementById('media-title') as HTMLInputElement | null;
+      const $LOCAL_MEDIA_PICKER = document.getElementById('btn-local-media-file-picker') as HTMLButtonElement | null;
+      const $LOCAL_MEDIA_FILE_NAME = document.getElementById('local-media-file-name') as HTMLElement | null;
+      const $LOCAL_MEDIA_DROPZONE = document.getElementById('local-media-dropzone') as HTMLElement | null;
       const elmName = (elm as HTMLInputElement).name;
 
       switch (elmName) {
@@ -7158,25 +7189,105 @@ const init = function (): void {
           });
           break;
         case 'local_media_file':
+          {
+          const $LOCAL_MEDIA_INPUT = elm as HTMLInputElement;
+
+          const clearLocalMediaFile = (): void => {
+            if ($LOCAL_MEDIA_FILE_NAME) {
+              $LOCAL_MEDIA_FILE_NAME.textContent = $LOCAL_MEDIA_INPUT.dataset['labelEmpty'] || 'No file selected';
+            }
+            if ($LOCAL_MEDIA_DROPZONE) {
+              toggleClass($LOCAL_MEDIA_DROPZONE, { 'is-dragover': false, 'is-invalid': false });
+            }
+            if ($INPUT_FILEPATH) $INPUT_FILEPATH.value = '';
+            if ($INPUT_MEDIA_TITLE) $INPUT_MEDIA_TITLE.value = '';
+            setValidated(elm, null);
+            if ($INPUT_MEDIA_TITLE) setValidated($INPUT_MEDIA_TITLE, null);
+          };
+
+          const applyLocalMediaFile = async (file: File | null): Promise<void> => {
+            if (!file || file.size <= 0) {
+              clearLocalMediaFile();
+              return;
+            }
+            if ($LOCAL_MEDIA_FILE_NAME) {
+              $LOCAL_MEDIA_FILE_NAME.textContent = file.name;
+            }
+            const mediaFileLooksValid = isLikelyMediaFile(file);
+            const pathIsValid = mediaFileLooksValid ? await getRelativeFilepath(file.name) : false;
+            setValidated(elm, mediaFileLooksValid && pathIsValid);
+            if ($LOCAL_MEDIA_DROPZONE) {
+              toggleClass($LOCAL_MEDIA_DROPZONE, { 'is-dragover': false, 'is-invalid': !(mediaFileLooksValid && pathIsValid) });
+            }
+            if ($INPUT_MEDIA_TITLE) {
+              $INPUT_MEDIA_TITLE.value = mediaFileLooksValid && pathIsValid ? basename(file.name) : '';
+              $LOCAL_MEDIA_INPUT.blur();
+              $INPUT_MEDIA_TITLE.dispatchEvent(new Event('change'));
+            }
+          };
+
+          const isDragLeavingDropzone = (evt: DragEvent): boolean => {
+            if (!$LOCAL_MEDIA_DROPZONE) {
+              return true;
+            }
+            const related = evt.relatedTarget as Node | null;
+            return !(related && $LOCAL_MEDIA_DROPZONE.contains(related));
+          };
+
+          if ($LOCAL_MEDIA_PICKER) {
+            $LOCAL_MEDIA_PICKER.addEventListener('click', () => {
+              $LOCAL_MEDIA_INPUT.click();
+            });
+          }
+
+          if ($LOCAL_MEDIA_DROPZONE) {
+            const onDragOver = (evt: DragEvent): void => {
+              evt.preventDefault();
+              evt.stopPropagation();
+              const dropLabel = $LOCAL_MEDIA_INPUT.dataset['labelDrop'] || 'Drop media file here';
+              if ($LOCAL_MEDIA_FILE_NAME && (!$LOCAL_MEDIA_INPUT.files || $LOCAL_MEDIA_INPUT.files.length === 0)) {
+                $LOCAL_MEDIA_FILE_NAME.textContent = dropLabel;
+              }
+              toggleClass($LOCAL_MEDIA_DROPZONE, { 'is-dragover': true, 'is-invalid': false });
+            };
+            $LOCAL_MEDIA_DROPZONE.addEventListener('dragenter', onDragOver);
+            $LOCAL_MEDIA_DROPZONE.addEventListener('dragover', onDragOver);
+            $LOCAL_MEDIA_DROPZONE.addEventListener('dragleave', (evt: DragEvent) => {
+              evt.preventDefault();
+              evt.stopPropagation();
+              if (isDragLeavingDropzone(evt)) {
+                const currentFile = $LOCAL_MEDIA_INPUT.files && $LOCAL_MEDIA_INPUT.files.length > 0
+                  ? $LOCAL_MEDIA_INPUT.files[0]
+                  : null;
+                void applyLocalMediaFile(currentFile ?? null);
+              }
+            });
+            $LOCAL_MEDIA_DROPZONE.addEventListener('drop', (evt: DragEvent) => {
+              evt.preventDefault();
+              evt.stopPropagation();
+              const file = evt.dataTransfer?.files && evt.dataTransfer.files.length > 0
+                ? evt.dataTransfer.files[0]
+                : null;
+              if (file) {
+                try {
+                  const transfer = new DataTransfer();
+                  transfer.items.add(file);
+                  $LOCAL_MEDIA_INPUT.files = transfer.files;
+                } catch (_error) {
+                  // Some environments may not allow constructing DataTransfer.
+                }
+              }
+              void applyLocalMediaFile(file ?? null);
+            });
+          }
+
           elm.addEventListener('change', async (evt: Event) => {
             const target = evt.target as HTMLInputElement;
-            const filelist = target.files;
-            logger('local_file:', filelist, [target]);
-            if (filelist && filelist.length > 0 && (filelist[0]?.size ?? 0) > 0) {
-              const filename = filelist[0]?.name ?? '';
-              setValidated(elm, await getRelativeFilepath(filename));
-              if ($INPUT_MEDIA_TITLE) {
-                $INPUT_MEDIA_TITLE.value = basename(filename);
-                target.blur();
-                $INPUT_MEDIA_TITLE.dispatchEvent(new Event('change'));
-              }
-            } else {
-              if ($INPUT_FILEPATH) $INPUT_FILEPATH.value = '';
-              if ($INPUT_MEDIA_TITLE) $INPUT_MEDIA_TITLE.value = '';
-              setValidated(elm, null);
-              if ($INPUT_MEDIA_TITLE) setValidated($INPUT_MEDIA_TITLE, null);
-            }
+            const file = target.files && target.files.length > 0 ? target.files[0] : null;
+            logger('local_file:', target.files, [target]);
+            await applyLocalMediaFile(file ?? null);
           });
+          }
           break;
         case 'media_filepath':
           elm.addEventListener('change', (evt: Event) => {
