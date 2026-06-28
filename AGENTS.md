@@ -176,3 +176,7 @@ Avoid duplicating detailed content across both files.
 ## 9. Cleanup Rules
 - After running multiple Git operations or build tasks in succession, consider cleaning up idle Git processes by running:
   `powershell.exe -Command "Get-Process | Where-Object { $_.Name -match 'git-remote-https|ssh-agent' } | Stop-Process -Force"`
+- Before Git commands that update the index or refs, check whether `.git/index.lock` exists.
+- If `.git/index.lock` exists, first check for running Git processes. If no Git process is running, treat it as a stale lock, remove only `.git/index.lock`, and retry the Git command.
+- If a Git process is still running, do not remove `.git/index.lock`; stop Git operations and ask the user to close or finish the running Git process.
+- Do not add `.git/` or `.git/index.lock` to `.gitignore`; `.gitignore` does not affect Git internal lock files.
