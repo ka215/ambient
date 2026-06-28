@@ -63,6 +63,8 @@
     "Invalid URL": "無効なURLです",
     "Copy and paste full text of the YouTube video URL includes schema.": "スキーマを含む YouTube 動画のURL全文をコピーして貼り付けてください。",
     "Local Media File": "ホストコンピュータ内のメディアファイル",
+    "Choose media file (Drag and drop supported).": "メディアファイルを選択（ドラッグ＆ドロップ対応）",
+    "Drop media file here": "ここにメディアファイルをドロップ",
     "Invalid file path": "ファイルパスに不備があります",
     "File not found in media directory.": "メディアディレクトリ内にファイルが見つかりません。",
     "Only media files that are relatively accessible from the Ambient media directory are valid.": "Ambient のメディアディレクトリから相対的にアクセス可能なメディアファイルのみが有効です。",

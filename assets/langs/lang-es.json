@@ -57,6 +57,8 @@
     "Invalid URL": "URL no válida",
     "Copy and paste full text of the YouTube video URL includes schema.": "Pega la URL completa de YouTube.",
     "Local Media File": "Archivo local",
+    "Choose media file (Drag and drop supported).": "Elige un archivo multimedia (admite arrastrar y soltar).",
+    "Drop media file here": "Suelta el archivo multimedia aquí",
     "Invalid file path": "Ruta no válida",
     "File not found in media directory.": "Archivo no encontrado en el directorio.",
     "Only media files that are relatively accessible from the Ambient media directory are valid.": "Solo archivos dentro del directorio Ambient son válidos.",

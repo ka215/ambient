@@ -109,13 +109,13 @@
                   id="media-management-field-media-files"
                   class="hidden mb-4"
                 >
-                    <label 
+                    <label
                       id="local-media-file-label"
                       for="local-media-file"
                       class="block mb-2 text-sm font-medium normal-text"
                     >
-                        <span class="required"><?= __( 'Local Media File' ) ?></span>
-                        <span 
+                        <span class="required"><?= __( 'Choose media file (Drag and drop supported).' ) ?></span>
+                        <span
                           id="note-error-local-media-file"
                           class="hidden bg-red-100 text-red-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300"
                           data-default-message="<?= __( 'Invalid file path' ) ?>"
@@ -125,14 +125,27 @@
                           class="hidden bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300 inline-flex items-center"
                         ><span class="ui-icon-mask ui-icon-mask--check w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true"></span></span>
                     </label>
-                    <input 
+                    <input
                       id="local-media-file"
                       type="file"
                       name="local_media_file"
                       accept="audio/*,video/*"
                       directory="<?= MEDIA_DIR ?>"
-                      class="block w-full text-sm border rounded-lg cursor-pointer focus:outline-none normal-input"
+                      class="sr-only"
+                      data-label-empty="<?= __( 'No file selected' ) ?>"
+                      data-label-drop="<?= __( 'Drop media file here' ) ?>"
                     />
+                    <div id="local-media-dropzone" class="file-dropzone local-media-dropzone mt-2 flex items-center gap-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-500 px-3 py-2">
+                        <button
+                          id="btn-local-media-file-picker"
+                          type="button"
+                          class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-900 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 dark:hover:bg-gray-600"
+                        ><?= __( 'Select file' ) ?></button>
+                        <span
+                          id="local-media-file-name"
+                          class="text-sm text-gray-500 dark:text-gray-400"
+                        ><?= __( 'No file selected' ) ?></span>
+                    </div>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-300">
                         <?= __( 'Only media files that are relatively accessible from the Ambient media directory are valid.' ) ?>
                     </p>
@@ -655,7 +668,7 @@
                       data-label-empty="<?= __( 'No file selected' ) ?>"
                       data-label-drop="<?= __( 'Drop JSON file here' ) ?>"
                     />
-                    <div id="playlist-import-dropzone" class="playlist-import-dropzone mt-2 flex items-center gap-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-500 px-3 py-2">
+                    <div id="playlist-import-dropzone" class="file-dropzone playlist-import-dropzone mt-2 flex items-center gap-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-500 px-3 py-2">
                         <button
                           id="btn-playlist-import-file-picker"
                           type="button"

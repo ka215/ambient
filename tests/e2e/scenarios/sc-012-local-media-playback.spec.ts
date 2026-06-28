@@ -93,8 +93,48 @@ test.describe('SC-012 Local media playback', () => {
     await expect(player).toHaveJSProperty('tagName', 'AUDIO');
     await expect(page.locator('#html-player source')).toHaveAttribute('type', 'audio/mpeg');
     await expect(page.locator('#html-player source')).toHaveAttribute('src', /assets\/media\/test\.mp3$/);
+    await expect(player).toBeVisible();
+    await expect.poll(async () => {
+      return player.evaluate((el) => {
+        const rect = (el as HTMLAudioElement).getBoundingClientRect();
+        return rect.width >= 300 && rect.height >= 40;
+      });
+    }).toBe(true);
     await expect.poll(async () => {
       return player.evaluate((el) => (el as HTMLAudioElement).canPlayType('audio/mpeg'));
     }).not.toBe('');
+  });
+
+  test('keeps local MP3 audio controls visible in dark mode', async ({ ambientPage, page }) => {
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.selectPlaylist('example.json');
+
+    await ambientPage.openSettingsDrawer();
+    await page.locator('#target-category').selectOption({ label: 'Local PC media' });
+    await page.locator('#target-category').dispatchEvent('change');
+    const darkToggle = page.locator('#toggle-darkmode input[type="checkbox"]');
+    if (!(await darkToggle.isChecked())) {
+      await page.locator('#toggle-darkmode').click();
+    }
+    await ambientPage.closeSettingsDrawer();
+
+    await ambientPage.openPlaylistDrawer();
+    await page.locator('#playlist-list-group a[data-playlist-item]').filter({ hasText: 'グランディアのテーマ(mp3)' }).click();
+
+    const player = page.locator('#html-player');
+    await expect(player).toHaveJSProperty('tagName', 'AUDIO');
+    await expect(player).toHaveClass(/ambient-audio-player/);
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await expect(player).toBeVisible();
+    await expect.poll(async () => {
+      return player.evaluate((el) => {
+        const rect = (el as HTMLAudioElement).getBoundingClientRect();
+        const style = window.getComputedStyle(el);
+        return rect.width >= 300 &&
+          rect.height >= 40 &&
+          style.colorScheme.includes('dark');
+      });
+    }).toBe(true);
   });
 });
