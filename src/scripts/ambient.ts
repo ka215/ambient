@@ -50,6 +50,10 @@ import {
   PlaylistResumeMediaContext,
   savePlaylistResumeContext,
 } from './state/playlist-context';
+import {
+  reconcileResponsiveDrawers,
+  syncDrawerAndModalBackdrops,
+} from './ui/drawers';
 import { createPlaylistLoadGuard } from './domain/playlist-loader';
 import {
   ensureCloudMyPlaylistSeed as domainEnsureCloudMyPlaylistSeed,
@@ -6552,28 +6556,7 @@ const init = function (): void {
    */
   watcher([$DRAWER_PLAYLIST, $DRAWER_SETTINGS, $MODAL_OPTIONS], (mutation: MutationRecord) => {
     if (mutation.attributeName === 'aria-modal' && (mutation.target as HTMLElement).ariaModal === 'true') {
-      const $DRAWER_BACKDROP = Array.from(document.querySelectorAll('div[drawer-backdrop]'));
-      const $MODAL_BACKDROP = document.querySelector('div[modal-backdrop]');
-
-      if ($DRAWER_BACKDROP.length > 0) {
-        $DRAWER_BACKDROP.forEach((elm: Element) => {
-          if (currentWindowSize.width >= currentWindowSize.minFullUIWidth) {
-            (elm as HTMLElement).classList.add('hidden');
-          } else {
-            (elm as HTMLElement).classList.remove('hidden');
-          }
-        });
-      }
-
-      if (isElement($MODAL_BACKDROP)) {
-        if (currentWindowSize.width >= currentWindowSize.minFullUIWidth) {
-          ($MODAL_BACKDROP as HTMLElement).classList.remove('z-40');
-          ($MODAL_BACKDROP as HTMLElement).classList.add('z-[59]');
-        } else {
-          ($MODAL_BACKDROP as HTMLElement).classList.remove('z-[59]');
-          ($MODAL_BACKDROP as HTMLElement).classList.add('z-40');
-        }
-      }
+      syncDrawerAndModalBackdrops(currentWindowSize.width, currentWindowSize.minFullUIWidth);
     }
   });
 
@@ -6605,28 +6588,18 @@ const init = function (): void {
       return;
     }
 
-    const shownLeftDrawer = getAtts($DRAWER_PLAYLIST, 'aria-modal') || false;
-    const shownRightDrawer = getAtts($DRAWER_SETTINGS, 'aria-modal') || false;
-
-    if (currentWindowSize.width < currentWindowSize.minFullUIWidth) {
-      if (shownLeftDrawer) {
-        (document.getElementById('btn-close-playlist') as HTMLButtonElement)?.click();
-        $BUTTON_PLAYLIST.setAttribute('data-drawer-backdrop', 'true');
-      }
-      if (shownRightDrawer) {
-        (document.getElementById('btn-close-settings') as HTMLButtonElement)?.click();
-        $BUTTON_SETTINGS.setAttribute('data-drawer-backdrop', 'true');
-      }
-    } else {
-      if (!shownLeftDrawer) {
-        $BUTTON_PLAYLIST.setAttribute('data-drawer-backdrop', 'false');
-        $BUTTON_PLAYLIST.click();
-      }
-      if (!shownRightDrawer) {
-        $BUTTON_SETTINGS.setAttribute('data-drawer-backdrop', 'false');
-        $BUTTON_SETTINGS.click();
-      }
-    }
+    reconcileResponsiveDrawers(
+      {
+        playlistDrawer: $DRAWER_PLAYLIST,
+        settingsDrawer: $DRAWER_SETTINGS,
+        playlistButton: $BUTTON_PLAYLIST,
+        settingsButton: $BUTTON_SETTINGS,
+        playlistCloseButton: document.getElementById('btn-close-playlist') as HTMLButtonElement | null,
+        settingsCloseButton: document.getElementById('btn-close-settings') as HTMLButtonElement | null,
+      },
+      currentWindowSize.width,
+      currentWindowSize.minFullUIWidth
+    );
 
     toggleMarqueeCaption();
   }
