@@ -171,7 +171,7 @@ await ambientPage.waitForYouTubePhase('paused', seqBeforePause + 1);
 
 ## 8. Related Artefacts
 
-- Implementation: [src/scripts/ambient.js](../../../src/scripts/ambient.js), [src/scripts/ambient.ts](../../../src/scripts/ambient.ts)
+- Implementation: [src/scripts/ambient.ts](../../../src/scripts/ambient.ts)
 - Type definition: [src/scripts/types/index.ts](../../../src/scripts/types/index.ts)
 - E2E fixture: [tests/e2e/fixtures/ambient-page.fixture.ts](../../../tests/e2e/fixtures/ambient-page.fixture.ts)
 - M2 test report: [docs/operations/test-reports/20260503-phase1-m2-e2e-baseline.md](../../operations/test-reports/20260503-phase1-m2-e2e-baseline.md)

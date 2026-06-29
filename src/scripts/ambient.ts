@@ -1,6 +1,6 @@
 /**
  * Ambient Media Player v2 - TypeScript Frontend Application
- * Ported from ambient.js with full type safety
+ * Vite entrypoint and compatibility composition root
  */
 /// <reference path="./types/index.ts" />
 import 'flowbite';
@@ -31,6 +31,26 @@ import {
   normalizeBoolish as sharedNormalizeBoolish,
   normalizeNonNegativeNumber as sharedNormalizeNonNegativeNumber,
 } from './shared/validation';
+import {
+  getAmbientData as platformGetAmbientData,
+  getLocalizedMessage as platformGetLocalizedMessage,
+  hasPlaylist as platformHasPlaylist,
+  isLocalMode as platformIsLocalMode,
+} from './platform/ambient-data';
+import {
+  getLocalItem,
+  MYPLAYLIST_KEY,
+  saveUserData,
+  setLocalItem,
+  USER_DATA_APP_KEY,
+  useAppStorage,
+} from './platform/storage';
+import {
+  getSavedPlaylistResumeContext,
+  PlaylistResumeContext,
+  PlaylistResumeMediaContext,
+  savePlaylistResumeContext,
+} from './state/playlist-context';
 
 // ============================================================================
 // INITIALIZATION
@@ -41,7 +61,7 @@ const init = function (): void {
   const BASE_URL = selfURL.origin + selfURL.pathname;
 
   if (!window.hasOwnProperty('APP_KEY')) {
-    (window as any).APP_KEY = 'AmbientUserData';
+    (window as any).APP_KEY = USER_DATA_APP_KEY;
   }
 
   useStge();
@@ -333,9 +353,7 @@ const init = function (): void {
   // ============================================================================
   // CLOUD: MyPlaylist – localStorage persistence
   // ============================================================================
-  const MYPLAYLIST_KEY = 'AmbientMyPlaylist';
   const MYPLAYLIST_NAME = 'MyPlaylist.json';
-  const PLAYLIST_CONTEXT_KEY = 'playlistContext';
   const MEDIA_TITLE_MAX_LENGTH = 100;
   const MEDIA_ARTIST_MAX_LENGTH = 100;
   const MEDIA_DESC_MAX_LENGTH = 500;
@@ -351,21 +369,6 @@ const init = function (): void {
   let activePlaylistLoadSeq = 0;
   let pendingResumeCategoryName: string | null = null;
   let pendingResumeMediaContext: PlaylistResumeMediaContext | null = null;
-
-  interface PlaylistResumeMediaContext {
-    amId: number;
-    category: string;
-    title: string;
-    artist: string;
-    file: string;
-    videoid: string;
-  }
-
-  interface PlaylistResumeContext {
-    playlist: string;
-    category: string;
-    media: PlaylistResumeMediaContext | null;
-  }
 
   interface ImportSanitizeResult {
     playlist: Record<string, unknown>;
@@ -412,7 +415,7 @@ const init = function (): void {
   function saveMyPlaylistToStorage(): boolean {
     try {
       const jsonStr = generatePlaylistJson(false);
-      localStorage.setItem(MYPLAYLIST_KEY, jsonStr);
+      setLocalItem(MYPLAYLIST_KEY, jsonStr);
       logger('saveMyPlaylistToStorage: saved', jsonStr.length, 'bytes');
       return true;
     } catch (e) {
@@ -431,7 +434,7 @@ const init = function (): void {
    * Persist MyPlaylist only when cloud mode + MyPlaylist is currently active.
    */
   function persistMyPlaylistIfNeeded(): boolean {
-    const ambientData = (window as any).AmbientData as AmbientData | undefined;
+    const ambientData = getAmbientData();
     if (activePlaylistLoadSeq !== 0) {
       logger('persistMyPlaylistIfNeeded: skipped while playlist load is active');
       return false;
@@ -443,20 +446,15 @@ const init = function (): void {
   }
 
   function getAmbientData(): AmbientData | undefined {
-    return (window as any).AmbientData as AmbientData | undefined;
+    return platformGetAmbientData();
   }
 
   function isLocalMode(): boolean {
-    return getAmbientData()?.isCloud !== true;
+    return platformIsLocalMode();
   }
 
   function getLocalizedMessage(key: string, fallback: string = key): string {
-    const messages = getAmbientData()?.messages;
-    if (!isObject(messages) || typeof messages[key] !== 'string') {
-      return fallback;
-    }
-    const localized = messages[key];
-    return localized.trim() === '' ? fallback : localized;
+    return platformGetLocalizedMessage(key, fallback);
   }
 
   function sanitizeMyPlaylistOptions(
@@ -517,7 +515,7 @@ const init = function (): void {
     if (!AMP_STATUS.playlist) {
       return;
     }
-    saveStge(PLAYLIST_CONTEXT_KEY, {
+    savePlaylistResumeContext({
       playlist: AMP_STATUS.playlist,
       category: getCurrentCategoryName(),
       media: createResumeMediaContext(getCurrentMediaItem()),
@@ -525,39 +523,19 @@ const init = function (): void {
   }
 
   function getSavedPlaylistContext(): PlaylistResumeContext | null {
-    const context = getStge(PLAYLIST_CONTEXT_KEY);
-    if (!isObject(context)) {
-      return null;
-    }
-    const playlist = typeof context['playlist'] === 'string' ? context['playlist'].trim() : '';
-    const category = typeof context['category'] === 'string' ? context['category'].trim() : '';
-    if (playlist === '') {
-      return null;
-    }
-    let media: PlaylistResumeMediaContext | null = null;
-    if (isObject(context['media'])) {
-      const source = context['media'] as Record<string, unknown>;
-      const amId = Number(source['amId']);
-      if (Number.isInteger(amId) && amId >= 0) {
-        media = {
-          amId,
-          category: typeof source['category'] === 'string' ? source['category'].trim() : '',
-          title: typeof source['title'] === 'string' ? sanitizeMediaText(source['title'], MEDIA_TITLE_MAX_LENGTH) : '',
-          artist: typeof source['artist'] === 'string' ? sanitizeMediaText(source['artist'], MEDIA_ARTIST_MAX_LENGTH) : '',
-          file: typeof source['file'] === 'string' ? source['file'] : '',
-          videoid: typeof source['videoid'] === 'string' ? source['videoid'] : '',
-        };
-      }
-    }
-    return { playlist, category, media };
+    return getSavedPlaylistResumeContext(
+      sanitizeMediaText,
+      MEDIA_TITLE_MAX_LENGTH,
+      MEDIA_ARTIST_MAX_LENGTH
+    );
   }
 
   function isPlaylistAvailableForResume(playlist: string): boolean {
     const ambientData = getAmbientData();
     if (playlist === MYPLAYLIST_NAME) {
-      return ambientData?.isCloud === true && localStorage.getItem(MYPLAYLIST_KEY) !== null;
+      return ambientData?.isCloud === true && getLocalItem(MYPLAYLIST_KEY) !== null;
     }
-    return !!(ambientData?.playlists && Object.prototype.hasOwnProperty.call(ambientData.playlists, playlist));
+    return platformHasPlaylist(playlist);
   }
 
   function selectPlaylistOption(playlist: string): void {
@@ -8247,67 +8225,25 @@ async function fetchData(
  * Set the storage for saving user data on the client side to be used.
  */
 function useStge(stge: string = 'localStorage'): void {
-  const ambientObj = (window as any).$ambient;
-  if (ambientObj) {
-    ambientObj.useStorage = stge;
-  } else {
-    (window as any).$ambient = { useStorage: stge };
-  }
+  useAppStorage(stge === 'sessionStorage' ? 'sessionStorage' : 'localStorage');
 }
 
 /**
  * Store user data in client-side storage.
  */
 function saveStge(key: string, data: any): boolean {
-  const appKey = (window as any).APP_KEY;
-  const _data = (window as any)[(window as any).$ambient.useStorage].getItem(appKey);
-
-  if (!_data) {
-    const newData: Record<string, any> = {};
-    newData[key] = data;
-    (window as any)[(window as any).$ambient.useStorage].setItem(appKey, JSON.stringify(newData));
-    return true;
+  const saved = saveUserData(key, data);
+  if (!saved) {
+    logger('saveStge: failed to save user data', key);
   }
-
-  try {
-    const userData = JSON.parse(_data);
-    if (isObject(userData)) {
-      userData[key] = data;
-      (window as any)[(window as any).$ambient.useStorage].setItem(appKey, JSON.stringify(userData));
-      return true;
-    }
-  } catch (error) {
-    logger(error, _data);
-  }
-
-  return false;
-}
-
-function getStge(key: string | null = null): any {
-  const appKey = (window as any).APP_KEY;
-  const _data = (window as any)[(window as any).$ambient.useStorage].getItem(appKey);
-  if (!_data) {
-    return null;
-  }
-
-  try {
-    const userData = JSON.parse(_data);
-    if (!isObject(userData)) {
-      return null;
-    }
-    return key ? userData[key] ?? null : userData;
-  } catch (error) {
-    logger(error, _data);
-  }
-
-  return null;
+  return saved;
 }
 
 /**
  * Logger for frontend of Ambient Media Player.
  */
 function logger(...args: any[]): any {
-  const ambientData = (window as any).AmbientData as AmbientData;
+  const ambientData = platformGetAmbientData();
   let isForce = ambientData?.debug || false;
 
   if (args.length > 0 && typeof args[args.length - 1] === 'string' && args[args.length - 1] === 'force') {

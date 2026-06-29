@@ -10,7 +10,7 @@ v2.0.0 は、TypeScript 化したランタイム統合とクロスブラウザ E
 ## v2.0.0 の主な変更
 
 - フロントエンド実装を TypeScript 化（`src/scripts/ambient.ts`）
-- 実行スクリプトをビルド成果物へ統一（`dist/scripts/ambient.js`）
+- 実行スクリプトを Vite ビルド成果物へ統一（`dist/assets/ambient.js`）
 - Playwright E2E の6シナリオ基盤を整備（Chromium/Firefox/WebKit）
 - YouTube ライフサイクルを DOM 属性で観測可能に変更
   - `data-yt-phase`

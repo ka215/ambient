@@ -171,7 +171,7 @@ await ambientPage.waitForYouTubePhase('paused', seqBeforePause + 1);
 
 ## 8. 関連ファイル
 
-- 実装: [src/scripts/ambient.js](../../../src/scripts/ambient.js)、[src/scripts/ambient.ts](../../../src/scripts/ambient.ts)
+- 実装: [src/scripts/ambient.ts](../../../src/scripts/ambient.ts)
 - 型定義: [src/scripts/types/index.ts](../../../src/scripts/types/index.ts)
 - E2E フィクスチャ: [tests/e2e/fixtures/ambient-page.fixture.ts](../../../tests/e2e/fixtures/ambient-page.fixture.ts)
 - M2 テストレポート: [docs/operations/test-reports/20260503-phase1-m2-e2e-baseline.md](../../operations/test-reports/20260503-phase1-m2-e2e-baseline.md)
