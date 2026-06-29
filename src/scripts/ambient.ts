@@ -54,6 +54,7 @@ import {
   reconcileResponsiveDrawers,
   syncDrawerAndModalBackdrops,
 } from './ui/drawers';
+import { createPlaylistDescModalController } from './ui/modals';
 import { createPlaylistLoadGuard } from './domain/playlist-loader';
 import {
   ensureCloudMyPlaylistSeed as domainEnsureCloudMyPlaylistSeed,
@@ -1294,7 +1295,6 @@ const init = function (): void {
   const $MEDIA_VOLUME = document.getElementById('media-volume') as HTMLInputElement | null;
   let optionsModalHideTimer: number | null = null;
   let optionsBackdropPointerStarted = false;
-  let activePlaylistDescButton: HTMLElement | null = null;
   if (isElement($MODAL_OPTIONS) && $MODAL_OPTIONS.parentElement !== document.body) {
     document.body.appendChild($MODAL_OPTIONS);
   }
@@ -1305,56 +1305,26 @@ const init = function (): void {
     document.body.appendChild($MODAL_MEDIA_EDIT);
   }
 
+  const playlistDescModal = createPlaylistDescModalController(
+    {
+      modal: $MODAL_PLAYLIST_DESC,
+      title: $MODAL_PLAYLIST_DESC_TITLE,
+      artist: $MODAL_PLAYLIST_DESC_ARTIST,
+      content: $MODAL_PLAYLIST_DESC_CONTENT,
+    },
+    {
+      title: (value: string) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
+      artist: (value: string) => sanitizeMediaText(value, MEDIA_ARTIST_MAX_LENGTH),
+      desc: (value: string) => sanitizeMediaDesc(value, MEDIA_DESC_MAX_LENGTH),
+    }
+  );
+
   function closePlaylistDescModal(restoreFocus = false): void {
-    if (!isElement($MODAL_PLAYLIST_DESC) || !isElement($MODAL_PLAYLIST_DESC_CONTENT)) {
-      return;
-    }
-    $MODAL_PLAYLIST_DESC.classList.add('hidden');
-    if (isElement($MODAL_PLAYLIST_DESC_TITLE)) {
-      $MODAL_PLAYLIST_DESC_TITLE.textContent = '';
-    }
-    if (isElement($MODAL_PLAYLIST_DESC_ARTIST)) {
-      $MODAL_PLAYLIST_DESC_ARTIST.textContent = '';
-      $MODAL_PLAYLIST_DESC_ARTIST.classList.add('hidden');
-    }
-    $MODAL_PLAYLIST_DESC_CONTENT.textContent = '';
-    if (isElement(activePlaylistDescButton)) {
-      activePlaylistDescButton.classList.remove('is-active');
-      if (restoreFocus) {
-        activePlaylistDescButton.focus();
-      }
-    }
-    activePlaylistDescButton = null;
+    playlistDescModal.close(restoreFocus);
   }
 
   function openPlaylistDescModal(titleText: string, artistText: string, descText: string, button: HTMLElement): void {
-    if (!isElement($MODAL_PLAYLIST_DESC) || !isElement($MODAL_PLAYLIST_DESC_CONTENT)) {
-      return;
-    }
-    if (activePlaylistDescButton === button && !$MODAL_PLAYLIST_DESC.classList.contains('hidden')) {
-      closePlaylistDescModal(true);
-      return;
-    }
-    if (isElement(activePlaylistDescButton)) {
-      activePlaylistDescButton.classList.remove('is-active');
-    }
-    activePlaylistDescButton = button;
-    activePlaylistDescButton.classList.add('is-active');
-    if (isElement($MODAL_PLAYLIST_DESC_TITLE)) {
-      $MODAL_PLAYLIST_DESC_TITLE.textContent = sanitizeMediaText(titleText, MEDIA_TITLE_MAX_LENGTH);
-    }
-    if (isElement($MODAL_PLAYLIST_DESC_ARTIST)) {
-      const normalizedArtistText = sanitizeMediaText(artistText, MEDIA_ARTIST_MAX_LENGTH);
-      if (normalizedArtistText.trim() !== '') {
-        $MODAL_PLAYLIST_DESC_ARTIST.textContent = normalizedArtistText;
-        $MODAL_PLAYLIST_DESC_ARTIST.classList.remove('hidden');
-      } else {
-        $MODAL_PLAYLIST_DESC_ARTIST.textContent = '';
-        $MODAL_PLAYLIST_DESC_ARTIST.classList.add('hidden');
-      }
-    }
-    $MODAL_PLAYLIST_DESC_CONTENT.textContent = sanitizeMediaDesc(descText, MEDIA_DESC_MAX_LENGTH);
-    $MODAL_PLAYLIST_DESC.classList.remove('hidden');
+    playlistDescModal.open(titleText, artistText, descText, button);
   }
 
   let activeMediaEditTrigger: HTMLElement | null = null;
