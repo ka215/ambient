@@ -59,6 +59,7 @@ import {
   sanitizeMyPlaylistOptions as domainSanitizeMyPlaylistOptions,
   writeMyPlaylistJson,
 } from './domain/myplaylist-storage';
+import { createPlaybackTimerController } from './domain/media-playback';
 
 // ============================================================================
 // INITIALIZATION
@@ -251,39 +252,21 @@ const init = function (): void {
     firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
   }
 
-  // seek container
-  let seekId: ReturnType<typeof setInterval> | null = null;
+  const playbackTimers = createPlaybackTimerController();
 
   /**
    * Abort seek for playback media.
    */
   function abortSeeking(): void {
-    if (seekId) {
-      clearInterval(seekId);
-      seekId = null;
-    }
+    playbackTimers.abortSeek();
   }
-
-  // fader container
-  let fadeinId: ReturnType<typeof setInterval> | null = null;
-  let fadeoutId: ReturnType<typeof setInterval> | null = null;
 
   /**
    * Abort fader for playback media.
    * @param type Either `fadein` or `fadeout`
    */
   function abortFader(type: 'fadein' | 'fadeout'): void {
-    if (type === 'fadein') {
-      if (fadeinId) {
-        clearInterval(fadeinId);
-        fadeinId = null;
-      }
-    } else {
-      if (fadeoutId) {
-        clearInterval(fadeoutId);
-        fadeoutId = null;
-      }
-    }
+    playbackTimers.abortFader(type);
   }
 
   /**
@@ -428,9 +411,7 @@ const init = function (): void {
   }
 
   function abortPlaybackTimers(): void {
-    abortSeeking();
-    abortFader('fadein');
-    abortFader('fadeout');
+    playbackTimers.abortAll();
   }
 
   /**
@@ -6274,8 +6255,8 @@ const init = function (): void {
         mediaData.end !== ''
       ) {
         // When the seek end time is reached, forcibly seeks to the end of the media and ends playback.
-        if (!seekId) {
-          seekId = setInterval(() => {
+        if (!playbackTimers.isSeekActive()) {
+          playbackTimers.startSeek(() => {
             if (playerElm.currentTime >= Number(mediaData.end)) {
               playerElm.currentTime = playerElm.duration;
               abortSeeking();
@@ -6463,7 +6444,7 @@ const init = function (): void {
     let elapsed = 0;
     let incrementVolume = 0;
 
-    fadeinId = setInterval(() => {
+    playbackTimers.startFader('fadein', () => {
       const currentTime = (mediaType === 'youtube' ? media.getCurrentTime() : media.currentTime) * 1000; // unit milliseconds
 
       if (inRange(currentTime, start * 1000, fadeEnd)) {
@@ -6521,7 +6502,7 @@ const init = function (): void {
     let elapsed = 0;
     let decrementVolume = 0;
 
-    fadeoutId = setInterval(() => {
+    playbackTimers.startFader('fadeout', () => {
       const currentTime = (mediaType === 'youtube' ? media.getCurrentTime() : media.currentTime) * 1000; // unit milliseconds
 
       if (inRange(currentTime, fadeStart, end * 1000)) {
