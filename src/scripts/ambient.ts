@@ -41,7 +41,6 @@ import {
   getLocalItem,
   MYPLAYLIST_KEY,
   saveUserData,
-  setLocalItem,
   USER_DATA_APP_KEY,
   useAppStorage,
 } from './platform/storage';
@@ -51,6 +50,15 @@ import {
   PlaylistResumeMediaContext,
   savePlaylistResumeContext,
 } from './state/playlist-context';
+import { createPlaylistLoadGuard } from './domain/playlist-loader';
+import {
+  ensureCloudMyPlaylistSeed as domainEnsureCloudMyPlaylistSeed,
+  hasStoredMyPlaylist,
+  MYPLAYLIST_NAME,
+  readMyPlaylistJson,
+  sanitizeMyPlaylistOptions as domainSanitizeMyPlaylistOptions,
+  writeMyPlaylistJson,
+} from './domain/myplaylist-storage';
 
 // ============================================================================
 // INITIALIZATION
@@ -353,7 +361,6 @@ const init = function (): void {
   // ============================================================================
   // CLOUD: MyPlaylist – localStorage persistence
   // ============================================================================
-  const MYPLAYLIST_NAME = 'MyPlaylist.json';
   const MEDIA_TITLE_MAX_LENGTH = 100;
   const MEDIA_ARTIST_MAX_LENGTH = 100;
   const MEDIA_DESC_MAX_LENGTH = 500;
@@ -365,8 +372,7 @@ const init = function (): void {
   } as const;
   const DISALLOWED_CONTROL_CHARS_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
   const DEFAULT_VOLUME = 50;
-  let playlistLoadSeq = 0;
-  let activePlaylistLoadSeq = 0;
+  const playlistLoadGuard = createPlaylistLoadGuard();
   let pendingResumeCategoryName: string | null = null;
   let pendingResumeMediaContext: PlaylistResumeMediaContext | null = null;
 
@@ -377,21 +383,18 @@ const init = function (): void {
   }
 
   function isPlaylistLoadActive(seq: number): boolean {
-    return activePlaylistLoadSeq === seq;
+    return playlistLoadGuard.isActive(seq);
   }
 
   function beginPlaylistLoad(playlist: string): number {
-    const nextSeq = ++playlistLoadSeq;
-    activePlaylistLoadSeq = nextSeq;
-    AMP_STATUS.playlist = playlist;
-    applyCloudEditRestrictions();
-    return nextSeq;
+    return playlistLoadGuard.begin(playlist, (nextPlaylist) => {
+      AMP_STATUS.playlist = nextPlaylist;
+      applyCloudEditRestrictions();
+    });
   }
 
   function finishPlaylistLoad(seq: number): void {
-    if (isPlaylistLoadActive(seq)) {
-      activePlaylistLoadSeq = 0;
-    }
+    playlistLoadGuard.finish(seq);
   }
 
   function resetPlaylistRuntimeState(preserveOptions: boolean = false): void {
@@ -415,7 +418,7 @@ const init = function (): void {
   function saveMyPlaylistToStorage(): boolean {
     try {
       const jsonStr = generatePlaylistJson(false);
-      setLocalItem(MYPLAYLIST_KEY, jsonStr);
+      writeMyPlaylistJson(jsonStr);
       logger('saveMyPlaylistToStorage: saved', jsonStr.length, 'bytes');
       return true;
     } catch (e) {
@@ -435,7 +438,7 @@ const init = function (): void {
    */
   function persistMyPlaylistIfNeeded(): boolean {
     const ambientData = getAmbientData();
-    if (activePlaylistLoadSeq !== 0) {
+    if (playlistLoadGuard.isLoading()) {
       logger('persistMyPlaylistIfNeeded: skipped while playlist load is active');
       return false;
     }
@@ -460,14 +463,7 @@ const init = function (): void {
   function sanitizeMyPlaylistOptions(
     options: PlaylistOptions | null | undefined
   ): PlaylistOptions | null {
-    if (!isObject(options)) {
-      return null;
-    }
-    const nextOptions = { ...options } as PlaylistOptions;
-    if (Object.prototype.hasOwnProperty.call(nextOptions, 'playlist')) {
-      delete nextOptions.playlist;
-    }
-    return nextOptions;
+    return domainSanitizeMyPlaylistOptions(options);
   }
 
   function getCurrentCategoryName(): string {
@@ -948,29 +944,8 @@ const init = function (): void {
     }
   }
 
-  function buildEmptyMyPlaylistSeed(): string {
-    const payload: Record<string, unknown> = {
-      options: {},
-    };
-    return JSON.stringify(payload, null, 2);
-  }
-
   function ensureCloudMyPlaylistSeed(): boolean {
-    const ambientData = getAmbientData();
-    if (!ambientData?.isCloud) {
-      return false;
-    }
-    if (localStorage.getItem(MYPLAYLIST_KEY) !== null) {
-      return false;
-    }
-    try {
-      localStorage.setItem(MYPLAYLIST_KEY, buildEmptyMyPlaylistSeed());
-      logger('ensureCloudMyPlaylistSeed: initialized empty MyPlaylist');
-      return true;
-    } catch (error) {
-      logger('ensureCloudMyPlaylistSeed: failed to initialize', error);
-      return false;
-    }
+    return domainEnsureCloudMyPlaylistSeed(logger);
   }
 
   function canMutateCurrentPlaylist(): boolean {
@@ -986,7 +961,7 @@ const init = function (): void {
    * normal JSON playlist was loaded from the server.
    */
   function loadMyPlaylistFromStorage(): boolean {
-    const raw = localStorage.getItem(MYPLAYLIST_KEY);
+    const raw = readMyPlaylistJson();
     if (!raw) return false;
     try {
       const data = JSON.parse(raw);
@@ -1053,7 +1028,7 @@ const init = function (): void {
   // NOTE: This block runs after DOM element constants are declared.
   function ensureMyPlaylistOptionFromStorage(): boolean {
     const ambientData = (window as any).AmbientData as AmbientData | undefined;
-    if (!ambientData?.isCloud || localStorage.getItem(MYPLAYLIST_KEY) === null) return false;
+    if (!ambientData?.isCloud || !hasStoredMyPlaylist()) return false;
     const $sel = document.getElementById('current-playlist') as HTMLSelectElement | null;
     if ($sel) {
       const alreadyExists = Array.from($sel.options).some(
