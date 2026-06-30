@@ -54,7 +54,12 @@ import {
   reconcileResponsiveDrawers,
   syncDrawerAndModalBackdrops,
 } from './ui/drawers';
-import { createPlaylistDescModalController } from './ui/modals';
+import {
+  createPlaylistDescModalController,
+  ensureAccordionPanel as ensureAccordionPanelView,
+  expandMediaManagementWhenOptionsModalVisible,
+  openPlaylistManagementCategoryCreate as openPlaylistManagementCategoryCreateView,
+} from './ui/modals';
 import {
   buildDefaultPlaylistLabel,
   createPlaylistMaskIcon,
@@ -3998,27 +4003,11 @@ const init = function (): void {
   }
 
   function openPlaylistManagementCategoryCreate(): void {
-    ensureAccordionPanel('collapse-item-body-playlist');
-    window.setTimeout(() => {
-      const categoryNameInput = document.getElementById('category-name') as HTMLInputElement | null;
-      categoryNameInput?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      categoryNameInput?.focus();
-    }, 120);
+    openPlaylistManagementCategoryCreateView();
   }
 
   function ensureAccordionPanel(panelId: string): void {
-    const accordionBtn = document.querySelector(`[data-accordion-target="#${panelId}"]`) as HTMLElement | null;
-    const panel = document.getElementById(panelId);
-    if (!panel) return;
-    if (accordionBtn && panel.classList.contains('hidden')) {
-      accordionBtn.click();
-    }
-    window.setTimeout(() => {
-      if (panel.classList.contains('hidden')) {
-        panel.classList.remove('hidden');
-        accordionBtn?.setAttribute('aria-expanded', 'true');
-      }
-    }, 80);
+    ensureAccordionPanelView(panelId);
   }
 
   function showOptionsModal(): void {
@@ -4460,41 +4449,13 @@ const init = function (): void {
 
     showOptionsModal();
 
-    // After the modal becomes visible, expand the Media Management accordion
-    const expandMediaAccordion = (): void => {
-      const $ACCORDION_BTN = document.querySelector(
-        '[data-accordion-target="#collapse-item-body-media"]'
-      ) as HTMLElement | null;
-      const $panel = document.getElementById('collapse-item-body-media');
-      ensureAccordionPanel('collapse-item-body-media');
-      if (!$ACCORDION_BTN || $ACCORDION_BTN.getAttribute('aria-expanded') === 'true') {
-        if ($panel?.firstElementChild) {
-          ($panel.firstElementChild as HTMLElement).scrollTop = 0;
-        }
-      }
-      // Pre-select category if coming from a category-filtered view
-      if (presetCategoryId !== null && presetCategoryId >= 0) {
-        syncMediaCategoryField(presetCategoryId);
-      }
-      syncMediaVolumeField();
-    };
-
-    // Wait for modal to open (aria-hidden becomes false), then expand accordion
-    const $MODAL = document.getElementById('modal-options');
-    if (!$MODAL) return;
-    const isAlreadyOpen = $MODAL.getAttribute('aria-hidden') !== 'true' && !$MODAL.classList.contains('hidden');
-    if (isAlreadyOpen) {
-      setTimeout(expandMediaAccordion, 50);
-    } else {
-      const observer = new MutationObserver(() => {
-        const nowOpen = $MODAL.getAttribute('aria-hidden') !== 'true' && !$MODAL.classList.contains('hidden');
-        if (nowOpen) {
-          observer.disconnect();
-          setTimeout(expandMediaAccordion, 50);
-        }
-      });
-      observer.observe($MODAL, { attributes: true, attributeFilter: ['aria-hidden', 'class'] });
-    }
+    expandMediaManagementWhenOptionsModalVisible({
+      modal: document.getElementById('modal-options'),
+      presetCategoryId,
+      ensureAccordionPanel,
+      syncMediaCategoryField,
+      syncMediaVolumeField,
+    });
   }
 
   /**

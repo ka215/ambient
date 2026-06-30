@@ -16,8 +16,77 @@ export interface PlaylistDescModalController {
   open(titleText: string, artistText: string, descText: string, button: HTMLElement): void;
 }
 
+export interface ExpandMediaManagementOptions {
+  modal: HTMLElement | null;
+  presetCategoryId: number | null;
+  ensureAccordionPanel(panelId: string): void;
+  syncMediaCategoryField(preferredCategoryId?: number | null): void;
+  syncMediaVolumeField(): void;
+}
+
 function isElement(value: unknown): value is HTMLElement {
   return value instanceof HTMLElement;
+}
+
+export function ensureAccordionPanel(panelId: string): void {
+  const accordionBtn = document.querySelector(`[data-accordion-target="#${panelId}"]`) as HTMLElement | null;
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  if (accordionBtn && panel.classList.contains('hidden')) {
+    accordionBtn.click();
+  }
+  window.setTimeout(() => {
+    if (panel.classList.contains('hidden')) {
+      panel.classList.remove('hidden');
+      accordionBtn?.setAttribute('aria-expanded', 'true');
+    }
+  }, 80);
+}
+
+export function openPlaylistManagementCategoryCreate(): void {
+  ensureAccordionPanel('collapse-item-body-playlist');
+  window.setTimeout(() => {
+    const categoryNameInput = document.getElementById('category-name') as HTMLInputElement | null;
+    categoryNameInput?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    categoryNameInput?.focus();
+  }, 120);
+}
+
+export function expandMediaManagementWhenOptionsModalVisible(options: ExpandMediaManagementOptions): void {
+  const { modal, presetCategoryId, ensureAccordionPanel, syncMediaCategoryField, syncMediaVolumeField } = options;
+
+  const expandMediaAccordion = (): void => {
+    const accordionBtn = document.querySelector(
+      '[data-accordion-target="#collapse-item-body-media"]'
+    ) as HTMLElement | null;
+    const panel = document.getElementById('collapse-item-body-media');
+    ensureAccordionPanel('collapse-item-body-media');
+    if (!accordionBtn || accordionBtn.getAttribute('aria-expanded') === 'true') {
+      if (panel?.firstElementChild) {
+        (panel.firstElementChild as HTMLElement).scrollTop = 0;
+      }
+    }
+    if (presetCategoryId !== null && presetCategoryId >= 0) {
+      syncMediaCategoryField(presetCategoryId);
+    }
+    syncMediaVolumeField();
+  };
+
+  if (!modal) return;
+  const isAlreadyOpen = modal.getAttribute('aria-hidden') !== 'true' && !modal.classList.contains('hidden');
+  if (isAlreadyOpen) {
+    window.setTimeout(expandMediaAccordion, 50);
+    return;
+  }
+
+  const observer = new MutationObserver(() => {
+    const nowOpen = modal.getAttribute('aria-hidden') !== 'true' && !modal.classList.contains('hidden');
+    if (nowOpen) {
+      observer.disconnect();
+      window.setTimeout(expandMediaAccordion, 50);
+    }
+  });
+  observer.observe(modal, { attributes: true, attributeFilter: ['aria-hidden', 'class'] });
 }
 
 export function createPlaylistDescModalController(
