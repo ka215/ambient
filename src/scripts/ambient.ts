@@ -55,6 +55,7 @@ import {
   syncDrawerAndModalBackdrops,
 } from './ui/drawers';
 import {
+  createOptionsModalController,
   createPlaylistDescModalController,
   ensureAccordionPanel as ensureAccordionPanelView,
   expandMediaManagementWhenOptionsModalVisible,
@@ -1313,8 +1314,6 @@ const init = function (): void {
   // Add elements since v1.1.0
   const $MEDIA_CATEGORY_SELECT = document.getElementById('media-category') as HTMLSelectElement;
   const $MEDIA_VOLUME = document.getElementById('media-volume') as HTMLInputElement | null;
-  let optionsModalHideTimer: number | null = null;
-  let optionsBackdropPointerStarted = false;
   if (isElement($MODAL_OPTIONS) && $MODAL_OPTIONS.parentElement !== document.body) {
     document.body.appendChild($MODAL_OPTIONS);
   }
@@ -1338,6 +1337,20 @@ const init = function (): void {
       desc: (value: string) => sanitizeMediaDesc(value, MEDIA_DESC_MAX_LENGTH),
     }
   );
+  const optionsModal = createOptionsModalController({
+    elements: {
+      modal: $MODAL_OPTIONS,
+      panel: $MODAL_OPTIONS_PANEL,
+    },
+    getLayout: () => ({
+      width: currentWindowSize.width,
+      minFullUIWidth: currentWindowSize.minFullUIWidth,
+    }),
+    beforeShow: () => {
+      closePlaylistDrawerForModalIfNeeded();
+      closeSettingsDrawerForModalIfNeeded();
+    },
+  });
 
   function closePlaylistDescModal(restoreFocus = false): void {
     playlistDescModal.close(restoreFocus);
@@ -3760,8 +3773,7 @@ const init = function (): void {
   }
 
   function isOptionsModalVisible(): boolean {
-    return !$MODAL_OPTIONS.classList.contains('hidden') &&
-      $MODAL_OPTIONS.getAttribute('aria-hidden') !== 'true';
+    return optionsModal.isVisible();
   }
 
   /**
@@ -3904,19 +3916,7 @@ const init = function (): void {
   }
 
   function cleanupOptionsModalBackdrops(): void {
-    const isOptionsHidden = !isOptionsModalVisible();
-    if (!isOptionsHidden) return;
-
-    document.querySelectorAll('div[modal-backdrop]').forEach((backdrop) => {
-      backdrop.remove();
-    });
-
-    const hasVisibleModal = Array.from(document.querySelectorAll('[aria-modal="true"]')).some((elm) => {
-      return elm instanceof HTMLElement && !elm.classList.contains('hidden');
-    });
-    if (!hasVisibleModal) {
-      document.body.classList.remove('overflow-hidden');
-    }
+    optionsModal.cleanupBackdrops();
   }
 
   function closePlaylistDrawerForModalIfNeeded(): void {
@@ -4011,82 +4011,11 @@ const init = function (): void {
   }
 
   function showOptionsModal(): void {
-    if (isOptionsModalVisible()) return;
-    if (optionsModalHideTimer !== null) {
-      window.clearTimeout(optionsModalHideTimer);
-      optionsModalHideTimer = null;
-    }
-
-    closePlaylistDrawerForModalIfNeeded();
-    closeSettingsDrawerForModalIfNeeded();
-    cleanupOptionsModalBackdrops();
-
-    $MODAL_OPTIONS.classList.add('flex');
-    $MODAL_OPTIONS.classList.remove('hidden');
-    $MODAL_OPTIONS.style.zIndex = '9999';
-    $MODAL_OPTIONS.style.opacity = '0';
-    $MODAL_OPTIONS.style.pointerEvents = 'none';
-    $MODAL_OPTIONS.style.transition = 'opacity 180ms ease';
-    $MODAL_OPTIONS.setAttribute('aria-modal', 'true');
-    $MODAL_OPTIONS.setAttribute('role', 'dialog');
-    $MODAL_OPTIONS.removeAttribute('aria-hidden');
-    if ($MODAL_OPTIONS_PANEL) {
-      $MODAL_OPTIONS_PANEL.style.opacity = '0';
-      $MODAL_OPTIONS_PANEL.style.transform = 'translateY(0.5rem) scale(0.98)';
-      $MODAL_OPTIONS_PANEL.style.transition = 'opacity 180ms ease, transform 180ms ease';
-    }
-
-    const backdrop = document.createElement('div');
-    backdrop.setAttribute('modal-backdrop', '');
-    backdrop.className = currentWindowSize.width >= currentWindowSize.minFullUIWidth
-      ? 'modal-backdrop-layer fixed inset-0 z-[59]'
-      : 'modal-backdrop-layer fixed inset-0 z-40';
-    backdrop.style.zIndex = '9998';
-    backdrop.style.pointerEvents = 'none';
-    backdrop.style.opacity = '0';
-    backdrop.style.transition = 'opacity 180ms ease';
-    if ($MODAL_OPTIONS.parentNode) {
-      $MODAL_OPTIONS.parentNode.insertBefore(backdrop, $MODAL_OPTIONS);
-    } else {
-      document.body.appendChild(backdrop);
-    }
-    document.body.classList.add('overflow-hidden');
-    window.requestAnimationFrame(() => {
-      $MODAL_OPTIONS.style.opacity = '1';
-      $MODAL_OPTIONS.style.pointerEvents = 'auto';
-      if ($MODAL_OPTIONS_PANEL) {
-        $MODAL_OPTIONS_PANEL.style.opacity = '1';
-        $MODAL_OPTIONS_PANEL.style.transform = 'translateY(0) scale(1)';
-      }
-      backdrop.style.opacity = '1';
-    });
+    optionsModal.show();
   }
 
   function hideOptionsModal(): void {
-    if (optionsModalHideTimer !== null) {
-      window.clearTimeout(optionsModalHideTimer);
-      optionsModalHideTimer = null;
-    }
-    $MODAL_OPTIONS.style.opacity = '0';
-    $MODAL_OPTIONS.style.pointerEvents = 'none';
-    $MODAL_OPTIONS.setAttribute('aria-hidden', 'true');
-    $MODAL_OPTIONS.removeAttribute('aria-modal');
-    $MODAL_OPTIONS.removeAttribute('role');
-    if ($MODAL_OPTIONS_PANEL) {
-      $MODAL_OPTIONS_PANEL.style.opacity = '0';
-      $MODAL_OPTIONS_PANEL.style.transform = 'translateY(0.5rem) scale(0.98)';
-    }
-    document.querySelectorAll('div[modal-backdrop]').forEach((backdrop) => {
-      (backdrop as HTMLElement).style.opacity = '0';
-    });
-    optionsModalHideTimer = window.setTimeout(() => {
-      if (!isOptionsModalVisible()) {
-        $MODAL_OPTIONS.classList.add('hidden');
-        $MODAL_OPTIONS.classList.remove('flex');
-        cleanupOptionsModalBackdrops();
-      }
-      optionsModalHideTimer = null;
-    }, 180);
+    optionsModal.hide();
   }
 
   if (isElement($BUTTON_OPTIONS)) {
@@ -4112,15 +4041,11 @@ const init = function (): void {
 
   if (isElement($MODAL_OPTIONS)) {
     $MODAL_OPTIONS.addEventListener('pointerdown', (evt: PointerEvent) => {
-      optionsBackdropPointerStarted = evt.target === $MODAL_OPTIONS;
+      optionsModal.handleBackdropPointerDown(evt);
     });
 
     $MODAL_OPTIONS.addEventListener('click', (evt: Event) => {
-      if (evt.target === $MODAL_OPTIONS && optionsBackdropPointerStarted) {
-        hideOptionsModal();
-        restoreOptionsTriggerFocus();
-      }
-      optionsBackdropPointerStarted = false;
+      optionsModal.handleBackdropClick(evt, restoreOptionsTriggerFocus);
     });
   }
 
