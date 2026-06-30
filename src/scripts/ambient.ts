@@ -63,6 +63,10 @@ import {
   bindFileDropzone,
   setFileDropzoneState,
 } from './ui/forms/file-dropzone';
+import {
+  resetMediaManagementForm,
+  resetPlaylistManagementForm,
+} from './ui/forms/management-forms';
 import { createPlaylistLoadGuard } from './domain/playlist-loader';
 import {
   ensureCloudMyPlaylistSeed as domainEnsureCloudMyPlaylistSeed,
@@ -6608,45 +6612,12 @@ const init = function (): void {
   }
 
   function resetMediaManageForm(): void {
-    if (!$MEDIA_MANAGE_FORM) return;
-    $MEDIA_MANAGE_FORM.reset();
-    const $LOCAL_MEDIA_FILE_NAME = document.getElementById('local-media-file-name') as HTMLElement | null;
-    const $LOCAL_MEDIA_FILE_INPUT = document.getElementById('local-media-file') as HTMLInputElement | null;
-    const $LOCAL_MEDIA_DROPZONE = document.getElementById('local-media-dropzone') as HTMLElement | null;
-    $MEDIA_MANAGE_ELMS.forEach((child: HTMLElement) => {
-      let event: string | null = null;
-      if (/^input$/i.test(child.nodeName)) {
-        const input = child as HTMLInputElement;
-        switch (input.type) {
-          case 'text':
-            event = 'input';
-            break;
-          case 'radio':
-            input.checked = input.value === (AMP_STATUS.addtype || 'youtube');
-            break;
-          case 'file':
-            event = 'change';
-            break;
-          default:
-            break;
-        }
-      } else if (/^textarea$/i.test(child.nodeName)) {
-        event = 'input';
-      } else if (/^select$/i.test(child.nodeName)) {
-        (child as HTMLSelectElement).selectedIndex = 0;
-        event = 'change';
-      }
-      if (event) {
-        child.dispatchEvent(new Event(event));
-      }
+    resetMediaManagementForm({
+      form: $MEDIA_MANAGE_FORM,
+      elements: $MEDIA_MANAGE_ELMS,
+      addType: AMP_STATUS.addtype,
+      syncMediaVolumeField,
     });
-    if ($LOCAL_MEDIA_FILE_NAME && $LOCAL_MEDIA_FILE_INPUT) {
-      $LOCAL_MEDIA_FILE_NAME.textContent = $LOCAL_MEDIA_FILE_INPUT.dataset['labelEmpty'] || 'No file selected';
-    }
-    if ($LOCAL_MEDIA_DROPZONE) {
-      setFileDropzoneState($LOCAL_MEDIA_DROPZONE, { dragover: false, invalid: false });
-    }
-    syncMediaVolumeField();
   }
 
   function addMediaData(payload: [string, string][]): boolean {
@@ -6927,36 +6898,11 @@ const init = function (): void {
   }
 
   function resetPlaylistManageForm(): void {
-    if (!$PLAYLIST_MANAGE_FORM) return;
-    $PLAYLIST_MANAGE_FORM.reset();
-    const $IMPORT_FILE_NAME = document.getElementById('playlist-import-file-name') as HTMLElement | null;
-    $PLAYLIST_MANAGE_ELMS.forEach((child: HTMLElement) => {
-      let event: string | null = null;
-      if (/^input$/i.test(child.nodeName)) {
-        const input = child as HTMLInputElement;
-        switch (input.type) {
-          case 'text':
-            event = 'input';
-            break;
-          case 'file':
-            input.value = '';
-            setValidated(input, null);
-            if ($IMPORT_FILE_NAME) {
-              const emptyLabel = input.dataset['labelEmpty'] || 'No file selected';
-              $IMPORT_FILE_NAME.textContent = emptyLabel;
-            }
-            break;
-          case 'checkbox':
-            input.checked = false;
-            break;
-          default:
-            break;
-        }
-      }
-      if (event) {
-        logger('resetPlaylistManageForm:', child, event);
-        child.dispatchEvent(new Event(event));
-      }
+    resetPlaylistManagementForm({
+      form: $PLAYLIST_MANAGE_FORM,
+      elements: $PLAYLIST_MANAGE_ELMS,
+      setValidated,
+      logger,
     });
   }
 
