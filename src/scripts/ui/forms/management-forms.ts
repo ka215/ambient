@@ -1,5 +1,19 @@
 import { setFileDropzoneState } from './file-dropzone';
 
+export interface SyncMediaCategoryFieldOptions {
+  select: HTMLSelectElement | null;
+  categoryInput?: HTMLInputElement | null;
+  categories: string[] | null | undefined;
+  preferredCategoryId: number | null;
+}
+
+export interface SyncMediaVolumeFieldOptions {
+  input: HTMLInputElement | null;
+  display?: HTMLElement | null;
+  volume: number;
+  fallbackVolume: number;
+}
+
 export interface ResetMediaManagementFormOptions {
   form: HTMLFormElement | null;
   elements: HTMLElement[];
@@ -17,6 +31,66 @@ export interface ResetPlaylistManagementFormOptions {
 function dispatchFieldEvent(field: HTMLElement, eventName: string | null): void {
   if (eventName) {
     field.dispatchEvent(new Event(eventName));
+  }
+}
+
+function normalizeVolumeValue(value: unknown, fallback: number): number {
+  if (value === null || value === undefined || value === '') {
+    return fallback;
+  }
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) && numericValue >= 0 && numericValue <= 100
+    ? numericValue
+    : fallback;
+}
+
+export function syncMediaCategoryField(options: SyncMediaCategoryFieldOptions): void {
+  const { select, categoryInput, categories, preferredCategoryId } = options;
+  const hasVisibleSelect = select instanceof HTMLSelectElement && !select.classList.contains('hidden');
+
+  if (hasVisibleSelect) {
+    const hasPreferredOption = preferredCategoryId !== null &&
+      Array.from(select.options).some((opt) => opt.value === String(preferredCategoryId));
+    if (hasPreferredOption) {
+      select.value = String(preferredCategoryId);
+    } else if (categories && categories.length === 1) {
+      select.value = '0';
+    } else {
+      select.value = '';
+    }
+    select.dispatchEvent(new Event('change'));
+    return;
+  }
+
+  if (categoryInput && !categoryInput.classList.contains('hidden')) {
+    const nextValue = categoryInput.value.trim() || categoryInput.dataset['defaultValue'] || 'New Category';
+    categoryInput.value = nextValue;
+    categoryInput.dispatchEvent(new Event('input'));
+    categoryInput.dispatchEvent(new Event('change'));
+  }
+}
+
+export function syncRangeProgress(range: HTMLInputElement | null, fallbackVolume: number): void {
+  if (!range) {
+    return;
+  }
+  const min = Number(range.min || 0);
+  const max = Number(range.max || 100);
+  const value = normalizeVolumeValue(range.value, fallbackVolume);
+  const progress = max > min ? ((value - min) / (max - min)) * 100 : 0;
+  range.style.setProperty('--range-progress', `${Math.min(100, Math.max(0, progress))}%`);
+}
+
+export function syncMediaVolumeField(options: SyncMediaVolumeFieldOptions): void {
+  const { input, display, volume, fallbackVolume } = options;
+  if (!input) {
+    return;
+  }
+  const normalizedVolume = normalizeVolumeValue(volume, fallbackVolume);
+  input.value = String(normalizedVolume);
+  syncRangeProgress(input, fallbackVolume);
+  if (display) {
+    display.textContent = String(normalizedVolume);
   }
 }
 

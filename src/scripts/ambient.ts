@@ -66,6 +66,9 @@ import {
 import {
   resetMediaManagementForm,
   resetPlaylistManagementForm,
+  syncMediaCategoryField as syncMediaCategoryFieldView,
+  syncMediaVolumeField as syncMediaVolumeFieldView,
+  syncRangeProgress as syncRangeProgressView,
 } from './ui/forms/management-forms';
 import { createPlaylistLoadGuard } from './domain/playlist-loader';
 import {
@@ -3946,28 +3949,12 @@ const init = function (): void {
   }
 
   function syncMediaCategoryField(preferredCategoryId: number | null = getActiveCategoryId()): void {
-    const $catInput = document.getElementById('media-category-new') as HTMLInputElement | null;
-    const hasVisibleSelect = isElement($MEDIA_CATEGORY_SELECT) && !$MEDIA_CATEGORY_SELECT.classList.contains('hidden');
-    if (hasVisibleSelect) {
-      const hasPreferredOption = preferredCategoryId !== null &&
-        Array.from($MEDIA_CATEGORY_SELECT.options).some((opt) => opt.value === String(preferredCategoryId));
-      if (hasPreferredOption) {
-        $MEDIA_CATEGORY_SELECT.value = String(preferredCategoryId);
-      } else if (AMP_STATUS.category && AMP_STATUS.category.length === 1) {
-        $MEDIA_CATEGORY_SELECT.value = '0';
-      } else {
-        $MEDIA_CATEGORY_SELECT.value = '';
-      }
-      $MEDIA_CATEGORY_SELECT.dispatchEvent(new Event('change'));
-      return;
-    }
-
-    if ($catInput && !$catInput.classList.contains('hidden')) {
-      const nextValue = $catInput.value.trim() || $catInput.dataset['defaultValue'] || 'New Category';
-      $catInput.value = nextValue;
-      $catInput.dispatchEvent(new Event('input'));
-      $catInput.dispatchEvent(new Event('change'));
-    }
+    syncMediaCategoryFieldView({
+      select: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
+      categoryInput: document.getElementById('media-category-new') as HTMLInputElement | null,
+      categories: AMP_STATUS.category,
+      preferredCategoryId,
+    });
   }
 
   function normalizeVolume(value: any, fallback: number = DEFAULT_VOLUME): number {
@@ -3997,23 +3984,17 @@ const init = function (): void {
   }
 
   function syncRangeProgress(range: HTMLInputElement | null): void {
-    if (!range) return;
-    const min = Number(range.min || 0);
-    const max = Number(range.max || 100);
-    const value = normalizeVolume(range.value, DEFAULT_VOLUME);
-    const progress = max > min ? ((value - min) / (max - min)) * 100 : 0;
-    range.style.setProperty('--range-progress', `${Math.min(100, Math.max(0, progress))}%`);
+    syncRangeProgressView(range, DEFAULT_VOLUME);
   }
 
   function syncMediaVolumeField(volume: number = getDefaultVolume()): void {
-    if (!$MEDIA_VOLUME) return;
     const normalizedVolume = normalizeVolume(volume, getDefaultVolume());
-    $MEDIA_VOLUME.value = String(normalizedVolume);
-    syncRangeProgress($MEDIA_VOLUME);
-    const displayVolume = document.getElementById('default-media-volume');
-    if (displayVolume) {
-      displayVolume.textContent = String(normalizedVolume);
-    }
+    syncMediaVolumeFieldView({
+      input: $MEDIA_VOLUME,
+      display: document.getElementById('default-media-volume'),
+      volume: normalizedVolume,
+      fallbackVolume: getDefaultVolume(),
+    });
   }
 
   function openPlaylistManagementCategoryCreate(): void {
