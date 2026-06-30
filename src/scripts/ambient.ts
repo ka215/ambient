@@ -59,6 +59,10 @@ import {
   buildDefaultPlaylistLabel,
   createPlaylistMaskIcon,
 } from './ui/playlist-view';
+import {
+  bindFileDropzone,
+  setFileDropzoneState,
+} from './ui/forms/file-dropzone';
 import { createPlaylistLoadGuard } from './domain/playlist-loader';
 import {
   ensureCloudMyPlaylistSeed as domainEnsureCloudMyPlaylistSeed,
@@ -6640,7 +6644,7 @@ const init = function (): void {
       $LOCAL_MEDIA_FILE_NAME.textContent = $LOCAL_MEDIA_FILE_INPUT.dataset['labelEmpty'] || 'No file selected';
     }
     if ($LOCAL_MEDIA_DROPZONE) {
-      toggleClass($LOCAL_MEDIA_DROPZONE, { 'is-dragover': false, 'is-invalid': false });
+      setFileDropzoneState($LOCAL_MEDIA_DROPZONE, { dragover: false, invalid: false });
     }
     syncMediaVolumeField();
   }
@@ -7033,7 +7037,7 @@ const init = function (): void {
               $LOCAL_MEDIA_FILE_NAME.textContent = $LOCAL_MEDIA_INPUT.dataset['labelEmpty'] || 'No file selected';
             }
             if ($LOCAL_MEDIA_DROPZONE) {
-              toggleClass($LOCAL_MEDIA_DROPZONE, { 'is-dragover': false, 'is-invalid': false });
+              setFileDropzoneState($LOCAL_MEDIA_DROPZONE, { dragover: false, invalid: false });
             }
             if ($INPUT_FILEPATH) $INPUT_FILEPATH.value = '';
             if ($INPUT_MEDIA_TITLE) $INPUT_MEDIA_TITLE.value = '';
@@ -7053,7 +7057,7 @@ const init = function (): void {
             const pathIsValid = mediaFileLooksValid ? await getRelativeFilepath(file.name) : false;
             setValidated(elm, mediaFileLooksValid && pathIsValid);
             if ($LOCAL_MEDIA_DROPZONE) {
-              toggleClass($LOCAL_MEDIA_DROPZONE, { 'is-dragover': false, 'is-invalid': !(mediaFileLooksValid && pathIsValid) });
+              setFileDropzoneState($LOCAL_MEDIA_DROPZONE, { dragover: false, invalid: !(mediaFileLooksValid && pathIsValid) });
             }
             if ($INPUT_MEDIA_TITLE) {
               $INPUT_MEDIA_TITLE.value = mediaFileLooksValid && pathIsValid ? basename(file.name) : '';
@@ -7062,66 +7066,16 @@ const init = function (): void {
             }
           };
 
-          const isDragLeavingDropzone = (evt: DragEvent): boolean => {
-            if (!$LOCAL_MEDIA_DROPZONE) {
-              return true;
-            }
-            const related = evt.relatedTarget as Node | null;
-            return !(related && $LOCAL_MEDIA_DROPZONE.contains(related));
-          };
-
-          if ($LOCAL_MEDIA_PICKER) {
-            $LOCAL_MEDIA_PICKER.addEventListener('click', () => {
-              $LOCAL_MEDIA_INPUT.click();
-            });
-          }
-
-          if ($LOCAL_MEDIA_DROPZONE) {
-            const onDragOver = (evt: DragEvent): void => {
-              evt.preventDefault();
-              evt.stopPropagation();
-              const dropLabel = $LOCAL_MEDIA_INPUT.dataset['labelDrop'] || 'Drop media file here';
-              if ($LOCAL_MEDIA_FILE_NAME && (!$LOCAL_MEDIA_INPUT.files || $LOCAL_MEDIA_INPUT.files.length === 0)) {
-                $LOCAL_MEDIA_FILE_NAME.textContent = dropLabel;
-              }
-              toggleClass($LOCAL_MEDIA_DROPZONE, { 'is-dragover': true, 'is-invalid': false });
-            };
-            $LOCAL_MEDIA_DROPZONE.addEventListener('dragenter', onDragOver);
-            $LOCAL_MEDIA_DROPZONE.addEventListener('dragover', onDragOver);
-            $LOCAL_MEDIA_DROPZONE.addEventListener('dragleave', (evt: DragEvent) => {
-              evt.preventDefault();
-              evt.stopPropagation();
-              if (isDragLeavingDropzone(evt)) {
-                const currentFile = $LOCAL_MEDIA_INPUT.files && $LOCAL_MEDIA_INPUT.files.length > 0
-                  ? $LOCAL_MEDIA_INPUT.files[0]
-                  : null;
-                void applyLocalMediaFile(currentFile ?? null);
-              }
-            });
-            $LOCAL_MEDIA_DROPZONE.addEventListener('drop', (evt: DragEvent) => {
-              evt.preventDefault();
-              evt.stopPropagation();
-              const file = evt.dataTransfer?.files && evt.dataTransfer.files.length > 0
-                ? evt.dataTransfer.files[0]
-                : null;
-              if (file) {
-                try {
-                  const transfer = new DataTransfer();
-                  transfer.items.add(file);
-                  $LOCAL_MEDIA_INPUT.files = transfer.files;
-                } catch (_error) {
-                  // Some environments may not allow constructing DataTransfer.
-                }
-              }
-              void applyLocalMediaFile(file ?? null);
-            });
-          }
-
-          elm.addEventListener('change', async (evt: Event) => {
-            const target = evt.target as HTMLInputElement;
-            const file = target.files && target.files.length > 0 ? target.files[0] : null;
-            logger('local_file:', target.files, [target]);
-            await applyLocalMediaFile(file ?? null);
+          bindFileDropzone({
+            input: $LOCAL_MEDIA_INPUT,
+            picker: $LOCAL_MEDIA_PICKER,
+            fileName: $LOCAL_MEDIA_FILE_NAME,
+            dropzone: $LOCAL_MEDIA_DROPZONE,
+            dropLabelFallback: 'Drop media file here',
+            onApplyFile: async (file: File | null): Promise<void> => {
+              logger('local_file:', $LOCAL_MEDIA_INPUT.files, [$LOCAL_MEDIA_INPUT]);
+              await applyLocalMediaFile(file);
+            },
           });
           }
           break;
@@ -7336,76 +7290,24 @@ const init = function (): void {
             if (!file) {
               setValidated(elm, null);
               if ($IMPORT_DROPZONE) {
-                toggleClass($IMPORT_DROPZONE, { 'is-dragover': false, 'is-invalid': false });
+                setFileDropzoneState($IMPORT_DROPZONE, { dragover: false, invalid: false });
               }
               return;
             }
             const isValid = isLikelyJsonFile(file);
             setValidated(elm, isValid);
             if ($IMPORT_DROPZONE) {
-              toggleClass($IMPORT_DROPZONE, { 'is-dragover': false, 'is-invalid': !isValid });
+              setFileDropzoneState($IMPORT_DROPZONE, { dragover: false, invalid: !isValid });
             }
           };
 
-          const isDragLeavingDropzone = (evt: DragEvent): boolean => {
-            if (!$IMPORT_DROPZONE) {
-              return true;
-            }
-            const related = evt.relatedTarget as Node | null;
-            return !(related && $IMPORT_DROPZONE.contains(related));
-          };
-
-          if ($IMPORT_PICKER) {
-            $IMPORT_PICKER.addEventListener('click', () => {
-              $IMPORT_INPUT.click();
-            });
-          }
-
-          if ($IMPORT_DROPZONE) {
-            const onDragOver = (evt: DragEvent): void => {
-              evt.preventDefault();
-              evt.stopPropagation();
-              const dropLabel = $IMPORT_INPUT.dataset['labelDrop'] || 'Drop JSON file here';
-              if ($IMPORT_FILE_NAME && (!$IMPORT_INPUT.files || $IMPORT_INPUT.files.length === 0)) {
-                $IMPORT_FILE_NAME.textContent = dropLabel;
-              }
-              toggleClass($IMPORT_DROPZONE, { 'is-dragover': true, 'is-invalid': false });
-            };
-            $IMPORT_DROPZONE.addEventListener('dragenter', onDragOver);
-            $IMPORT_DROPZONE.addEventListener('dragover', onDragOver);
-            $IMPORT_DROPZONE.addEventListener('dragleave', (evt: DragEvent) => {
-              evt.preventDefault();
-              evt.stopPropagation();
-              if (isDragLeavingDropzone(evt)) {
-                const currentFile = $IMPORT_INPUT.files && $IMPORT_INPUT.files.length > 0
-                  ? $IMPORT_INPUT.files[0]
-                  : null;
-                applyImportFile(currentFile ?? null);
-              }
-            });
-            $IMPORT_DROPZONE.addEventListener('drop', (evt: DragEvent) => {
-              evt.preventDefault();
-              evt.stopPropagation();
-              const file = evt.dataTransfer?.files && evt.dataTransfer.files.length > 0
-                ? evt.dataTransfer.files[0]
-                : null;
-              if (file) {
-                try {
-                  const transfer = new DataTransfer();
-                  transfer.items.add(file);
-                  $IMPORT_INPUT.files = transfer.files;
-                } catch (_error) {
-                  // Some environments may not allow constructing DataTransfer.
-                }
-              }
-              applyImportFile(file ?? null);
-            });
-          }
-
-          elm.addEventListener('change', (evt: Event) => {
-            const target = evt.target as HTMLInputElement;
-            const file = target.files && target.files.length > 0 ? target.files[0] : null;
-            applyImportFile(file ?? null);
+          bindFileDropzone({
+            input: $IMPORT_INPUT,
+            picker: $IMPORT_PICKER,
+            fileName: $IMPORT_FILE_NAME,
+            dropzone: $IMPORT_DROPZONE,
+            dropLabelFallback: 'Drop JSON file here',
+            onApplyFile: applyImportFile,
           });
           }
           break;
