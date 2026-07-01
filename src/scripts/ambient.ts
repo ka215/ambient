@@ -74,6 +74,7 @@ import {
   togglePlaylistModeMenu as togglePlaylistModeMenuView,
   updatePlaylistModeMenuState,
 } from './ui/playlist-view';
+import { createNoticeController, type NoticeController } from './ui/notifications';
 import {
   bindFileDropzone,
   setFileDropzoneState,
@@ -290,6 +291,11 @@ const init = function (): void {
   }
 
   const playbackTimers = createPlaybackTimerController();
+  let noticeController: NoticeController | null = null;
+
+  function updateNotice(notification: NotificationPayload): void {
+    noticeController?.update(notification);
+  }
 
   /**
    * Abort seek for playback media.
@@ -1227,6 +1233,8 @@ const init = function (): void {
   // DOM Elements
   const $BODY = document.body;
   const $ALERT = document.getElementById('alert-notification') as HTMLElement;
+  const $BUTTON_ALERT_DISMISS = document.getElementById('btn-alert-dismiss') as HTMLElement | null;
+  const $ALERT_MESSAGE = $ALERT?.querySelector('#alert-message') as HTMLElement | null;
   const $SELECT_PLAYLIST = document.getElementById('current-playlist') as HTMLSelectElement;
   const $SELECT_CATEGORY = document.getElementById('target-category') as HTMLSelectElement;
   const $TOGGLE_LOOP = document.getElementById('toggle-loop') as HTMLElement;
@@ -1265,6 +1273,13 @@ const init = function (): void {
   const $MODAL_PLAYLIST_DESC_TITLE = document.getElementById('modal-playlist-desc-title') as HTMLElement | null;
   const $MODAL_PLAYLIST_DESC_ARTIST = document.getElementById('modal-playlist-desc-artist') as HTMLElement | null;
   const $MODAL_PLAYLIST_DESC_CONTENT = document.getElementById('modal-playlist-desc-content') as HTMLElement | null;
+
+  noticeController = createNoticeController({
+    alertElement: $ALERT,
+    dismissButton: $BUTTON_ALERT_DISMISS,
+    messageElement: $ALERT_MESSAGE,
+    logger,
+  });
   const $BUTTON_CLOSE_PLAYLIST_DESC = document.getElementById('btn-close-playlist-desc') as HTMLButtonElement | null;
   const $MODAL_MEDIA_EDIT = document.getElementById('modal-media-edit') as HTMLElement | null;
   const $MODAL_MEDIA_EDIT_TITLE = document.getElementById('modal-media-edit-title') as HTMLElement | null;
@@ -3650,42 +3665,8 @@ const init = function (): void {
     releaseAppBootGate();
   }
 
-  /**
-   * Method for switching display of alert component.
-   */
-  function toggleAlert(state: string | null = null, auto_close: number | null = null): void {
-    let shown: boolean;
-    switch (true) {
-      case /^show(|n)$/i.test(state || ''):
-        shown = true;
-        break;
-      case /^hid(e|den)$/i.test(state || ''):
-        shown = false;
-        break;
-      default:
-        shown = $ALERT.classList.contains('opacity-0');
-        break;
-    }
-    toggleClass($ALERT, { 'opacity-0': !shown });
-    // auto dismiss
-    if (shown && auto_close && auto_close > 0) {
-      new Promise<void>((resolve) => {
-        setTimeout(() => {
-          // start fadeout after delay time
-          toggleClass($ALERT, { 'opacity-0': true });
-          resolve();
-        }, auto_close);
-      }).then(() => {
-        setTimeout(() => {
-          // finally hiding after has been fadeout duration
-          toggleClass($ALERT, { hidden: true });
-        }, 1000);
-      });
-    }
-  }
-
   if (isElement($ALERT)) {
-    toggleAlert('hide');
+    noticeController.hideLegacyAlert();
   }
 
   /**
@@ -7691,109 +7672,6 @@ function logger(...args: any[]): any {
   const type = /^(error|warn|info|debug|log)$/i.test(args[0]) ? args.shift() : 'log';
 
   return (console as any)[type](dateStr, ...args);
-}
-
-let noticeHideTimerGlobal: number | null = null;
-let noticeCleanupTimerGlobal: number | null = null;
-
-/**
- * Update notice/notification display.
- */
-function updateNotice(notification: NotificationPayload): void {
-  logger('Have notification:', notification);
-
-  const classes = {
-    base: 'fixed top-2 right-2 w-full max-w-sm flex notice-toast notice-toast--hidden items-start gap-3 p-4 z-[10050] text-sm border rounded-lg shadow-xl ',
-    info: 'text-blue-800 border-blue-300 bg-blue-50 dark:text-blue-400 dark:border-blue-800 dark:bg-blue-900',
-    success: 'text-green-800 border-green-300 bg-green-50 dark:text-green-400 dark:border-green-800 dark:bg-green-900',
-    warning: 'text-yellow-800 border-yellow-300 bg-yellow-50 dark:text-yellow-400 dark:border-yellow-800 dark:bg-yellow-900',
-    error: 'text-red-800 border-red-300 bg-red-50 dark:text-red-400 dark:border-red-800 dark:bg-red-900',
-    btnbase: 'ml-auto -mr-1 -mt-1 rounded-lg focus:ring-2 p-1.5 inline-flex items-center justify-center h-8 w-8 ',
-    btninfo: 'bg-blue-50 text-blue-500 focus:ring-blue-400 hover:bg-blue-200 dark:bg-blue-800 dark:text-blue-400 dark:hover:bg-blue-700',
-    btnsuccess: 'bg-green-50 text-green-500 focus:ring-green-400 hover:bg-green-200 dark:bg-green-800 dark:text-green-400 dark:hover:bg-green-700',
-    btnwarning: 'bg-yellow-50 text-yellow-500 focus:ring-yellow-400 hover:bg-yellow-200 dark:bg-yellow-800 dark:text-yellow-400 dark:hover:bg-yellow-700',
-    btnerror: 'bg-red-50 text-red-500 focus:ring-red-400 hover:bg-red-200 dark:bg-red-800 dark:text-red-400 dark:hover:bg-red-700',
-  };
-
-  const $ALERT = document.getElementById('alert-notification') as HTMLElement;
-  const $BUTTON_ALERT_DISMISS = document.getElementById('btn-alert-dismiss') as HTMLElement;
-
-  const classKey = notification.type as keyof typeof classes;
-  const btnClassKey = `btn${notification.type}` as keyof typeof classes;
-
-  setAtts($ALERT, { class: classes.base + classes[classKey] });
-  setAtts($BUTTON_ALERT_DISMISS, { class: classes.btnbase + classes[btnClassKey] });
-  $ALERT.style.display = 'flex';
-  $ALERT.style.visibility = 'visible';
-  $ALERT.style.opacity = '1';
-  $ALERT.style.zIndex = '10050';
-  $ALERT.style.width = 'min(22rem, calc(100vw - 1rem))';
-
-  const $ALERT_MESSAGE = $ALERT.querySelector('#alert-message');
-  if ($ALERT_MESSAGE) {
-    $ALERT_MESSAGE.innerHTML = notification.message;
-  }
-
-  if (noticeHideTimerGlobal !== null) {
-    window.clearTimeout(noticeHideTimerGlobal);
-    noticeHideTimerGlobal = null;
-  }
-  if (noticeCleanupTimerGlobal !== null) {
-    window.clearTimeout(noticeCleanupTimerGlobal);
-    noticeCleanupTimerGlobal = null;
-  }
-
-  const delay = notification.hasOwnProperty('delay') ? Number(notification.delay) : 0;
-  toggleClass($ALERT, {
-    hidden: false,
-    'notice-toast--hidden': true,
-    'notice-toast--visible': false,
-    'pointer-events-none': true,
-  });
-  window.requestAnimationFrame(() => {
-    toggleClass($ALERT, {
-      'notice-toast--hidden': false,
-      'notice-toast--visible': true,
-      'pointer-events-none': false,
-    });
-  });
-
-  const hideNotice = (): void => {
-    toggleClass($ALERT, {
-      'notice-toast--hidden': true,
-      'notice-toast--visible': false,
-      'pointer-events-none': true,
-    });
-    noticeCleanupTimerGlobal = window.setTimeout(() => {
-      toggleClass($ALERT, { hidden: true });
-      $ALERT.style.visibility = 'hidden';
-      $ALERT.style.opacity = '0';
-      noticeCleanupTimerGlobal = null;
-    }, 280);
-  };
-
-  if (delay > 0) {
-    noticeHideTimerGlobal = window.setTimeout(() => {
-      hideNotice();
-      noticeHideTimerGlobal = null;
-    }, delay);
-  }
-
-  if (!$BUTTON_ALERT_DISMISS.dataset['ambientBound']) {
-    $BUTTON_ALERT_DISMISS.dataset['ambientBound'] = 'true';
-    $BUTTON_ALERT_DISMISS.addEventListener('click', (evt: Event) => {
-      evt.preventDefault();
-      if (noticeHideTimerGlobal !== null) {
-        window.clearTimeout(noticeHideTimerGlobal);
-        noticeHideTimerGlobal = null;
-      }
-      if (noticeCleanupTimerGlobal !== null) {
-        window.clearTimeout(noticeCleanupTimerGlobal);
-        noticeCleanupTimerGlobal = null;
-      }
-      hideNotice();
-    });
-  }
 }
 
 // Do dispatcher
