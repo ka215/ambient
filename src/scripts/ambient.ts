@@ -67,8 +67,10 @@ import {
   closePlaylistModeMenu as closePlaylistModeMenuView,
   createPlaylistMaskIcon,
   PlaylistMode,
+  readPlaylistItemIdsFromDom,
   syncPlaylistModeAvailabilityButton,
   syncPlaylistModeButton as syncPlaylistModeButtonView,
+  syncDeleteSelectionIndicator as syncDeleteSelectionIndicatorView,
   togglePlaylistModeMenu as togglePlaylistModeMenuView,
   updatePlaylistModeMenuState,
 } from './ui/playlist-view';
@@ -3499,17 +3501,7 @@ const init = function (): void {
   }
 
   function syncDeleteSelectionIndicator(itemElm: HTMLElement, isSelected: boolean): void {
-    const chkElm = itemElm.querySelector('span[data-delete-selector]') as HTMLElement | null;
-    if (!chkElm) return;
-    chkElm.className = isSelected
-      ? 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-red-500 bg-red-500'
-      : 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 dark:border-gray-500';
-    while (chkElm.firstChild) {
-      chkElm.removeChild(chkElm.firstChild);
-    }
-    if (isSelected) {
-      chkElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--check'));
-    }
+    syncDeleteSelectionIndicatorView(itemElm, isSelected);
   }
 
   function destroyPlaylistSortable(): void {
@@ -3539,9 +3531,7 @@ const init = function (): void {
   }
 
   function syncReorderWorkingIdsFromDom(): void {
-    reorderWorkingIds = Array.from($LIST_PLAYLIST.querySelectorAll('a[data-playlist-item]')).map((elm) => {
-      return Number((elm as HTMLElement).dataset['playlistItem'] || (elm as HTMLElement).getAttribute('data-playlist-item') || -1);
-    }).filter((amId) => amId >= 0);
+    reorderWorkingIds = readPlaylistItemIdsFromDom($LIST_PLAYLIST);
   }
 
   function applyReorderChanges(): void {

@@ -118,6 +118,30 @@ export function syncPlaylistModeAvailabilityButton(button: HTMLButtonElement | n
   button.setAttribute('aria-disabled', String(!enabled));
 }
 
+export function syncDeleteSelectionIndicator(itemElm: HTMLElement, isSelected: boolean): void {
+  const chkElm = itemElm.querySelector('span[data-delete-selector]') as HTMLElement | null;
+  if (!chkElm) return;
+  chkElm.className = isSelected
+    ? 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-red-500 bg-red-500'
+    : 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 dark:border-gray-500';
+  while (chkElm.firstChild) {
+    chkElm.removeChild(chkElm.firstChild);
+  }
+  if (isSelected) {
+    chkElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--check'));
+  }
+}
+
+export function readPlaylistItemIdsFromDom(listElement: HTMLElement): number[] {
+  return Array.from(listElement.querySelectorAll('a[data-playlist-item]')).map((elm) => {
+    return Number(
+      (elm as HTMLElement).dataset['playlistItem'] ||
+      (elm as HTMLElement).getAttribute('data-playlist-item') ||
+      -1
+    );
+  }).filter((amId) => amId >= 0);
+}
+
 export function buildDefaultPlaylistLabel(item: MediaItem): HTMLElement {
   const wrapperElm = document.createElement('span');
   wrapperElm.className = 'playlist-item-label playlist-item-label--default flex-1';
