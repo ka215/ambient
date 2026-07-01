@@ -1,10 +1,121 @@
 import type { MediaItem } from '../types/ambient';
 
+export type PlaylistMode = 'normal' | 'edit' | 'reorder' | 'delete';
+
+export interface PlaylistModeUiElements {
+  button: HTMLButtonElement | null;
+  menu: HTMLElement | null;
+  buttonIcon: HTMLElement | null;
+  buttonLabel: HTMLElement | null;
+}
+
 export function createPlaylistMaskIcon(...classNames: string[]): HTMLSpanElement {
   const iconElm = document.createElement('span');
   iconElm.setAttribute('aria-hidden', 'true');
   iconElm.className = ['playlist-icon-mask', ...classNames].join(' ');
   return iconElm;
+}
+
+export function getPlaylistModeLabel(elements: PlaylistModeUiElements, mode: PlaylistMode): string {
+  if (!elements.button) return mode;
+  switch (mode) {
+    case 'edit':
+      return elements.button.dataset['labelEdit'] || 'Edit';
+    case 'reorder':
+      return elements.button.dataset['labelReorder'] || 'Reorder';
+    case 'delete':
+      return elements.button.dataset['labelDelete'] || 'Delete';
+    default:
+      return elements.button.dataset['labelNormal'] || 'Normal';
+  }
+}
+
+export function syncPlaylistModeButton(
+  elements: PlaylistModeUiElements,
+  mode: PlaylistMode,
+  defaultIconHtml: string,
+  defaultLabel: string
+): void {
+  if (!elements.button || !elements.buttonIcon || !elements.buttonLabel) return;
+
+  if (mode === 'normal') {
+    elements.buttonIcon.innerHTML = defaultIconHtml;
+    elements.buttonLabel.textContent = defaultLabel;
+    return;
+  }
+
+  const option = elements.menu?.querySelector(
+    `.playlist-mode-option[data-mode="${mode}"]`
+  ) as HTMLButtonElement | null;
+  const optionIcon = option?.querySelector('.playlist-mode-option-icon') as HTMLElement | null;
+  const optionLabel = option?.querySelector('.playlist-mode-option-label') as HTMLElement | null;
+  if (optionIcon && optionLabel) {
+    elements.buttonIcon.innerHTML = optionIcon.outerHTML;
+    elements.buttonLabel.textContent = optionLabel.textContent || getPlaylistModeLabel(elements, mode);
+  }
+}
+
+export function closePlaylistModeMenu(elements: PlaylistModeUiElements): void {
+  if (!elements.menu || !elements.button) return;
+  elements.menu.classList.add('hidden');
+  elements.button.setAttribute('aria-expanded', 'false');
+}
+
+export function togglePlaylistModeMenu(elements: PlaylistModeUiElements, forceOpen = false): void {
+  if (!elements.menu || !elements.button) return;
+  const shouldOpen = forceOpen || elements.menu.classList.contains('hidden');
+  if (shouldOpen) {
+    elements.menu.classList.remove('hidden');
+    elements.button.setAttribute('aria-expanded', 'true');
+  } else {
+    closePlaylistModeMenu(elements);
+  }
+}
+
+export function updatePlaylistModeMenuState(
+  elements: PlaylistModeUiElements,
+  activeMode: PlaylistMode,
+  canEdit: boolean,
+  canReorder: boolean
+): void {
+  if (!elements.menu) return;
+  Array.from(elements.menu.querySelectorAll('.playlist-mode-option')).forEach((elm) => {
+    const optElm = elm as HTMLButtonElement;
+    const mode = (optElm.dataset['mode'] || '') as PlaylistMode;
+    if (mode === 'edit') {
+      optElm.disabled = !canEdit;
+      optElm.setAttribute('aria-disabled', String(!canEdit));
+      optElm.classList.toggle('text-gray-400', !canEdit);
+      optElm.classList.toggle('dark:text-gray-500', !canEdit);
+      optElm.classList.toggle('cursor-not-allowed', !canEdit);
+      optElm.classList.toggle('hover:bg-gray-100', canEdit);
+      optElm.classList.toggle('dark:hover:bg-gray-600', canEdit);
+    }
+    if (mode === 'reorder') {
+      optElm.disabled = !canReorder;
+      optElm.setAttribute('aria-disabled', String(!canReorder));
+      optElm.classList.toggle('text-gray-400', !canReorder);
+      optElm.classList.toggle('dark:text-gray-500', !canReorder);
+      optElm.classList.toggle('cursor-not-allowed', !canReorder);
+      optElm.classList.toggle('hover:bg-gray-100', canReorder);
+      optElm.classList.toggle('dark:hover:bg-gray-600', canReorder);
+    }
+    if (mode === activeMode) {
+      optElm.classList.add('text-blue-700', 'dark:text-blue-300');
+      optElm.setAttribute('aria-current', 'true');
+    } else {
+      optElm.classList.remove('text-blue-700', 'dark:text-blue-300');
+      optElm.removeAttribute('aria-current');
+    }
+  });
+}
+
+export function syncPlaylistModeAvailabilityButton(button: HTMLButtonElement | null, enabled: boolean): void {
+  if (!button) return;
+  button.disabled = !enabled;
+  button.classList.toggle('opacity-50', !enabled);
+  button.classList.toggle('cursor-not-allowed', !enabled);
+  button.setAttribute('aria-disabled', String(!enabled));
 }
 
 export function buildDefaultPlaylistLabel(item: MediaItem): HTMLElement {

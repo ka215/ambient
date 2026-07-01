@@ -64,7 +64,13 @@ import {
 } from './ui/modals';
 import {
   buildDefaultPlaylistLabel,
+  closePlaylistModeMenu as closePlaylistModeMenuView,
   createPlaylistMaskIcon,
+  PlaylistMode,
+  syncPlaylistModeAvailabilityButton,
+  syncPlaylistModeButton as syncPlaylistModeButtonView,
+  togglePlaylistModeMenu as togglePlaylistModeMenuView,
+  updatePlaylistModeMenuState,
 } from './ui/playlist-view';
 import {
   bindFileDropzone,
@@ -3189,44 +3195,24 @@ const init = function (): void {
   const $PLAYLIST_MODE_MENU = document.getElementById('playlist-mode-menu') as HTMLElement | null;
   const $PLAYLIST_MODE_BUTTON_ICON = document.getElementById('playlist-mode-button-icon') as HTMLElement | null;
   const $PLAYLIST_MODE_BUTTON_LABEL = document.getElementById('playlist-mode-button-label') as HTMLElement | null;
-  type PlaylistMode = 'normal' | 'edit' | 'reorder' | 'delete';
   let playlistMode: PlaylistMode = 'normal';
   const defaultPlaylistModeButtonIcon = $PLAYLIST_MODE_BUTTON_ICON ? $PLAYLIST_MODE_BUTTON_ICON.innerHTML : '';
   const defaultPlaylistModeButtonLabel =
     $PLAYLIST_MODE_BUTTON_LABEL?.textContent || $BUTTON_PLAYLIST_MODE?.dataset['labelModeChange'] || 'Mode Change';
+  const playlistModeUi = {
+    button: $BUTTON_PLAYLIST_MODE,
+    menu: $PLAYLIST_MODE_MENU,
+    buttonIcon: $PLAYLIST_MODE_BUTTON_ICON,
+    buttonLabel: $PLAYLIST_MODE_BUTTON_LABEL,
+  };
 
   function syncPlaylistModeButton(mode: PlaylistMode): void {
-    if (!$BUTTON_PLAYLIST_MODE || !$PLAYLIST_MODE_BUTTON_ICON || !$PLAYLIST_MODE_BUTTON_LABEL) return;
-
-    if (mode === 'normal') {
-      $PLAYLIST_MODE_BUTTON_ICON.innerHTML = defaultPlaylistModeButtonIcon;
-      $PLAYLIST_MODE_BUTTON_LABEL.textContent = defaultPlaylistModeButtonLabel;
-      return;
-    }
-
-    const option = $PLAYLIST_MODE_MENU?.querySelector(
-      `.playlist-mode-option[data-mode="${mode}"]`
-    ) as HTMLButtonElement | null;
-    const optionIcon = option?.querySelector('.playlist-mode-option-icon') as HTMLElement | null;
-    const optionLabel = option?.querySelector('.playlist-mode-option-label') as HTMLElement | null;
-    if (optionIcon && optionLabel) {
-      $PLAYLIST_MODE_BUTTON_ICON.innerHTML = optionIcon.outerHTML;
-      $PLAYLIST_MODE_BUTTON_LABEL.textContent = optionLabel.textContent || getPlaylistModeLabel(mode);
-    }
-  }
-
-  function getPlaylistModeLabel(mode: PlaylistMode): string {
-    if (!$BUTTON_PLAYLIST_MODE) return mode;
-    switch (mode) {
-      case 'edit':
-        return $BUTTON_PLAYLIST_MODE.dataset['labelEdit'] || 'Edit';
-      case 'reorder':
-        return $BUTTON_PLAYLIST_MODE.dataset['labelReorder'] || 'Reorder';
-      case 'delete':
-        return $BUTTON_PLAYLIST_MODE.dataset['labelDelete'] || 'Delete';
-      default:
-        return $BUTTON_PLAYLIST_MODE.dataset['labelNormal'] || 'Normal';
-    }
+    syncPlaylistModeButtonView(
+      playlistModeUi,
+      mode,
+      defaultPlaylistModeButtonIcon,
+      defaultPlaylistModeButtonLabel
+    );
   }
 
   function isPlaylistInteractionLocked(): boolean {
@@ -3270,58 +3256,21 @@ const init = function (): void {
   }
 
   function closePlaylistModeMenu(): void {
-    if (!$PLAYLIST_MODE_MENU || !$BUTTON_PLAYLIST_MODE) return;
-    $PLAYLIST_MODE_MENU.classList.add('hidden');
-    $BUTTON_PLAYLIST_MODE.setAttribute('aria-expanded', 'false');
+    closePlaylistModeMenuView(playlistModeUi);
   }
 
   function togglePlaylistModeMenu(forceOpen = false): void {
-    if (!$PLAYLIST_MODE_MENU || !$BUTTON_PLAYLIST_MODE) return;
-    const shouldOpen = forceOpen || $PLAYLIST_MODE_MENU.classList.contains('hidden');
-    if (shouldOpen) {
-      $PLAYLIST_MODE_MENU.classList.remove('hidden');
-      $BUTTON_PLAYLIST_MODE.setAttribute('aria-expanded', 'true');
-    } else {
-      closePlaylistModeMenu();
-    }
+    togglePlaylistModeMenuView(playlistModeUi, forceOpen);
   }
 
   function updatePlaylistModeUI(): void {
     syncPlaylistModeButton(playlistMode);
-
-    if ($PLAYLIST_MODE_MENU) {
-      Array.from($PLAYLIST_MODE_MENU.querySelectorAll('.playlist-mode-option')).forEach((elm) => {
-        const optElm = elm as HTMLButtonElement;
-        const mode = (optElm.dataset['mode'] || '') as PlaylistMode;
-        if (mode === 'edit') {
-          const canEdit = canUseEditMode();
-          optElm.disabled = !canEdit;
-          optElm.setAttribute('aria-disabled', String(!canEdit));
-          optElm.classList.toggle('text-gray-400', !canEdit);
-          optElm.classList.toggle('dark:text-gray-500', !canEdit);
-          optElm.classList.toggle('cursor-not-allowed', !canEdit);
-          optElm.classList.toggle('hover:bg-gray-100', canEdit);
-          optElm.classList.toggle('dark:hover:bg-gray-600', canEdit);
-        }
-        if (mode === 'reorder') {
-          const canReorder = canUseReorderMode();
-          optElm.disabled = !canReorder;
-          optElm.setAttribute('aria-disabled', String(!canReorder));
-          optElm.classList.toggle('text-gray-400', !canReorder);
-          optElm.classList.toggle('dark:text-gray-500', !canReorder);
-          optElm.classList.toggle('cursor-not-allowed', !canReorder);
-          optElm.classList.toggle('hover:bg-gray-100', canReorder);
-          optElm.classList.toggle('dark:hover:bg-gray-600', canReorder);
-        }
-        if (mode === playlistMode) {
-          optElm.classList.add('text-blue-700', 'dark:text-blue-300');
-          optElm.setAttribute('aria-current', 'true');
-        } else {
-          optElm.classList.remove('text-blue-700', 'dark:text-blue-300');
-          optElm.removeAttribute('aria-current');
-        }
-      });
-    }
+    updatePlaylistModeMenuState(
+      playlistModeUi,
+      playlistMode,
+      canUseEditMode(),
+      canUseReorderMode()
+    );
   }
 
   function resetPlaylistOperationMode(): void {
@@ -3343,10 +3292,7 @@ const init = function (): void {
         resetPlaylistOperationMode();
       }
     }
-    $BUTTON_PLAYLIST_MODE.disabled = !canUsePlaylistModes;
-    $BUTTON_PLAYLIST_MODE.classList.toggle('opacity-50', !canUsePlaylistModes);
-    $BUTTON_PLAYLIST_MODE.classList.toggle('cursor-not-allowed', !canUsePlaylistModes);
-    $BUTTON_PLAYLIST_MODE.setAttribute('aria-disabled', String(!canUsePlaylistModes));
+    syncPlaylistModeAvailabilityButton($BUTTON_PLAYLIST_MODE, canUsePlaylistModes);
     updatePlaylistModeUI();
   }
 
