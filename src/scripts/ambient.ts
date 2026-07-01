@@ -70,11 +70,13 @@ import {
   setFileDropzoneState,
 } from './ui/forms/file-dropzone';
 import {
+  clearCategoryView,
   resetMediaManagementForm,
   resetPlaylistManagementForm,
   syncMediaCategoryField as syncMediaCategoryFieldView,
   syncMediaVolumeField as syncMediaVolumeFieldView,
   syncRangeProgress as syncRangeProgressView,
+  updateCategoryView,
 } from './ui/forms/management-forms';
 import { createPlaylistLoadGuard } from './domain/playlist-loader';
 import {
@@ -4569,104 +4571,32 @@ const init = function (): void {
    * Clears items in the category selection field in the settings menu.
    */
   function clearCategory(): void {
-    const $ALL_CATEGORY = document.getElementById('all-category');
-    const clone = $ALL_CATEGORY?.cloneNode(true) as HTMLElement | null;
-    while ($SELECT_CATEGORY.firstChild) {
-      $SELECT_CATEGORY.removeChild($SELECT_CATEGORY.firstChild);
-    }
-    if (clone) {
-      $SELECT_CATEGORY.appendChild(clone);
-      $SELECT_CATEGORY.firstElementChild?.setAttribute('disabled', '');
-      $SELECT_CATEGORY.setAttribute('disabled', '');
-      $SELECT_CATEGORY.value = '-1';
-    }
-
-    // add since v1.1.0 – reset category select and hide text input
-    while ($MEDIA_CATEGORY_SELECT.firstChild) {
-      $MEDIA_CATEGORY_SELECT.removeChild($MEDIA_CATEGORY_SELECT.firstChild);
-    }
-    const $MEDIA_CATEGORY_SELECT_FIRST_CHILD = document.createElement('option');
-    $MEDIA_CATEGORY_SELECT_FIRST_CHILD.setAttribute('value', '');
-    $MEDIA_CATEGORY_SELECT_FIRST_CHILD.textContent =
-      $MEDIA_CATEGORY_SELECT.getAttribute('data-placeholder') || '';
-    $MEDIA_CATEGORY_SELECT.appendChild($MEDIA_CATEGORY_SELECT_FIRST_CHILD);
-    // Restore select visibility, hide text input
-    $MEDIA_CATEGORY_SELECT.classList.remove('hidden');
-    $MEDIA_CATEGORY_SELECT.disabled = false;
-    const $catInput = document.getElementById('media-category-new') as HTMLInputElement | null;
-    if ($catInput) {
-      $catInput.classList.add('hidden');
-      $catInput.disabled = true;
-    }
-    const $catLabel = document.getElementById('media-category-label') as HTMLLabelElement | null;
-    const $catNote = document.getElementById('note-media-category-create-from-playlist-management') as HTMLParagraphElement | null;
-    if ($catLabel) $catLabel.setAttribute('for', 'media-category');
-    if ($catNote) {
-      $catNote.classList.add('hidden');
-    }
-    applyCloudEditRestrictions();
+    clearCategoryView({
+      targetSelect: $SELECT_CATEGORY,
+      mediaSelect: $MEDIA_CATEGORY_SELECT,
+      mediaInput: document.getElementById('media-category-new') as HTMLInputElement | null,
+      mediaLabel: document.getElementById('media-category-label') as HTMLLabelElement | null,
+      mediaNote: document.getElementById('note-media-category-create-from-playlist-management') as HTMLElement | null,
+    }, applyCloudEditRestrictions);
   }
 
   /**
    * Update the items in the category selection field of the settings menu.
    */
   function updateCategory(): void {
-    const $catInput = document.getElementById('media-category-new') as HTMLInputElement | null;
-    const $catLabel = document.getElementById('media-category-label') as HTMLLabelElement | null;
-    const $catNote = document.getElementById('note-media-category-create-from-playlist-management') as HTMLParagraphElement | null;
-    const hasCategories = !!(AMP_STATUS.category && AMP_STATUS.category.length > 0);
-
-    if (!hasCategories) {
-      // No categories yet – show text input, hide select so user can define first category
-      $MEDIA_CATEGORY_SELECT.classList.add('hidden');
-      $MEDIA_CATEGORY_SELECT.disabled = true;
-      if ($catInput) {
-        $catInput.classList.remove('hidden');
-        $catInput.disabled = false;
-        // Reset to default value when revealed
-        $catInput.value = $catInput.dataset['defaultValue'] || 'New Category';
-      }
-      if ($catLabel) $catLabel.setAttribute('for', 'media-category-new');
-      if ($catNote) {
-        $catNote.classList.add('hidden');
-      }
-      $SELECT_CATEGORY.firstElementChild?.removeAttribute('disabled');
-      $SELECT_CATEGORY.removeAttribute('disabled');
-      syncTargetCategorySelection();
-      applyCloudEditRestrictions();
-      return;
-    }
-
-    // Has categories – show select, hide text input
-    $MEDIA_CATEGORY_SELECT.classList.remove('hidden');
-    $MEDIA_CATEGORY_SELECT.disabled = false;
-    if ($catInput) {
-      $catInput.classList.add('hidden');
-      $catInput.disabled = true;
-    }
-    if ($catLabel) $catLabel.setAttribute('for', 'media-category');
-    if ($catNote) {
-      $catNote.classList.remove('hidden');
-    }
-
-    AMP_STATUS.category!.forEach((catName: string, catId: number) => {
-      const optElm = document.createElement('option');
-      optElm.value = String(catId);
-      optElm.textContent = catName;
-      if (AMP_STATUS.category && AMP_STATUS.category.length === 1) {
-        optElm.setAttribute('selected', 'selected');
-      }
-      $SELECT_CATEGORY.appendChild(optElm);
-
-      // add since v1.1.0
-      const cloneOpt = optElm.cloneNode(true) as HTMLOptionElement;
-      $MEDIA_CATEGORY_SELECT.appendChild(cloneOpt);
+    updateCategoryView({
+      elements: {
+        targetSelect: $SELECT_CATEGORY,
+        mediaSelect: $MEDIA_CATEGORY_SELECT,
+        mediaInput: document.getElementById('media-category-new') as HTMLInputElement | null,
+        mediaLabel: document.getElementById('media-category-label') as HTMLLabelElement | null,
+        mediaNote: document.getElementById('note-media-category-create-from-playlist-management') as HTMLElement | null,
+      },
+      categories: AMP_STATUS.category,
+      syncTargetCategorySelection,
+      syncMediaCategoryField,
+      applyCloudEditRestrictions,
     });
-    $SELECT_CATEGORY.firstElementChild?.removeAttribute('disabled');
-    $SELECT_CATEGORY.removeAttribute('disabled');
-    syncTargetCategorySelection();
-    syncMediaCategoryField();
-    applyCloudEditRestrictions();
   }
 
   /**

@@ -14,6 +14,22 @@ export interface SyncMediaVolumeFieldOptions {
   fallbackVolume: number;
 }
 
+export interface CategoryViewElements {
+  targetSelect: HTMLSelectElement | null;
+  mediaSelect: HTMLSelectElement | null;
+  mediaInput?: HTMLInputElement | null;
+  mediaLabel?: HTMLLabelElement | null;
+  mediaNote?: HTMLElement | null;
+}
+
+export interface UpdateCategoryViewOptions {
+  elements: CategoryViewElements;
+  categories: string[] | null | undefined;
+  syncTargetCategorySelection(): void;
+  syncMediaCategoryField(): void;
+  applyCloudEditRestrictions(): void;
+}
+
 export interface ResetMediaManagementFormOptions {
   form: HTMLFormElement | null;
   elements: HTMLElement[];
@@ -92,6 +108,105 @@ export function syncMediaVolumeField(options: SyncMediaVolumeFieldOptions): void
   if (display) {
     display.textContent = String(normalizedVolume);
   }
+}
+
+export function clearCategoryView(
+  elements: CategoryViewElements,
+  applyCloudEditRestrictions: () => void
+): void {
+  const { targetSelect, mediaSelect, mediaInput, mediaLabel, mediaNote } = elements;
+
+  if (targetSelect) {
+    const allCategory = document.getElementById('all-category');
+    const clone = allCategory?.cloneNode(true) as HTMLElement | null;
+    while (targetSelect.firstChild) {
+      targetSelect.removeChild(targetSelect.firstChild);
+    }
+    if (clone) {
+      targetSelect.appendChild(clone);
+      targetSelect.firstElementChild?.setAttribute('disabled', '');
+      targetSelect.setAttribute('disabled', '');
+      targetSelect.value = '-1';
+    }
+  }
+
+  if (mediaSelect) {
+    while (mediaSelect.firstChild) {
+      mediaSelect.removeChild(mediaSelect.firstChild);
+    }
+    const firstChild = document.createElement('option');
+    firstChild.setAttribute('value', '');
+    firstChild.textContent = mediaSelect.getAttribute('data-placeholder') || '';
+    mediaSelect.appendChild(firstChild);
+    mediaSelect.classList.remove('hidden');
+    mediaSelect.disabled = false;
+  }
+
+  if (mediaInput) {
+    mediaInput.classList.add('hidden');
+    mediaInput.disabled = true;
+  }
+  mediaLabel?.setAttribute('for', 'media-category');
+  mediaNote?.classList.add('hidden');
+  applyCloudEditRestrictions();
+}
+
+export function updateCategoryView(options: UpdateCategoryViewOptions): void {
+  const {
+    elements,
+    categories,
+    syncTargetCategorySelection,
+    syncMediaCategoryField,
+    applyCloudEditRestrictions,
+  } = options;
+  const { targetSelect, mediaSelect, mediaInput, mediaLabel, mediaNote } = elements;
+  const hasCategories = !!(categories && categories.length > 0);
+
+  if (!hasCategories) {
+    mediaSelect?.classList.add('hidden');
+    if (mediaSelect) {
+      mediaSelect.disabled = true;
+    }
+    if (mediaInput) {
+      mediaInput.classList.remove('hidden');
+      mediaInput.disabled = false;
+      mediaInput.value = mediaInput.dataset['defaultValue'] || 'New Category';
+    }
+    mediaLabel?.setAttribute('for', 'media-category-new');
+    mediaNote?.classList.add('hidden');
+    targetSelect?.firstElementChild?.removeAttribute('disabled');
+    targetSelect?.removeAttribute('disabled');
+    syncTargetCategorySelection();
+    applyCloudEditRestrictions();
+    return;
+  }
+
+  mediaSelect?.classList.remove('hidden');
+  if (mediaSelect) {
+    mediaSelect.disabled = false;
+  }
+  if (mediaInput) {
+    mediaInput.classList.add('hidden');
+    mediaInput.disabled = true;
+  }
+  mediaLabel?.setAttribute('for', 'media-category');
+  mediaNote?.classList.remove('hidden');
+
+  categories.forEach((catName: string, catId: number) => {
+    const optElm = document.createElement('option');
+    optElm.value = String(catId);
+    optElm.textContent = catName;
+    if (categories.length === 1) {
+      optElm.setAttribute('selected', 'selected');
+    }
+    targetSelect?.appendChild(optElm);
+    mediaSelect?.appendChild(optElm.cloneNode(true));
+  });
+  targetSelect?.firstElementChild?.removeAttribute('disabled');
+  targetSelect?.removeAttribute('disabled');
+  syncTargetCategorySelection();
+  syncMediaCategoryField();
+  applyCloudEditRestrictions();
 }
 
 export function resetMediaManagementForm(options: ResetMediaManagementFormOptions): void {
