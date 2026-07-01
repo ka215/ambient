@@ -16,6 +16,19 @@ export interface PlaylistDescModalController {
   open(titleText: string, artistText: string, descText: string, button: HTMLElement): void;
 }
 
+export interface PlaylistConfirmModalElements {
+  modal: HTMLElement | null;
+  title: HTMLElement | null;
+  body: HTMLElement | null;
+}
+
+export interface PlaylistConfirmModalController {
+  apply(): void;
+  cancel(): void;
+  close(): void;
+  open(title: string, body: string, onApply: () => void, onCancel?: () => void): void;
+}
+
 export interface OptionsModalElements {
   modal: HTMLElement | null;
   panel: HTMLElement | null;
@@ -241,6 +254,52 @@ export function createOptionsModalController(options: OptionsModalControllerOpti
         }
         backdrop.style.opacity = '1';
       });
+    },
+  };
+}
+
+export function createPlaylistConfirmModalController(
+  elements: PlaylistConfirmModalElements
+): PlaylistConfirmModalController {
+  let applyCallback: (() => void) | null = null;
+  let cancelCallback: (() => void) | null = null;
+
+  const close = (): void => {
+    if (!isElement(elements.modal)) {
+      return;
+    }
+    elements.modal.classList.add('hidden');
+    applyCallback = null;
+    cancelCallback = null;
+  };
+
+  return {
+    apply(): void {
+      if (applyCallback) {
+        applyCallback();
+      }
+      close();
+    },
+    cancel(): void {
+      if (cancelCallback) {
+        cancelCallback();
+      }
+      close();
+    },
+    close,
+    open(title: string, body: string, onApply: () => void, onCancel?: () => void): void {
+      if (!isElement(elements.modal)) {
+        return;
+      }
+      if (isElement(elements.title)) {
+        elements.title.textContent = title;
+      }
+      if (isElement(elements.body)) {
+        elements.body.textContent = body;
+      }
+      applyCallback = onApply;
+      cancelCallback = onCancel || null;
+      elements.modal.classList.remove('hidden');
     },
   };
 }

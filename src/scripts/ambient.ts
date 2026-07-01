@@ -56,6 +56,7 @@ import {
 } from './ui/drawers';
 import {
   createOptionsModalController,
+  createPlaylistConfirmModalController,
   createPlaylistDescModalController,
   ensureAccordionPanel as ensureAccordionPanelView,
   expandMediaManagementWhenOptionsModalVisible,
@@ -1353,7 +1354,6 @@ const init = function (): void {
       closeSettingsDrawerForModalIfNeeded();
     },
   });
-
   function closePlaylistDescModal(restoreFocus = false): void {
     playlistDescModal.close(restoreFocus);
   }
@@ -3487,28 +3487,22 @@ const init = function (): void {
   let reorderWorkingIds: number[] = [];
   let reorderCategoryId: number | null = null;
   let playlistSortable: { destroy(): void } | null = null;
-  let _playlistConfirmApplyCallback: (() => void) | null = null;
-
+  const playlistConfirmModal = createPlaylistConfirmModalController({
+    modal: $MODAL_PLAYLIST_CONFIRM,
+    title: $MODAL_PLAYLIST_CONFIRM_TITLE,
+    body: $MODAL_PLAYLIST_CONFIRM_BODY,
+  });
   function openPlaylistConfirmModal(title: string, body: string, onApply: () => void): void {
-    if (!$MODAL_PLAYLIST_CONFIRM) return;
-    if ($MODAL_PLAYLIST_CONFIRM_TITLE) $MODAL_PLAYLIST_CONFIRM_TITLE.textContent = title;
-    if ($MODAL_PLAYLIST_CONFIRM_BODY) $MODAL_PLAYLIST_CONFIRM_BODY.textContent = body;
-    _playlistConfirmApplyCallback = onApply;
-    $MODAL_PLAYLIST_CONFIRM.classList.remove('hidden');
-  }
-
-  function closePlaylistConfirmModal(): void {
-    if (!$MODAL_PLAYLIST_CONFIRM) return;
-    $MODAL_PLAYLIST_CONFIRM.classList.add('hidden');
-    _playlistConfirmApplyCallback = null;
+    playlistConfirmModal.open(title, body, onApply, () => {
+      if (playlistMode === 'reorder') {
+        reorderWorkingIds = [...reorderInitialIds];
+        updatePlaylist();
+      }
+    });
   }
 
   function cancelPlaylistConfirmModal(): void {
-    if (playlistMode === 'reorder') {
-      reorderWorkingIds = [...reorderInitialIds];
-      updatePlaylist();
-    }
-    closePlaylistConfirmModal();
+    playlistConfirmModal.cancel();
   }
 
   async function persistCurrentPlaylistMutation(): Promise<{ ok: boolean; message: string }> {
@@ -3659,8 +3653,7 @@ const init = function (): void {
 
   if ($BTN_PLAYLIST_CONFIRM_APPLY) {
     $BTN_PLAYLIST_CONFIRM_APPLY.addEventListener('click', () => {
-      if (_playlistConfirmApplyCallback) _playlistConfirmApplyCallback();
-      closePlaylistConfirmModal();
+      playlistConfirmModal.apply();
     });
   }
 
@@ -3677,7 +3670,7 @@ const init = function (): void {
         target.parentElement === $MODAL_PLAYLIST_CONFIRM &&
         target.getAttribute('aria-hidden') === 'true';
       if (target === $MODAL_PLAYLIST_CONFIRM || isBackdrop) {
-        cancelPlaylistConfirmModal();
+        playlistConfirmModal.cancel();
       }
     });
   }
