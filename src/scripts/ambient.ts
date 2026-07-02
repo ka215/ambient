@@ -88,6 +88,7 @@ import {
   syncRangeProgress as syncRangeProgressView,
   updateCategoryView,
 } from './ui/forms/management-forms';
+import { bindMediaManagementForm } from './ui/forms/media-management';
 import { createPlaylistLoadGuard } from './domain/playlist-loader';
 import {
   ensureCloudMyPlaylistSeed as domainEnsureCloudMyPlaylistSeed,
@@ -6324,6 +6325,7 @@ const init = function (): void {
       elements: $MEDIA_MANAGE_ELMS,
       addType: AMP_STATUS.addtype,
       syncMediaVolumeField,
+      setValidated,
     });
   }
 
@@ -6614,301 +6616,51 @@ const init = function (): void {
   }
 
   if ($MEDIA_MANAGE_FORM) {
-    $MEDIA_MANAGE_ELMS.forEach((elm: HTMLElement) => {
-      const $MEDIA_URL_FIELD   = document.getElementById('media-management-field-media-url');
-      const $MEDIA_FILES_FIELD = document.getElementById('media-management-field-media-files');
-      const $INPUT_VIDEOID     = document.getElementById('youtube-videoid') as HTMLInputElement | null;
-      const $INPUT_FILEPATH    = document.getElementById('local-media-filepath') as HTMLInputElement | null;
-      const $INPUT_MEDIA_TITLE = document.getElementById('media-title') as HTMLInputElement | null;
-      const $LOCAL_MEDIA_PICKER = document.getElementById('btn-local-media-file-picker') as HTMLButtonElement | null;
-      const $LOCAL_MEDIA_FILE_NAME = document.getElementById('local-media-file-name') as HTMLElement | null;
-      const $LOCAL_MEDIA_DROPZONE = document.getElementById('local-media-dropzone') as HTMLElement | null;
-      const elmName = (elm as HTMLInputElement).name;
-
-      switch (elmName) {
-        case 'media_type':
-          elm.addEventListener('click', (evt: Event) => {
-            const target = evt.target as HTMLInputElement;
-            const prevType = AMP_STATUS.addtype ?? null;
-            if (target.value === 'youtube') {
-              if ($MEDIA_URL_FIELD)   toggleClass($MEDIA_URL_FIELD,   { hidden: false });
-              if ($MEDIA_FILES_FIELD) toggleClass($MEDIA_FILES_FIELD, { hidden: true  });
-            } else {
-              if ($MEDIA_URL_FIELD)   toggleClass($MEDIA_URL_FIELD,   { hidden: true  });
-              if ($MEDIA_FILES_FIELD) toggleClass($MEDIA_FILES_FIELD, { hidden: false });
-            }
-            AMP_STATUS.addtype = target.value;
-            if (prevType !== target.value) {
-              resetMediaManageForm();
-            }
-          });
-          break;
-        case 'youtube_url':
-          elm.addEventListener('input', (evt: Event) => {
-            const target = evt.target as HTMLInputElement;
-            const value = target.value;
-            const minLength = 'youtube.com/watch?v=.'.length;
-            if (value.length < minLength) {
-              setValidated(elm, null);
-              if ($INPUT_VIDEOID) $INPUT_VIDEOID.value = '';
-              return;
-            }
-            try {
-              // Accept URLs with or without subdomain (www, music, etc.)
-              // and with or without https:// prefix.
-              if (!/^(https?:\/\/|)([a-z0-9-]+\.)?youtube\.com/.test(value)) {
-                throw new Error('Invalid URL.');
-              }
-              // Normalize to absolute URL for URL parsing
-              const normalizedValue = /^https?:\/\//.test(value)
-                ? value
-                : 'https://' + value;
-              const url = new URL(normalizedValue);
-              const params = url.searchParams;
-              const videoid = params.get('v');
-              if (!url.hostname.endsWith('youtube.com') || videoid === null || videoid === '') {
-                throw new Error('Invalid URL.');
-              } else {
-                if (/^https?:\/\//.test(value)) {
-                  target.value = url.hostname + url.pathname + '?v=' + videoid;
-                }
-                setValidated(elm, true);
-                if ($INPUT_VIDEOID) $INPUT_VIDEOID.value = videoid;
-              }
-            } catch (err) {
-              logger('error', err, 'force');
-              setValidated(elm, false);
-            }
-          });
-          break;
-        case 'local_media_file':
-          {
-          const $LOCAL_MEDIA_INPUT = elm as HTMLInputElement;
-
-          const clearLocalMediaFile = (): void => {
-            if ($LOCAL_MEDIA_FILE_NAME) {
-              $LOCAL_MEDIA_FILE_NAME.textContent = $LOCAL_MEDIA_INPUT.dataset['labelEmpty'] || 'No file selected';
-            }
-            if ($LOCAL_MEDIA_DROPZONE) {
-              setFileDropzoneState($LOCAL_MEDIA_DROPZONE, { dragover: false, invalid: false });
-            }
-            if ($INPUT_FILEPATH) $INPUT_FILEPATH.value = '';
-            if ($INPUT_MEDIA_TITLE) $INPUT_MEDIA_TITLE.value = '';
-            setValidated(elm, null);
-            if ($INPUT_MEDIA_TITLE) setValidated($INPUT_MEDIA_TITLE, null);
-          };
-
-          const applyLocalMediaFile = async (file: File | null): Promise<void> => {
-            if (!file || file.size <= 0) {
-              clearLocalMediaFile();
-              return;
-            }
-            if ($LOCAL_MEDIA_FILE_NAME) {
-              $LOCAL_MEDIA_FILE_NAME.textContent = file.name;
-            }
-            const mediaFileLooksValid = isLikelyMediaFile(file);
-            const pathIsValid = mediaFileLooksValid ? await getRelativeFilepath(file.name) : false;
-            setValidated(elm, mediaFileLooksValid && pathIsValid);
-            if ($LOCAL_MEDIA_DROPZONE) {
-              setFileDropzoneState($LOCAL_MEDIA_DROPZONE, { dragover: false, invalid: !(mediaFileLooksValid && pathIsValid) });
-            }
-            if ($INPUT_MEDIA_TITLE) {
-              $INPUT_MEDIA_TITLE.value = mediaFileLooksValid && pathIsValid ? basename(file.name) : '';
-              $LOCAL_MEDIA_INPUT.blur();
-              $INPUT_MEDIA_TITLE.dispatchEvent(new Event('change'));
-            }
-          };
-
-          bindFileDropzone({
-            input: $LOCAL_MEDIA_INPUT,
-            picker: $LOCAL_MEDIA_PICKER,
-            fileName: $LOCAL_MEDIA_FILE_NAME,
-            dropzone: $LOCAL_MEDIA_DROPZONE,
-            dropLabelFallback: 'Drop media file here',
-            onApplyFile: async (file: File | null): Promise<void> => {
-              logger('local_file:', $LOCAL_MEDIA_INPUT.files, [$LOCAL_MEDIA_INPUT]);
-              await applyLocalMediaFile(file);
-            },
-          });
-          }
-          break;
-        case 'media_filepath':
-          elm.addEventListener('change', (evt: Event) => {
-            (evt.target as HTMLElement).focus();
-          });
-          break;
-        case 'category':
-          elm.addEventListener('change', (evt: Event) => {
-            const target = evt.target as HTMLSelectElement;
-            setValidated(elm, target.value !== '');
-          });
-          break;
-        case 'category_new_name':
-          elm.addEventListener('input', (evt: Event) => {
-            const target = evt.target as HTMLInputElement;
-            target.value = sanitizeMediaText(target.value, MEDIA_TITLE_MAX_LENGTH);
-            const isEmpty = target.value.trim() === '';
-            if (isEmpty) {
-              setValidated(elm, null);
-            } else {
-              setValidated(elm, true);
-            }
-          });
-          elm.addEventListener('change', (evt: Event) => {
-            const target = evt.target as HTMLInputElement;
-            target.value = sanitizeMediaText(target.value, MEDIA_TITLE_MAX_LENGTH);
-            setValidated(elm, target.value.trim() !== '');
-          });
-          break;
-        case 'title':
-          elm.addEventListener('input', (evt: Event) => {
-            const target = evt.target as HTMLInputElement;
-            target.value = sanitizeMediaTextInput(target.value, MEDIA_TITLE_MAX_LENGTH);
-            const value = target.value.trim();
-            setValidated(elm, value === '' ? null : true);
-          });
-          elm.addEventListener('change', (evt: Event) => {
-            const target = evt.target as HTMLInputElement;
-            target.value = sanitizeMediaText(target.value, MEDIA_TITLE_MAX_LENGTH);
-            setValidated(elm, target.value.trim() !== '');
-          });
-          break;
-        case 'artist':
-          elm.addEventListener('input', (evt: Event) => {
-            const target = evt.target as HTMLInputElement;
-            target.value = sanitizeMediaTextInput(target.value, MEDIA_ARTIST_MAX_LENGTH);
-          });
-          elm.addEventListener('change', (evt: Event) => {
-            const target = evt.target as HTMLInputElement;
-            target.value = sanitizeMediaText(target.value, MEDIA_ARTIST_MAX_LENGTH);
-          });
-          break;
-        case 'desc':
-          elm.addEventListener('input', (evt: Event) => {
-            const target = evt.target as HTMLInputElement;
-            target.value = sanitizeMediaDescInputLive(target.value, MEDIA_DESC_MAX_LENGTH);
-          });
-          elm.addEventListener('change', (evt: Event) => {
-            const target = evt.target as HTMLInputElement;
-            target.value = sanitizeMediaDescInput(target.value, MEDIA_DESC_MAX_LENGTH);
-          });
-          break;
-        case 'volume':
-          elm.addEventListener('input', (evt: Event) => {
-            const target = evt.target as HTMLInputElement;
-            const currentVolume = normalizeVolume(target.value, getDefaultVolume());
-            target.value = String(currentVolume);
-            syncRangeProgress(target);
-            const $VOLUME_VALUE = document.getElementById('default-media-volume');
-            if ($VOLUME_VALUE) $VOLUME_VALUE.textContent = String(currentVolume);
-          });
-          break;
-        case 'start':
-        case 'end':
-          elm.addEventListener('input', (evt: Event) => {
-            if ((evt.target as HTMLInputElement).value === '') {
-              setValidated(elm, null);
-            }
-          });
-          elm.addEventListener('change', (evt: Event) => {
-            const value = (evt.target as HTMLInputElement).value;
-            if (value === '') {
-              setValidated(elm, null);
-            } else {
-              const isValid = /^\d+$/.test(value) ||
-                (value.indexOf(':') > 0 && /^(\d+:)?([0-5]?[0-9]:)?[0-5]?[0-9]$/.test(value));
-              logger(value, isValid);
-              setValidated(elm, isValid);
-            }
-          });
-          break;
-        case 'fadein':
-        case 'fadeout':
-          break;
-        case 'add_media':
-          elm.addEventListener('click', async (_evt: Event) => {
-            if (!$MEDIA_MANAGE_FORM) return;
-            if (!canMutateCurrentPlaylist()) {
-              applyCloudEditRestrictions();
-              updateNotice({
-                type: 'error',
-                message: (elm as HTMLElement).dataset['messageFailure'] || '',
-                delay: 2400,
-              });
-              return;
-            }
-            const formData = new FormData($MEDIA_MANAGE_FORM);
-            const categoryField = $MEDIA_CATEGORY_SELECT.classList.contains('hidden')
-              ? 'media-category-new'
-              : 'media-category';
-            const preferredCategoryValue = String(formData.get(categoryField) || '').trim();
-            const result = addMediaData(Array.from(formData.entries()) as [string, string][]);
-            logger(result, AMP_STATUS.media);
-            let persisted = true;
-            updatePlaylist();
-            resetMediaManageForm();
-            // Refresh category select/input after adding media (new categories may have been created)
-            clearCategory();
-            updateCategory();
-            if (preferredCategoryValue !== '') {
-              const numericPreferredCategory = Number(preferredCategoryValue);
-              syncMediaCategoryField(Number.isNaN(numericPreferredCategory) ? null : numericPreferredCategory);
-            }
-            // Recalculate carousel sequence so next/prev works after additional items are added.
-            if (AMP_STATUS.current !== null) {
-              updatePlayStatus(AMP_STATUS.current);
-            } else if ((AMP_STATUS.media || []).length > 0) {
-              updatePlayStatus((AMP_STATUS.media || [])[0]?.amId ?? 0);
-            }
-            if (result) {
-              // Persist changes immediately for both cloud(MyPlaylist) and local JSON.
-              const persistResult = await persistMediaEditForCurrentPlaylist(AMP_STATUS.media || []);
-              persisted = persistResult.ok;
-              if (persisted) {
-                hideOptionsModal();
-              }
-            }
-            updateNotice({
-              type: result && persisted ? 'success' : 'error',
-              message: result && persisted
-                ? (elm as HTMLElement).dataset['messageSuccess'] || ''
-                : (elm as HTMLElement).dataset['messageFailure'] || '',
-              delay: 2400,
-            });
-          });
-          break;
-        default:
-          logger('Event undefined element:', elmName, elm);
-          break;
-      }
+    bindMediaManagementForm({
+      form: $MEDIA_MANAGE_FORM,
+      elements: $MEDIA_MANAGE_ELMS,
+      mediaCategorySelect: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
+      mediaTitleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+      mediaArtistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+      mediaDescMaxLength: MEDIA_DESC_MAX_LENGTH,
+      getDefaultVolume,
+      normalizeVolume,
+      resetMediaManagementForm: resetMediaManageForm,
+      canMutateCurrentPlaylist,
+      applyCloudEditRestrictions,
+      updateNotice,
+      addMediaData,
+      updatePlaylist,
+      clearCategory,
+      updateCategory,
+      syncMediaCategoryField,
+      syncPlaybackAfterMediaAdd: (): void => {
+        if (AMP_STATUS.current !== null) {
+          updatePlayStatus(AMP_STATUS.current);
+        } else if ((AMP_STATUS.media || []).length > 0) {
+          updatePlayStatus((AMP_STATUS.media || [])[0]?.amId ?? 0);
+        }
+      },
+      persistMediaEditForCurrentPlaylist: async (workingMedia: unknown[]) => {
+        return persistMediaEditForCurrentPlaylist(workingMedia as MediaItem[]);
+      },
+      hideOptionsModal,
+      setValidated,
+      sanitizeMediaText,
+      sanitizeMediaTextInput,
+      sanitizeMediaDescInput,
+      sanitizeMediaDescInputLive,
+      basename,
+      isLikelyMediaFile,
+      getRelativeFilepath,
+      syncRangeProgress,
+      logger,
+      getMediaItems: () => AMP_STATUS.media || [],
+      getAddType: () => AMP_STATUS.addtype,
+      setAddType: (nextType: string) => {
+        AMP_STATUS.addtype = nextType;
+      },
     });
-
-    watcher($MEDIA_MANAGE_FORM, (mutation: MutationRecord) => {
-      if (mutation.type === 'attributes' && mutation.attributeName === 'data-validate') {
-        if (!$MEDIA_MANAGE_FORM) return;
-        const formData = new FormData($MEDIA_MANAGE_FORM);
-        const mediaType = formData.get('media_type') as string;
-        const valid_items: string[] = [];
-        if (getAtts(mutation.target as HTMLElement, 'data-validate')) {
-          $MEDIA_MANAGE_ELMS.forEach((elm: HTMLElement) => {
-            if (getAtts(elm, 'data-validate')) valid_items.push(elm.id);
-          });
-        }
-        const $BUTTON_ADD_MEDIA = document.getElementById('btn-add-media');
-        if (!canMutateCurrentPlaylist()) {
-          if ($BUTTON_ADD_MEDIA) setAtts($BUTTON_ADD_MEDIA, { disabled: '' }, false);
-          applyCloudEditRestrictions();
-          return;
-        }
-        const categoryField = $MEDIA_CATEGORY_SELECT.classList.contains('hidden')
-          ? 'media-category-new'
-          : 'media-category';
-        const contains = [mediaType === 'youtube' ? 'youtube-url' : 'local-media-file', categoryField, 'media-title'];
-        const isContainAll = inArray(contains, valid_items, false);
-        logger(`Check valid items for "${mediaType}":`, valid_items, contains, isContainAll);
-        if ($BUTTON_ADD_MEDIA) setAtts($BUTTON_ADD_MEDIA, { disabled: '' }, isContainAll);
-      }
-    }, { childList: true, attributes: true, subtree: true });
   }
 
   if ($PLAYLIST_MANAGE_FORM) {

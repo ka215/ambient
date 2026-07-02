@@ -35,6 +35,7 @@ export interface ResetMediaManagementFormOptions {
   elements: HTMLElement[];
   addType: string | null | undefined;
   syncMediaVolumeField(): void;
+  setValidated(targetElement: HTMLElement, result?: boolean | null): void;
 }
 
 export interface ResetPlaylistManagementFormOptions {
@@ -210,7 +211,7 @@ export function updateCategoryView(options: UpdateCategoryViewOptions): void {
 }
 
 export function resetMediaManagementForm(options: ResetMediaManagementFormOptions): void {
-  const { form, elements, addType, syncMediaVolumeField } = options;
+  const { form, elements, addType, syncMediaVolumeField, setValidated } = options;
   if (!form) {
     return;
   }
@@ -232,6 +233,7 @@ export function resetMediaManagementForm(options: ResetMediaManagementFormOption
           input.checked = input.value === (addType || 'youtube');
           break;
         case 'file':
+          input.value = '';
           eventName = 'change';
           break;
         default:
@@ -244,12 +246,17 @@ export function resetMediaManagementForm(options: ResetMediaManagementFormOption
       eventName = 'change';
     }
     dispatchFieldEvent(child, eventName);
+    if (child.id && child.hasAttribute('data-validate')) {
+      setValidated(child, null);
+    }
   });
 
   if (localMediaFileName && localMediaFileInput) {
     localMediaFileName.textContent = localMediaFileInput.dataset['labelEmpty'] || 'No file selected';
   }
   setFileDropzoneState(localMediaDropzone, { dragover: false, invalid: false });
+  const addMediaButton = document.getElementById('btn-add-media') as HTMLButtonElement | null;
+  addMediaButton?.setAttribute('disabled', '');
   syncMediaVolumeField();
 }
 

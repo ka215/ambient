@@ -358,14 +358,45 @@ trait api {
         $this->find_playlist();
 
         if ( !array_key_exists( $playlist_file, $this->playlists ) ) {
-            $this->api_response = [
-                'state' => 'error',
-                'code'  => 404,
-                'data'  => [
-                    'message' => $this->__( 'Specified playlist could not be found.' ),
-                ],
-            ];
-            return;
+            $can_create_local_playlist =
+                $this->is_local() &&
+                preg_match( '/^[A-Za-z0-9._-]+\.json$/i', $playlist_file ) === 1;
+
+            if ( !$can_create_local_playlist ) {
+                $this->api_response = [
+                    'state' => 'error',
+                    'code'  => 404,
+                    'data'  => [
+                        'message' => $this->__( 'Specified playlist could not be found.' ),
+                    ],
+                ];
+                return;
+            }
+
+            if ( !is_dir( ASSETS_DIR ) ) {
+                @mkdir( ASSETS_DIR, 0755, true );
+            }
+
+            $playlist_path = ASSETS_DIR . basename( $playlist_file );
+            $seed_data = json_encode( [ 'options' => new \stdClass() ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+            if ( $seed_data === false ) {
+                $seed_data = "{\n    \"options\": {}\n}";
+            }
+            if ( !file_exists( $playlist_path ) ) {
+                @file_put_contents( $playlist_path, $seed_data . "\n", LOCK_EX );
+            }
+            if ( !file_exists( $playlist_path ) ) {
+                $this->api_response = [
+                    'state' => 'error',
+                    'code'  => 500,
+                    'data'  => [
+                        'message' => $this->__( 'Failed to write playlist file.' ),
+                    ],
+                ];
+                return;
+            }
+
+            $this->playlists[$playlist_file] = $playlist_path;
         }
 
         $raw_input = file_get_contents( 'php://input' );
