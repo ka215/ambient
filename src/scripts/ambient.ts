@@ -86,6 +86,14 @@ import {
   updateMediaCaptionView,
 } from './ui/player/player-shell';
 import {
+  buildYouTubePlayerOptions,
+  resolveInitialPlaybackState,
+} from './ui/player/player-config';
+import {
+  resolveLoopAwareNextId,
+  resolveNextPlaybackTarget,
+} from './ui/player/player-runtime';
+import {
   mountPlayerElement,
   resetWatchOriginState,
   showHtmlPlayerWrapper,
@@ -5433,36 +5441,21 @@ const init = function (): void {
       hideYouTubePlayerWrapper($EMBED_WRAPPER);
       setWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER, null);
 
-      let nextId = 0;
-      if (AMP_STATUS.loop) {
-        nextId = AMP_STATUS.current || 0;
-      } else {
-        nextId = AMP_STATUS.next || 0;
-      }
+      const playbackTarget = resolveNextPlaybackTarget(
+        AMP_STATUS.media || [],
+        resolveLoopAwareNextId(AMP_STATUS.current, AMP_STATUS.next, Boolean(AMP_STATUS.loop))
+      );
+      if (!playbackTarget) return;
 
-      const mediaData = (AMP_STATUS.media || [])
-        .filter((item: MediaItem) => item.amId === nextId)
-        .shift();
-
-      if (!mediaData) return;
-
-      let mediaSrc: string | null = null;
-      let playerType: string | null = null;
-
-      if (mediaData.hasOwnProperty('file') && mediaData.file !== '') {
-        mediaSrc = mediaData.file ?? null;
-        playerType = 'html';
+      if (playbackTarget.playerType === 'html') {
         event.target.destroy?.();
       }
-
-      if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== '') {
-        mediaSrc = mediaData.videoid ?? null;
-        playerType = 'youtube';
+      if (playbackTarget.playerType === 'youtube') {
         event.target.g?.remove();
       }
 
-      updatePlayStatus(nextId);
-      setupPlayer(playerType, mediaSrc, mediaData);
+      updatePlayStatus(playbackTarget.nextId);
+      setupPlayer(playbackTarget.playerType, playbackTarget.mediaSrc, playbackTarget.mediaData);
     }
 
     if (event.data === YT_PAUSED) {
@@ -5517,34 +5510,20 @@ const init = function (): void {
     hideYouTubePlayerWrapper($EMBED_WRAPPER);
     setWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER, null);
 
-    const nextId = AMP_STATUS.next;
-    if (nextId === null) return;
+    const playbackTarget = resolveNextPlaybackTarget(AMP_STATUS.media || [], AMP_STATUS.next);
+    if (!playbackTarget) return;
 
-    const mediaData = (AMP_STATUS.media || [])
-      .filter((item: MediaItem) => item.amId === nextId)
-      .shift();
-
-    if (!mediaData) return;
-
-    let mediaSrc: string | null = null;
-    let playerType: string | null = null;
-
-    if (mediaData.hasOwnProperty('file') && mediaData.file !== '') {
-      mediaSrc = mediaData.file ?? null;
-      playerType = 'html';
+    if (playbackTarget.playerType === 'html') {
       event.target.destroy?.();
     }
-
-    if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== '') {
-      mediaSrc = mediaData.videoid ?? null;
-      playerType = 'youtube';
+    if (playbackTarget.playerType === 'youtube') {
       event.target.g?.remove();
       logger('error', 'onYTPlayerError:', event, 'force');
     }
 
     abortPlaybackTimers();
-    updatePlayStatus(nextId);
-    setupPlayer(playerType, mediaSrc, mediaData);
+    updatePlayStatus(playbackTarget.nextId);
+    setupPlayer(playbackTarget.playerType, playbackTarget.mediaSrc, playbackTarget.mediaData);
   }
 
   /**
@@ -5553,65 +5532,25 @@ const init = function (): void {
   function createYTPlayer(mediaData: MediaItem): void {
     emitYouTubeSignal('player_creating');
     createYouTubePlayerHost({ embedWrapper: $EMBED_WRAPPER, playerId: 'ytplayer' });
-
-    const playerOptions: any = {
-      autoplay: 1,
-      controls: 1,
-      fs: 0,
-      cc_load_policy: 0,
-      rel: 0,
-    };
-
-    if (getOption('autoplay')) {
-      playerOptions.autoplay = Number(getOption('autoplay'));
-    }
-    if (getOption('controls')) {
-      playerOptions.controls = Number(getOption('controls'));
-    }
-    if (mediaData.hasOwnProperty('controls') && mediaData.controls !== '') {
-      // Add since v1.2.0
-      playerOptions.controls = Number(Boolean(mediaData.controls));
-    }
-    if (getOption('fs')) {
-      playerOptions.fs = Number(getOption('fs'));
-    }
-    if (mediaData.hasOwnProperty('fs') && mediaData.fs !== '') {
-      // Add since v1.2.0
-      playerOptions.fs = Number(Boolean(mediaData.fs));
-    }
-    if (getOption('cc_load_policy')) {
-      playerOptions.cc_load_policy = Number(getOption('cc_load_policy'));
-    }
-    if (mediaData.hasOwnProperty('cc') && mediaData.cc !== '') {
-      // Add since v1.2.0
-      playerOptions.cc_load_policy = Number(Boolean(mediaData.cc));
-    }
-    if (getOption('rel')) {
-      playerOptions.rel = Number(getOption('rel'));
-    }
-    if (getOption('seek') && mediaData.hasOwnProperty('start') && mediaData.start !== '') {
-      playerOptions.start = mediaData.start;
-    }
-    if (getOption('seek') && mediaData.hasOwnProperty('end') && mediaData.end !== '') {
-      playerOptions.end = mediaData.end;
-    }
-
-    // Add since v1.2.0, the following fader option:
-    if (getOption('fader')) {
-      AMP_STATUS.fader = Boolean(getOption('fader'));
-    } else {
-      AMP_STATUS.fader = false;
-    }
-
-    if (
-      mediaData.hasOwnProperty('volume') &&
-      mediaData.volume !== undefined &&
-      inRange(Number(mediaData.volume), 0, 100)
-    ) {
-      AMP_STATUS.volume = getPlaybackVolume(mediaData);
-    } else {
-      AMP_STATUS.volume = getDefaultVolume();
-    }
+    const playerOptions = buildYouTubePlayerOptions(mediaData, {
+      autoplay: getOption('autoplay'),
+      controls: getOption('controls'),
+      fs: getOption('fs'),
+      ccLoadPolicy: getOption('cc_load_policy'),
+      rel: getOption('rel'),
+      seekEnabled: Boolean(getOption('seek')),
+      faderEnabled: Boolean(getOption('fader')),
+    });
+    const initialPlaybackState = resolveInitialPlaybackState(mediaData, {
+      faderEnabled: Boolean(getOption('fader')),
+      fallbackVolume: getDefaultVolume(),
+      volumeInRange: (value: number) => inRange(value, 0, 100),
+      getPlaybackVolume,
+      normalizeVolume,
+      seekEnabled: Boolean(getOption('seek')),
+    });
+    AMP_STATUS.fader = initialPlaybackState.faderEnabled;
+    AMP_STATUS.volume = initialPlaybackState.volume;
 
     const adjustSize = getPlayerSizeForCurrentMode();
 
@@ -5645,32 +5584,19 @@ const init = function (): void {
       ? createAudioPlayerView(playerViewOptions)
       : createVideoPlayerView(playerViewOptions);
     let hasReportedLoadIssue = false;
-
-    // Add since v1.2.0, the following fader option:
-    if (getOption('fader')) {
-      AMP_STATUS.fader = Boolean(getOption('fader'));
-    } else {
-      AMP_STATUS.fader = false;
-    }
-
-    if (
-      mediaData.hasOwnProperty('volume') &&
-      mediaData.volume !== undefined &&
-      inRange(Number(mediaData.volume), 0, 100)
-    ) {
-      AMP_STATUS.volume = getPlaybackVolume(mediaData);
-    } else {
-      AMP_STATUS.volume = getDefaultVolume();
-    }
-
-    if (AMP_STATUS.fader && mediaData.hasOwnProperty('fadein') && mediaData.fadein !== '') {
-      playerElm.volume = 0;
-    } else {
-      playerElm.volume = normalizeVolume(AMP_STATUS.volume, getDefaultVolume()) / 100;
-    }
-
-    if (getOption('seek') && mediaData.hasOwnProperty('start') && mediaData.start !== '') {
-      playerElm.currentTime = Number(mediaData.start);
+    const initialPlaybackState = resolveInitialPlaybackState(mediaData, {
+      faderEnabled: Boolean(getOption('fader')),
+      fallbackVolume: getDefaultVolume(),
+      volumeInRange: (value: number) => inRange(value, 0, 100),
+      getPlaybackVolume,
+      normalizeVolume,
+      seekEnabled: Boolean(getOption('seek')),
+    });
+    AMP_STATUS.fader = initialPlaybackState.faderEnabled;
+    AMP_STATUS.volume = initialPlaybackState.volume;
+    playerElm.volume = initialPlaybackState.elementVolume;
+    if (initialPlaybackState.startTime !== null) {
+      playerElm.currentTime = initialPlaybackState.startTime;
     }
 
     const reportHtmlMediaLoadIssue = (
@@ -5746,37 +5672,17 @@ const init = function (): void {
       abortPlaybackTimers();
       $EMBED_WRAPPER.classList.remove('max-w-2xl', 'w-max', 'h-max', 'border-0');
 
-      // add since v1.2.2
-      let nextId = 0;
-      if (AMP_STATUS.loop) {
-        nextId = AMP_STATUS.current || 0;
-      } else {
-        nextId = AMP_STATUS.next || 0;
-        logger('ended:', AMP_STATUS, nextId);
-      }
+      const resolvedNextId = resolveLoopAwareNextId(AMP_STATUS.current, AMP_STATUS.next, Boolean(AMP_STATUS.loop));
+      logger('ended:', AMP_STATUS, resolvedNextId);
+      const playbackTarget = resolveNextPlaybackTarget(AMP_STATUS.media || [], resolvedNextId);
+      if (!playbackTarget) return;
 
-      const mediaData = (AMP_STATUS.media || [])
-        .filter((item: MediaItem) => item.amId === nextId)
-        .shift();
-
-      if (!mediaData) return;
-
-      let mediaSrc: string | null = null;
-      let playerType: string | null = null;
-
-      if (mediaData.hasOwnProperty('file') && mediaData.file !== '') {
-        mediaSrc = mediaData.file ?? null;
-        playerType = 'html';
-      }
-
-      if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== '') {
-        mediaSrc = mediaData.videoid ?? null;
-        playerType = 'youtube';
+      if (playbackTarget.playerType === 'youtube') {
         playerElm.remove();
       }
 
-      updatePlayStatus(nextId);
-      setupPlayer(playerType, mediaSrc, mediaData);
+      updatePlayStatus(playbackTarget.nextId);
+      setupPlayer(playbackTarget.playerType, playbackTarget.mediaSrc, playbackTarget.mediaData);
     });
 
     playerElm.addEventListener('error', (evt: Event) => {
