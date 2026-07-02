@@ -63,11 +63,12 @@ import {
   openPlaylistManagementCategoryCreate as openPlaylistManagementCategoryCreateView,
 } from './ui/modals';
 import {
-  buildDefaultPlaylistLabel,
+  createPlaylistItemElement,
   closePlaylistModeMenu as closePlaylistModeMenuView,
-  createPlaylistMaskIcon,
+  createPlaylistQuickAddElement,
   PlaylistMode,
   readPlaylistItemIdsFromDom,
+  syncPlaylistEmptyState,
   syncPlaylistModeAvailabilityButton,
   syncPlaylistModeButton as syncPlaylistModeButtonView,
   syncDeleteSelectionIndicator as syncDeleteSelectionIndicatorView,
@@ -4301,29 +4302,22 @@ const init = function (): void {
     closePlaylistDescModal(false);
     clearPlaylist();
     const $LIST_NO_MEDIA = document.getElementById('no-media') as HTMLElement;
-    let is_no_media =
-      AMP_STATUS.media && AMP_STATUS.media.length === 0;
     let items: MediaItem[] = [];
     if (!AMP_STATUS.hasOwnProperty('ctg') || AMP_STATUS.ctg === null || Number(AMP_STATUS.ctg) === -1) {
       items = AMP_STATUS.media || [];
     } else {
       items = (AMP_STATUS.media || []).filter((item: MediaItem) => item.catId === AMP_STATUS.ctg);
     }
-    is_no_media = items.length === 0;
+    const isNoMedia = items.length === 0;
     syncPlaylistModeAvailability(items.length);
 
     // Enable playlist download
     const $BUTTON_DOWNLOAD_PLAYLIST = document.getElementById('btn-download-playlist') as HTMLButtonElement;
     setAtts($BUTTON_DOWNLOAD_PLAYLIST, { disabled: '' }, true);
 
-    if (is_no_media) {
-      // no playable media
-      $LIST_NO_MEDIA.classList.remove('hidden');
-      // close mode menu so it doesn't overlap the "Register media" button
-      closePlaylistModeMenu();
+    syncPlaylistEmptyState($LIST_NO_MEDIA, isNoMedia, () => closePlaylistModeMenu());
+    if (isNoMedia) {
       return;
-    } else {
-      $LIST_NO_MEDIA.classList.add('hidden');
     }
 
     if (playlistMode === 'reorder' && !canUseReorderMode()) {
@@ -4343,89 +4337,20 @@ const init = function (): void {
     }
 
     items.forEach((item: MediaItem) => {
-      const itemElm = document.createElement('a');
-      itemElm.href = '#';
-      itemElm.draggable = false;
-      if (AMP_STATUS.current && AMP_STATUS.current !== null && AMP_STATUS.current === item.amId) {
-        itemElm.setAttribute('aria-current', 'true');
-        itemElm.setAttribute('class', 'flex items-center gap-2 w-full min-w-0 px-4 py-2 text-white bg-blue-500 border-b border-gray-200 cursor-pointer dark:bg-gray-800 dark:border-gray-600');
-      } else {
-        itemElm.setAttribute('class', 'flex items-center gap-2 w-full min-w-0 px-4 py-2 border-b border-gray-200 cursor-pointer hover:bg-gray-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-500 dark:focus:text-white');
-      }
-      if (playlistMode === 'reorder') {
-        itemElm.classList.remove('cursor-pointer');
-        itemElm.classList.add('cursor-grab', 'active:cursor-grabbing', 'select-none');
-      }
-      itemElm.setAttribute('data-playlist-item', String(item.amId));
-      itemElm.setAttribute('data-id', String(item.amId));
-
-      let imageSrc = getNoMediaImagePath('thumb');
-      if ((item.image && item.image !== '') || (item.thumb && item.thumb !== '')) {
-        const ambientData = (window as any).AmbientData as AmbientData;
-        if (ambientData && ambientData.imageDir) {
-          imageSrc = ambientData.imageDir + (item.thumb && item.thumb !== '' ? item.thumb : item.image);
-        }
-      } else if (item.videoid && item.videoid !== '') {
-        imageSrc = getYoutubeThumbnailURL(item.videoid);
-      }
-
-      // Set thumbnail image.
-      const imgElm = document.createElement('img');
-      imgElm.setAttribute('src', imageSrc);
-      imgElm.draggable = false;
-      imgElm.classList.add('block', 'h-8', 'w-8', 'rounded', 'object-cover');
-      imgElm.setAttribute('alt', mb_strimwidth(item.title, 0, 50, '...'));
-      itemElm.appendChild(imgElm);
-
-      // Delete mode: prepend checkbox indicator
-      if (playlistMode === 'delete') {
-        const isSelected = deleteSelectedIds.has(item.amId);
-        const chkElm = document.createElement('span');
-        chkElm.setAttribute('data-delete-selector', '');
-        chkElm.setAttribute('aria-hidden', 'true');
-        chkElm.className = isSelected
-          ? 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-red-500 bg-red-500'
-          : 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 dark:border-gray-500';
-        if (isSelected) {
-          chkElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--check'));
-        }
-        itemElm.prepend(chkElm);
-      } else if (playlistMode === 'reorder') {
-        const handleElm = document.createElement('span');
-        handleElm.setAttribute('aria-hidden', 'true');
-        handleElm.className = 'playlist-reorder-handle flex-shrink-0 order-first inline-flex items-center justify-center w-5 h-5 text-gray-400 cursor-grab active:cursor-grabbing dark:text-gray-500';
-        handleElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--reorder'));
-        itemElm.prepend(handleElm);
-      } else if (playlistMode === 'edit') {
-        const gutterElm = document.createElement('span');
-        const isSelectedEditTarget = mediaEditActiveItem?.amId === item.amId;
-        gutterElm.setAttribute('aria-hidden', 'true');
-        gutterElm.className = isSelectedEditTarget
-          ? 'playlist-edit-gutter is-selected order-first'
-          : 'playlist-edit-gutter order-first';
-        const iconElm = document.createElement('span');
-        iconElm.className = isSelectedEditTarget
-          ? 'ui-icon-mask ui-icon-mask--mode-edit-filled w-4 h-4'
-          : 'ui-icon-mask ui-icon-mask--mode-edit w-4 h-4';
-        iconElm.setAttribute('aria-hidden', 'true');
-        gutterElm.appendChild(iconElm);
-        itemElm.prepend(gutterElm);
-      }
-
-      const format = getOption('playlist');
-      if (format) {
-        const labelText = filterText(format, item);
-        const labelElm = document.createElement('span');
-        labelElm.className = 'playlist-item-label flex-1';
-        if (/<.*?[!^<].*?>/gi.test(labelText)) {
-          labelElm.innerHTML = labelText;
-        } else {
-          labelElm.textContent = labelText;
-        }
-        itemElm.appendChild(labelElm);
-      } else {
-        itemElm.appendChild(buildDefaultPlaylistLabel(item));
-      }
+      const ambientData = (window as any).AmbientData as AmbientData;
+      const itemElm = createPlaylistItemElement({
+        item,
+        isCurrent: AMP_STATUS.current !== null && AMP_STATUS.current === item.amId,
+        mode: playlistMode,
+        isDeleteSelected: deleteSelectedIds.has(item.amId),
+        isEditSelected: mediaEditActiveItem?.amId === item.amId,
+        format: getOption('playlist'),
+        imageDir: ambientData?.imageDir || null,
+        fallbackThumbPath: getNoMediaImagePath('thumb'),
+        resolveYoutubeThumbnailUrl: getYoutubeThumbnailURL,
+        trimTitle: (value: string) => mb_strimwidth(value, 0, 50, '...'),
+        formatLabel: filterText,
+      });
       $LIST_PLAYLIST.appendChild(itemElm);
     });
 
@@ -4435,28 +4360,17 @@ const init = function (): void {
     // Hidden in cloud mode for existing JSON playlists (read-only)
     // and hidden when playlist operation mode is not normal.
     if (canMutateCurrentPlaylist() && playlistMode === 'normal') {
-      const addItemElm = document.createElement('a');
-      addItemElm.href = '#';
-      addItemElm.setAttribute('id', 'btn-add-media-from-playlist');
-      addItemElm.setAttribute('class', 'flex items-center gap-2 w-full min-w-0 px-4 py-2 border-b border-gray-200 cursor-pointer hover:bg-gray-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-500 dark:focus:text-white text-blue-600 dark:text-blue-400');
-      // Thumbnail-sized icon block (centered SVG)
-      const addIconElm = document.createElement('span');
-      addIconElm.setAttribute('class', 'flex items-center justify-center h-8 w-8 rounded bg-gray-100 dark:bg-gray-600 text-blue-600 dark:text-blue-400 flex-shrink-0');
-      addIconElm.setAttribute('aria-hidden', 'true');
-      addIconElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--add'));
-      addItemElm.appendChild(addIconElm);
       const registerBtn = document.getElementById('btn-add-media-from-drawer');
       const registerText = (registerBtn?.dataset['label'] || registerBtn?.innerText || 'Register media').trim();
-      const addLabelElm = document.createElement('span');
-      addLabelElm.className = 'playlist-item-label flex-1';
-      addLabelElm.textContent = registerText;
-      addItemElm.appendChild(addLabelElm);
-      addItemElm.addEventListener('click', (evt: Event) => {
+      const addItemElm = createPlaylistQuickAddElement({
+        registerText,
+        onClick: (evt: Event) => {
         evt.preventDefault();
         const activeCatId = (AMP_STATUS.ctg !== undefined && AMP_STATUS.ctg !== null && Number(AMP_STATUS.ctg) >= 0)
           ? Number(AMP_STATUS.ctg)
           : null;
         openMediaManagement(activeCatId);
+        },
       });
       $LIST_PLAYLIST.appendChild(addItemElm);
     }

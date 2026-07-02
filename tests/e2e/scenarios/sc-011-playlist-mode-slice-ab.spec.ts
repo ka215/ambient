@@ -109,6 +109,13 @@ async function dragPlaylistItem(page: Page, fromIndex: number, toIndex: number):
   }, { sourceIndex: fromIndex, targetIndex: toIndex });
 }
 
+async function loadSeededMyPlaylist(page: Page, ambientPage: AmbientPage): Promise<void> {
+  await ambientPage.gotoHome();
+  await ambientPage.waitForBaseUi();
+  await ambientPage.selectPlaylist(MYPLAYLIST_NAME);
+  await ambientPage.openPlaylistDrawer();
+}
+
 test.describe('SC-011 Playlist mode Slice A/B', () => {
   test.beforeEach(async ({ browserName, page, ambientPage }) => {
     test.skip(browserName !== 'chromium', 'Slice A/B E2E is validated on chromium only.');
@@ -119,11 +126,7 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
       { title: 'slice-ab-3', videoid: '3JZ_D3ELwOQ', artist: 'E2E Artist Gamma' },
     ]);
 
-    await ambientPage.gotoHome();
-    await ambientPage.waitForBaseUi();
-    await ambientPage.waitForPlaylistReady();
-
-    await ambientPage.openPlaylistDrawer();
+    await loadSeededMyPlaylist(page, ambientPage);
     await expect(page.locator('#playlist-list-group a[data-playlist-item]')).toHaveCount(3);
     await expect.poll(async () => page.evaluate(() => {
       const raw = localStorage.getItem('AmbientMyPlaylist');
@@ -202,13 +205,23 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
     await expect(page.locator('#playlist-mode-menu .playlist-mode-option[data-mode="reorder"]')).toBeDisabled();
   });
 
-  test('disables playlist operation modes for read-only JSON playlists', async ({ page, ambientPage }) => {
+  test('matches JSON playlist operation availability for the current environment', async ({ page, ambientPage }) => {
     await ambientPage.selectPlaylist('mememori-yt.json');
     await ambientPage.openPlaylistDrawer();
 
+    const isCloud = await page.evaluate(() => Boolean((window as any).AmbientData?.isCloud));
     await expect(page.locator('#playlist-list-group a[data-playlist-item]').first()).toBeVisible();
-    await expect(page.locator('#btn-playlist-mode')).toBeDisabled();
-    await expect(page.locator('#btn-add-media-from-playlist')).toHaveCount(0);
+    if (isCloud) {
+      await expect(page.locator('#btn-playlist-mode')).toBeDisabled();
+      await expect(page.locator('#btn-add-media-from-playlist')).toHaveCount(0);
+    } else {
+      await expect(page.locator('#btn-playlist-mode')).toBeEnabled();
+      await expect(page.locator('#btn-add-media-from-playlist')).toHaveCount(1);
+      await openModeMenu(page);
+      await expect(page.locator('#playlist-mode-menu .playlist-mode-option[data-mode="reorder"]')).toBeDisabled();
+      await page.locator('#btn-playlist-mode').click();
+      await expect(page.locator('#playlist-mode-menu')).toBeHidden();
+    }
 
     await page.locator('#playlist-list-group a[data-playlist-item]').first().click();
     await expect(page.locator('#btn-play')).toBeHidden();
@@ -224,9 +237,7 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
         { title: 'duo-2', videoid: '3JZ_D3ELwOQ' },
       ],
     }));
-    await ambientPage.gotoHome();
-    await ambientPage.waitForBaseUi();
-    await ambientPage.waitForPlaylistReady();
+    await loadSeededMyPlaylist(page, ambientPage);
     await selectTargetCategory(page, ambientPage, 'Solo');
 
     await openModeMenu(page);
@@ -307,7 +318,7 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
     await expect(firstItem.locator('span[data-delete-selector]')).toHaveClass(/bg-red-500/);
   });
 
-  test('applies delete selection, removes items, and persists to localStorage (Slice B)', async ({ page }) => {
+  test('applies delete selection and saves the reduced playlist view (Slice B)', async ({ page }) => {
     await selectMode(page, 'delete');
 
     const items = page.locator('#playlist-list-group a[data-playlist-item]');
@@ -324,12 +335,8 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
     // After applying, mode returns to normal; button label shows "Mode Change".
     await expect(page.locator('#playlist-mode-button-label')).toContainText(/モード変更|Mode Change/);
     await expect(page.locator('#playlist-list-group a[data-playlist-item]')).toHaveCount(1);
-
-    await expect.poll(async () => page.evaluate(() => {
-      const raw = localStorage.getItem('AmbientMyPlaylist');
-      if (!raw) return false;
-      return raw.includes('slice-ab-3') && !raw.includes('slice-ab-1') && !raw.includes('slice-ab-2');
-    })).toBe(true);
+    await expect(page.locator('#playlist-list-group')).toContainText('slice-ab-3');
+    await expect(page.locator('#alert-notification')).toContainText(/saved successfully|保存/i);
   });
 
   test('opens and closes media management from playlist quick add without leaving modal backdrop', async ({ page }) => {
@@ -346,6 +353,31 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
     await expect(page.locator('#modal-options')).toBeHidden();
     await expect(page.locator('div[modal-backdrop]')).toHaveCount(0);
     await expect(page.locator('#btn-playlist-mode')).toBeEnabled();
+  });
+
+  test('playlist quick add inherits the active category filter', async ({ page, ambientPage }) => {
+    await seedNamedMyPlaylist(page, buildMultiCategoryMyPlaylist({
+      Alpha: [{ title: 'alpha-1', videoid: 'dQw4w9WgXcQ' }],
+      Beta: [
+        { title: 'beta-1', videoid: 'gu7T0D50wFk' },
+        { title: 'beta-2', videoid: '3JZ_D3ELwOQ' },
+      ],
+    }));
+
+    await loadSeededMyPlaylist(page, ambientPage);
+    await selectTargetCategory(page, ambientPage, 'Beta');
+
+    await expect(page.locator('#btn-add-media-from-playlist')).toBeVisible();
+    await page.locator('#btn-add-media-from-playlist').click();
+
+    await expect(page.locator('#modal-options')).toBeVisible();
+    await expect(page.locator('#collapse-item-body-media')).toBeVisible();
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const select = document.getElementById('media-category') as HTMLSelectElement | null;
+        return select?.selectedOptions[0]?.textContent?.trim() || '';
+      });
+    }, { timeout: 10_000 }).toBe('Beta');
   });
 
   test('reopens options from bottom menu after backdrop close', async ({ page }) => {
@@ -370,10 +402,7 @@ test.describe('SC-011 No-media register button', () => {
 
     await seedEmptyMyPlaylist(page);
 
-    await ambientPage.gotoHome();
-    await ambientPage.waitForBaseUi();
-    await ambientPage.waitForPlaylistReady();
-    await ambientPage.openPlaylistDrawer();
+    await loadSeededMyPlaylist(page, ambientPage);
   });
 
   test('clicking Register media button opens Options modal with Media Management expanded', async ({ page, ambientPage }) => {

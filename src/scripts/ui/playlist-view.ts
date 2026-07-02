@@ -2,6 +2,25 @@ import type { MediaItem } from '../types/ambient';
 
 export type PlaylistMode = 'normal' | 'edit' | 'reorder' | 'delete';
 
+export interface PlaylistItemRenderOptions {
+  item: MediaItem;
+  isCurrent: boolean;
+  mode: PlaylistMode;
+  isDeleteSelected: boolean;
+  isEditSelected: boolean;
+  format: string | null;
+  imageDir?: string | null;
+  fallbackThumbPath: string;
+  resolveYoutubeThumbnailUrl: (videoId: string) => string;
+  trimTitle: (value: string) => string;
+  formatLabel: (format: string, item: MediaItem) => string;
+}
+
+export interface PlaylistQuickAddOptions {
+  registerText: string;
+  onClick: (event: Event) => void;
+}
+
 export interface PlaylistModeUiElements {
   button: HTMLButtonElement | null;
   menu: HTMLElement | null;
@@ -178,4 +197,118 @@ export function buildDefaultPlaylistLabel(item: MediaItem): HTMLElement {
   }
 
   return wrapperElm;
+}
+
+export function syncPlaylistEmptyState(
+  noMediaElement: HTMLElement,
+  isEmpty: boolean,
+  closePlaylistModeMenu: () => void
+): void {
+  if (isEmpty) {
+    noMediaElement.classList.remove('hidden');
+    closePlaylistModeMenu();
+    return;
+  }
+
+  noMediaElement.classList.add('hidden');
+}
+
+export function createPlaylistItemElement(options: PlaylistItemRenderOptions): HTMLAnchorElement {
+  const itemElm = document.createElement('a');
+  itemElm.href = '#';
+  itemElm.draggable = false;
+  if (options.isCurrent) {
+    itemElm.setAttribute('aria-current', 'true');
+    itemElm.setAttribute('class', 'flex items-center gap-2 w-full min-w-0 px-4 py-2 text-white bg-blue-500 border-b border-gray-200 cursor-pointer dark:bg-gray-800 dark:border-gray-600');
+  } else {
+    itemElm.setAttribute('class', 'flex items-center gap-2 w-full min-w-0 px-4 py-2 border-b border-gray-200 cursor-pointer hover:bg-gray-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-500 dark:focus:text-white');
+  }
+  if (options.mode === 'reorder') {
+    itemElm.classList.remove('cursor-pointer');
+    itemElm.classList.add('cursor-grab', 'active:cursor-grabbing', 'select-none');
+  }
+  itemElm.setAttribute('data-playlist-item', String(options.item.amId));
+  itemElm.setAttribute('data-id', String(options.item.amId));
+
+  let imageSrc = options.fallbackThumbPath;
+  if ((options.item.image && options.item.image !== '') || (options.item.thumb && options.item.thumb !== '')) {
+    if (options.imageDir) {
+      imageSrc = options.imageDir + (options.item.thumb && options.item.thumb !== '' ? options.item.thumb : options.item.image);
+    }
+  } else if (options.item.videoid && options.item.videoid !== '') {
+    imageSrc = options.resolveYoutubeThumbnailUrl(options.item.videoid);
+  }
+
+  const imgElm = document.createElement('img');
+  imgElm.setAttribute('src', imageSrc);
+  imgElm.draggable = false;
+  imgElm.classList.add('block', 'h-8', 'w-8', 'rounded', 'object-cover');
+  imgElm.setAttribute('alt', options.trimTitle(options.item.title));
+  itemElm.appendChild(imgElm);
+
+  if (options.mode === 'delete') {
+    const chkElm = document.createElement('span');
+    chkElm.setAttribute('data-delete-selector', '');
+    chkElm.setAttribute('aria-hidden', 'true');
+    chkElm.className = options.isDeleteSelected
+      ? 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-red-500 bg-red-500'
+      : 'flex-shrink-0 order-first flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 dark:border-gray-500';
+    if (options.isDeleteSelected) {
+      chkElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--check'));
+    }
+    itemElm.prepend(chkElm);
+  } else if (options.mode === 'reorder') {
+    const handleElm = document.createElement('span');
+    handleElm.setAttribute('aria-hidden', 'true');
+    handleElm.className = 'playlist-reorder-handle flex-shrink-0 order-first inline-flex items-center justify-center w-5 h-5 text-gray-400 cursor-grab active:cursor-grabbing dark:text-gray-500';
+    handleElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--reorder'));
+    itemElm.prepend(handleElm);
+  } else if (options.mode === 'edit') {
+    const gutterElm = document.createElement('span');
+    gutterElm.setAttribute('aria-hidden', 'true');
+    gutterElm.className = options.isEditSelected
+      ? 'playlist-edit-gutter is-selected order-first'
+      : 'playlist-edit-gutter order-first';
+    const iconElm = document.createElement('span');
+    iconElm.className = options.isEditSelected
+      ? 'ui-icon-mask ui-icon-mask--mode-edit-filled w-4 h-4'
+      : 'ui-icon-mask ui-icon-mask--mode-edit w-4 h-4';
+    iconElm.setAttribute('aria-hidden', 'true');
+    gutterElm.appendChild(iconElm);
+    itemElm.prepend(gutterElm);
+  }
+
+  if (options.format) {
+    const labelText = options.formatLabel(options.format, options.item);
+    const labelElm = document.createElement('span');
+    labelElm.className = 'playlist-item-label flex-1';
+    if (/<.*?[!^<].*?>/gi.test(labelText)) {
+      labelElm.innerHTML = labelText;
+    } else {
+      labelElm.textContent = labelText;
+    }
+    itemElm.appendChild(labelElm);
+  } else {
+    itemElm.appendChild(buildDefaultPlaylistLabel(options.item));
+  }
+
+  return itemElm;
+}
+
+export function createPlaylistQuickAddElement(options: PlaylistQuickAddOptions): HTMLAnchorElement {
+  const addItemElm = document.createElement('a');
+  addItemElm.href = '#';
+  addItemElm.setAttribute('id', 'btn-add-media-from-playlist');
+  addItemElm.setAttribute('class', 'flex items-center gap-2 w-full min-w-0 px-4 py-2 border-b border-gray-200 cursor-pointer hover:bg-gray-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-500 dark:focus:text-white text-blue-600 dark:text-blue-400');
+  const addIconElm = document.createElement('span');
+  addIconElm.setAttribute('class', 'flex items-center justify-center h-8 w-8 rounded bg-gray-100 dark:bg-gray-600 text-blue-600 dark:text-blue-400 flex-shrink-0');
+  addIconElm.setAttribute('aria-hidden', 'true');
+  addIconElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--add'));
+  addItemElm.appendChild(addIconElm);
+  const addLabelElm = document.createElement('span');
+  addLabelElm.className = 'playlist-item-label flex-1';
+  addLabelElm.textContent = options.registerText;
+  addItemElm.appendChild(addLabelElm);
+  addItemElm.addEventListener('click', options.onClick);
+  return addItemElm;
 }
