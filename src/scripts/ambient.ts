@@ -86,6 +86,19 @@ import {
   updateMediaCaptionView,
 } from './ui/player/player-shell';
 import {
+  mountPlayerElement,
+  resetWatchOriginState,
+  showHtmlPlayerWrapper,
+} from './ui/player/html-player-view';
+import { createAudioPlayerView } from './ui/player/audio-player-view';
+import { createVideoPlayerView } from './ui/player/video-player-view';
+import {
+  createYouTubePlayerHost,
+  hideYouTubePlayerWrapper,
+  setWatchOriginState,
+  showYouTubePlayerWrapper,
+} from './ui/player/youtube-player-view';
+import {
   clearCategoryView,
   resetMediaManagementForm,
   resetPlaylistManagementForm,
@@ -5366,8 +5379,7 @@ const init = function (): void {
    */
   function onPlayerReady(event: any): void {
     emitYouTubeSignal('player_ready');
-    $EMBED_WRAPPER.classList.add('w-max', 'h-max');
-    $EMBED_WRAPPER.classList.remove('w-full', 'h-0', 'opacity-0');
+    showYouTubePlayerWrapper($EMBED_WRAPPER);
 
     const mediaData = (AMP_STATUS.media || [])
       .filter((item: MediaItem) => item.amId === AMP_STATUS.current)
@@ -5376,15 +5388,9 @@ const init = function (): void {
     if (!mediaData) return;
 
     const youtubeURL = event.target.getVideoUrl();
-    if (youtubeURL) {
-      $BUTTON_WATCH_TY.href = youtubeURL;
-    } else {
-      $BUTTON_WATCH_TY.href = 'https://www.youtube.com/watch?v=' + mediaData.videoid;
-    }
-
+    const watchUrl = youtubeURL || ('https://www.youtube.com/watch?v=' + mediaData.videoid);
     setTimeout(() => {
-      $BUTTON_WATCH_TY.removeAttribute('disabled');
-      $OPTIONAL_CONTAINER.classList.remove('hidden', 'opacity-0');
+      setWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER, watchUrl);
     }, 500);
 
     if (getOption('autoplay')) {
@@ -5424,12 +5430,8 @@ const init = function (): void {
       emitYouTubeSignal('ended');
       abortPlaybackTimers();
 
-      $EMBED_WRAPPER.classList.add('w-full', 'h-0', 'opacity-0');
-      $EMBED_WRAPPER.classList.remove('w-max', 'h-max');
-
-      $BUTTON_WATCH_TY.href = '#';
-      $BUTTON_WATCH_TY.setAttribute('disabled', '');
-      $OPTIONAL_CONTAINER.classList.add('hidden', 'opacity-0');
+      hideYouTubePlayerWrapper($EMBED_WRAPPER);
+      setWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER, null);
 
       let nextId = 0;
       if (AMP_STATUS.loop) {
@@ -5465,16 +5467,12 @@ const init = function (): void {
 
     if (event.data === YT_PAUSED) {
       emitYouTubeSignal('paused');
-      // Toggle this button shown (Pause -> Play).
-      $BUTTON_PAUSE.classList.add('hidden');
-      $BUTTON_PLAY.classList.remove('hidden');
+      showPlaybackPlayState($BUTTON_PLAY, $BUTTON_PAUSE);
     }
 
     if (event.data === YT_PLAYING) {
       emitYouTubeSignal('playing');
-      // Toggle this button shown (Play -> Pause).
-      $BUTTON_PLAY.classList.add('hidden');
-      $BUTTON_PAUSE.classList.remove('hidden');
+      showPlaybackPauseState($BUTTON_PLAY, $BUTTON_PAUSE);
 
       // Add since v1.2.0, fade-in by the fader option.
       if (AMP_STATUS.fader) {
@@ -5516,12 +5514,8 @@ const init = function (): void {
   function onPlayerError(event: any): void {
     emitYouTubeSignal('error', `yt_error_${event && event.data !== undefined ? event.data : 'unknown'}`);
     // Skip if media playback fails.
-    $EMBED_WRAPPER.classList.add('w-full', 'h-0', 'opacity-0');
-    $EMBED_WRAPPER.classList.remove('w-max', 'h-max');
-
-    $BUTTON_WATCH_TY.href = '#';
-    $BUTTON_WATCH_TY.setAttribute('disabled', '');
-    $OPTIONAL_CONTAINER.classList.add('hidden', 'opacity-0');
+    hideYouTubePlayerWrapper($EMBED_WRAPPER);
+    setWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER, null);
 
     const nextId = AMP_STATUS.next;
     if (nextId === null) return;
@@ -5558,12 +5552,7 @@ const init = function (): void {
    */
   function createYTPlayer(mediaData: MediaItem): void {
     emitYouTubeSignal('player_creating');
-    const playerElm = document.createElement('div');
-    playerElm.id = 'ytplayer';
-    while ($EMBED_WRAPPER.firstChild) {
-      $EMBED_WRAPPER.removeChild($EMBED_WRAPPER.firstChild);
-    }
-    $EMBED_WRAPPER.appendChild(playerElm);
+    createYouTubePlayerHost({ embedWrapper: $EMBED_WRAPPER, playerId: 'ytplayer' });
 
     const playerOptions: any = {
       autoplay: 1,
@@ -5644,16 +5633,18 @@ const init = function (): void {
    * Create a media playback player using HTML.
    */
   function createPlayerTag(tagname: 'audio' | 'video', mediaData: MediaItem): void {
-    const playerElm = document.createElement(tagname) as HTMLMediaElement;
-    const sourceElm = document.createElement('source');
+    const sourcePath = resolveLocalMediaSrc(mediaData.file || '');
+    const playerViewOptions = {
+      mediaData,
+      controls: String(getOption('controls') || ''),
+      autoplay: String(getOption('autoplay') || ''),
+      sourcePath,
+      sourceType: getMediaMimeType(sourcePath, tagname),
+    };
+    const { playerElement: playerElm, sourceElement: sourceElm } = tagname === 'audio'
+      ? createAudioPlayerView(playerViewOptions)
+      : createVideoPlayerView(playerViewOptions);
     let hasReportedLoadIssue = false;
-    playerElm.id = 'html-player';
-    if (tagname === 'audio') {
-      playerElm.className = 'ambient-audio-player';
-    }
-    playerElm.setAttribute('controls', String(getOption('controls') || ''));
-    playerElm.setAttribute('controlslist', 'nodownload');
-    playerElm.setAttribute('autoplay', String(getOption('autoplay') || ''));
 
     // Add since v1.2.0, the following fader option:
     if (getOption('fader')) {
@@ -5720,9 +5711,7 @@ const init = function (): void {
     });
 
     playerElm.addEventListener('playing', (_evt: Event) => {
-      // Toggle this button shown (Play -> Pause).
-      $BUTTON_PLAY.classList.add('hidden');
-      $BUTTON_PAUSE.classList.remove('hidden');
+      showPlaybackPauseState($BUTTON_PLAY, $BUTTON_PAUSE);
 
       if (AMP_STATUS.fader) {
         if (mediaData.hasOwnProperty('fadeout') && mediaData.fadeout !== '') {
@@ -5746,9 +5735,7 @@ const init = function (): void {
     });
 
     playerElm.addEventListener('pause', (_evt: Event) => {
-      // Toggle this button shown (Pause -> Play).
-      $BUTTON_PAUSE.classList.add('hidden');
-      $BUTTON_PLAY.classList.remove('hidden');
+      showPlaybackPlayState($BUTTON_PLAY, $BUTTON_PAUSE);
     });
 
     playerElm.addEventListener('volumechange', (_evt: Event) => {
@@ -5805,25 +5792,12 @@ const init = function (): void {
       }, 5000);
     });
 
-    const sourcePath = resolveLocalMediaSrc(mediaData.file || '');
-    sourceElm.src = sourcePath;
-    sourceElm.setAttribute('type', getMediaMimeType(sourcePath, tagname));
     sourceElm.addEventListener('error', (evt: Event) => {
       reportHtmlMediaLoadIssue(playerElm, mediaData, evt, 'source_error');
     });
-    playerElm.appendChild(sourceElm);
-
-    while ($EMBED_WRAPPER.firstChild) {
-      $EMBED_WRAPPER.removeChild($EMBED_WRAPPER.firstChild);
-    }
-    $EMBED_WRAPPER.appendChild(playerElm);
-
-    $EMBED_WRAPPER.classList.add('max-w-2xl', 'w-max', 'h-max', 'border-0');
-    $EMBED_WRAPPER.classList.remove('border', 'w-full', 'h-0', 'opacity-0');
-
-    $BUTTON_WATCH_TY.href = '#';
-    $BUTTON_WATCH_TY.setAttribute('disabled', '');
-    $OPTIONAL_CONTAINER.classList.add('hidden', 'opacity-0');
+    mountPlayerElement($EMBED_WRAPPER, playerElm);
+    showHtmlPlayerWrapper($EMBED_WRAPPER);
+    resetWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER);
 
     playerElm.addEventListener('loadedmetadata', (evt: Event) => {
       const self = evt.target as HTMLVideoElement;
