@@ -1,10 +1,11 @@
 import type { MediaItem } from '../../types/ambient';
+import { resolvePlaybackSource, type PlaybackSourceType } from './player-setup';
 
 export interface PlaybackTarget {
   nextId: number;
   mediaData: MediaItem;
   mediaSrc: string | null;
-  playerType: string | null;
+  playerType: PlaybackSourceType | null;
 }
 
 export function resolveNextPlaybackTarget(
@@ -20,18 +21,7 @@ export function resolveNextPlaybackTarget(
     return null;
   }
 
-  let mediaSrc: string | null = null;
-  let playerType: string | null = null;
-
-  if (mediaData.hasOwnProperty('file') && mediaData.file !== '') {
-    mediaSrc = mediaData.file ?? null;
-    playerType = 'html';
-  }
-
-  if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== '') {
-    mediaSrc = mediaData.videoid ?? null;
-    playerType = 'youtube';
-  }
+  const { src: mediaSrc, type: playerType } = resolvePlaybackSource(mediaData);
 
   return {
     nextId,

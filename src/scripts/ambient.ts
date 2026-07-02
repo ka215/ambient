@@ -106,6 +106,11 @@ import {
   bindHtmlPlaybackStateEvents,
   bindHtmlSeekOnPlay,
 } from './ui/player/html-player-events';
+import {
+  resolveHtmlPlayerKind,
+  resolvePlaybackSource,
+  type PlaybackSourceType,
+} from './ui/player/player-setup';
 import { createAudioPlayerView } from './ui/player/audio-player-view';
 import { createVideoPlayerView } from './ui/player/video-player-view';
 import {
@@ -5321,18 +5326,7 @@ const init = function (): void {
 
     if (!mediaData) return;
 
-    let mediaSrc: string | null = null;
-    let playerType: string | null = null;
-
-    if (mediaData.hasOwnProperty('file') && mediaData.file !== '') {
-      mediaSrc = mediaData.file ?? null;
-      playerType = 'html';
-    }
-
-    if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== '') {
-      mediaSrc = mediaData.videoid ?? null;
-      playerType = 'youtube';
-    }
+    const { src: mediaSrc, type: playerType } = resolvePlaybackSource(mediaData);
 
     logger('playItem:', amId, mediaSrc, playerType);
     updatePlayStatus(amId);
@@ -5357,42 +5351,43 @@ const init = function (): void {
   /**
    * Handle the player to prepare depending on the type of media to play.
    */
-  function setupPlayer(type: string | null, src: string | null, mediaData: MediaItem): void {
+  function setupPlayer(type: PlaybackSourceType | null, src: string | null, mediaData: MediaItem): void {
     abortPlaybackTimers();
     // update media caption.
     updateMediaCaption(mediaData);
 
-    switch (true) {
-      case /^YouTube$/i.test(type || ''):
-        AMP_STATUS.playertype = 'youtube';
-        AMP_STATUS.yt_error = '';
-        createYTPlayer(mediaData);
-        break;
-      case /^HTML$/i.test(type || ''):
-        emitYouTubeSignal('inactive');
-        const extension = getExt(src || '');
-        if (/^(aac|midi?|mp3|m4a|ogg|opus|wav|weba|wma)$/i.test(extension)) {
-          AMP_STATUS.playertype = 'audio';
-          createPlayerTag('audio', mediaData);
-        } else if (/^(avi|mpe?g|mp4|ogv|ts|webm|3g(p|2))$/i.test(extension)) {
-          AMP_STATUS.playertype = 'video';
-          createPlayerTag('video', mediaData);
-        } else {
-          AMP_STATUS.playertype = null;
-          reportMediaPlaybackIssue(mediaData, 'unsupported_file_format', {
-            src,
-            extension,
-          });
-        }
-        break;
-      default:
-        AMP_STATUS.playertype = null;
-        emitYouTubeSignal('error', 'unsupported_player_specified');
-        reportMediaPlaybackIssue(mediaData, 'unsupported_player_specified', {
-          src,
-          type,
-        });
+    if (type === 'youtube') {
+      AMP_STATUS.playertype = 'youtube';
+      AMP_STATUS.yt_error = '';
+      createYTPlayer(mediaData);
+      return;
     }
+
+    if (type === 'html') {
+      emitYouTubeSignal('inactive');
+      const extension = getExt(src || '');
+      const playerKind = resolveHtmlPlayerKind(extension);
+
+      if (playerKind) {
+        AMP_STATUS.playertype = playerKind;
+        createPlayerTag(playerKind, mediaData);
+        return;
+      }
+
+      AMP_STATUS.playertype = null;
+      reportMediaPlaybackIssue(mediaData, 'unsupported_file_format', {
+        src,
+        extension,
+      });
+      return;
+    }
+
+    AMP_STATUS.playertype = null;
+    emitYouTubeSignal('error', 'unsupported_player_specified');
+    reportMediaPlaybackIssue(mediaData, 'unsupported_player_specified', {
+      src,
+      type,
+    });
   }
 
   /**
