@@ -218,9 +218,14 @@ export class AmbientPage {
   async selectPlaylist(value: string): Promise<void> {
     await this.openSettingsDrawer();
     await this.page.locator('#current-playlist').selectOption(value);
-    // Wait until at least one playlist item is rendered in the DOM
+    // Wait until the playlist is ready, even if it is empty.
     await this.page.waitForFunction(
-      () => document.querySelectorAll('#playlist-list-group a[data-playlist-item]').length > 0,
+      () => {
+        const itemCount = document.querySelectorAll('#playlist-list-group a[data-playlist-item]').length;
+        const noMedia = document.querySelector<HTMLElement>('#no-media');
+        const isNoMediaVisible = !!(noMedia && !noMedia.classList.contains('hidden'));
+        return itemCount > 0 || isNoMediaVisible;
+      },
       { timeout: 30_000 }
     );
     // Close the settings drawer so the main UI is accessible
