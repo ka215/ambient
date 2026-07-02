@@ -96,6 +96,8 @@ import {
   resolveNextPlaybackTarget,
 } from './ui/player/player-runtime';
 import {
+  applyHtmlPlayerSize,
+  bindHtmlVideoPresentation,
   mountPlayerElement,
   resetWatchOriginState,
   showHtmlPlayerWrapper,
@@ -3202,22 +3204,6 @@ const init = function (): void {
     return isFullWindowMode() ? getFullWindowPlayerSize() : getStandardPlayerSize();
   }
 
-  function applyHtmlPlayerSize(
-    playerElement: HTMLVideoElement,
-    size: { width: number; height: number }
-  ): void {
-    playerElement.width = size.width;
-    playerElement.height = size.height;
-    playerElement.style.width = `${size.width}px`;
-    playerElement.style.height = `${size.height}px`;
-    playerElement.style.maxWidth = '100%';
-    playerElement.style.maxHeight = isFullWindowMode()
-      ? 'calc(100vh - var(--amp-bottom-menu-height, 0px))'
-      : '100%';
-    playerElement.style.objectFit = 'contain';
-    playerElement.style.display = 'block';
-  }
-
   function syncViewportMetrics(): void {
     const visualViewport = window.visualViewport;
     const width = getViewportWidth();
@@ -5685,54 +5671,22 @@ const init = function (): void {
         reportHtmlMediaLoadIssue(mediaElement, mediaData, event, reason);
       },
     });
-    mountPlayerElement($EMBED_WRAPPER, playerElm);
-    showHtmlPlayerWrapper($EMBED_WRAPPER);
-    resetWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER);
-
-    playerElm.addEventListener('loadedmetadata', (evt: Event) => {
-      const self = evt.target as HTMLVideoElement;
-      if (self.tagName === 'VIDEO') {
-        if (!self.videoHeight || !self.videoWidth) {
-          self.setAttribute('poster', getNoMediaImagePath('placeholder'));
-        }
-        if (isFullWindowMode()) {
-          const adjustSize = getFullWindowPlayerSize();
-          applyHtmlPlayerSize(self, adjustSize);
-        } else if (currentWindowSize.width >= 640) {
-          applyHtmlPlayerSize(self, {
-            width: 640,
-            height: Math.floor((640 * self.videoHeight) / self.videoWidth),
-          });
-        } else {
-          applyHtmlPlayerSize(self, {
-            width: currentWindowSize.width - 2,
-            height: Math.floor(((currentWindowSize.width - 2) * self.videoHeight) / self.videoWidth),
-          });
-        }
-      }
-    });
-
-    // Add since v1.2.2
     let allowFullScreen = Boolean(getOption('fs'));
     if (mediaData.hasOwnProperty('fs') && mediaData.fs !== '') {
       allowFullScreen = Boolean(mediaData.fs);
     }
 
-    if (allowFullScreen) {
-      playerElm.addEventListener('click', (evt: Event) => {
-        const target = evt.target as HTMLMediaElement;
-        if (document.fullscreenElement) {
-          document.exitFullscreen();
-        } else {
-          target.requestFullscreen?.();
-        }
-        setTimeout(() => {
-          if (playerElm.paused) {
-            playerElm.play();
-          }
-        }, 10);
-      });
-    }
+    mountPlayerElement($EMBED_WRAPPER, playerElm);
+    showHtmlPlayerWrapper($EMBED_WRAPPER);
+    resetWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER);
+    bindHtmlVideoPresentation({
+      playerElement: playerElm,
+      allowFullScreen,
+      getPlaceholderPath: () => getNoMediaImagePath('placeholder'),
+      isFullWindowMode,
+      getFullWindowPlayerSize,
+      getViewportWidth: () => currentWindowSize.width,
+    });
   }
 
   /**
@@ -5892,7 +5846,7 @@ const init = function (): void {
     const $HTMLPlayer = document.getElementById('html-player') as HTMLVideoElement;
     if (isElement($HTMLPlayer)) {
       if ($HTMLPlayer.tagName === 'VIDEO') {
-        applyHtmlPlayerSize($HTMLPlayer, adjustPlayerSize);
+        applyHtmlPlayerSize($HTMLPlayer, adjustPlayerSize, isFullWindow);
       }
     }
 

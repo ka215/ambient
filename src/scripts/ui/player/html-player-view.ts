@@ -38,6 +38,73 @@ export function mountPlayerElement(embedWrapper: HTMLElement, playerElement: HTM
   embedWrapper.appendChild(playerElement);
 }
 
+export function applyHtmlPlayerSize(
+  playerElement: HTMLVideoElement,
+  size: { width: number; height: number },
+  fullWindow: boolean
+): void {
+  playerElement.width = size.width;
+  playerElement.height = size.height;
+  playerElement.style.width = `${size.width}px`;
+  playerElement.style.height = `${size.height}px`;
+  playerElement.style.maxWidth = '100%';
+  playerElement.style.maxHeight = fullWindow
+    ? 'calc(100vh - var(--amp-bottom-menu-height, 0px))'
+    : '100%';
+  playerElement.style.objectFit = 'contain';
+  playerElement.style.display = 'block';
+}
+
+export function bindHtmlVideoPresentation(options: {
+  playerElement: HTMLMediaElement;
+  allowFullScreen: boolean;
+  getPlaceholderPath: () => string;
+  isFullWindowMode: () => boolean;
+  getFullWindowPlayerSize: () => { width: number; height: number };
+  getViewportWidth: () => number;
+}): void {
+  options.playerElement.addEventListener('loadedmetadata', (evt: Event) => {
+    const self = evt.target as HTMLVideoElement;
+    if (self.tagName !== 'VIDEO') {
+      return;
+    }
+
+    if (!self.videoHeight || !self.videoWidth) {
+      self.setAttribute('poster', options.getPlaceholderPath());
+    }
+
+    if (options.isFullWindowMode()) {
+      applyHtmlPlayerSize(self, options.getFullWindowPlayerSize(), true);
+      return;
+    }
+
+    const viewportWidth = options.getViewportWidth();
+    const width = viewportWidth >= 640 ? 640 : viewportWidth - 2;
+    applyHtmlPlayerSize(self, {
+      width,
+      height: Math.floor((width * self.videoHeight) / self.videoWidth),
+    }, false);
+  });
+
+  if (!options.allowFullScreen) {
+    return;
+  }
+
+  options.playerElement.addEventListener('click', (evt: Event) => {
+    const target = evt.target as HTMLMediaElement;
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      target.requestFullscreen?.();
+    }
+    setTimeout(() => {
+      if (options.playerElement.paused) {
+        options.playerElement.play();
+      }
+    }, 10);
+  });
+}
+
 export function showHtmlPlayerWrapper(embedWrapper: HTMLElement): void {
   embedWrapper.classList.add('max-w-2xl', 'w-max', 'h-max', 'border-0');
   embedWrapper.classList.remove('border', 'w-full', 'h-0', 'opacity-0');
