@@ -77,6 +77,15 @@ import {
 } from './ui/playlist-view';
 import { createNoticeController, type NoticeController } from './ui/notifications';
 import {
+  showPlaybackPauseState,
+  showPlaybackPlayState,
+  syncCaptionMarquee,
+  syncMenuCollapseButtonState,
+  syncPlaybackButtons,
+  syncWindowFullButtonState,
+  updateMediaCaptionView,
+} from './ui/player/player-shell';
+import {
   clearCategoryView,
   resetMediaManagementForm,
   resetPlaylistManagementForm,
@@ -4593,78 +4602,20 @@ const init = function (): void {
    * Update the media caption display.
    */
   function updateMediaCaption(mediaData: MediaItem): void {
-    while ($MEDIA_CAPTION.firstChild) {
-      $MEDIA_CAPTION.removeChild($MEDIA_CAPTION.firstChild);
-    }
-    const $textWrap = document.createElement('div');
-    $textWrap.classList.add('marquee-inner');
-
-    const titleText = sanitizeMediaText(mediaData.title || '', MEDIA_TITLE_MAX_LENGTH) || 'Unknown media';
-    const artistText = sanitizeMediaText(mediaData.artist || '', MEDIA_ARTIST_MAX_LENGTH);
-    const $title = document.createElement('span');
-    $title.className = 'media-caption-title';
-    $title.textContent = titleText;
-    $textWrap.appendChild($title);
-
-    if (artistText !== '') {
-      const $separator = document.createElement('span');
-      $separator.className = 'media-caption-separator';
-      $separator.textContent = ' ─ ';
-      $textWrap.appendChild($separator);
-
-      const $artist = document.createElement('span');
-      $artist.className = 'media-caption-artist';
-      $artist.textContent = artistText;
-      $textWrap.appendChild($artist);
-    }
-
-    $MEDIA_CAPTION.appendChild($textWrap);
-    toggleMarqueeCaption();
+    updateMediaCaptionView({
+      mediaData,
+      captionElement: $MEDIA_CAPTION,
+      sanitizeTitle: (value: string) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
+      sanitizeArtist: (value: string) => sanitizeMediaText(value, MEDIA_ARTIST_MAX_LENGTH),
+      onUpdated: toggleMarqueeCaption,
+    });
   }
 
   /**
    * Toggle caption marqueeing depending on window size.
    */
   function toggleMarqueeCaption(): void {
-    const isFullWindowCaptionVisible = $BODY.classList.contains('amp-full-window') && $BODY.classList.contains('amp-menu-minimized');
-    if ($BODY.classList.contains('amp-full-window') && !isFullWindowCaptionVisible) {
-      return;
-    }
-    const $MARQUEE_NODE = $MEDIA_CAPTION.querySelector('.marquee-inner') as HTMLElement | null;
-    if (!isElement($MARQUEE_NODE)) {
-      return;
-    }
-
-    ($MEDIA_CAPTION.querySelectorAll('.marquee-inner[aria-hidden="true"]') as NodeListOf<HTMLElement>).forEach((elm: HTMLElement) => {
-      elm.remove();
-    });
-    $MARQUEE_NODE.getAnimations().forEach((animation: Animation) => animation.cancel());
-
-    const $MARQUEE_CLONE = $MARQUEE_NODE.cloneNode(true) as HTMLElement;
-    const marqueeDuration = Math.max(8, Math.floor(($MARQUEE_NODE.clientWidth || 0) / 32)); // 16px = 1rem
-    const captionWidth = $MEDIA_CAPTION.clientWidth || currentWindowSize.width;
-    if (($MARQUEE_NODE.clientWidth || 0) > captionWidth || ($MARQUEE_NODE.clientWidth || 0) > 640) {
-      // Turn overflow text into a marquee.
-      $MARQUEE_CLONE.setAttribute('aria-hidden', 'true');
-      $MEDIA_CAPTION.appendChild($MARQUEE_CLONE);
-      ($MEDIA_CAPTION.querySelectorAll('.marquee-inner') as NodeListOf<HTMLElement>).forEach((elm: HTMLElement) => {
-        elm.animate(
-          {
-            // .gap-2 = 0.5rem = 8px
-            translate: ['0px', 'calc(-100% - 8px)'],
-          },
-          {
-            duration: marqueeDuration * 1000,
-            iterations: Infinity,
-          }
-        );
-      });
-    } else {
-      while ($MEDIA_CAPTION.firstChild) {
-        $MEDIA_CAPTION.removeChild($MEDIA_CAPTION.firstChild);
-      }
-      $MEDIA_CAPTION.appendChild($MARQUEE_CLONE);
-    }
+    syncCaptionMarquee($BODY, $MEDIA_CAPTION, currentWindowSize.width);
   }
 
   /**
@@ -4678,39 +4629,7 @@ const init = function (): void {
    * Sync icon pair of full-window toggle button.
    */
   function syncWindowFullButtonIcons(enabled: boolean): void {
-    if (!isElement($BUTTON_WINDOW_FULL)) {
-      return;
-    }
-    const $ICON_EXPAND = $BUTTON_WINDOW_FULL.querySelector('.icon-window-expand') as HTMLElement | null;
-    const $ICON_MINIMIZE = $BUTTON_WINDOW_FULL.querySelector('.icon-window-minimize') as HTMLElement | null;
-    if (isElement($ICON_EXPAND)) {
-      $ICON_EXPAND.classList.toggle('hidden', enabled);
-    }
-    if (isElement($ICON_MINIMIZE)) {
-      $ICON_MINIMIZE.classList.toggle('hidden', !enabled);
-    }
-    $BUTTON_WINDOW_FULL.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-    $BUTTON_WINDOW_FULL.classList.toggle('bg-blue-50', enabled);
-    $BUTTON_WINDOW_FULL.classList.toggle('dark:bg-gray-800', enabled);
-
-    const labelNodes = Array.from($BUTTON_WINDOW_FULL.querySelectorAll('span:not(.sr-only)')) as HTMLElement[];
-    labelNodes.forEach((node: HTMLElement) => {
-      node.classList.toggle('text-blue-600', enabled);
-      node.classList.toggle('dark:text-blue-500', enabled);
-      node.classList.toggle('text-gray-500', !enabled);
-      node.classList.toggle('dark:text-gray-400', !enabled);
-    });
-
-    const inactiveIcons = [$ICON_EXPAND];
-    inactiveIcons.forEach((node) => {
-      if (!isElement(node)) {
-        return;
-      }
-      node.classList.toggle('text-blue-600', enabled);
-      node.classList.toggle('dark:text-blue-500', enabled);
-      node.classList.toggle('text-gray-500', !enabled);
-      node.classList.toggle('dark:text-gray-400', !enabled);
-    });
+    syncWindowFullButtonState($BUTTON_WINDOW_FULL, enabled);
   }
 
   /**
@@ -4755,18 +4674,7 @@ const init = function (): void {
    * Synchronize the bottom menu minimize button icon and state.
    */
   function syncMenuCollapseButton(minimized: boolean): void {
-    if (!isElement($BUTTON_MENU_COLLAPSE)) {
-      return;
-    }
-    const $ICON_COMPRESS = $BUTTON_MENU_COLLAPSE.querySelector('.icon-menu-compress') as HTMLElement | null;
-    const $ICON_EXPAND = $BUTTON_MENU_COLLAPSE.querySelector('.icon-menu-expand') as HTMLElement | null;
-    if (isElement($ICON_COMPRESS)) {
-      $ICON_COMPRESS.classList.toggle('hidden', minimized);
-    }
-    if (isElement($ICON_EXPAND)) {
-      $ICON_EXPAND.classList.toggle('hidden', !minimized);
-    }
-    $BUTTON_MENU_COLLAPSE.setAttribute('aria-pressed', minimized ? 'true' : 'false');
+    syncMenuCollapseButtonState($BUTTON_MENU_COLLAPSE, minimized);
   }
 
   /**
@@ -4988,17 +4896,7 @@ const init = function (): void {
    * Toggle the display of player controls button after media loaded.
    */
   function togglePlayerControllButtons(): void {
-    if (AMP_STATUS.media !== null && AMP_STATUS.media.length > 0) {
-      // There are activated when available media are set.
-      $BUTTON_PLAY.removeAttribute('disabled');
-      $BUTTON_PAUSE.removeAttribute('disabled');
-    } else {
-      // There are deactivated when no available media.
-      $BUTTON_PLAY.setAttribute('disabled', '');
-      $BUTTON_PLAY.classList.remove('hidden');
-      $BUTTON_PAUSE.setAttribute('disabled', '');
-      $BUTTON_PAUSE.classList.add('hidden');
-    }
+    syncPlaybackButtons($BUTTON_PLAY, $BUTTON_PAUSE, AMP_STATUS.media !== null && AMP_STATUS.media.length > 0);
   }
 
   /**
@@ -5041,8 +4939,7 @@ const init = function (): void {
     }
 
     // Toggle this button shown.
-    $BUTTON_PLAY.classList.add('hidden');
-    $BUTTON_PAUSE.classList.remove('hidden');
+    showPlaybackPauseState($BUTTON_PLAY, $BUTTON_PAUSE);
   });
 
   /**
@@ -5063,16 +4960,11 @@ const init = function (): void {
       const playerElm = _elms[0] as HTMLMediaElement;
       playerElm.pause();
     } else {
-      // Deactivate their player control buttons.
-      $BUTTON_PLAY.setAttribute('disabled', '');
-      $BUTTON_PLAY.classList.remove('hidden');
-      $BUTTON_PAUSE.setAttribute('disabled', '');
-      $BUTTON_PAUSE.classList.add('hidden');
+      syncPlaybackButtons($BUTTON_PLAY, $BUTTON_PAUSE, false);
     }
 
     // Toggle this button shown.
-    $BUTTON_PAUSE.classList.add('hidden');
-    $BUTTON_PLAY.classList.remove('hidden');
+    showPlaybackPlayState($BUTTON_PLAY, $BUTTON_PAUSE);
   });
 
   /**
