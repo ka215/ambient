@@ -47,3 +47,24 @@ export function resolveLoopAwareNextId(currentId: number | null, nextId: number 
   }
   return nextId;
 }
+
+export function findMediaById(mediaItems: MediaItem[], targetId: number | null): MediaItem | null {
+  if (targetId === null) {
+    return null;
+  }
+  return mediaItems.find((item) => item.amId === targetId) || null;
+}
+
+export function resolveSeekRange(mediaData: MediaItem, fallbackEnd: number): {
+  seekStart: number;
+  seekEnd: number;
+} {
+  const seekStart = mediaData.hasOwnProperty('start') && mediaData.start !== ''
+    ? parseFloat(String(mediaData.start))
+    : 0;
+  const seekEnd = mediaData.hasOwnProperty('end') && mediaData.end !== ''
+    ? parseFloat(String(mediaData.end))
+    : fallbackEnd;
+
+  return { seekStart, seekEnd };
+}

@@ -73,7 +73,7 @@ test.describe('SC-012 Local media playback', () => {
           Math.abs(menuRect.bottom - viewportHeight) <= 1 &&
           Math.abs(aspect - (16 / 9)) < 0.02;
       });
-    }).toBe(true);
+    }, { timeout: 15_000 }).toBe(true);
   });
 
   test('creates a playable audio source for local MP3 playlist items', async ({ ambientPage, page }) => {

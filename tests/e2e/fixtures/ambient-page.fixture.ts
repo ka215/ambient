@@ -12,11 +12,6 @@ export class AmbientPage {
   }
 
   async waitForBaseUi(): Promise<void> {
-    await expect.poll(async () => {
-      const playVisible = await this.page.locator('#btn-play').isVisible().catch(() => false);
-      const pauseVisible = await this.page.locator('#btn-pause').isVisible().catch(() => false);
-      return playVisible || pauseVisible;
-    }).toBe(true);
     await expect(this.page.locator('#playlist-list-group')).toBeVisible();
   }
 

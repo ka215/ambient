@@ -90,7 +90,9 @@ import {
   resolveInitialPlaybackState,
 } from './ui/player/player-config';
 import {
+  findMediaById,
   resolveLoopAwareNextId,
+  resolveSeekRange,
   resolveNextPlaybackTarget,
 } from './ui/player/player-runtime';
 import {
@@ -98,6 +100,12 @@ import {
   resetWatchOriginState,
   showHtmlPlayerWrapper,
 } from './ui/player/html-player-view';
+import {
+  bindHtmlEndedEvent,
+  bindHtmlErrorEvents,
+  bindHtmlPlaybackStateEvents,
+  bindHtmlSeekOnPlay,
+} from './ui/player/html-player-events';
 import { createAudioPlayerView } from './ui/player/audio-player-view';
 import { createVideoPlayerView } from './ui/player/video-player-view';
 import {
@@ -106,6 +114,11 @@ import {
   setWatchOriginState,
   showYouTubePlayerWrapper,
 } from './ui/player/youtube-player-view';
+import {
+  resolveYouTubeInitialVolume,
+  resolveYouTubeWatchUrl,
+  runYouTubeAutoplayAssist,
+} from './ui/player/youtube-player-events';
 import {
   clearCategoryView,
   resetMediaManagementForm,
@@ -5389,41 +5402,54 @@ const init = function (): void {
     emitYouTubeSignal('player_ready');
     showYouTubePlayerWrapper($EMBED_WRAPPER);
 
-    const mediaData = (AMP_STATUS.media || [])
-      .filter((item: MediaItem) => item.amId === AMP_STATUS.current)
-      .shift();
-
+    const mediaData = findMediaById(AMP_STATUS.media || [], AMP_STATUS.current);
     if (!mediaData) return;
 
-    const youtubeURL = event.target.getVideoUrl();
-    const watchUrl = youtubeURL || ('https://www.youtube.com/watch?v=' + mediaData.videoid);
+    const watchUrl = resolveYouTubeWatchUrl(mediaData, event.target.getVideoUrl());
     setTimeout(() => {
       setWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER, watchUrl);
     }, 500);
 
-    if (getOption('autoplay')) {
-      // Force play if playback does not start after (wait * 100) milliseconds.
-      const wait = 15;
-      let elapsed = 0;
-      const intervalID = setInterval(() => {
-        elapsed++;
-        if (event.target.getPlayerState() === (window as any).YT.PlayerState.PLAYING) {
-          clearInterval(intervalID);
-          logger(`onPlayerReady::elapsed ${elapsed * 100}ms:`, 'Playback has started!');
-        } else if (elapsed > wait) {
-          (document.getElementById('btn-play') as HTMLButtonElement).dispatchEvent(new Event('click'));
-          clearInterval(intervalID);
-        }
-      }, 100);
-    }
+    runYouTubeAutoplayAssist({
+      enabled: Boolean(getOption('autoplay')),
+      getPlayerState: () => event.target.getPlayerState(),
+      playingState: (window as any).YT.PlayerState.PLAYING,
+      onPlaying: (elapsedMs: number) => {
+        logger(`onPlayerReady::elapsed ${elapsedMs}ms:`, 'Playback has started!');
+      },
+      onTimeout: () => {
+        (document.getElementById('btn-play') as HTMLButtonElement).dispatchEvent(new Event('click'));
+      },
+    });
 
-    // Add since v1.2.0
-    if (AMP_STATUS.fader && mediaData.hasOwnProperty('fadein') && mediaData.fadein !== '') {
-      event.target.setVolume(0);
-    } else {
-      event.target.setVolume(normalizeVolume(AMP_STATUS.volume, getDefaultVolume()));
-    }
+    event.target.setVolume(resolveYouTubeInitialVolume({
+      faderEnabled: Boolean(AMP_STATUS.fader),
+      mediaData,
+      normalizedVolume: normalizeVolume(AMP_STATUS.volume, getDefaultVolume()),
+    }));
     event.target.playVideo();
+  }
+
+  function clearYouTubePlaybackUi(): void {
+    hideYouTubePlayerWrapper($EMBED_WRAPPER);
+    setWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER, null);
+  }
+
+  function transitionToPlaybackTarget(
+    playbackTarget: ReturnType<typeof resolveNextPlaybackTarget> | null
+  ): void {
+    if (!playbackTarget) {
+      return;
+    }
+    updatePlayStatus(playbackTarget.nextId);
+    setupPlayer(playbackTarget.playerType, playbackTarget.mediaSrc, playbackTarget.mediaData);
+  }
+
+  function resolveEndedPlaybackTarget(): ReturnType<typeof resolveNextPlaybackTarget> | null {
+    return resolveNextPlaybackTarget(
+      AMP_STATUS.media || [],
+      resolveLoopAwareNextId(AMP_STATUS.current, AMP_STATUS.next, Boolean(AMP_STATUS.loop))
+    );
   }
 
   /**
@@ -5438,13 +5464,8 @@ const init = function (): void {
       emitYouTubeSignal('ended');
       abortPlaybackTimers();
 
-      hideYouTubePlayerWrapper($EMBED_WRAPPER);
-      setWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER, null);
-
-      const playbackTarget = resolveNextPlaybackTarget(
-        AMP_STATUS.media || [],
-        resolveLoopAwareNextId(AMP_STATUS.current, AMP_STATUS.next, Boolean(AMP_STATUS.loop))
-      );
+      clearYouTubePlaybackUi();
+      const playbackTarget = resolveEndedPlaybackTarget();
       if (!playbackTarget) return;
 
       if (playbackTarget.playerType === 'html') {
@@ -5454,8 +5475,7 @@ const init = function (): void {
         event.target.g?.remove();
       }
 
-      updatePlayStatus(playbackTarget.nextId);
-      setupPlayer(playbackTarget.playerType, playbackTarget.mediaSrc, playbackTarget.mediaData);
+      transitionToPlaybackTarget(playbackTarget);
     }
 
     if (event.data === YT_PAUSED) {
@@ -5469,25 +5489,17 @@ const init = function (): void {
 
       // Add since v1.2.0, fade-in by the fader option.
       if (AMP_STATUS.fader) {
-        const currentMedia = (AMP_STATUS.media || [])
-          .filter((item: MediaItem) => item.amId === AMP_STATUS.current)
-          .shift();
+        const currentMedia = findMediaById(AMP_STATUS.media || [], AMP_STATUS.current);
         if (!currentMedia) return;
 
         if (currentMedia.hasOwnProperty('fadeout') && currentMedia.fadeout !== '') {
-          const seekEnd =
-            currentMedia.hasOwnProperty('end') && currentMedia.end !== ''
-              ? parseFloat(String(currentMedia.end))
-              : event.target.getDuration();
+          const { seekEnd } = resolveSeekRange(currentMedia, event.target.getDuration());
           event.target.setVolume(normalizeVolume(AMP_STATUS.volume, getDefaultVolume()));
           fadeOut(event.target, parseFloat(String(currentMedia.fadeout)), seekEnd);
         }
 
         if (currentMedia.hasOwnProperty('fadein') && currentMedia.fadein !== '') {
-          const seekStart =
-            currentMedia.hasOwnProperty('start') && currentMedia.start !== ''
-              ? parseFloat(String(currentMedia.start))
-              : 0;
+          const { seekStart } = resolveSeekRange(currentMedia, event.target.getDuration());
           event.target.setVolume(0);
           fadeIn(event.target, parseFloat(String(currentMedia.fadein)), seekStart);
         }
@@ -5507,8 +5519,7 @@ const init = function (): void {
   function onPlayerError(event: any): void {
     emitYouTubeSignal('error', `yt_error_${event && event.data !== undefined ? event.data : 'unknown'}`);
     // Skip if media playback fails.
-    hideYouTubePlayerWrapper($EMBED_WRAPPER);
-    setWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER, null);
+    clearYouTubePlaybackUi();
 
     const playbackTarget = resolveNextPlaybackTarget(AMP_STATUS.media || [], AMP_STATUS.next);
     if (!playbackTarget) return;
@@ -5522,8 +5533,7 @@ const init = function (): void {
     }
 
     abortPlaybackTimers();
-    updatePlayStatus(playbackTarget.nextId);
-    setupPlayer(playbackTarget.playerType, playbackTarget.mediaSrc, playbackTarget.mediaData);
+    transitionToPlaybackTarget(playbackTarget);
   }
 
   /**
@@ -5617,89 +5627,68 @@ const init = function (): void {
       });
     };
 
-    playerElm.addEventListener('play', (_evt: Event) => {
-      if (
-        getOption('seek') &&
-        mediaData.hasOwnProperty('end') &&
-        mediaData.end !== ''
-      ) {
-        // When the seek end time is reached, forcibly seeks to the end of the media and ends playback.
-        if (!playbackTimers.isSeekActive()) {
-          playbackTimers.startSeek(() => {
-            if (playerElm.currentTime >= Number(mediaData.end)) {
-              playerElm.currentTime = playerElm.duration;
-              abortSeeking();
-              abortFader('fadeout');
-            }
-          }, 500);
+    bindHtmlSeekOnPlay({
+      playerElement: playerElm,
+      mediaData,
+      seekEnabled: Boolean(getOption('seek')),
+      isSeekActive: () => playbackTimers.isSeekActive(),
+      startSeek: (callback, intervalMs) => playbackTimers.startSeek(callback, intervalMs),
+      abortSeeking,
+      abortFadeOut: () => abortFader('fadeout'),
+    });
+
+    bindHtmlPlaybackStateEvents({
+      playerElement: playerElm,
+      onPlaying: () => {
+        showPlaybackPauseState($BUTTON_PLAY, $BUTTON_PAUSE);
+
+        if (AMP_STATUS.fader) {
+          if (mediaData.hasOwnProperty('fadeout') && mediaData.fadeout !== '') {
+            const { seekEnd } = resolveSeekRange(mediaData, playerElm.duration);
+            playerElm.volume = normalizeVolume(AMP_STATUS.volume, getDefaultVolume()) / 100;
+            fadeOut(playerElm, parseFloat(String(mediaData.fadeout)), seekEnd);
+          }
+
+          if (mediaData.hasOwnProperty('fadein') && mediaData.fadein !== '') {
+            const { seekStart } = resolveSeekRange(mediaData, playerElm.duration);
+            playerElm.volume = 0;
+            fadeIn(playerElm, parseFloat(String(mediaData.fadein)), seekStart);
+          }
         }
-      }
+      },
+      onPause: () => {
+        showPlaybackPlayState($BUTTON_PLAY, $BUTTON_PAUSE);
+      },
+      onVolumeChange: () => {
+        logger('playerVolumeChange:', playerElm.volume, AMP_STATUS.volume);
+      },
     });
 
-    playerElm.addEventListener('playing', (_evt: Event) => {
-      showPlaybackPauseState($BUTTON_PLAY, $BUTTON_PAUSE);
-
-      if (AMP_STATUS.fader) {
-        if (mediaData.hasOwnProperty('fadeout') && mediaData.fadeout !== '') {
-          const seekEnd =
-            mediaData.hasOwnProperty('end') && mediaData.end !== ''
-              ? parseFloat(String(mediaData.end))
-              : playerElm.duration;
-          playerElm.volume = normalizeVolume(AMP_STATUS.volume, getDefaultVolume()) / 100;
-          fadeOut(playerElm, parseFloat(String(mediaData.fadeout)), seekEnd);
+    bindHtmlEndedEvent({
+      playerElement: playerElm,
+      onBeforeTransition: () => {
+        abortPlaybackTimers();
+        $EMBED_WRAPPER.classList.remove('max-w-2xl', 'w-max', 'h-max', 'border-0');
+      },
+      resolvePlaybackTarget: () => {
+        const resolvedNextId = resolveLoopAwareNextId(AMP_STATUS.current, AMP_STATUS.next, Boolean(AMP_STATUS.loop));
+        logger('ended:', AMP_STATUS, resolvedNextId);
+        return resolveNextPlaybackTarget(AMP_STATUS.media || [], resolvedNextId);
+      },
+      onTransition: (playbackTarget) => {
+        if (playbackTarget.playerType === 'youtube') {
+          playerElm.remove();
         }
-
-        if (mediaData.hasOwnProperty('fadein') && mediaData.fadein !== '') {
-          const seekStart =
-            mediaData.hasOwnProperty('start') && mediaData.start !== ''
-              ? parseFloat(String(mediaData.start))
-              : 0;
-          playerElm.volume = 0;
-          fadeIn(playerElm, parseFloat(String(mediaData.fadein)), seekStart);
-        }
-      }
+        transitionToPlaybackTarget(playbackTarget);
+      },
     });
 
-    playerElm.addEventListener('pause', (_evt: Event) => {
-      showPlaybackPlayState($BUTTON_PLAY, $BUTTON_PAUSE);
-    });
-
-    playerElm.addEventListener('volumechange', (_evt: Event) => {
-      logger('playerVolumeChange:', playerElm.volume, AMP_STATUS.volume);
-    });
-
-    playerElm.addEventListener('ended', (_evt: Event) => {
-      abortPlaybackTimers();
-      $EMBED_WRAPPER.classList.remove('max-w-2xl', 'w-max', 'h-max', 'border-0');
-
-      const resolvedNextId = resolveLoopAwareNextId(AMP_STATUS.current, AMP_STATUS.next, Boolean(AMP_STATUS.loop));
-      logger('ended:', AMP_STATUS, resolvedNextId);
-      const playbackTarget = resolveNextPlaybackTarget(AMP_STATUS.media || [], resolvedNextId);
-      if (!playbackTarget) return;
-
-      if (playbackTarget.playerType === 'youtube') {
-        playerElm.remove();
-      }
-
-      updatePlayStatus(playbackTarget.nextId);
-      setupPlayer(playbackTarget.playerType, playbackTarget.mediaSrc, playbackTarget.mediaData);
-    });
-
-    playerElm.addEventListener('error', (evt: Event) => {
-      reportHtmlMediaLoadIssue(playerElm, mediaData, evt, 'player_error');
-    });
-
-    playerElm.addEventListener('loadstart', (evt: Event) => {
-      setTimeout(() => {
-        const target = evt.target as HTMLMediaElement;
-        if (target.readyState === 0 && (target.networkState === 3 || target.error)) {
-          reportHtmlMediaLoadIssue(target, mediaData, evt, 'load_timeout');
-        }
-      }, 5000);
-    });
-
-    sourceElm.addEventListener('error', (evt: Event) => {
-      reportHtmlMediaLoadIssue(playerElm, mediaData, evt, 'source_error');
+    bindHtmlErrorEvents({
+      playerElement: playerElm,
+      sourceElement: sourceElm,
+      reportIssue: (mediaElement, event, reason) => {
+        reportHtmlMediaLoadIssue(mediaElement, mediaData, event, reason);
+      },
     });
     mountPlayerElement($EMBED_WRAPPER, playerElm);
     showHtmlPlayerWrapper($EMBED_WRAPPER);
