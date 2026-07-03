@@ -42,6 +42,10 @@ export function bindViewportSyncEvents(options: {
   });
 }
 
+export function isFullWindowMode(body: HTMLElement): boolean {
+  return body.classList.contains('amp-full-window');
+}
+
 export function syncViewportLayout(options: {
   width: number;
   height: number;
@@ -106,4 +110,21 @@ export function applyFullWindowMode(options: {
   if (shownRight) {
     options.settingsCloseButton?.click();
   }
+}
+
+export function applyMenuMinimizedState(options: {
+  body: HTMLElement;
+  menu: HTMLElement | null;
+  minimized: boolean;
+  syncButtonState: (minimized: boolean) => void;
+  afterToggle?: () => void;
+}): void {
+  if (!options.menu) {
+    return;
+  }
+
+  options.menu.classList.toggle('menu-minimized', options.minimized);
+  options.body.classList.toggle('amp-menu-minimized', options.minimized);
+  options.syncButtonState(options.minimized);
+  options.afterToggle?.();
 }

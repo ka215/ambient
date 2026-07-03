@@ -48,6 +48,7 @@ import {
   savePlaylistResumeContext,
 } from './state/playlist-context';
 import {
+  cleanupDrawerBackdrops,
   syncDrawerAndModalBackdrops,
 } from './ui/drawers';
 import {
@@ -57,7 +58,13 @@ import {
   syncToggleRoot,
   syncVolumeSlider,
 } from './ui/settings-view';
-import { applyFullWindowMode, bindViewportSyncEvents, syncViewportLayout } from './ui/viewport';
+import {
+  applyFullWindowMode,
+  applyMenuMinimizedState,
+  bindViewportSyncEvents,
+  isFullWindowMode as isFullWindowModeView,
+  syncViewportLayout,
+} from './ui/viewport';
 import {
   createOptionsModalController,
   createPlaylistConfirmModalController,
@@ -1108,6 +1115,7 @@ const init = function (): void {
   const $TOGGLE_SHUFFLE = document.getElementById('toggle-shuffle') as HTMLElement;
   const $TOGGLE_SEEKPLAY = document.getElementById('toggle-seekplay') as HTMLElement;
   const $TOGGLE_WINDOW_FULL = document.getElementById('toggle-window-full') as HTMLElement;
+  const toggleWindowFullInput = getToggleInput($TOGGLE_WINDOW_FULL);
   const $TOGGLE_FADER = document.getElementById('toggle-fader') as HTMLElement;
   const $RANGE_VOLUME = document.getElementById('default-volume') as HTMLInputElement;
   const $TOGGLE_DARKMODE = document.getElementById('toggle-darkmode') as HTMLElement;
@@ -4396,7 +4404,7 @@ const init = function (): void {
    * Returns true when player is shown as full-window.
    */
   function isFullWindowMode(): boolean {
-    return $BODY.classList.contains('amp-full-window');
+    return isFullWindowModeView($BODY);
   }
 
   /**
@@ -4414,7 +4422,7 @@ const init = function (): void {
     applyFullWindowMode({
       body: $BODY,
       enabled,
-      toggleInput: ($TOGGLE_WINDOW_FULL?.querySelector('input[type="checkbox"]') as HTMLInputElement | null),
+      toggleInput: toggleWindowFullInput,
       closeDrawers,
       playlistDrawer: $DRAWER_PLAYLIST,
       settingsDrawer: $DRAWER_SETTINGS,
@@ -4448,13 +4456,13 @@ const init = function (): void {
    * Toggle bottom menu minimized state.
    */
   function setMenuMinimized(minimized: boolean): void {
-    if (!isElement($MENU)) {
-      return;
-    }
-    $MENU.classList.toggle('menu-minimized', minimized);
-    $BODY.classList.toggle('amp-menu-minimized', minimized);
-    syncMenuCollapseButton(minimized);
-    toggleMarqueeCaption();
+    applyMenuMinimizedState({
+      body: $BODY,
+      menu: $MENU,
+      minimized,
+      syncButtonState: syncMenuCollapseButton,
+      afterToggle: toggleMarqueeCaption,
+    });
   }
 
   /**
@@ -4644,11 +4652,9 @@ const init = function (): void {
     });
   }
 
-  if (isElement($TOGGLE_WINDOW_FULL)) {
-    ($TOGGLE_WINDOW_FULL.querySelector('input[type="checkbox"]') as HTMLInputElement).addEventListener('change', (evt: Event) => {
-      setFullWindowMode((evt.target as HTMLInputElement).checked);
-    });
-  }
+  toggleWindowFullInput?.addEventListener('change', (evt: Event) => {
+    setFullWindowMode((evt.target as HTMLInputElement).checked);
+  });
 
   if (isElement($BUTTON_MENU_COLLAPSE)) {
     $BUTTON_MENU_COLLAPSE.addEventListener('click', (_evt: Event) => {
@@ -5541,9 +5547,16 @@ const init = function (): void {
    * Toggle the display of backdrop for drawer or modal.
    */
   watcher([$DRAWER_PLAYLIST, $DRAWER_SETTINGS, $MODAL_OPTIONS], (mutation: MutationRecord) => {
-    if (mutation.attributeName === 'aria-modal' && (mutation.target as HTMLElement).ariaModal === 'true') {
-      syncDrawerAndModalBackdrops(currentWindowSize.width, currentWindowSize.minFullUIWidth);
+    if (mutation.attributeName !== 'aria-modal') {
+      return;
     }
+
+    if ((mutation.target as HTMLElement).ariaModal === 'true') {
+      syncDrawerAndModalBackdrops(currentWindowSize.width, currentWindowSize.minFullUIWidth);
+      return;
+    }
+
+    cleanupDrawerBackdrops([$DRAWER_PLAYLIST, $DRAWER_SETTINGS]);
   });
 
   /**

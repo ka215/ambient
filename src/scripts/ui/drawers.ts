@@ -15,6 +15,23 @@ function isDrawerOpen(drawer: HTMLElement | null): boolean {
   return drawer?.getAttribute('aria-modal') === 'true';
 }
 
+export function cleanupDrawerBackdrops(drawers: Array<HTMLElement | null>): void {
+  if (drawers.some((drawer) => isDrawerOpen(drawer))) {
+    return;
+  }
+
+  document.querySelectorAll('div[drawer-backdrop]').forEach((backdrop) => {
+    backdrop.remove();
+  });
+
+  const hasVisibleModal = Array.from(document.querySelectorAll('[aria-modal="true"]')).some((elm) => {
+    return elm instanceof HTMLElement && !elm.classList.contains('hidden');
+  });
+  if (!hasVisibleModal) {
+    document.body.classList.remove('overflow-hidden');
+  }
+}
+
 export function syncDrawerAndModalBackdrops(width: number, minFullUiWidth: number): void {
   const drawerBackdrops = Array.from(document.querySelectorAll('div[drawer-backdrop]'));
   const modalBackdrop = document.querySelector('div[modal-backdrop]');
