@@ -54,6 +54,7 @@ import {
   reconcileResponsiveDrawers,
   syncDrawerAndModalBackdrops,
 } from './ui/drawers';
+import { bindViewportSyncEvents } from './ui/viewport';
 import {
   createOptionsModalController,
   createPlaylistConfirmModalController,
@@ -5852,44 +5853,25 @@ const init = function (): void {
     toggleMarqueeCaption();
   }
 
-  /**
-   * Window resize event listener with throttling.
-   */
-  const resize = (): void => {
-    let timeoutID = 0;
-    const delay = 300;
-    window.addEventListener(
-      'resize',
-      () => {
-        clearTimeout(timeoutID);
-        timeoutID = window.setTimeout(() => {
-          syncViewportMetrics();
-          updateWindowSize();
-        }, delay);
-      },
-      false
-    );
-    window.addEventListener('orientationchange', () => {
-      refreshViewportMetricsAfter(80);
-      refreshViewportMetricsAfter(420);
-    });
-    window.visualViewport?.addEventListener('resize', () => {
-      scheduleViewportMetricsSync(60);
-    });
-    window.visualViewport?.addEventListener('scroll', () => {
-      scheduleViewportMetricsSync(60);
-    });
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) {
-        scheduleViewportMetricsSync(80);
-      }
-    });
-  };
-
   setMenuMinimized(false);
 
   syncViewportMetrics();
-  resize();
+  bindViewportSyncEvents({
+    onResizeSettled: () => {
+      syncViewportMetrics();
+      updateWindowSize();
+    },
+    onOrientationChange: () => {
+      refreshViewportMetricsAfter(80);
+      refreshViewportMetricsAfter(420);
+    },
+    onVisualViewportChange: () => {
+      scheduleViewportMetricsSync(60);
+    },
+    onVisibilityRestore: () => {
+      scheduleViewportMetricsSync(80);
+    },
+  });
 
   window.dispatchEvent(new Event('resize', { bubbles: true, cancelable: false }));
 
