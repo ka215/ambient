@@ -56,3 +56,23 @@ export function applyDarkModeAppearance(options: {
     }
   }
 }
+
+export function syncToggleInput(toggleInput: HTMLInputElement | null, checked: boolean): void {
+  if (!toggleInput) {
+    return;
+  }
+  toggleInput.checked = checked;
+}
+
+export function syncVolumeSlider(options: {
+  input: HTMLInputElement;
+  volume: number;
+  syncRangeProgress: (range: HTMLInputElement) => void;
+  display: HTMLElement | null;
+}): void {
+  options.input.value = String(options.volume);
+  options.syncRangeProgress(options.input);
+  if (options.display) {
+    options.display.textContent = String(options.volume);
+  }
+}

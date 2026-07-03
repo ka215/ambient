@@ -50,7 +50,12 @@ import {
 import {
   syncDrawerAndModalBackdrops,
 } from './ui/drawers';
-import { applyDarkModeAppearance, applyPlaylistBackground } from './ui/settings-view';
+import {
+  applyDarkModeAppearance,
+  applyPlaylistBackground,
+  syncToggleInput,
+  syncVolumeSlider,
+} from './ui/settings-view';
 import { applyFullWindowMode, bindViewportSyncEvents, syncViewportLayout } from './ui/viewport';
 import {
   createOptionsModalController,
@@ -4788,7 +4793,7 @@ const init = function (): void {
    */
   function changeToggleRandomly(): void {
     const toggleElm = $TOGGLE_RANDOMLY.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    toggleElm.checked = AMP_STATUS.order === 'random';
+    syncToggleInput(toggleElm, AMP_STATUS.order === 'random');
   }
 
   /**
@@ -4813,7 +4818,7 @@ const init = function (): void {
    */
   function changeToggleShuffle(): void {
     const toggleElm = $TOGGLE_SHUFFLE.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    toggleElm.checked = !!(AMP_STATUS.options && AMP_STATUS.options.shuffle);
+    syncToggleInput(toggleElm, !!(AMP_STATUS.options && AMP_STATUS.options.shuffle));
     AMP_STATUS.shuffle = shufflePlaylist();
   }
 
@@ -4857,7 +4862,7 @@ const init = function (): void {
    */
   function changeToggleSeekplay(): void {
     const toggleElm = $TOGGLE_SEEKPLAY.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    toggleElm.checked = !!(AMP_STATUS.options && AMP_STATUS.options.seek);
+    syncToggleInput(toggleElm, !!(AMP_STATUS.options && AMP_STATUS.options.seek));
   }
 
   /**
@@ -4877,7 +4882,7 @@ const init = function (): void {
    */
   function changeToggleFader(): void {
     const toggleElm = $TOGGLE_FADER.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    toggleElm.checked = !!(AMP_STATUS.options && AMP_STATUS.options.fader);
+    syncToggleInput(toggleElm, !!(AMP_STATUS.options && AMP_STATUS.options.fader));
   }
 
   /**
@@ -4909,12 +4914,12 @@ const init = function (): void {
    */
   function changeRangeVolume(): void {
     const currentVolume = normalizeVolume(AMP_STATUS.volume, getDefaultVolume());
-    $RANGE_VOLUME.value = String(currentVolume);
-    syncRangeProgress($RANGE_VOLUME);
-    const displayVolume = document.getElementById('default-volume-value') as HTMLElement | null;
-    if (displayVolume) {
-      displayVolume.textContent = String(currentVolume);
-    }
+    syncVolumeSlider({
+      input: $RANGE_VOLUME,
+      volume: currentVolume,
+      syncRangeProgress,
+      display: document.getElementById('default-volume-value') as HTMLElement | null,
+    });
   }
 
   /**
