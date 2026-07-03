@@ -86,6 +86,7 @@ export function applyFullWindowMode(options: {
   enabled: boolean;
   toggleInput: HTMLInputElement | null;
   closeDrawers: boolean;
+  shouldAutoCloseDrawers?: boolean;
   playlistDrawer: HTMLElement | null;
   settingsDrawer: HTMLElement | null;
   playlistCloseButton: HTMLElement | null;
@@ -97,7 +98,7 @@ export function applyFullWindowMode(options: {
     options.toggleInput.checked = options.enabled;
   }
 
-  if (!options.enabled || !options.closeDrawers) {
+  if (!options.enabled || !options.closeDrawers || !options.shouldAutoCloseDrawers) {
     return;
   }
 

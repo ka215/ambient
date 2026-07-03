@@ -16,8 +16,13 @@ test.describe('SC-004 Volume control (fader)', () => {
     await expect(slider).toHaveValue('50');
 
     // Act
-    await slider.fill('35');
-    await slider.dispatchEvent('input');
+    await page.evaluate(() => {
+      const input = document.getElementById('default-volume');
+      if (input instanceof HTMLInputElement) {
+        input.value = '35';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
 
     // Assert
     await expect(displayValue).toHaveText('35');

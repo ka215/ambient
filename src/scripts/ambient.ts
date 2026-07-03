@@ -48,6 +48,10 @@ import {
   savePlaylistResumeContext,
 } from './state/playlist-context';
 import {
+  readPlaylistOption,
+  setPlaylistOption,
+} from './state/playlist-options';
+import {
   cleanupDrawerBackdrops,
   syncDrawerAndModalBackdrops,
 } from './ui/drawers';
@@ -4253,22 +4257,10 @@ const init = function (): void {
     });
   }
 
-  /**
-   * Getter for optional data of the AMP_STATUS object.
-   */
-  function getOption(key: string): any {
-    if (AMP_STATUS.playlist === MYPLAYLIST_NAME && key === 'playlist') {
-      return null;
-    }
-    if (AMP_STATUS.hasOwnProperty('options') && AMP_STATUS.options !== null) {
-      if (!AMP_STATUS.options.hasOwnProperty(key) || AMP_STATUS.options[key] === null || AMP_STATUS.options[key] === '') {
-        return null;
-      } else {
-        return AMP_STATUS.options[key];
-      }
-    } else {
-      return null;
-    }
+  function getOption<K extends Extract<keyof PlaylistOptions, string>>(
+    key: K
+  ): Exclude<PlaylistOptions[K], undefined> | null {
+    return readPlaylistOption<PlaylistOptions, K>(AMP_STATUS, key, MYPLAYLIST_NAME);
   }
 
   /**
@@ -4424,6 +4416,7 @@ const init = function (): void {
       enabled,
       toggleInput: toggleWindowFullInput,
       closeDrawers,
+      shouldAutoCloseDrawers: currentWindowSize.width < currentWindowSize.minFullUIWidth,
       playlistDrawer: $DRAWER_PLAYLIST,
       settingsDrawer: $DRAWER_SETTINGS,
       playlistCloseButton: document.getElementById('btn-close-playlist') as HTMLElement | null,
@@ -4431,11 +4424,7 @@ const init = function (): void {
     });
 
     if (syncOption) {
-      if (!isObject(AMP_STATUS.options)) {
-        AMP_STATUS.options = { fullwindow: enabled };
-      } else {
-        AMP_STATUS.options.fullwindow = enabled;
-      }
+      setPlaylistOption(AMP_STATUS, 'fullwindow', enabled);
       persistMyPlaylistIfNeeded();
     }
 
@@ -4778,14 +4767,6 @@ const init = function (): void {
   const toggleFaderInput = getToggleInput($TOGGLE_FADER);
   const toggleDarkmodeInput = getToggleInput($TOGGLE_DARKMODE);
 
-  function setPlaylistBooleanOption(optionKey: 'shuffle' | 'seek' | 'fader' | 'dark', checked: boolean): void {
-    if (!isObject(AMP_STATUS.options)) {
-      AMP_STATUS.options = { [optionKey]: checked };
-      return;
-    }
-    AMP_STATUS.options[optionKey] = checked;
-  }
-
   /**
    * Event listener when changing the loop play of settings menu toggle button.
    */
@@ -4811,7 +4792,7 @@ const init = function (): void {
    * Event listener when changing the shuffle play of settings menu toggle button.
    */
   toggleShuffleInput?.addEventListener('change', (evt: Event) => {
-    setPlaylistBooleanOption('shuffle', (evt.target as HTMLInputElement).checked);
+    setPlaylistOption(AMP_STATUS, 'shuffle', (evt.target as HTMLInputElement).checked);
     AMP_STATUS.shuffle = shufflePlaylist();
     persistMyPlaylistIfNeeded();
   });
@@ -4851,7 +4832,7 @@ const init = function (): void {
    * Event listener when changing the seekplay of settings menu toggle button.
    */
   toggleSeekplayInput?.addEventListener('change', (evt: Event) => {
-    setPlaylistBooleanOption('seek', (evt.target as HTMLInputElement).checked);
+    setPlaylistOption(AMP_STATUS, 'seek', (evt.target as HTMLInputElement).checked);
     persistMyPlaylistIfNeeded();
   });
 
@@ -4866,7 +4847,7 @@ const init = function (): void {
    * Event listener when changing the pseudo fader of settings menu toggle button.
    */
   toggleFaderInput?.addEventListener('change', (evt: Event) => {
-    setPlaylistBooleanOption('fader', (evt.target as HTMLInputElement).checked);
+    setPlaylistOption(AMP_STATUS, 'fader', (evt.target as HTMLInputElement).checked);
     persistMyPlaylistIfNeeded();
   });
 
@@ -4899,11 +4880,7 @@ const init = function (): void {
       display: document.getElementById('default-volume-value') as HTMLElement | null,
     });
     AMP_STATUS.volume = currentVolume;
-    if (!isObject(AMP_STATUS.options)) {
-      AMP_STATUS.options = { volume: currentVolume };
-    } else {
-      AMP_STATUS.options.volume = currentVolume;
-    }
+    setPlaylistOption(AMP_STATUS, 'volume', currentVolume);
     persistMyPlaylistIfNeeded();
   });
 
@@ -4924,7 +4901,7 @@ const init = function (): void {
    * Event listener when changing the darkmode of settings menu toggle button.
    */
   toggleDarkmodeInput?.addEventListener('change', (evt: Event) => {
-    setPlaylistBooleanOption('dark', (evt.target as HTMLInputElement).checked);
+    setPlaylistOption(AMP_STATUS, 'dark', (evt.target as HTMLInputElement).checked);
     // Delay dark class toggle to let the knob slide animation complete (~150ms)
     setTimeout(() => changeToggleDarkmode(), 200);
     persistMyPlaylistIfNeeded();

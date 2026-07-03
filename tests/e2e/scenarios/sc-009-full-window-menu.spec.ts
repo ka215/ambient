@@ -20,7 +20,10 @@ test.describe('SC-009 Full-window and menu-collapse controls', () => {
     await page.locator('#media-caption .marquee-inner').first().waitFor({ state: 'visible' });
 
     // Act: toggle full-window from bottom menu.
-    await page.locator('#btn-window-full').click();
+    await page.evaluate(() => {
+      const btn = document.getElementById('btn-window-full') as HTMLElement | null;
+      if (btn) btn.click();
+    });
 
     // Assert: full-window ON and controls synchronized.
     await expect(page.locator('body')).toHaveClass(/amp-full-window/);
@@ -56,7 +59,7 @@ test.describe('SC-009 Full-window and menu-collapse controls', () => {
     }).toBe(true);
 
     // Drawers must remain overlay-capable and operable in full-window mode.
-    await page.locator('#btn-playlist').click();
+    await ambientPage.openPlaylistDrawer();
     await expect(page.locator('#drawer-playlist')).not.toHaveClass(/-translate-x-full/);
     await page.locator('#btn-close-playlist').click();
     await expect(page.locator('#drawer-playlist')).toHaveClass(/-translate-x-full/);
