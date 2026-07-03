@@ -8,6 +8,8 @@ export interface PlaybackTarget {
   playerType: PlaybackSourceType | null;
 }
 
+export type YouTubeTransitionCleanupMode = 'destroy' | 'remove_host' | 'none';
+
 export function resolveNextPlaybackTarget(
   mediaItems: MediaItem[],
   nextId: number | null
@@ -36,6 +38,30 @@ export function resolveLoopAwareNextId(currentId: number | null, nextId: number 
     return currentId;
   }
   return nextId;
+}
+
+export function resolveEndedPlaybackTarget(
+  mediaItems: MediaItem[],
+  currentId: number | null,
+  nextId: number | null,
+  loop: boolean
+): PlaybackTarget | null {
+  return resolveNextPlaybackTarget(mediaItems, resolveLoopAwareNextId(currentId, nextId, loop));
+}
+
+export function resolveYouTubeTransitionCleanupMode(
+  playbackTarget: PlaybackTarget | null
+): YouTubeTransitionCleanupMode {
+  if (!playbackTarget) {
+    return 'none';
+  }
+  if (playbackTarget.playerType === 'html') {
+    return 'destroy';
+  }
+  if (playbackTarget.playerType === 'youtube') {
+    return 'remove_host';
+  }
+  return 'none';
 }
 
 export function findMediaById(mediaItems: MediaItem[], targetId: number | null): MediaItem | null {

@@ -44,3 +44,33 @@ export function resolveYouTubeInitialVolume(options: {
   }
   return options.normalizedVolume;
 }
+
+export function applyYouTubePlaybackFader(options: {
+  enabled: boolean;
+  mediaData: MediaItem | null;
+  duration: number;
+  playbackVolume: number;
+  normalizeVolume: (value: number) => number;
+  resolveSeekRange: (mediaData: MediaItem, fallbackEnd: number) => { seekStart: number; seekEnd: number };
+  setVolume: (value: number) => void;
+  fadeIn: (period: number, start: number) => void;
+  fadeOut: (period: number, end: number) => void;
+}): void {
+  if (!options.enabled || !options.mediaData) {
+    return;
+  }
+
+  const currentMedia = options.mediaData;
+
+  if (currentMedia.hasOwnProperty('fadeout') && currentMedia.fadeout !== '') {
+    const { seekEnd } = options.resolveSeekRange(currentMedia, options.duration);
+    options.setVolume(options.normalizeVolume(options.playbackVolume));
+    options.fadeOut(parseFloat(String(currentMedia.fadeout)), seekEnd);
+  }
+
+  if (currentMedia.hasOwnProperty('fadein') && currentMedia.fadein !== '') {
+    const { seekStart } = options.resolveSeekRange(currentMedia, options.duration);
+    options.setVolume(0);
+    options.fadeIn(parseFloat(String(currentMedia.fadein)), seekStart);
+  }
+}

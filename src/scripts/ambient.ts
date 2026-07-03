@@ -91,9 +91,11 @@ import {
 } from './ui/player/player-config';
 import {
   findMediaById,
+  resolveEndedPlaybackTarget as resolveEndedPlaybackTargetRuntime,
   resolveLoopAwareNextId,
   resolveSeekRange,
   resolveNextPlaybackTarget,
+  resolveYouTubeTransitionCleanupMode,
 } from './ui/player/player-runtime';
 import {
   applyHtmlPlayerSize,
@@ -122,6 +124,7 @@ import {
   showYouTubePlayerWrapper,
 } from './ui/player/youtube-player-view';
 import {
+  applyYouTubePlaybackFader,
   resolveYouTubeInitialVolume,
   resolveYouTubeWatchUrl,
   runYouTubeAutoplayAssist,
@@ -5426,10 +5429,23 @@ const init = function (): void {
     setupPlayer(playbackTarget.playerType, playbackTarget.mediaSrc, playbackTarget.mediaData);
   }
 
+  function cleanupYouTubeTransition(event: any, playbackTarget: ReturnType<typeof resolveNextPlaybackTarget> | null): void {
+    const cleanupMode = resolveYouTubeTransitionCleanupMode(playbackTarget);
+    if (cleanupMode === 'destroy') {
+      event.target.destroy?.();
+      return;
+    }
+    if (cleanupMode === 'remove_host') {
+      event.target.g?.remove();
+    }
+  }
+
   function resolveEndedPlaybackTarget(): ReturnType<typeof resolveNextPlaybackTarget> | null {
-    return resolveNextPlaybackTarget(
+    return resolveEndedPlaybackTargetRuntime(
       AMP_STATUS.media || [],
-      resolveLoopAwareNextId(AMP_STATUS.current, AMP_STATUS.next, Boolean(AMP_STATUS.loop))
+      AMP_STATUS.current,
+      AMP_STATUS.next,
+      Boolean(AMP_STATUS.loop)
     );
   }
 
@@ -5449,13 +5465,7 @@ const init = function (): void {
       const playbackTarget = resolveEndedPlaybackTarget();
       if (!playbackTarget) return;
 
-      if (playbackTarget.playerType === 'html') {
-        event.target.destroy?.();
-      }
-      if (playbackTarget.playerType === 'youtube') {
-        event.target.g?.remove();
-      }
-
+      cleanupYouTubeTransition(event, playbackTarget);
       transitionToPlaybackTarget(playbackTarget);
     }
 
@@ -5468,23 +5478,18 @@ const init = function (): void {
       emitYouTubeSignal('playing');
       showPlaybackPauseState($BUTTON_PLAY, $BUTTON_PAUSE);
 
-      // Add since v1.2.0, fade-in by the fader option.
-      if (AMP_STATUS.fader) {
-        const currentMedia = findMediaById(AMP_STATUS.media || [], AMP_STATUS.current);
-        if (!currentMedia) return;
-
-        if (currentMedia.hasOwnProperty('fadeout') && currentMedia.fadeout !== '') {
-          const { seekEnd } = resolveSeekRange(currentMedia, event.target.getDuration());
-          event.target.setVolume(normalizeVolume(AMP_STATUS.volume, getDefaultVolume()));
-          fadeOut(event.target, parseFloat(String(currentMedia.fadeout)), seekEnd);
-        }
-
-        if (currentMedia.hasOwnProperty('fadein') && currentMedia.fadein !== '') {
-          const { seekStart } = resolveSeekRange(currentMedia, event.target.getDuration());
-          event.target.setVolume(0);
-          fadeIn(event.target, parseFloat(String(currentMedia.fadein)), seekStart);
-        }
-      }
+      const currentMedia = findMediaById(AMP_STATUS.media || [], AMP_STATUS.current);
+      applyYouTubePlaybackFader({
+        enabled: Boolean(AMP_STATUS.fader),
+        mediaData: currentMedia,
+        duration: event.target.getDuration(),
+        playbackVolume: AMP_STATUS.volume ?? getDefaultVolume(),
+        normalizeVolume: (value) => normalizeVolume(value, getDefaultVolume()),
+        resolveSeekRange,
+        setVolume: (value) => event.target.setVolume(value),
+        fadeIn: (period, start) => fadeIn(event.target, period, start),
+        fadeOut: (period, end) => fadeOut(event.target, period, end),
+      });
     }
 
     if (event.data === -1 && getOption('autoplay')) {
@@ -5505,11 +5510,8 @@ const init = function (): void {
     const playbackTarget = resolveNextPlaybackTarget(AMP_STATUS.media || [], AMP_STATUS.next);
     if (!playbackTarget) return;
 
-    if (playbackTarget.playerType === 'html') {
-      event.target.destroy?.();
-    }
+    cleanupYouTubeTransition(event, playbackTarget);
     if (playbackTarget.playerType === 'youtube') {
-      event.target.g?.remove();
       logger('error', 'onYTPlayerError:', event, 'force');
     }
 
