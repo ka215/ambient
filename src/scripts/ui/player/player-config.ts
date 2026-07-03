@@ -11,11 +11,35 @@ export interface PlayerOptionSource {
   faderEnabled: boolean;
 }
 
+export interface PlaybackConfigSource {
+  autoplay: unknown;
+  controls: unknown;
+  fs: unknown;
+  ccLoadPolicy: unknown;
+  rel: unknown;
+  seekEnabled: boolean;
+  faderEnabled: boolean;
+}
+
 export interface InitialPlaybackState {
   faderEnabled: boolean;
   volume: number;
   elementVolume: number;
   startTime: number | null;
+}
+
+export function resolvePlaybackConfigSource(
+  getOption: (key: 'autoplay' | 'controls' | 'fs' | 'cc_load_policy' | 'rel' | 'seek' | 'fader') => unknown
+): PlaybackConfigSource {
+  return {
+    autoplay: getOption('autoplay'),
+    controls: getOption('controls'),
+    fs: getOption('fs'),
+    ccLoadPolicy: getOption('cc_load_policy'),
+    rel: getOption('rel'),
+    seekEnabled: Boolean(getOption('seek')),
+    faderEnabled: Boolean(getOption('fader')),
+  };
 }
 
 export function buildYouTubePlayerOptions(

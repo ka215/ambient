@@ -112,6 +112,7 @@ import {
 } from './ui/player/player-layout';
 import {
   buildYouTubePlayerOptions,
+  resolvePlaybackConfigSource,
   resolveInitialPlaybackState,
 } from './ui/player/player-config';
 import {
@@ -5214,22 +5215,15 @@ const init = function (): void {
   function createYTPlayer(mediaData: MediaItem): void {
     emitYouTubeSignal('player_creating');
     createYouTubePlayerHost({ embedWrapper: $EMBED_WRAPPER, playerId: 'ytplayer' });
-    const playerOptions = buildYouTubePlayerOptions(mediaData, {
-      autoplay: getOption('autoplay'),
-      controls: getOption('controls'),
-      fs: getOption('fs'),
-      ccLoadPolicy: getOption('cc_load_policy'),
-      rel: getOption('rel'),
-      seekEnabled: Boolean(getOption('seek')),
-      faderEnabled: Boolean(getOption('fader')),
-    });
+    const playbackConfig = resolvePlaybackConfigSource(getOption);
+    const playerOptions = buildYouTubePlayerOptions(mediaData, playbackConfig);
     const initialPlaybackState = resolveInitialPlaybackState(mediaData, {
-      faderEnabled: Boolean(getOption('fader')),
+      faderEnabled: playbackConfig.faderEnabled,
       fallbackVolume: getDefaultVolume(),
       volumeInRange: (value: number) => inRange(value, 0, 100),
       getPlaybackVolume,
       normalizeVolume,
-      seekEnabled: Boolean(getOption('seek')),
+      seekEnabled: playbackConfig.seekEnabled,
     });
     AMP_STATUS.fader = initialPlaybackState.faderEnabled;
     AMP_STATUS.volume = initialPlaybackState.volume;
@@ -5255,10 +5249,11 @@ const init = function (): void {
    */
   function createPlayerTag(tagname: 'audio' | 'video', mediaData: MediaItem): void {
     const sourcePath = resolveLocalMediaSrc(mediaData.file || '');
+    const playbackConfig = resolvePlaybackConfigSource(getOption);
     const playerViewOptions = {
       mediaData,
-      controls: String(getOption('controls') || ''),
-      autoplay: String(getOption('autoplay') || ''),
+      controls: String(playbackConfig.controls || ''),
+      autoplay: String(playbackConfig.autoplay || ''),
       sourcePath,
       sourceType: getMediaMimeType(sourcePath, tagname),
     };
@@ -5267,12 +5262,12 @@ const init = function (): void {
       : createVideoPlayerView(playerViewOptions);
     let hasReportedLoadIssue = false;
     const initialPlaybackState = resolveInitialPlaybackState(mediaData, {
-      faderEnabled: Boolean(getOption('fader')),
+      faderEnabled: playbackConfig.faderEnabled,
       fallbackVolume: getDefaultVolume(),
       volumeInRange: (value: number) => inRange(value, 0, 100),
       getPlaybackVolume,
       normalizeVolume,
-      seekEnabled: Boolean(getOption('seek')),
+      seekEnabled: playbackConfig.seekEnabled,
     });
     AMP_STATUS.fader = initialPlaybackState.faderEnabled;
     AMP_STATUS.volume = initialPlaybackState.volume;
@@ -5302,7 +5297,7 @@ const init = function (): void {
     bindHtmlSeekOnPlay({
       playerElement: playerElm,
       mediaData,
-      seekEnabled: Boolean(getOption('seek')),
+      seekEnabled: playbackConfig.seekEnabled,
       isSeekActive: () => playbackTimers.isSeekActive(),
       startSeek: (callback, intervalMs) => playbackTimers.startSeek(callback, intervalMs),
       abortSeeking,
@@ -5362,7 +5357,7 @@ const init = function (): void {
         reportHtmlMediaLoadIssue(mediaElement, mediaData, event, reason);
       },
     });
-    let allowFullScreen = Boolean(getOption('fs'));
+    let allowFullScreen = Boolean(playbackConfig.fs);
     if (mediaData.hasOwnProperty('fs') && mediaData.fs !== '') {
       allowFullScreen = Boolean(mediaData.fs);
     }
