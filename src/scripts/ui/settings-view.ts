@@ -57,11 +57,22 @@ export function applyDarkModeAppearance(options: {
   }
 }
 
+export function getToggleInput(toggleRoot: ParentNode | null): HTMLInputElement | null {
+  if (!toggleRoot || typeof toggleRoot.querySelector !== 'function') {
+    return null;
+  }
+  return toggleRoot.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+}
+
 export function syncToggleInput(toggleInput: HTMLInputElement | null, checked: boolean): void {
   if (!toggleInput) {
     return;
   }
   toggleInput.checked = checked;
+}
+
+export function syncToggleRoot(toggleRoot: ParentNode | null, checked: boolean): void {
+  syncToggleInput(getToggleInput(toggleRoot), checked);
 }
 
 export function syncVolumeSlider(options: {

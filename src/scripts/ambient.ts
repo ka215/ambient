@@ -53,7 +53,8 @@ import {
 import {
   applyDarkModeAppearance,
   applyPlaylistBackground,
-  syncToggleInput,
+  getToggleInput,
+  syncToggleRoot,
   syncVolumeSlider,
 } from './ui/settings-view';
 import { applyFullWindowMode, bindViewportSyncEvents, syncViewportLayout } from './ui/viewport';
@@ -4764,17 +4765,32 @@ const init = function (): void {
     }
   }
 
+  const toggleLoopInput = getToggleInput($TOGGLE_LOOP);
+  const toggleRandomlyInput = getToggleInput($TOGGLE_RANDOMLY);
+  const toggleShuffleInput = getToggleInput($TOGGLE_SHUFFLE);
+  const toggleSeekplayInput = getToggleInput($TOGGLE_SEEKPLAY);
+  const toggleFaderInput = getToggleInput($TOGGLE_FADER);
+  const toggleDarkmodeInput = getToggleInput($TOGGLE_DARKMODE);
+
+  function setPlaylistBooleanOption(optionKey: 'shuffle' | 'seek' | 'fader' | 'dark', checked: boolean): void {
+    if (!isObject(AMP_STATUS.options)) {
+      AMP_STATUS.options = { [optionKey]: checked };
+      return;
+    }
+    AMP_STATUS.options[optionKey] = checked;
+  }
+
   /**
    * Event listener when changing the loop play of settings menu toggle button.
    */
-  ($TOGGLE_LOOP.querySelector('input[type="checkbox"]') as HTMLInputElement).addEventListener('change', (evt: Event) => {
+  toggleLoopInput?.addEventListener('change', (evt: Event) => {
     AMP_STATUS.loop = (evt.target as HTMLInputElement).checked;
   });
 
   /**
    * Event listener when changing the randomly of settings menu toggle button.
    */
-  ($TOGGLE_RANDOMLY.querySelector('input[type="checkbox"]') as HTMLInputElement).addEventListener('change', (evt: Event) => {
+  toggleRandomlyInput?.addEventListener('change', (evt: Event) => {
     AMP_STATUS.order = (evt.target as HTMLInputElement).checked ? 'random' : 'normal';
   });
 
@@ -4782,23 +4798,14 @@ const init = function (): void {
    * Toggle the randomly of settings menu toggle button.
    */
   function changeToggleRandomly(): void {
-    const toggleElm = $TOGGLE_RANDOMLY.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    syncToggleInput(toggleElm, AMP_STATUS.order === 'random');
+    syncToggleRoot($TOGGLE_RANDOMLY, AMP_STATUS.order === 'random');
   }
 
   /**
    * Event listener when changing the shuffle play of settings menu toggle button.
    */
-  ($TOGGLE_SHUFFLE.querySelector('input[type="checkbox"]') as HTMLInputElement).addEventListener('change', (evt: Event) => {
-    if (isObject(AMP_STATUS.options)) {
-      if (AMP_STATUS.options.hasOwnProperty('shuffle')) {
-        AMP_STATUS.options.shuffle = (evt.target as HTMLInputElement).checked;
-      } else {
-        AMP_STATUS.options['shuffle'] = (evt.target as HTMLInputElement).checked;
-      }
-    } else {
-      AMP_STATUS.options = { shuffle: (evt.target as HTMLInputElement).checked };
-    }
+  toggleShuffleInput?.addEventListener('change', (evt: Event) => {
+    setPlaylistBooleanOption('shuffle', (evt.target as HTMLInputElement).checked);
     AMP_STATUS.shuffle = shufflePlaylist();
     persistMyPlaylistIfNeeded();
   });
@@ -4807,8 +4814,7 @@ const init = function (): void {
    * Toggle the shuffle play of settings menu toggle button.
    */
   function changeToggleShuffle(): void {
-    const toggleElm = $TOGGLE_SHUFFLE.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    syncToggleInput(toggleElm, !!(AMP_STATUS.options && AMP_STATUS.options.shuffle));
+    syncToggleRoot($TOGGLE_SHUFFLE, !!(AMP_STATUS.options && AMP_STATUS.options.shuffle));
     AMP_STATUS.shuffle = shufflePlaylist();
   }
 
@@ -4838,12 +4844,8 @@ const init = function (): void {
   /**
    * Event listener when changing the seekplay of settings menu toggle button.
    */
-  ($TOGGLE_SEEKPLAY.querySelector('input[type="checkbox"]') as HTMLInputElement).addEventListener('change', (evt: Event) => {
-    if (!isObject(AMP_STATUS.options)) {
-      AMP_STATUS.options = { seek: (evt.target as HTMLInputElement).checked };
-    } else {
-      AMP_STATUS.options.seek = (evt.target as HTMLInputElement).checked;
-    }
+  toggleSeekplayInput?.addEventListener('change', (evt: Event) => {
+    setPlaylistBooleanOption('seek', (evt.target as HTMLInputElement).checked);
     persistMyPlaylistIfNeeded();
   });
 
@@ -4851,19 +4853,14 @@ const init = function (): void {
    * Toggle the seekplay of settings menu toggle button.
    */
   function changeToggleSeekplay(): void {
-    const toggleElm = $TOGGLE_SEEKPLAY.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    syncToggleInput(toggleElm, !!(AMP_STATUS.options && AMP_STATUS.options.seek));
+    syncToggleRoot($TOGGLE_SEEKPLAY, !!(AMP_STATUS.options && AMP_STATUS.options.seek));
   }
 
   /**
    * Event listener when changing the pseudo fader of settings menu toggle button.
    */
-  ($TOGGLE_FADER.querySelector('input[type="checkbox"]') as HTMLInputElement).addEventListener('change', (evt: Event) => {
-    if (!isObject(AMP_STATUS.options)) {
-      AMP_STATUS.options = { fader: (evt.target as HTMLInputElement).checked };
-    } else {
-      AMP_STATUS.options.fader = (evt.target as HTMLInputElement).checked;
-    }
+  toggleFaderInput?.addEventListener('change', (evt: Event) => {
+    setPlaylistBooleanOption('fader', (evt.target as HTMLInputElement).checked);
     persistMyPlaylistIfNeeded();
   });
 
@@ -4871,8 +4868,7 @@ const init = function (): void {
    * Toggle the pseudo fader of settings menu toggle button.
    */
   function changeToggleFader(): void {
-    const toggleElm = $TOGGLE_FADER.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    syncToggleInput(toggleElm, !!(AMP_STATUS.options && AMP_STATUS.options.fader));
+    syncToggleRoot($TOGGLE_FADER, !!(AMP_STATUS.options && AMP_STATUS.options.fader));
   }
 
   /**
@@ -4921,16 +4917,8 @@ const init = function (): void {
   /**
    * Event listener when changing the darkmode of settings menu toggle button.
    */
-  ($TOGGLE_DARKMODE.querySelector('input[type="checkbox"]') as HTMLInputElement).addEventListener('change', (evt: Event) => {
-    if (!isObject(AMP_STATUS.options)) {
-      AMP_STATUS.options = { dark: (evt.target as HTMLInputElement).checked };
-    } else {
-      if (AMP_STATUS.options?.hasOwnProperty('dark')) {
-        AMP_STATUS.options.dark = (evt.target as HTMLInputElement).checked;
-      } else {
-        AMP_STATUS.options = Object.assign(AMP_STATUS.options, { dark: (evt.target as HTMLInputElement).checked });
-      }
-    }
+  toggleDarkmodeInput?.addEventListener('change', (evt: Event) => {
+    setPlaylistBooleanOption('dark', (evt.target as HTMLInputElement).checked);
     // Delay dark class toggle to let the knob slide animation complete (~150ms)
     setTimeout(() => changeToggleDarkmode(), 200);
     persistMyPlaylistIfNeeded();
@@ -4940,11 +4928,10 @@ const init = function (): void {
    * Toggle the darkmode of settings menu toggle button.
    */
   function changeToggleDarkmode(): void {
-    const toggleElm = $TOGGLE_DARKMODE.querySelector('input[type="checkbox"]') as HTMLInputElement;
     const isDarkmode = isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark ? !!AMP_STATUS.options.dark : false;
     applyDarkModeAppearance({
       enabled: isDarkmode,
-      toggleInput: toggleElm,
+      toggleInput: toggleDarkmodeInput,
       updateNoMediaImagesForTheme,
       setStyles,
     });
