@@ -76,3 +76,34 @@ export function syncViewportLayout(options: {
 
   options.onAfterResponsiveLayout();
 }
+
+export function applyFullWindowMode(options: {
+  body: HTMLElement;
+  enabled: boolean;
+  toggleInput: HTMLInputElement | null;
+  closeDrawers: boolean;
+  playlistDrawer: HTMLElement | null;
+  settingsDrawer: HTMLElement | null;
+  playlistCloseButton: HTMLElement | null;
+  settingsCloseButton: HTMLElement | null;
+}): void {
+  options.body.classList.toggle('amp-full-window', options.enabled);
+
+  if (options.toggleInput) {
+    options.toggleInput.checked = options.enabled;
+  }
+
+  if (!options.enabled || !options.closeDrawers) {
+    return;
+  }
+
+  const shownLeft = !!options.playlistDrawer && !options.playlistDrawer.classList.contains('-translate-x-full');
+  const shownRight = !!options.settingsDrawer && !options.settingsDrawer.classList.contains('translate-x-full');
+
+  if (shownLeft) {
+    options.playlistCloseButton?.click();
+  }
+  if (shownRight) {
+    options.settingsCloseButton?.click();
+  }
+}

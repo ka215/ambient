@@ -50,7 +50,7 @@ import {
 import {
   syncDrawerAndModalBackdrops,
 } from './ui/drawers';
-import { bindViewportSyncEvents, syncViewportLayout } from './ui/viewport';
+import { applyFullWindowMode, bindViewportSyncEvents, syncViewportLayout } from './ui/viewport';
 import {
   createOptionsModalController,
   createPlaylistConfirmModalController,
@@ -4448,12 +4448,16 @@ const init = function (): void {
    * @param closeDrawers When true, auto-close any open drawers (only for bottom-menu trigger).
    */
   function setFullWindowMode(enabled: boolean, syncOption = true, closeDrawers = false): void {
-    $BODY.classList.toggle('amp-full-window', enabled);
-
-    const $TOGGLE = $TOGGLE_WINDOW_FULL?.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
-    if (isElement($TOGGLE)) {
-      $TOGGLE.checked = enabled;
-    }
+    applyFullWindowMode({
+      body: $BODY,
+      enabled,
+      toggleInput: ($TOGGLE_WINDOW_FULL?.querySelector('input[type="checkbox"]') as HTMLInputElement | null),
+      closeDrawers,
+      playlistDrawer: $DRAWER_PLAYLIST,
+      settingsDrawer: $DRAWER_SETTINGS,
+      playlistCloseButton: document.getElementById('btn-close-playlist') as HTMLElement | null,
+      settingsCloseButton: document.getElementById('btn-close-settings') as HTMLElement | null,
+    });
 
     if (syncOption) {
       if (!isObject(AMP_STATUS.options)) {
@@ -4462,17 +4466,6 @@ const init = function (): void {
         AMP_STATUS.options.fullwindow = enabled;
       }
       persistMyPlaylistIfNeeded();
-    }
-
-    if (enabled && closeDrawers) {
-      const shownLeft  = !$DRAWER_PLAYLIST.classList.contains('-translate-x-full');
-      const shownRight = !$DRAWER_SETTINGS.classList.contains('translate-x-full');
-      if (shownLeft) {
-        (document.getElementById('btn-close-playlist') as HTMLElement | null)?.click();
-      }
-      if (shownRight) {
-        (document.getElementById('btn-close-settings') as HTMLElement | null)?.click();
-      }
     }
 
     syncWindowFullButtonIcons(enabled);
