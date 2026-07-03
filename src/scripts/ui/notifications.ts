@@ -12,6 +12,28 @@ export interface NoticeController {
   update(notification: NotificationObject): void;
 }
 
+export function dispatchInitialNotice(
+  alertElement: HTMLElement | null,
+  updateNotice: (notification: NotificationObject) => void,
+  fallbackDelay = 5000
+): void {
+  if (!alertElement) {
+    return;
+  }
+
+  const initialMessage = (alertElement.dataset['noticeMessage'] || '').trim();
+  const initialType = ((alertElement.dataset['noticeType'] || 'info') as NotificationObject['type']);
+  if (initialMessage === '') {
+    return;
+  }
+
+  updateNotice({
+    type: initialType,
+    message: initialMessage,
+    delay: fallbackDelay,
+  });
+}
+
 function setElementVisibility(element: HTMLElement, visible: boolean): void {
   element.classList.toggle('hidden', !visible);
   element.style.display = visible ? 'flex' : '';

@@ -75,7 +75,11 @@ import {
   togglePlaylistModeMenu as togglePlaylistModeMenuView,
   updatePlaylistModeMenuState,
 } from './ui/playlist-view';
-import { createNoticeController, type NoticeController } from './ui/notifications';
+import {
+  createNoticeController,
+  dispatchInitialNotice,
+  type NoticeController,
+} from './ui/notifications';
 import {
   showPlaybackPauseState,
   showPlaybackPlayState,
@@ -144,8 +148,8 @@ import {
   syncRangeProgress as syncRangeProgressView,
   updateCategoryView,
 } from './ui/forms/management-forms';
-import { bindMediaManagementForm } from './ui/forms/media-management';
-import { bindPlaylistManagementForm } from './ui/forms/playlist-management';
+import { bindMediaManagementForm, type MediaManagementBindings } from './ui/forms/media-management';
+import { bindPlaylistManagementForm, type PlaylistManagementBindings } from './ui/forms/playlist-management';
 import { createPlaylistLoadGuard } from './domain/playlist-loader';
 import {
   buildPlaylistJson,
@@ -6131,8 +6135,8 @@ const init = function (): void {
     };
   }
 
-  if ($MEDIA_MANAGE_FORM) {
-    bindMediaManagementForm({
+  function buildMediaManagementBindings(): MediaManagementBindings {
+    return {
       form: $MEDIA_MANAGE_FORM,
       elements: $MEDIA_MANAGE_ELMS,
       mediaCategorySelect: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
@@ -6176,11 +6180,11 @@ const init = function (): void {
       setAddType: (nextType: string) => {
         AMP_STATUS.addtype = nextType;
       },
-    });
+    };
   }
 
-  if ($PLAYLIST_MANAGE_FORM) {
-    bindPlaylistManagementForm({
+  function buildPlaylistManagementBindings(): PlaylistManagementBindings {
+    return {
       form: $PLAYLIST_MANAGE_FORM,
       elements: $PLAYLIST_MANAGE_ELMS,
       canMutateCurrentPlaylist,
@@ -6206,21 +6210,19 @@ const init = function (): void {
       createCategory: createPlaylistCategory,
       downloadPlaylist: downloadCurrentPlaylist,
       importPlaylist: importPlaylistFromManagementForm,
-    });
+    };
+  }
+
+  if ($MEDIA_MANAGE_FORM) {
+    bindMediaManagementForm(buildMediaManagementBindings());
+  }
+
+  if ($PLAYLIST_MANAGE_FORM) {
+    bindPlaylistManagementForm(buildPlaylistManagementBindings());
   }
 
   const $INITIAL_ALERT = document.getElementById('alert-notification') as HTMLElement | null;
-  if ($INITIAL_ALERT) {
-    const initialMessage = ($INITIAL_ALERT.dataset['noticeMessage'] || '').trim();
-    const initialType = (($INITIAL_ALERT.dataset['noticeType'] || 'info') as NotificationPayload['type']);
-    if (initialMessage !== '') {
-      updateNotice({
-        type: initialType,
-        message: initialMessage,
-        delay: 5000,
-      });
-    }
-  }
+  dispatchInitialNotice($INITIAL_ALERT, updateNotice, 5000);
 };
 
 // for debugging code
