@@ -156,6 +156,11 @@ import {
 } from './domain/myplaylist-storage';
 import { createPlaybackTimerController } from './domain/media-playback';
 import { appendManagedMediaItem, buildManagedMediaItem } from './domain/media-management-data';
+import {
+  persistImportedCloudPlaylist,
+  resolveImportedPlaylistPersistResult,
+} from './domain/playlist-import';
+import { appendUniqueCategory } from './domain/playlist-management-data';
 
 // ============================================================================
 // INITIALIZATION
@@ -5427,6 +5432,14 @@ const init = function (): void {
     }
   }
 
+  async function activateImportedPlaylist(playlistName: string): Promise<void> {
+    ensurePlaylistOption(playlistName);
+    selectPlaylistOption(playlistName);
+    requestCategoryResume(null);
+    requestMediaResume(null);
+    await getPlaylistData(playlistName, true);
+  }
+
   function resolveEndedPlaybackTarget(): ReturnType<typeof resolveNextPlaybackTarget> | null {
     return resolveEndedPlaybackTargetRuntime(
       AMP_STATUS.media || [],
@@ -5995,17 +6008,11 @@ const init = function (): void {
     }
 
     if (ambientData?.isCloud) {
-      try {
-        localStorage.setItem(MYPLAYLIST_KEY, JSON.stringify(sanitized.playlist, null, 2));
-      } catch (_error) {
+      if (!persistImportedCloudPlaylist(sanitized.playlist)) {
         return { ok: false, message: getLocalizedMessage('importPersistError', 'Failed to save imported playlist data.') };
       }
       ensureMyPlaylistOptionFromStorage();
-      ensurePlaylistOption(MYPLAYLIST_NAME);
-      selectPlaylistOption(MYPLAYLIST_NAME);
-      requestCategoryResume(null);
-      requestMediaResume(null);
-      await getPlaylistData(MYPLAYLIST_NAME, true);
+      await activateImportedPlaylist(MYPLAYLIST_NAME);
       return { ok: true, message: getLocalizedMessage('importCloudReplacedMyPlaylist', 'Import completed. MyPlaylist has been replaced.') };
     }
 
@@ -6030,14 +6037,16 @@ const init = function (): void {
       response = undefined;
     }
 
-    if (!response || response.state !== 'ok' || !response.data?.filename) {
-      const errorMessage = (response && (response as any).data && (response as any).data.message)
-        ? (response as any).data.message
-        : getLocalizedMessage('importPersistError', 'Failed to save imported playlist data.');
-      return { ok: false, message: errorMessage };
+    const persistResult = resolveImportedPlaylistPersistResult(
+      response,
+      getLocalizedMessage('importPersistError', 'Failed to save imported playlist data.'),
+      getLocalizedMessage('Playlist imported successfully.', 'Playlist imported successfully.')
+    );
+    if (!persistResult.ok) {
+      return persistResult;
     }
 
-    const importedPlaylistName = response.data.filename;
+    const importedPlaylistName = persistResult.filename;
     const ambient = getAmbientData();
     if (ambient) {
       if (!isObject(ambient.playlists)) {
@@ -6045,15 +6054,11 @@ const init = function (): void {
       }
       ambient.playlists[importedPlaylistName] = `./assets/${importedPlaylistName}`;
     }
-    ensurePlaylistOption(importedPlaylistName);
-    selectPlaylistOption(importedPlaylistName);
-    requestCategoryResume(null);
-    requestMediaResume(null);
-    await getPlaylistData(importedPlaylistName, true);
+    await activateImportedPlaylist(importedPlaylistName);
 
     return {
       ok: true,
-      message: response.data.message || getLocalizedMessage('Playlist imported successfully.', 'Playlist imported successfully.'),
+      message: persistResult.message,
     };
   }
 
@@ -6143,19 +6148,8 @@ const init = function (): void {
         try {
           const formData = new FormData($PLAYLIST_MANAGE_FORM);
           const categoryName = String(formData.get('category_name') || '');
-          if (!Array.isArray(AMP_STATUS.category)) AMP_STATUS.category = [];
-          if (!inArray(categoryName, AMP_STATUS.category)) {
-            AMP_STATUS.category.push(categoryName);
-          } else {
-            const uniqueSet = new Set(AMP_STATUS.category);
-            let newValue = categoryName;
-            let count = 1;
-            while (uniqueSet.has(newValue)) {
-              newValue = `${categoryName}_${count}`;
-              count++;
-            }
-            AMP_STATUS.category.push(newValue);
-          }
+          const result = appendUniqueCategory(AMP_STATUS.category || [], categoryName);
+          AMP_STATUS.category = result.categories;
           logger('createCategory:', categoryName, AMP_STATUS);
           const persisted = persistMyPlaylistIfNeeded();
           clearCategory();
