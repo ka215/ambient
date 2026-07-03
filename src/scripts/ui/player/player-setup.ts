@@ -2,10 +2,19 @@ import type { MediaItem } from '../../types/ambient';
 
 export type PlaybackSourceType = 'youtube' | 'html';
 export type HtmlPlayerKind = 'audio' | 'video';
+export type PlaybackSetupKind = 'youtube' | 'audio' | 'video' | 'missing' | 'unsupported_html' | 'unsupported_player';
 
 export interface ResolvedPlaybackSource {
   type: PlaybackSourceType | null;
   src: string | null;
+}
+
+export interface PlaybackSetupPlan {
+  kind: PlaybackSetupKind;
+  sourceType: PlaybackSourceType | null;
+  src: string | null;
+  extension: string | null;
+  htmlPlayerKind: HtmlPlayerKind | null;
 }
 
 export function resolvePlaybackSource(mediaData: MediaItem): ResolvedPlaybackSource {
@@ -37,4 +46,61 @@ export function resolveHtmlPlayerKind(extension: string): HtmlPlayerKind | null 
     return 'video';
   }
   return null;
+}
+
+export function resolvePlaybackSetupPlan(options: {
+  mediaData: MediaItem;
+  getExtension: (src: string) => string;
+}): PlaybackSetupPlan {
+  const source = resolvePlaybackSource(options.mediaData);
+
+  if (!source.type || !source.src) {
+    return {
+      kind: 'missing',
+      sourceType: source.type,
+      src: source.src,
+      extension: null,
+      htmlPlayerKind: null,
+    };
+  }
+
+  if (source.type === 'youtube') {
+    return {
+      kind: 'youtube',
+      sourceType: source.type,
+      src: source.src,
+      extension: null,
+      htmlPlayerKind: null,
+    };
+  }
+
+  if (source.type === 'html') {
+    const extension = options.getExtension(source.src);
+    const htmlPlayerKind = resolveHtmlPlayerKind(extension);
+    if (htmlPlayerKind) {
+      return {
+        kind: htmlPlayerKind,
+        sourceType: source.type,
+        src: source.src,
+        extension,
+        htmlPlayerKind,
+      };
+    }
+
+    return {
+      kind: 'unsupported_html',
+      sourceType: source.type,
+      src: source.src,
+      extension,
+      htmlPlayerKind: null,
+    };
+  }
+
+  return {
+    kind: 'unsupported_player',
+    sourceType: source.type,
+    src: source.src,
+    extension: null,
+    htmlPlayerKind: null,
+  };
 }

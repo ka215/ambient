@@ -141,9 +141,7 @@ import {
   bindHtmlSeekOnPlay,
 } from './ui/player/html-player-events';
 import {
-  resolveHtmlPlayerKind,
-  resolvePlaybackSource,
-  type PlaybackSourceType,
+  resolvePlaybackSetupPlan,
 } from './ui/player/player-setup';
 import { createAudioPlayerView } from './ui/player/audio-player-view';
 import { createVideoPlayerView } from './ui/player/video-player-view';
@@ -4997,9 +4995,12 @@ const init = function (): void {
 
     if (!mediaData) return;
 
-    const { src: mediaSrc, type: playerType } = resolvePlaybackSource(mediaData);
+    const playbackPlan = resolvePlaybackSetupPlan({
+      mediaData,
+      getExtension: getExt,
+    });
 
-    logger('playItem:', amId, mediaSrc, playerType);
+    logger('playItem:', amId, playbackPlan.src, playbackPlan.kind);
     updatePlayStatus(amId);
 
     if (currentWindowSize.width < currentWindowSize.minFullUIWidth) {
@@ -5008,7 +5009,7 @@ const init = function (): void {
       (document.getElementById('btn-close-settings') as HTMLButtonElement)?.click();
     }
 
-    if (!playerType || !mediaSrc) {
+    if (playbackPlan.kind === 'missing') {
       reportMediaPlaybackIssue(mediaData, 'media_source_missing', {
         currentPlaylist: AMP_STATUS.playlist || '',
         currentCategory: AMP_STATUS.ctg,
@@ -5016,39 +5017,42 @@ const init = function (): void {
       return;
     }
 
-    setupPlayer(playerType, mediaSrc, mediaData);
+    setupPlayer(playbackPlan.kind, playbackPlan.src, mediaData, playbackPlan.extension);
   }
 
   /**
    * Handle the player to prepare depending on the type of media to play.
    */
-  function setupPlayer(type: PlaybackSourceType | null, src: string | null, mediaData: MediaItem): void {
+  function setupPlayer(
+    setupKind: 'youtube' | 'audio' | 'video' | 'unsupported_html' | 'unsupported_player',
+    src: string | null,
+    mediaData: MediaItem,
+    extension: string | null = null
+  ): void {
     abortPlaybackTimers();
     // update media caption.
     updateMediaCaption(mediaData);
 
-    if (type === 'youtube') {
+    if (setupKind === 'youtube') {
       AMP_STATUS.playertype = 'youtube';
       AMP_STATUS.yt_error = '';
       createYTPlayer(mediaData);
       return;
     }
 
-    if (type === 'html') {
+    if (setupKind === 'audio' || setupKind === 'video') {
       emitYouTubeSignal('inactive');
-      const extension = getExt(src || '');
-      const playerKind = resolveHtmlPlayerKind(extension);
+      AMP_STATUS.playertype = setupKind;
+      createPlayerTag(setupKind, mediaData);
+      return;
+    }
 
-      if (playerKind) {
-        AMP_STATUS.playertype = playerKind;
-        createPlayerTag(playerKind, mediaData);
-        return;
-      }
-
+    if (setupKind === 'unsupported_html') {
+      emitYouTubeSignal('inactive');
       AMP_STATUS.playertype = null;
       reportMediaPlaybackIssue(mediaData, 'unsupported_file_format', {
         src,
-        extension,
+        extension: extension || getExt(src || ''),
       });
       return;
     }
@@ -5057,7 +5061,7 @@ const init = function (): void {
     emitYouTubeSignal('error', 'unsupported_player_specified');
     reportMediaPlaybackIssue(mediaData, 'unsupported_player_specified', {
       src,
-      type,
+      type: setupKind,
     });
   }
 
@@ -5108,7 +5112,16 @@ const init = function (): void {
       return;
     }
     updatePlayStatus(playbackTarget.nextId);
-    setupPlayer(playbackTarget.playerType, playbackTarget.mediaSrc, playbackTarget.mediaData);
+    const setupKind = playbackTarget.playerType === 'youtube'
+      ? 'youtube'
+      : resolvePlaybackSetupPlan({
+        mediaData: playbackTarget.mediaData,
+        getExtension: getExt,
+      }).kind;
+    if (setupKind === 'missing') {
+      return;
+    }
+    setupPlayer(setupKind, playbackTarget.mediaSrc, playbackTarget.mediaData);
   }
 
   function cleanupYouTubeTransition(event: any, playbackTarget: ReturnType<typeof resolveNextPlaybackTarget> | null): void {
