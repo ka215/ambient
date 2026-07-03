@@ -146,6 +146,7 @@ import { bindMediaManagementForm } from './ui/forms/media-management';
 import { bindPlaylistManagementForm } from './ui/forms/playlist-management';
 import { createPlaylistLoadGuard } from './domain/playlist-loader';
 import {
+  buildPlaylistJson,
   ensureCloudMyPlaylistSeed as domainEnsureCloudMyPlaylistSeed,
   hasStoredMyPlaylist,
   MYPLAYLIST_NAME,
@@ -544,7 +545,7 @@ const init = function (): void {
   function sanitizeMyPlaylistOptions(
     options: PlaylistOptions | null | undefined
   ): PlaylistOptions | null {
-    return domainSanitizeMyPlaylistOptions(options);
+    return domainSanitizeMyPlaylistOptions(options) as PlaylistOptions | null;
   }
 
   function getCurrentCategoryName(): string {
@@ -5949,42 +5950,14 @@ const init = function (): void {
   }
 
   function generatePlaylistJson(seekFormat: boolean): string {
-    const convertHMS = (value: string | number | undefined): string => {
-      if (value === '' || value === undefined || Number(value) === 0) return '';
-      const totalSeconds = Number(value);
-      const hours = Math.floor(totalSeconds / 3600);
-      const minutes = Math.floor((totalSeconds % 3600) / 60);
-      const remainingSeconds = totalSeconds % 60;
-      if (hours > 0) {
-        return `${hours}:${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
-      } else if (minutes > 0) {
-        return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
-      } else if (remainingSeconds > 0) {
-        return String(remainingSeconds);
-      }
-      return '';
-    };
-    const newPlaylist: Record<string, any> = {};
-    (AMP_STATUS.media || []).forEach((item: MediaItem) => {
-      const belongCategory = (AMP_STATUS.category || [])[item.catId] || '';
-      const oneData = {
-        file:    (item.file || '').replace('./assets/media/', ''),
-        title:   item.title,
-        desc:    item.desc,
-        artist:  item.artist,
-        videoid: item.videoid,
-        image:   item.image,
-        start:   seekFormat ? convertHMS(item.start) : item.start,
-        end:     seekFormat ? convertHMS(item.end) : item.end,
-      };
-      if (!Object.prototype.hasOwnProperty.call(newPlaylist, belongCategory)) {
-        newPlaylist[belongCategory] = [];
-      }
-      newPlaylist[belongCategory].push(oneData);
+    const playlistJson = buildPlaylistJson({
+      mediaItems: AMP_STATUS.media || [],
+      categories: AMP_STATUS.category || [],
+      playlistOptions: AMP_STATUS.options,
+      seekFormat,
     });
-    newPlaylist['options'] = sanitizeMyPlaylistOptions(AMP_STATUS.options);
-    logger('generatePlaylistJson::after:', newPlaylist);
-    return JSON.stringify(newPlaylist, null, 2);
+    logger('generatePlaylistJson::after:', playlistJson);
+    return playlistJson;
   }
 
   async function importPlaylistFromFile(file: File): Promise<{ ok: boolean; message: string }> {
