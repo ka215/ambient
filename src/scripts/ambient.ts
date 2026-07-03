@@ -50,6 +50,7 @@ import {
 import {
   syncDrawerAndModalBackdrops,
 } from './ui/drawers';
+import { applyDarkModeAppearance, applyPlaylistBackground } from './ui/settings-view';
 import { applyFullWindowMode, bindViewportSyncEvents, syncViewportLayout } from './ui/viewport';
 import {
   createOptionsModalController,
@@ -4270,16 +4271,12 @@ const init = function (): void {
     // Applies if a background image is specified.
     const bgImage = getOption('background');
     const ambientData = (window as any).AmbientData as AmbientData;
-    if (bgImage && ambientData && ambientData.hasOwnProperty('imageDir')) {
-      const bgSrc = ambientData.imageDir + bgImage;
-      $BODY.setAttribute('style', `background-image: url('${bgSrc}');`);
-      $BODY.classList.add('bg-no-repeat', 'bg-bottom', 'bg-cover');
-      $MENU.setAttribute('style', 'background: linear-gradient(to bottom, rgba(255,255,255,.3), 50%, rgba(255,255,255,1));');
-    } else {
-      $BODY.removeAttribute('style');
-      $BODY.classList.remove('bg-no-repeat', 'bg-bottom', 'bg-cover');
-      $MENU.removeAttribute('style');
-    }
+    applyPlaylistBackground({
+      body: $BODY,
+      menu: $MENU,
+      imageDir: ambientData?.imageDir,
+      backgroundImage: bgImage,
+    });
 
     // Applies if a randomly playback is specified.
     const isRandom = getOption('random');
@@ -4944,30 +4941,12 @@ const init = function (): void {
   function changeToggleDarkmode(): void {
     const toggleElm = $TOGGLE_DARKMODE.querySelector('input[type="checkbox"]') as HTMLInputElement;
     const isDarkmode = isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark ? !!AMP_STATUS.options.dark : false;
-    toggleElm.checked = isDarkmode;
-    if (isDarkmode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    updateNoMediaImagesForTheme();
-    const $CAROUSEL_ITEMS = Array.from(document.querySelectorAll('[id^="carousel-item-"]')) as HTMLElement[];
-    $CAROUSEL_ITEMS.forEach((item: HTMLElement) => {
-      if (isDarkmode) {
-        setStyles(item, 'opacity: .7');
-      } else {
-        setStyles(item);
-      }
+    applyDarkModeAppearance({
+      enabled: isDarkmode,
+      toggleInput: toggleElm,
+      updateNoMediaImagesForTheme,
+      setStyles,
     });
-
-    const $AUDIO_PLAYER = document.getElementsByTagName('audio');
-    if ($AUDIO_PLAYER.length === 1 && isElement($AUDIO_PLAYER[0])) {
-      if (isDarkmode) {
-        setStyles($AUDIO_PLAYER[0], 'opacity: .7');
-      } else {
-        setStyles($AUDIO_PLAYER[0]);
-      }
-    }
   }
 
   $SELECT_LANGUAGE.addEventListener('change', (evt: Event) => {
