@@ -2280,11 +2280,12 @@ const init = function (): void {
       $MEDIA_EDIT_DESCRIPTION.value = draft.description;
     }
     if (isElement($MEDIA_EDIT_VOLUME)) {
-      $MEDIA_EDIT_VOLUME.value = String(draft.volume);
-      syncRangeProgress($MEDIA_EDIT_VOLUME);
-      if (isElement($MEDIA_EDIT_VOLUME_VALUE)) {
-        $MEDIA_EDIT_VOLUME_VALUE.textContent = String(draft.volume);
-      }
+      syncVolumeSlider({
+        input: $MEDIA_EDIT_VOLUME,
+        volume: draft.volume,
+        syncRangeProgress,
+        display: $MEDIA_EDIT_VOLUME_VALUE,
+      });
     }
     if (isElement($MEDIA_EDIT_THUMBNAIL_NAME)) {
       $MEDIA_EDIT_THUMBNAIL_NAME.textContent = draft.thumbnailMode === 'upload'
@@ -3912,21 +3913,23 @@ const init = function (): void {
   if (isElement($MEDIA_EDIT_VOLUME)) {
     $MEDIA_EDIT_VOLUME.addEventListener('input', () => {
       const normalized = readMediaEditDraftFromForm();
-      $MEDIA_EDIT_VOLUME.value = String(normalized.volume);
-      syncRangeProgress($MEDIA_EDIT_VOLUME);
-      if (isElement($MEDIA_EDIT_VOLUME_VALUE)) {
-        $MEDIA_EDIT_VOLUME_VALUE.textContent = String(normalized.volume);
-      }
+      syncVolumeSlider({
+        input: $MEDIA_EDIT_VOLUME,
+        volume: normalized.volume,
+        syncRangeProgress,
+        display: $MEDIA_EDIT_VOLUME_VALUE,
+      });
       syncMediaEditDraftStateFromForm();
       validateAndRenderMediaEditDraftFromForm();
     });
     $MEDIA_EDIT_VOLUME.addEventListener('blur', () => {
       const normalized = readMediaEditDraftFromForm();
-      $MEDIA_EDIT_VOLUME.value = String(normalized.volume);
-      syncRangeProgress($MEDIA_EDIT_VOLUME);
-      if (isElement($MEDIA_EDIT_VOLUME_VALUE)) {
-        $MEDIA_EDIT_VOLUME_VALUE.textContent = String(normalized.volume);
-      }
+      syncVolumeSlider({
+        input: $MEDIA_EDIT_VOLUME,
+        volume: normalized.volume,
+        syncRangeProgress,
+        display: $MEDIA_EDIT_VOLUME_VALUE,
+      });
       syncMediaEditDraftStateFromForm();
       validateAndRenderMediaEditDraftFromForm();
     });
@@ -4877,16 +4880,22 @@ const init = function (): void {
    */
   $RANGE_VOLUME.addEventListener('input', (evt: Event) => {
     const currentVolume = normalizeVolume((evt.target as HTMLInputElement).value);
-    (evt.target as HTMLInputElement).value = String(currentVolume);
-    syncRangeProgress(evt.target as HTMLInputElement);
-    const displayVolume = document.getElementById('default-volume-value') as HTMLElement;
-    displayVolume.textContent = String(currentVolume);
+    syncVolumeSlider({
+      input: evt.target as HTMLInputElement,
+      volume: currentVolume,
+      syncRangeProgress,
+      display: document.getElementById('default-volume-value') as HTMLElement | null,
+    });
   });
 
   $RANGE_VOLUME.addEventListener('change', (evt: Event) => {
     const currentVolume = normalizeVolume((evt.target as HTMLInputElement).value);
-    (evt.target as HTMLInputElement).value = String(currentVolume);
-    syncRangeProgress(evt.target as HTMLInputElement);
+    syncVolumeSlider({
+      input: evt.target as HTMLInputElement,
+      volume: currentVolume,
+      syncRangeProgress,
+      display: document.getElementById('default-volume-value') as HTMLElement | null,
+    });
     AMP_STATUS.volume = currentVolume;
     if (!isObject(AMP_STATUS.options)) {
       AMP_STATUS.options = { volume: currentVolume };
