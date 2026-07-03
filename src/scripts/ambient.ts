@@ -51,10 +51,9 @@ import {
   savePlaylistResumeContext,
 } from './state/playlist-context';
 import {
-  reconcileResponsiveDrawers,
   syncDrawerAndModalBackdrops,
 } from './ui/drawers';
-import { bindViewportSyncEvents } from './ui/viewport';
+import { bindViewportSyncEvents, syncViewportLayout } from './ui/viewport';
 import {
   createOptionsModalController,
   createPlaylistConfirmModalController,
@@ -90,7 +89,6 @@ import {
   getBottomMenuHeight as getBottomMenuHeightView,
   getFullWindowPlayerSize as getFullWindowPlayerSizeView,
   getPlayerSizeForCurrentMode as getPlayerSizeForCurrentModeView,
-  syncActivePlayerSize,
 } from './ui/player/player-layout';
 import {
   buildYouTubePlayerOptions,
@@ -5821,24 +5819,16 @@ const init = function (): void {
   function updateWindowSize(): void {
     currentWindowSize.width = getViewportWidth();
     currentWindowSize.height = getViewportHeight();
-    document.documentElement.style.setProperty('--amp-bottom-menu-height', `${getBottomMenuHeight()}px`);
-    const isFullWindow = isFullWindowMode();
-
-    const adjustPlayerSize = getPlayerSizeForCurrentMode();
     const $HTMLPlayer = document.getElementById('html-player') as HTMLVideoElement | null;
-    syncActivePlayerSize({
+    syncViewportLayout({
+      width: currentWindowSize.width,
+      height: currentWindowSize.height,
+      getBottomMenuHeight,
+      isFullWindow: isFullWindowMode(),
+      getPlayerSizeForCurrentMode,
       player,
       htmlPlayer: $HTMLPlayer,
-      size: adjustPlayerSize,
-      fullWindow: isFullWindow,
-    });
-
-    if (isFullWindow) {
-      return;
-    }
-
-    reconcileResponsiveDrawers(
-      {
+      drawerElements: {
         playlistDrawer: $DRAWER_PLAYLIST,
         settingsDrawer: $DRAWER_SETTINGS,
         playlistButton: $BUTTON_PLAYLIST,
@@ -5846,11 +5836,11 @@ const init = function (): void {
         playlistCloseButton: document.getElementById('btn-close-playlist') as HTMLButtonElement | null,
         settingsCloseButton: document.getElementById('btn-close-settings') as HTMLButtonElement | null,
       },
-      currentWindowSize.width,
-      currentWindowSize.minFullUIWidth
-    );
-
-    toggleMarqueeCaption();
+      minFullUiWidth: currentWindowSize.minFullUIWidth,
+      onAfterResponsiveLayout: () => {
+        toggleMarqueeCaption();
+      },
+    });
   }
 
   setMenuMinimized(false);
