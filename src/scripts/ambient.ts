@@ -157,6 +157,7 @@ import {
 import { createPlaybackTimerController } from './domain/media-playback';
 import { appendManagedMediaItem, buildManagedMediaItem } from './domain/media-management-data';
 import {
+  postImportedPlaylist,
   persistImportedCloudPlaylist,
   resolveImportedPlaylistPersistResult,
 } from './domain/playlist-import';
@@ -6016,26 +6017,11 @@ const init = function (): void {
       return { ok: true, message: getLocalizedMessage('importCloudReplacedMyPlaylist', 'Import completed. MyPlaylist has been replaced.') };
     }
 
-    let response: ApiResponse<{ message?: string; filename?: string }> | undefined;
-    try {
-      const rawResponse = await fetch(`${BASE_URL}playlist-import`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          filename: file.name,
-          playlist: sanitized.playlist,
-        }),
-        credentials: 'same-origin',
-      });
-      const payload = await rawResponse.json().catch(() => null);
-      if (payload && typeof payload === 'object') {
-        response = payload as ApiResponse<{ message?: string; filename?: string }>;
-      }
-    } catch (_error) {
-      response = undefined;
-    }
+    const response = await postImportedPlaylist({
+      baseUrl: BASE_URL,
+      filename: file.name,
+      playlist: sanitized.playlist,
+    });
 
     const persistResult = resolveImportedPlaylistPersistResult(
       response,

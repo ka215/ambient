@@ -13,6 +13,34 @@ export interface PlaylistImportFailure {
 
 export type PlaylistImportPersistResult = PlaylistImportSuccess | PlaylistImportFailure;
 
+export async function postImportedPlaylist(options: {
+  baseUrl: string;
+  filename: string;
+  playlist: Record<string, unknown>;
+}): Promise<{ state?: string; data?: { message?: string; filename?: string } } | undefined> {
+  try {
+    const rawResponse = await fetch(`${options.baseUrl}playlist-import`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        filename: options.filename,
+        playlist: options.playlist,
+      }),
+      credentials: 'same-origin',
+    });
+    const payload = await rawResponse.json().catch(() => null);
+    if (payload && typeof payload === 'object') {
+      return payload as { state?: string; data?: { message?: string; filename?: string } };
+    }
+  } catch (_error) {
+    return undefined;
+  }
+
+  return undefined;
+}
+
 export function persistImportedCloudPlaylist(playlist: Record<string, unknown>): boolean {
   try {
     writeMyPlaylistJson(JSON.stringify(playlist, null, 2));
