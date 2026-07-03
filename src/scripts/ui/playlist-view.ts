@@ -21,6 +21,13 @@ export interface PlaylistQuickAddOptions {
   onClick: (event: Event) => void;
 }
 
+export interface PlaylistDescriptionPayload {
+  trigger: HTMLElement;
+  titleText: string;
+  artistText: string;
+  descText: string;
+}
+
 export interface PlaylistModeUiElements {
   button: HTMLButtonElement | null;
   menu: HTMLElement | null;
@@ -149,6 +156,29 @@ export function syncDeleteSelectionIndicator(itemElm: HTMLElement, isSelected: b
   if (isSelected) {
     chkElm.appendChild(createPlaylistMaskIcon('playlist-icon-mask--check'));
   }
+}
+
+export function getPlaylistDescriptionPayload(target: HTMLElement | null): PlaylistDescriptionPayload | null {
+  if (!target) {
+    return null;
+  }
+
+  const trigger = target.closest('[data-playlist-desc-trigger]') as HTMLElement | null;
+  if (!trigger) {
+    return null;
+  }
+
+  const descText = trigger.dataset['desc'] || '';
+  if (descText.trim() === '') {
+    return null;
+  }
+
+  return {
+    trigger,
+    descText,
+    titleText: trigger.getAttribute('data-playlist-title') || '',
+    artistText: trigger.getAttribute('data-playlist-artist') || '',
+  };
 }
 
 export function readPlaylistItemIdsFromDom(listElement: HTMLElement): number[] {

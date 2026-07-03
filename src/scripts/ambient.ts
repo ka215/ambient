@@ -69,6 +69,7 @@ import {
   createPlaylistItemElement,
   closePlaylistModeMenu as closePlaylistModeMenuView,
   createPlaylistQuickAddElement,
+  getPlaylistDescriptionPayload,
   PlaylistMode,
   readPlaylistItemIdsFromDom,
   syncPlaylistEmptyState,
@@ -1241,14 +1242,6 @@ const init = function (): void {
       closeSettingsDrawerForModalIfNeeded();
     },
   });
-  function closePlaylistDescModal(restoreFocus = false): void {
-    playlistDescModal.close(restoreFocus);
-  }
-
-  function openPlaylistDescModal(titleText: string, artistText: string, descText: string, button: HTMLElement): void {
-    playlistDescModal.open(titleText, artistText, descText, button);
-  }
-
   let activeMediaEditTrigger: HTMLElement | null = null;
   const defaultMediaEditModalTitle = $MODAL_MEDIA_EDIT_TITLE?.textContent?.trim() || 'Media Edit';
   const MEDIA_EDIT_DRAFT_STORAGE_KEY = 'ambient:media-edit-drafts:v2.5.0';
@@ -3198,8 +3191,13 @@ const init = function (): void {
         if (deleteSelectedIds.size > 0) {
           const title = $BUTTON_PLAYLIST_MODE.dataset['confirmDeleteTitle'] || 'Delete selected items?';
           const body = $BUTTON_PLAYLIST_MODE.dataset['confirmDeleteBody'] || 'Selected items will be removed from your playlist.';
-          openPlaylistConfirmModal(title, body, () => {
+          playlistConfirmModal.open(title, body, () => {
             void commitDeleteSelections();
+          }, () => {
+            if (playlistMode === 'reorder') {
+              reorderWorkingIds = [...reorderInitialIds];
+              updatePlaylist();
+            }
           });
           return;
         }
@@ -3218,11 +3216,16 @@ const init = function (): void {
         if (isReorderDirty()) {
           const title = $BUTTON_PLAYLIST_MODE.dataset['confirmReorderTitle'] || 'Apply reordered sequence?';
           const body = $BUTTON_PLAYLIST_MODE.dataset['confirmReorderBody'] || 'Apply the current item order to your playlist.';
-          openPlaylistConfirmModal(title, body, () => {
+          playlistConfirmModal.open(title, body, () => {
             applyReorderChanges();
             playlistMode = 'normal';
             updatePlaylistModeUI();
             updatePlaylist();
+          }, () => {
+            if (playlistMode === 'reorder') {
+              reorderWorkingIds = [...reorderInitialIds];
+              updatePlaylist();
+            }
           });
           return;
         }
@@ -3284,19 +3287,6 @@ const init = function (): void {
     title: $MODAL_PLAYLIST_CONFIRM_TITLE,
     body: $MODAL_PLAYLIST_CONFIRM_BODY,
   });
-  function openPlaylistConfirmModal(title: string, body: string, onApply: () => void): void {
-    playlistConfirmModal.open(title, body, onApply, () => {
-      if (playlistMode === 'reorder') {
-        reorderWorkingIds = [...reorderInitialIds];
-        updatePlaylist();
-      }
-    });
-  }
-
-  function cancelPlaylistConfirmModal(): void {
-    playlistConfirmModal.cancel();
-  }
-
   async function persistCurrentPlaylistMutation(): Promise<{ ok: boolean; message: string }> {
     return persistMediaEditForCurrentPlaylist(AMP_STATUS.media || []);
   }
@@ -3439,7 +3429,7 @@ const init = function (): void {
 
   if ($BTN_PLAYLIST_CONFIRM_CANCEL) {
     $BTN_PLAYLIST_CONFIRM_CANCEL.addEventListener('click', () => {
-      cancelPlaylistConfirmModal();
+      playlistConfirmModal.cancel();
     });
   }
 
@@ -3814,15 +3804,15 @@ const init = function (): void {
     if (evt.key === 'Escape' && isOptionsModalVisible()) {
       hideOptionsModal();
       restoreOptionsTriggerFocus();
-    } else if (evt.key === 'Escape' && isElement($MODAL_PLAYLIST_DESC) && !$MODAL_PLAYLIST_DESC.classList.contains('hidden')) {
-      closePlaylistDescModal(true);
+    } else if (evt.key === 'Escape' && playlistDescModal.isOpen()) {
+      playlistDescModal.close(true);
     }
   });
 
   if (isElement($BUTTON_CLOSE_PLAYLIST_DESC)) {
     $BUTTON_CLOSE_PLAYLIST_DESC.addEventListener('click', (evt: Event) => {
       evt.preventDefault();
-      closePlaylistDescModal(true);
+      playlistDescModal.close(true);
     });
   }
 
@@ -4098,7 +4088,7 @@ const init = function (): void {
   if (isElement($MODAL_PLAYLIST_DESC_BACKDROP)) {
     $MODAL_PLAYLIST_DESC_BACKDROP.addEventListener('click', (evt: Event) => {
       evt.preventDefault();
-      closePlaylistDescModal(false);
+      playlistDescModal.close(false);
     });
   }
 
@@ -4129,7 +4119,7 @@ const init = function (): void {
    */
   function updatePlaylist(): void {
     destroyPlaylistSortable();
-    closePlaylistDescModal(false);
+    playlistDescModal.close(false);
     clearPlaylist();
     const $LIST_NO_MEDIA = document.getElementById('no-media') as HTMLElement;
     let items: MediaItem[] = [];
@@ -4553,20 +4543,20 @@ const init = function (): void {
 
   $LIST_PLAYLIST.addEventListener('click', (evt: Event) => {
     const target = evt.target as HTMLElement | null;
-    if (!target) {
+    const descPayload = getPlaylistDescriptionPayload(target);
+    if (descPayload) {
+      evt.preventDefault();
+      evt.stopPropagation();
+      playlistDescModal.open(
+        descPayload.titleText,
+        descPayload.artistText,
+        descPayload.descText,
+        descPayload.trigger
+      );
       return;
     }
 
-    const descTrigger = target.closest('[data-playlist-desc-trigger]') as HTMLElement | null;
-    if (descTrigger) {
-      evt.preventDefault();
-      evt.stopPropagation();
-      const descText = descTrigger.dataset['desc'] || '';
-      const titleText = descTrigger.getAttribute('data-playlist-title') || '';
-      const artistText = descTrigger.getAttribute('data-playlist-artist') || '';
-      if (descText.trim() !== '') {
-        openPlaylistDescModal(titleText, artistText, descText, descTrigger);
-      }
+    if (!target) {
       return;
     }
 
@@ -4604,21 +4594,18 @@ const init = function (): void {
 
   $LIST_PLAYLIST.addEventListener('keydown', (evt: KeyboardEvent) => {
     const target = evt.target as HTMLElement | null;
-    if (!target) {
-      return;
-    }
-    const descTrigger = target.closest('[data-playlist-desc-trigger]') as HTMLElement | null;
-    if (!descTrigger) {
+    const descPayload = getPlaylistDescriptionPayload(target);
+    if (!descPayload) {
       return;
     }
     if (evt.key === 'Enter' || evt.key === ' ') {
       evt.preventDefault();
-      const descText = descTrigger.dataset['desc'] || '';
-      const titleText = descTrigger.getAttribute('data-playlist-title') || '';
-      const artistText = descTrigger.getAttribute('data-playlist-artist') || '';
-      if (descText.trim() !== '') {
-        openPlaylistDescModal(titleText, artistText, descText, descTrigger);
-      }
+      playlistDescModal.open(
+        descPayload.titleText,
+        descPayload.artistText,
+        descPayload.descText,
+        descPayload.trigger
+      );
     }
   });
 

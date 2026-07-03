@@ -13,6 +13,7 @@ export interface PlaylistDescModalSanitizers {
 
 export interface PlaylistDescModalController {
   close(restoreFocus?: boolean): void;
+  isOpen(): boolean;
   open(titleText: string, artistText: string, descText: string, button: HTMLElement): void;
 }
 
@@ -310,6 +311,10 @@ export function createPlaylistDescModalController(
 ): PlaylistDescModalController {
   let activeButton: HTMLElement | null = null;
 
+  const isOpen = (): boolean => {
+    return isElement(elements.modal) && !elements.modal.classList.contains('hidden');
+  };
+
   const close = (restoreFocus = false): void => {
     if (!isElement(elements.modal) || !isElement(elements.content)) {
       return;
@@ -334,11 +339,12 @@ export function createPlaylistDescModalController(
 
   return {
     close,
+    isOpen,
     open(titleText: string, artistText: string, descText: string, button: HTMLElement): void {
       if (!isElement(elements.modal) || !isElement(elements.content)) {
         return;
       }
-      if (activeButton === button && !elements.modal.classList.contains('hidden')) {
+      if (activeButton === button && isOpen()) {
         close(true);
         return;
       }
