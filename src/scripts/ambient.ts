@@ -120,6 +120,7 @@ import {
 } from './ui/player/carousel-view';
 import {
   findMediaById,
+  resolvePlaybackNeighborIds,
   resolveEndedPlaybackTarget as resolveEndedPlaybackTargetRuntime,
   resolveLoopAwareNextId,
   resolveSeekRange,
@@ -4949,24 +4950,11 @@ const init = function (): void {
     }
 
     AMP_STATUS.current = currentAmId;
-    let prevId: number | null = null;
-    let nextId: number | null = null;
-
-    if (AMP_STATUS.order === 'random') {
-      if (idCandidates.length > 1) {
-        idCandidates = idCandidates.filter((v: number) => v !== currentAmId);
-      }
-      prevId = idCandidates[Math.floor(Math.random() * idCandidates.length)] ?? null;
-      nextId = idCandidates[Math.floor(Math.random() * idCandidates.length)] ?? null;
-    } else {
-      idCandidates.forEach((_v: number, _i: number) => {
-        if (_v === currentAmId) {
-          prevId = (_i === 0 ? idCandidates[idCandidates.length - 1] : idCandidates[_i - 1]) ?? null;
-          nextId = (idCandidates.length === _i + 1 ? idCandidates[0] : idCandidates[_i + 1]) ?? null;
-        }
-      });
-    }
-
+    const { prevId, nextId } = resolvePlaybackNeighborIds({
+      currentId: currentAmId,
+      candidateIds: idCandidates,
+      order: AMP_STATUS.order,
+    });
     AMP_STATUS.prev = prevId;
     AMP_STATUS.next = nextId;
     updateCarousel();

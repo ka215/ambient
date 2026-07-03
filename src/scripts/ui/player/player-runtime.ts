@@ -84,3 +84,35 @@ export function resolveSeekRange(mediaData: MediaItem, fallbackEnd: number): {
 
   return { seekStart, seekEnd };
 }
+
+export function resolvePlaybackNeighborIds(options: {
+  currentId: number;
+  candidateIds: number[];
+  order: 'normal' | 'random';
+}): {
+  prevId: number | null;
+  nextId: number | null;
+} {
+  let candidateIds = [...options.candidateIds];
+
+  if (options.order === 'random') {
+    if (candidateIds.length > 1) {
+      candidateIds = candidateIds.filter((id) => id !== options.currentId);
+    }
+    return {
+      prevId: candidateIds[Math.floor(Math.random() * candidateIds.length)] ?? null,
+      nextId: candidateIds[Math.floor(Math.random() * candidateIds.length)] ?? null,
+    };
+  }
+
+  let prevId: number | null = null;
+  let nextId: number | null = null;
+  candidateIds.forEach((id, index) => {
+    if (id === options.currentId) {
+      prevId = (index === 0 ? candidateIds[candidateIds.length - 1] : candidateIds[index - 1]) ?? null;
+      nextId = (candidateIds.length === index + 1 ? candidateIds[0] : candidateIds[index + 1]) ?? null;
+    }
+  });
+
+  return { prevId, nextId };
+}
