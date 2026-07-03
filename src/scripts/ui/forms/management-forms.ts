@@ -45,6 +45,35 @@ export interface ResetPlaylistManagementFormOptions {
   logger(...args: unknown[]): void;
 }
 
+export function ensureSelectOption(
+  select: HTMLSelectElement | null,
+  value: string,
+  label?: string
+): void {
+  if (!select) {
+    return;
+  }
+  const alreadyExists = Array.from(select.options).some((opt) => opt.value === value);
+  if (alreadyExists) {
+    return;
+  }
+
+  const option = document.createElement('option');
+  option.value = value;
+  option.textContent = label ?? value;
+  select.appendChild(option);
+}
+
+export function selectExistingOption(select: HTMLSelectElement | null, value: string): void {
+  if (!select) {
+    return;
+  }
+  const targetOption = Array.from(select.options).find((opt) => opt.value === value);
+  if (targetOption) {
+    select.value = value;
+  }
+}
+
 function dispatchFieldEvent(field: HTMLElement, eventName: string | null): void {
   if (eventName) {
     field.dispatchEvent(new Event(eventName));

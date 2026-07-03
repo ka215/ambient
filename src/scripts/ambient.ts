@@ -135,8 +135,10 @@ import {
 } from './ui/player/youtube-player-events';
 import {
   clearCategoryView,
+  ensureSelectOption,
   resetMediaManagementForm,
   resetPlaylistManagementForm,
+  selectExistingOption,
   syncMediaCategoryField as syncMediaCategoryFieldView,
   syncMediaVolumeField as syncMediaVolumeFieldView,
   syncRangeProgress as syncRangeProgressView,
@@ -623,13 +625,7 @@ const init = function (): void {
   }
 
   function selectPlaylistOption(playlist: string): void {
-    if (!isElement($SELECT_PLAYLIST)) {
-      return;
-    }
-    const targetOption = Array.from($SELECT_PLAYLIST.options).find((opt) => opt.value === playlist);
-    if (targetOption) {
-      $SELECT_PLAYLIST.value = playlist;
-    }
+    selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, playlist);
   }
 
   function requestCategoryResume(categoryName: string | null | undefined): void {
@@ -1020,16 +1016,11 @@ const init = function (): void {
   }
 
   function ensurePlaylistOption(playlistName: string): void {
-    if (!isElement($SELECT_PLAYLIST)) {
-      return;
-    }
-    const alreadyExists = Array.from($SELECT_PLAYLIST.options).some((opt) => opt.value === playlistName);
-    if (!alreadyExists) {
-      const opt = document.createElement('option');
-      opt.value = playlistName;
-      opt.textContent = playlistName.replace(/\.json$/i, '');
-      $SELECT_PLAYLIST.appendChild(opt);
-    }
+    ensureSelectOption(
+      isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null,
+      playlistName,
+      playlistName.replace(/\.json$/i, '')
+    );
   }
 
   function ensureCloudMyPlaylistSeed(): boolean {
@@ -6057,6 +6048,89 @@ const init = function (): void {
     });
   }
 
+  function createPlaylistCategory(): { ok: boolean; message: string } {
+    const selfElm = document.getElementById('btn-create-category');
+    if (!$PLAYLIST_MANAGE_FORM) {
+      return {
+        ok: false,
+        message: selfElm?.dataset['messageFailure'] || '',
+      };
+    }
+    try {
+      const formData = new FormData($PLAYLIST_MANAGE_FORM);
+      const categoryName = String(formData.get('category_name') || '');
+      const result = appendUniqueCategory(AMP_STATUS.category || [], categoryName);
+      AMP_STATUS.category = result.categories;
+      logger('createCategory:', categoryName, AMP_STATUS);
+      const persisted = persistMyPlaylistIfNeeded();
+      clearCategory();
+      updateCategory();
+      return {
+        ok: persisted,
+        message: persisted
+          ? selfElm?.dataset['messageSuccess'] || ''
+          : selfElm?.dataset['messageFailure'] || '',
+      };
+    } catch (err) {
+      logger('createCategory: error', err);
+      return {
+        ok: false,
+        message: selfElm?.dataset['messageFailure'] || '',
+      };
+    }
+  }
+
+  function downloadCurrentPlaylist(): { ok: boolean; message: string } {
+    if (!$PLAYLIST_MANAGE_FORM) {
+      const selfElm = document.getElementById('btn-download-playlist');
+      return {
+        ok: false,
+        message: selfElm?.dataset['messageFailure'] || '',
+      };
+    }
+    const formData = new FormData($PLAYLIST_MANAGE_FORM);
+    const seekFormat = Number(formData.get('seek_format')) === 1;
+    const jsonContent = generatePlaylistJson(seekFormat);
+    const blob = new Blob([jsonContent], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = AMP_STATUS.playlist || 'playlist.json';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+    const selfElm = document.getElementById('btn-download-playlist');
+    return {
+      ok: true,
+      message: selfElm?.dataset['messageSuccess'] || '',
+    };
+  }
+
+  async function importPlaylistFromManagementForm(): Promise<{ ok: boolean; message: string }> {
+    const selfElm = document.getElementById('btn-import-playlist') as HTMLButtonElement | null;
+    const inputImportFile = document.getElementById('playlist-import-file') as HTMLInputElement | null;
+    const importFile = inputImportFile?.files && inputImportFile.files.length > 0
+      ? inputImportFile.files[0]
+      : null;
+    if (!importFile) {
+      return {
+        ok: false,
+        message: getLocalizedMessage('importNoFile', 'Please choose a playlist JSON file.'),
+      };
+    }
+    const result = await importPlaylistFromFile(importFile);
+    if (result.ok) {
+      hideOptionsModal();
+    }
+    return {
+      ok: result.ok,
+      message: result.message || (result.ok
+        ? (selfElm?.dataset['messageSuccess'] || '')
+        : (selfElm?.dataset['messageFailure'] || '')),
+    };
+  }
+
   if ($MEDIA_MANAGE_FORM) {
     bindMediaManagementForm({
       form: $MEDIA_MANAGE_FORM,
@@ -6129,73 +6203,9 @@ const init = function (): void {
         const formData = new FormData($PLAYLIST_MANAGE_FORM);
         return oneData ? formData.get(oneData) : Array.from(formData.entries());
       },
-      createCategory: () => {
-        const selfElm = document.getElementById('btn-create-category');
-        try {
-          const formData = new FormData($PLAYLIST_MANAGE_FORM);
-          const categoryName = String(formData.get('category_name') || '');
-          const result = appendUniqueCategory(AMP_STATUS.category || [], categoryName);
-          AMP_STATUS.category = result.categories;
-          logger('createCategory:', categoryName, AMP_STATUS);
-          const persisted = persistMyPlaylistIfNeeded();
-          clearCategory();
-          updateCategory();
-          return {
-            ok: persisted,
-            message: persisted
-              ? selfElm?.dataset['messageSuccess'] || ''
-              : selfElm?.dataset['messageFailure'] || '',
-          };
-        } catch (err) {
-          logger('createCategory: error', err);
-          return {
-            ok: false,
-            message: selfElm?.dataset['messageFailure'] || '',
-          };
-        }
-      },
-      downloadPlaylist: () => {
-        const formData = new FormData($PLAYLIST_MANAGE_FORM);
-        const seek_format = Number(formData.get('seek_format')) === 1;
-        const jsonContent = generatePlaylistJson(seek_format);
-        const blob = new Blob([jsonContent], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = AMP_STATUS.playlist || 'playlist.json';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        const selfElm = document.getElementById('btn-download-playlist');
-        return {
-          ok: true,
-          message: selfElm?.dataset['messageSuccess'] || '',
-        };
-      },
-      importPlaylist: async () => {
-        const selfElm = document.getElementById('btn-import-playlist') as HTMLButtonElement | null;
-        const inputImportFile = document.getElementById('playlist-import-file') as HTMLInputElement | null;
-        const importFile = inputImportFile?.files && inputImportFile.files.length > 0
-          ? inputImportFile.files[0]
-          : null;
-        if (!importFile) {
-          return {
-            ok: false,
-            message: getLocalizedMessage('importNoFile', 'Please choose a playlist JSON file.'),
-          };
-        }
-        const result = await importPlaylistFromFile(importFile);
-        if (result.ok) {
-          hideOptionsModal();
-        }
-        return {
-          ok: result.ok,
-          message: result.message || (result.ok
-            ? (selfElm?.dataset['messageSuccess'] || '')
-            : (selfElm?.dataset['messageFailure'] || '')),
-        };
-      },
+      createCategory: createPlaylistCategory,
+      downloadPlaylist: downloadCurrentPlaylist,
+      importPlaylist: importPlaylistFromManagementForm,
     });
   }
 
