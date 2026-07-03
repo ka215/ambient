@@ -52,6 +52,7 @@ import {
   setPlaylistOption,
 } from './state/playlist-options';
 import {
+  closeResponsiveDrawers,
   cleanupDrawerBackdrops,
   syncDrawerAndModalBackdrops,
 } from './ui/drawers';
@@ -141,6 +142,7 @@ import {
   bindHtmlSeekOnPlay,
 } from './ui/player/html-player-events';
 import {
+  type PlayableSetupKind,
   resolvePlaybackSetupPlan,
 } from './ui/player/player-setup';
 import { createAudioPlayerView } from './ui/player/audio-player-view';
@@ -5003,11 +5005,10 @@ const init = function (): void {
     logger('playItem:', amId, playbackPlan.src, playbackPlan.kind);
     updatePlayStatus(amId);
 
-    if (currentWindowSize.width < currentWindowSize.minFullUIWidth) {
-      // Hide drawers
-      (document.getElementById('btn-close-playlist') as HTMLButtonElement)?.click();
-      (document.getElementById('btn-close-settings') as HTMLButtonElement)?.click();
-    }
+    closeResponsiveDrawers({
+      playlistCloseButton: document.getElementById('btn-close-playlist') as HTMLButtonElement | null,
+      settingsCloseButton: document.getElementById('btn-close-settings') as HTMLButtonElement | null,
+    }, currentWindowSize.width, currentWindowSize.minFullUIWidth);
 
     if (playbackPlan.kind === 'missing') {
       reportMediaPlaybackIssue(mediaData, 'media_source_missing', {
@@ -5024,7 +5025,7 @@ const init = function (): void {
    * Handle the player to prepare depending on the type of media to play.
    */
   function setupPlayer(
-    setupKind: 'youtube' | 'audio' | 'video' | 'unsupported_html' | 'unsupported_player',
+    setupKind: PlayableSetupKind,
     src: string | null,
     mediaData: MediaItem,
     extension: string | null = null

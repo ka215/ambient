@@ -79,3 +79,16 @@ export function reconcileResponsiveDrawers(
     elements.settingsButton?.click();
   }
 }
+
+export function closeResponsiveDrawers(
+  elements: Pick<ResponsiveDrawerElements, 'playlistCloseButton' | 'settingsCloseButton'>,
+  width: number,
+  minFullUiWidth: number
+): void {
+  if (width >= minFullUiWidth) {
+    return;
+  }
+
+  elements.playlistCloseButton?.click();
+  elements.settingsCloseButton?.click();
+}

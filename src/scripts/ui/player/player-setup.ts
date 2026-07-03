@@ -3,6 +3,7 @@ import type { MediaItem } from '../../types/ambient';
 export type PlaybackSourceType = 'youtube' | 'html';
 export type HtmlPlayerKind = 'audio' | 'video';
 export type PlaybackSetupKind = 'youtube' | 'audio' | 'video' | 'missing' | 'unsupported_html' | 'unsupported_player';
+export type PlayableSetupKind = Exclude<PlaybackSetupKind, 'missing'>;
 
 export interface ResolvedPlaybackSource {
   type: PlaybackSourceType | null;
