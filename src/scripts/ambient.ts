@@ -154,6 +154,7 @@ import {
   writeMyPlaylistJson,
 } from './domain/myplaylist-storage';
 import { createPlaybackTimerController } from './domain/media-playback';
+import { appendManagedMediaItem, buildManagedMediaItem } from './domain/media-management-data';
 
 // ============================================================================
 // INITIALIZATION
@@ -5931,116 +5932,18 @@ const init = function (): void {
       }
     }
 
-    const mediaData: MediaItem = {
-      amId: 0,
-      catId: 0,
-      title: '',
-      artist: '',
-      desc: '',
-      file: '',
-      videoid: '',
-      volume: 50,
-      start: '',
-      end: '',
-    };
-    let categoryValue = '';
-    for (const [key, val] of payload) {
-      switch (key) {
-        case 'youtube_videoid':
-          mediaData.videoid = val;
-          break;
-        case 'media_filepath':
-          mediaData.file = val;
-          break;
-        case 'category':
-          categoryValue = val;
-          if (val === '') {
-            // Auto-create 'New Category' if no category selected
-            const AUTO_CATEGORY = 'New Category';
-            if (!Array.isArray(AMP_STATUS.category)) AMP_STATUS.category = [];
-            let autoIdx = AMP_STATUS.category.indexOf(AUTO_CATEGORY);
-            if (autoIdx === -1) {
-              AMP_STATUS.category.push(AUTO_CATEGORY);
-              autoIdx = AMP_STATUS.category.length - 1;
-            }
-            mediaData.catId = autoIdx;
-          } else {
-            mediaData.catId = Number(val);
-          }
-          break;
-        case 'category_new_name': {
-          // Text input is shown when no categories exist; value is a new category name
-          const newCatName = sanitizeMediaText(val || '', MEDIA_TITLE_MAX_LENGTH) || 'New Category';
-          if (!Array.isArray(AMP_STATUS.category)) AMP_STATUS.category = [];
-          let newCatIdx = AMP_STATUS.category.indexOf(newCatName);
-          if (newCatIdx === -1) {
-            AMP_STATUS.category.push(newCatName);
-            newCatIdx = AMP_STATUS.category.length - 1;
-          }
-          mediaData.catId = newCatIdx;
-          categoryValue = String(newCatIdx); // mark as handled
-          break;
-        }
-        case 'title':
-          mediaData.title = sanitizeMediaText(val, MEDIA_TITLE_MAX_LENGTH);
-          break;
-        case 'artist':
-          mediaData.artist = sanitizeMediaText(val, MEDIA_ARTIST_MAX_LENGTH);
-          break;
-        case 'desc':
-          mediaData.desc = sanitizeMediaDesc(val, MEDIA_DESC_MAX_LENGTH);
-          break;
-        case 'volume': {
-          const numVolume = Number(val);
-          if (Number.isInteger(numVolume) && inRange(numVolume, 0, 100)) {
-            mediaData.volume = numVolume;
-          }
-          break;
-        }
-        case 'start':
-        case 'end':
-          if (val.indexOf(':') !== -1) {
-            const times = val.split(':');
-            let hours = 0, minutes = 0, seconds = 0;
-            if (times.length === 3) {
-              hours   = parseInt(times[0] ?? '0', 10);
-              minutes = parseInt(times[1] ?? '0', 10);
-              seconds = parseInt(times[2] ?? '0', 10);
-            } else if (times.length === 2) {
-              minutes = parseInt(times[0] ?? '0', 10);
-              seconds = parseInt(times[1] ?? '0', 10);
-            } else {
-              seconds = parseInt(times[times.length - 1] ?? '0', 10);
-            }
-            (mediaData as any)[key] = (hours * 60 * 60) + (minutes * 60) + seconds;
-          } else if (!Number.isInteger(Number(val))) {
-            (mediaData as any)[key] = '';
-          } else {
-            (mediaData as any)[key] = val;
-          }
-          break;
-        default:
-          break;
-      }
-    }
-    // If category was empty and still not set (payload had no 'category' key), auto-create
-    if (categoryValue === '' && !payload.some(([k]) => k === 'category')) {
-      const AUTO_CATEGORY = 'New Category';
-      if (!Array.isArray(AMP_STATUS.category)) AMP_STATUS.category = [];
-      let autoIdx = AMP_STATUS.category.indexOf(AUTO_CATEGORY);
-      if (autoIdx === -1) {
-        AMP_STATUS.category.push(AUTO_CATEGORY);
-        autoIdx = AMP_STATUS.category.length - 1;
-      }
-      mediaData.catId = autoIdx;
-    }
-    if (!Array.isArray(AMP_STATUS.media)) {
-      AMP_STATUS.media = [mediaData];
-    } else {
-      const lastAmId = Math.max(...AMP_STATUS.media.map((item: MediaItem) => item.amId));
-      mediaData.amId = lastAmId + 1;
-      AMP_STATUS.media.push(mediaData);
-    }
+    const buildResult = buildManagedMediaItem({
+      payload,
+      categories: AMP_STATUS.category || [],
+      titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+      artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+      descMaxLength: MEDIA_DESC_MAX_LENGTH,
+      sanitizeMediaText,
+      sanitizeMediaDesc,
+      isVolumeInRange: (value) => inRange(value, 0, 100),
+    });
+    AMP_STATUS.category = buildResult.categories;
+    AMP_STATUS.media = appendManagedMediaItem(AMP_STATUS.media || [], buildResult.mediaItem);
     logger('addMediaData::after:', AMP_STATUS.media.length);
     return true;
   }
