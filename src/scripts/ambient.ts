@@ -86,6 +86,12 @@ import {
   updateMediaCaptionView,
 } from './ui/player/player-shell';
 import {
+  getBottomMenuHeight as getBottomMenuHeightView,
+  getFullWindowPlayerSize as getFullWindowPlayerSizeView,
+  getPlayerSizeForCurrentMode as getPlayerSizeForCurrentModeView,
+  syncActivePlayerSize,
+} from './ui/player/player-layout';
+import {
   buildYouTubePlayerOptions,
   resolveInitialPlaybackState,
 } from './ui/player/player-config';
@@ -98,7 +104,6 @@ import {
   resolveYouTubeTransitionCleanupMode,
 } from './ui/player/player-runtime';
 import {
-  applyHtmlPlayerSize,
   bindHtmlVideoPresentation,
   mountPlayerElement,
   resetWatchOriginState,
@@ -3168,43 +3173,24 @@ const init = function (): void {
   }
 
   function getBottomMenuHeight(): number {
-    if (!isElement($MENU)) {
-      return 0;
-    }
-    const rect = $MENU.getBoundingClientRect();
-    return Math.max(0, Math.ceil(getViewportHeight() - rect.top));
+    return getBottomMenuHeightView($MENU, getViewportHeight);
   }
 
   function getFullWindowPlayerSize(): { width: number; height: number } {
-    const aspectRatio = 16 / 9;
-    const width = Math.max(1, currentWindowSize.width);
-    const bottomReserve = getBottomMenuHeight();
-    const height = Math.max(1, currentWindowSize.height - bottomReserve);
-    const availableRatio = width / height;
-
-    if (availableRatio > aspectRatio) {
-      return {
-        width: Math.floor(height * aspectRatio),
-        height,
-      };
-    }
-
-    return {
-      width,
-      height: Math.floor(width / aspectRatio),
-    };
-  }
-
-  function getStandardPlayerSize(): { width: number; height: number } {
-    const width = currentWindowSize.width >= 640 ? 640 : currentWindowSize.width - 2;
-    return {
-      width,
-      height: Math.floor((9 * width) / 16),
-    };
+    return getFullWindowPlayerSizeView({
+      viewportWidth: currentWindowSize.width,
+      viewportHeight: currentWindowSize.height,
+      bottomMenuHeight: getBottomMenuHeight(),
+    });
   }
 
   function getPlayerSizeForCurrentMode(): { width: number; height: number } {
-    return isFullWindowMode() ? getFullWindowPlayerSize() : getStandardPlayerSize();
+    return getPlayerSizeForCurrentModeView({
+      fullWindow: isFullWindowMode(),
+      viewportWidth: currentWindowSize.width,
+      viewportHeight: currentWindowSize.height,
+      bottomMenuHeight: getBottomMenuHeight(),
+    });
   }
 
   function syncViewportMetrics(): void {
@@ -5838,19 +5824,13 @@ const init = function (): void {
     const isFullWindow = isFullWindowMode();
 
     const adjustPlayerSize = getPlayerSizeForCurrentMode();
-
-    if (player && typeof player === 'object' && typeof player.getIframe === 'function') {
-      const YTPlayer = player.getIframe();
-      YTPlayer.width = String(adjustPlayerSize.width);
-      YTPlayer.height = String(adjustPlayerSize.height);
-    }
-
-    const $HTMLPlayer = document.getElementById('html-player') as HTMLVideoElement;
-    if (isElement($HTMLPlayer)) {
-      if ($HTMLPlayer.tagName === 'VIDEO') {
-        applyHtmlPlayerSize($HTMLPlayer, adjustPlayerSize, isFullWindow);
-      }
-    }
+    const $HTMLPlayer = document.getElementById('html-player') as HTMLVideoElement | null;
+    syncActivePlayerSize({
+      player,
+      htmlPlayer: $HTMLPlayer,
+      size: adjustPlayerSize,
+      fullWindow: isFullWindow,
+    });
 
     if (isFullWindow) {
       return;
