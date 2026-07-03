@@ -96,6 +96,10 @@ import {
   resolveInitialPlaybackState,
 } from './ui/player/player-config';
 import {
+  renderCarouselItems,
+  renderEmptyCarousel,
+} from './ui/player/carousel-view';
+import {
   findMediaById,
   resolveEndedPlaybackTarget as resolveEndedPlaybackTargetRuntime,
   resolveLoopAwareNextId,
@@ -4325,24 +4329,12 @@ const init = function (): void {
    * Clear and initialize the carousel display.
    */
   function clearCarousel(): void {
-    const $CAROUSEL_NO_MEDIA = document.createElement('div');
-    $CAROUSEL_NO_MEDIA.id = 'carousel-item-1';
-    $CAROUSEL_NO_MEDIA.classList.add('hidden', 'h-full', 'items-center', 'justify-center', 'duration-700', 'ease-in-out');
-    $CAROUSEL_NO_MEDIA.setAttribute('data-carousel-item', '');
-    const $NO_MEDIA_IMAGE = document.createElement('img');
-    $NO_MEDIA_IMAGE.src = getNoMediaImagePath('placeholder');
-    $NO_MEDIA_IMAGE.setAttribute('class', 'block h-full max-w-full object-contain');
-    $NO_MEDIA_IMAGE.setAttribute('alt', 'No media available');
-    $CAROUSEL_NO_MEDIA.appendChild($NO_MEDIA_IMAGE);
-    const clone = $CAROUSEL_NO_MEDIA.cloneNode(true) as HTMLElement;
-    clone.id = 'carousel-item-2';
-    while ($CAROUSEL_WRAPPER.firstChild) {
-      $CAROUSEL_WRAPPER.removeChild($CAROUSEL_WRAPPER.firstChild);
-    }
-    $CAROUSEL_WRAPPER.appendChild($CAROUSEL_NO_MEDIA);
-    $CAROUSEL_WRAPPER.appendChild(clone);
-    $CAROUSEL_PREV.setAttribute('disabled', '');
-    $CAROUSEL_NEXT.setAttribute('disabled', '');
+    renderEmptyCarousel({
+      wrapper: $CAROUSEL_WRAPPER,
+      prevButton: $CAROUSEL_PREV,
+      nextButton: $CAROUSEL_NEXT,
+      placeholderImage: getNoMediaImagePath('placeholder'),
+    });
   }
 
   /**
@@ -4368,45 +4360,20 @@ const init = function (): void {
       return;
     }
 
-    while ($CAROUSEL_WRAPPER.firstChild) {
-      $CAROUSEL_WRAPPER.removeChild($CAROUSEL_WRAPPER.firstChild);
-    }
-
-    items.forEach((amId: number, index: number) => {
-      const $COROUSEL_ITEM = document.createElement('div');
-      $COROUSEL_ITEM.id = 'carousel-item-' + (index + 1);
-      if (amId === AMP_STATUS.current) {
-        $COROUSEL_ITEM.classList.add('h-full', 'items-center', 'justify-center', 'duration-700', 'ease-in-out');
-      } else {
-        $COROUSEL_ITEM.classList.add('hidden', 'h-full', 'items-center', 'justify-center', 'duration-700', 'ease-in-out');
-      }
-      $COROUSEL_ITEM.setAttribute('data-carousel-item', amId === AMP_STATUS.current ? 'active' : '');
-
-      const $COROUSEL_ITEM_IMAGE = document.createElement('img');
-      let mediaImage = getNoMediaImagePath('placeholder');
-      const mediaData = (AMP_STATUS.media || []).filter((item: MediaItem) => item.amId === amId).shift();
-
-      if (!mediaData) return;
-
-      let base_aspect = 'h-full';
-      if (mediaData.hasOwnProperty('image') && mediaData.image !== null && mediaData.image !== '') {
+    renderCarouselItems({
+      wrapper: $CAROUSEL_WRAPPER,
+      prevButton: $CAROUSEL_PREV,
+      nextButton: $CAROUSEL_NEXT,
+      currentId: AMP_STATUS.current,
+      itemIds: items,
+      mediaItems: AMP_STATUS.media || [],
+      placeholderImage: getNoMediaImagePath('placeholder'),
+      resolveYouTubeThumbnail: getYoutubeThumbnailURL,
+      resolveImagePath: (image) => {
         const ambientData = (window as any).AmbientData as AmbientData;
-        mediaImage = (ambientData.imageDir ?? '') + (mediaData.image ?? '');
-      } else if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== null && mediaData.videoid !== '') {
-        mediaImage = getYoutubeThumbnailURL(mediaData.videoid ?? '');
-        base_aspect = 'max-h-full';
-      }
-
-      $COROUSEL_ITEM_IMAGE.src = mediaImage;
-      $COROUSEL_ITEM_IMAGE.classList.add('block', base_aspect, 'max-w-full', 'object-contain');
-      $COROUSEL_ITEM_IMAGE.setAttribute('alt', mediaData.title);
-
-      $COROUSEL_ITEM.appendChild($COROUSEL_ITEM_IMAGE);
-      $CAROUSEL_WRAPPER.appendChild($COROUSEL_ITEM);
+        return (ambientData.imageDir ?? '') + image;
+      },
     });
-
-    $CAROUSEL_PREV.removeAttribute('disabled');
-    $CAROUSEL_NEXT.removeAttribute('disabled');
   }
 
   /**
