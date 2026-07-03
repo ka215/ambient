@@ -11,7 +11,6 @@ import {
   clampStringLength as sharedClampStringLength,
   escapeHTML as sharedEscapeHTML,
   getExt as sharedGetExt,
-  hasUnsafeScheme as sharedHasUnsafeScheme,
   isJsonFilename as sharedIsJsonFilename,
   parseJsonWithBom as sharedParseJsonWithBom,
   snakeToCapital as sharedSnakeToCapital,
@@ -28,8 +27,6 @@ import {
   isBooleanString as sharedIsBooleanString,
   isNumberString as sharedIsNumberString,
   isObject as sharedIsObject,
-  normalizeBoolish as sharedNormalizeBoolish,
-  normalizeNonNegativeNumber as sharedNormalizeNonNegativeNumber,
 } from './shared/validation';
 import {
   getAmbientData as platformGetAmbientData,
@@ -163,9 +160,13 @@ import {
 import { createPlaybackTimerController } from './domain/media-playback';
 import { appendManagedMediaItem, buildManagedMediaItem } from './domain/media-management-data';
 import {
+  getCloudImportSizeLimitBytes as getCloudImportSizeLimitBytesDomain,
+  parseImportedPlaylistJson,
   postImportedPlaylist,
   persistImportedCloudPlaylist,
   resolveImportedPlaylistPersistResult,
+  sanitizeAndNormalizeImportPlaylist as sanitizeAndNormalizeImportPlaylistDomain,
+  validatePlaylistSchemaContract as validatePlaylistSchemaContractDomain,
 } from './domain/playlist-import';
 import { appendUniqueCategory } from './domain/playlist-management-data';
 
@@ -471,12 +472,6 @@ const init = function (): void {
   const playlistLoadGuard = createPlaylistLoadGuard();
   let pendingResumeCategoryName: string | null = null;
   let pendingResumeMediaContext: PlaylistResumeMediaContext | null = null;
-
-  interface ImportSanitizeResult {
-    playlist: Record<string, unknown>;
-    rejected: number;
-    total: number;
-  }
 
   function isPlaylistLoadActive(seq: number): boolean {
     return playlistLoadGuard.isActive(seq);
@@ -808,215 +803,15 @@ const init = function (): void {
     return sharedParseJsonWithBom(text);
   }
 
-  function detectCloudImportDeviceTier(): keyof typeof CLOUD_IMPORT_SIZE_LIMIT_BYTES {
-    const ua = navigator.userAgent || '';
-    if (/ipad|tablet|playbook|silk/i.test(ua) || (/android/i.test(ua) && !/mobile/i.test(ua))) {
-      return 'tablet';
-    }
-    if (/mobile|iphone|ipod|android/i.test(ua)) {
-      return 'mobile';
-    }
-    if (/windows|macintosh|linux|x11|cros/i.test(ua)) {
-      return 'desktop';
-    }
-    return 'unknown';
-  }
-
   function getCloudImportSizeLimitBytes(): number {
-    const tier = detectCloudImportDeviceTier();
-    return CLOUD_IMPORT_SIZE_LIMIT_BYTES[tier] || CLOUD_IMPORT_SIZE_LIMIT_BYTES.unknown;
-  }
-
-  function hasUnsafeScheme(value: string): boolean {
-    return sharedHasUnsafeScheme(value);
-  }
-
-  function normalizeNonNegativeNumber(value: unknown): number | null {
-    return sharedNormalizeNonNegativeNumber(value);
-  }
-
-  function normalizeBoolish(value: unknown): boolean | null {
-    return sharedNormalizeBoolish(value);
+    return getCloudImportSizeLimitBytesDomain(
+      navigator.userAgent || '',
+      CLOUD_IMPORT_SIZE_LIMIT_BYTES
+    );
   }
 
   function validatePlaylistSchemaContract(value: unknown): value is Record<string, unknown> {
-    if (!isObject(value) || Array.isArray(value)) {
-      return false;
-    }
-    for (const [key, item] of Object.entries(value)) {
-      if (key === 'options') {
-        if (!isObject(item) || Array.isArray(item)) {
-          return false;
-        }
-        continue;
-      }
-      if (!Array.isArray(item)) {
-        return false;
-      }
-      for (const media of item) {
-        if (!isObject(media) || Array.isArray(media)) {
-          return false;
-        }
-        if (typeof media.title !== 'string' || media.title.trim() === '') {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
-  function sanitizeAndNormalizeImportOptions(
-    options: Record<string, unknown>,
-    stripPlaylistTemplate: boolean
-  ): Record<string, unknown> {
-    const normalized: Record<string, unknown> = {};
-    Object.entries(options).forEach(([key, rawValue]) => {
-      if (stripPlaylistTemplate && key === 'playlist') {
-        return;
-      }
-      if (typeof rawValue === 'boolean' || typeof rawValue === 'number' || rawValue === null) {
-        normalized[key] = rawValue;
-        return;
-      }
-      if (typeof rawValue === 'string') {
-        normalized[key] = sanitizeMediaText(rawValue, 500);
-      }
-    });
-
-    if (Object.prototype.hasOwnProperty.call(normalized, 'volume')) {
-      const volume = normalizeNonNegativeNumber(normalized.volume);
-      if (volume === null) {
-        delete normalized.volume;
-      } else {
-        normalized.volume = Math.max(0, Math.min(100, volume));
-      }
-    }
-
-    ['random', 'shuffle', 'seek', 'fader', 'dark', 'autoplay'].forEach((key) => {
-      if (Object.prototype.hasOwnProperty.call(normalized, key)) {
-        const boolValue = normalizeBoolish(normalized[key]);
-        if (boolValue === null) {
-          delete normalized[key];
-        } else {
-          normalized[key] = boolValue;
-        }
-      }
-    });
-
-    return normalized;
-  }
-
-  function sanitizeAndNormalizeImportPlaylist(
-    source: Record<string, unknown>,
-    stripPlaylistTemplate: boolean
-  ): ImportSanitizeResult | null {
-    const normalized: Record<string, unknown> = {};
-    let total = 0;
-    let rejected = 0;
-
-    for (const [category, rawItems] of Object.entries(source)) {
-      if (category === 'options') {
-        if (isObject(rawItems) && !Array.isArray(rawItems)) {
-          normalized.options = sanitizeAndNormalizeImportOptions(rawItems, stripPlaylistTemplate);
-        }
-        continue;
-      }
-
-      const safeCategory = sanitizeMediaText(category, 100);
-      if (safeCategory === '' || !Array.isArray(rawItems)) {
-        continue;
-      }
-
-      const normalizedItems: Record<string, unknown>[] = [];
-      rawItems.forEach((rawItem) => {
-        total += 1;
-        if (!isObject(rawItem) || Array.isArray(rawItem)) {
-          rejected += 1;
-          return;
-        }
-
-        const title = sanitizeMediaText(String(rawItem.title || ''), MEDIA_TITLE_MAX_LENGTH);
-        if (title === '') {
-          rejected += 1;
-          return;
-        }
-
-        const item: Record<string, unknown> = { title };
-        const artist = sanitizeMediaText(String(rawItem.artist || ''), MEDIA_ARTIST_MAX_LENGTH);
-        if (artist !== '') item.artist = artist;
-
-        const desc = sanitizeMediaDesc(String(rawItem.desc || ''), MEDIA_DESC_MAX_LENGTH);
-        if (desc !== '') item.desc = desc;
-
-        let hasUnsafeUrl = false;
-        ['file', 'image', 'thumb'].forEach((key) => {
-          if (!Object.prototype.hasOwnProperty.call(rawItem, key)) return;
-          const value = String((rawItem as Record<string, unknown>)[key] || '').trim();
-          if (value === '') return;
-          if (hasUnsafeScheme(value)) {
-            hasUnsafeUrl = true;
-            return;
-          }
-          item[key] = sanitizeMediaText(value, 300);
-        });
-        if (hasUnsafeUrl) {
-          rejected += 1;
-          return;
-        }
-
-        if (Object.prototype.hasOwnProperty.call(rawItem, 'videoid')) {
-          const videoid = sanitizeMediaText(String(rawItem.videoid || ''), 100);
-          if (videoid !== '') {
-            item.videoid = videoid;
-          }
-        }
-
-        ['start', 'end', 'fadein', 'fadeout'].forEach((key) => {
-          if (!Object.prototype.hasOwnProperty.call(rawItem, key)) return;
-          const num = normalizeNonNegativeNumber((rawItem as Record<string, unknown>)[key]);
-          if (num !== null) {
-            item[key] = num;
-          }
-        });
-
-        if (Object.prototype.hasOwnProperty.call(rawItem, 'volume')) {
-          const volume = normalizeNonNegativeNumber(rawItem.volume);
-          if (volume !== null) {
-            item.volume = Math.max(0, Math.min(100, volume));
-          }
-        }
-
-        ['fs', 'cc'].forEach((key) => {
-          if (!Object.prototype.hasOwnProperty.call(rawItem, key)) return;
-          const boolValue = normalizeBoolish((rawItem as Record<string, unknown>)[key]);
-          if (boolValue !== null) {
-            item[key] = boolValue;
-          }
-        });
-
-        if (!item.title) {
-          rejected += 1;
-          return;
-        }
-        normalizedItems.push(item);
-      });
-
-      if (normalizedItems.length > 0) {
-        normalized[safeCategory] = normalizedItems;
-      }
-    }
-
-    if (total === 0) {
-      return null;
-    }
-    if (rejected > 10 || (rejected / Math.max(1, total)) > 0.05) {
-      return null;
-    }
-    const categoryCount = Object.keys(normalized).filter((key) => key !== 'options').length;
-    if (categoryCount === 0) {
-      return null;
-    }
-    return { playlist: normalized, rejected, total };
+    return validatePlaylistSchemaContractDomain(value);
   }
 
   function ensurePlaylistOption(playlistName: string): void {
@@ -5985,7 +5780,7 @@ const init = function (): void {
     let parsed: unknown;
     try {
       const text = await file.text();
-      parsed = parseJsonWithBom(text);
+      parsed = parseImportedPlaylistJson(text);
     } catch (_error) {
       return { ok: false, message: getLocalizedMessage('importParseError', 'The selected file is not valid JSON.') };
     }
@@ -5994,7 +5789,15 @@ const init = function (): void {
       return { ok: false, message: getLocalizedMessage('importSchemaError', 'The selected file does not match the playlist schema.') };
     }
 
-    const sanitized = sanitizeAndNormalizeImportPlaylist(parsed, ambientData?.isCloud === true);
+    const sanitized = sanitizeAndNormalizeImportPlaylistDomain({
+      source: parsed,
+      stripPlaylistTemplate: ambientData?.isCloud === true,
+      sanitizeText: sanitizeMediaText,
+      sanitizeDesc: sanitizeMediaDesc,
+      titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+      artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+      descMaxLength: MEDIA_DESC_MAX_LENGTH,
+    });
     if (!sanitized) {
       return { ok: false, message: getLocalizedMessage('importSanitizeError', 'Unsafe or invalid media entries exceeded the allowed limit.') };
     }
