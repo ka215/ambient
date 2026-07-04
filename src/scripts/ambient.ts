@@ -145,8 +145,11 @@ import {
 import {
   resolveHtmlMediaMimeType,
   resolveHtmlMediaSourcePath,
-  resolveHtmlMediaTagName,
 } from './ui/player/html-player-source';
+import {
+  resolveMediaEditPreviewCurrentTime,
+  resolveMediaEditPreviewSource,
+} from './ui/player/media-edit-preview';
 import {
   bindHtmlEndedEvent,
   bindHtmlErrorEvents,
@@ -2003,23 +2006,11 @@ const init = function (): void {
   }
 
   function getMediaEditPreviewCurrentTime(): number | null {
-    try {
-      if (mediaEditPreviewType === 'youtube' && mediaEditPreviewYouTubePlayer) {
-        const currentTime = mediaEditPreviewYouTubePlayer.getCurrentTime();
-        if (Number.isFinite(currentTime) && currentTime >= 0) {
-          return Math.trunc(currentTime);
-        }
-      }
-      if ((mediaEditPreviewType === 'audio' || mediaEditPreviewType === 'video') && mediaEditPreviewHtmlPlayer) {
-        const currentTime = mediaEditPreviewHtmlPlayer.currentTime;
-        if (Number.isFinite(currentTime) && currentTime >= 0) {
-          return Math.trunc(currentTime);
-        }
-      }
-    } catch (_error) {
-      return null;
-    }
-    return null;
+    return resolveMediaEditPreviewCurrentTime({
+      previewType: mediaEditPreviewType,
+      youtubePlayer: mediaEditPreviewYouTubePlayer,
+      htmlPlayer: mediaEditPreviewHtmlPlayer,
+    });
   }
 
   function syncMediaEditTimingFieldFromPreview(field: HTMLInputElement | null, label: string): void {
@@ -2048,7 +2039,9 @@ const init = function (): void {
       return;
     }
 
-    if (mediaItem.videoid && mediaItem.videoid.trim() !== '') {
+    const previewSource = resolveMediaEditPreviewSource(mediaItem);
+
+    if (previewSource.kind === 'youtube') {
       createYouTubePreviewHost({
         embedWrapper: $MEDIA_EDIT_PREVIEW,
         playerId: MEDIA_EDIT_PREVIEW_YT_PLAYER_ID,
@@ -2065,7 +2058,7 @@ const init = function (): void {
       try {
         mediaEditPreviewType = 'youtube';
         mediaEditPreviewYouTubePlayer = new ytApi.Player(MEDIA_EDIT_PREVIEW_YT_PLAYER_ID, {
-          ...buildYouTubePreviewPlayerConfig(mediaItem.videoid),
+          ...buildYouTubePreviewPlayerConfig(previewSource.videoId),
           events: {
             onReady: () => {
               syncYouTubePreviewDuration({
@@ -2111,13 +2104,11 @@ const init = function (): void {
       return;
     }
 
-    if (mediaItem.file && mediaItem.file.trim() !== '') {
-      const sourcePath = resolveHtmlMediaSourcePath(mediaItem.file);
-      const tagName = resolveHtmlMediaTagName(sourcePath);
+    if (previewSource.kind === 'html') {
       const { playerElement: previewElm, sourceElement: sourceElm } = createHtmlPreviewPlayerView({
-        tagName,
-        sourcePath,
-        sourceType: resolveHtmlMediaMimeType(sourcePath, tagName),
+        tagName: previewSource.tagName,
+        sourcePath: previewSource.sourcePath,
+        sourceType: previewSource.sourceType,
       });
 
       bindHtmlPreviewLoadEvents({
@@ -2137,7 +2128,7 @@ const init = function (): void {
       });
 
       $MEDIA_EDIT_PREVIEW.appendChild(previewElm);
-      mediaEditPreviewType = tagName;
+      mediaEditPreviewType = previewSource.tagName;
       mediaEditPreviewHtmlPlayer = previewElm;
       previewElm.load();
       return;
