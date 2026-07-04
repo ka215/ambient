@@ -86,6 +86,8 @@ import {
   getPlaylistDescriptionPayload,
   PlaylistMode,
   readPlaylistItemIdsFromDom,
+  scrollPlaylistToCurrentFocus,
+  syncPlaylistCurrentFocus,
   syncPlaylistEmptyState,
   syncPlaylistModeAvailabilityButton,
   syncPlaylistModeButton as syncPlaylistModeButtonView,
@@ -4687,16 +4689,7 @@ const init = function (): void {
    * Toggle style to focus the active item in a playlist.
    */
   function changePlaylistFocus(): void {
-    // Change the focus of playlist.
-    Array.from($LIST_PLAYLIST.querySelectorAll('a')).forEach((elm: HTMLElement) => {
-      if (AMP_STATUS.current !== null && (elm as any).dataset.playlistItem === String(AMP_STATUS.current)) {
-        elm.setAttribute('aria-current', 'true');
-        elm.setAttribute('class', 'flex items-center gap-2 w-full px-4 py-2 text-white bg-blue-500 border-b border-gray-200 cursor-pointer dark:bg-gray-800 dark:border-gray-600');
-      } else {
-        elm.removeAttribute('aria-current');
-        elm.setAttribute('class', 'flex items-center gap-2 w-full px-4 py-2 border-b border-gray-200 cursor-pointer hover:bg-gray-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-500 dark:focus:text-white');
-      }
-    });
+    syncPlaylistCurrentFocus($LIST_PLAYLIST, AMP_STATUS.current);
     scrollToFocusItem();
   }
 
@@ -4704,17 +4697,7 @@ const init = function (): void {
    * Auto-scroll to active item in playlist.
    */
   function scrollToFocusItem(): void {
-    const targetElm = $LIST_PLAYLIST.querySelector('a[aria-current="true"]') as HTMLElement | null;
-    if (!targetElm) return;
-
-    const elmRect = getRect(targetElm);
-    if (elmRect) {
-      const move =
-        targetElm.offsetTop > $LIST_PLAYLIST.clientHeight
-          ? Math.abs($LIST_PLAYLIST.clientHeight - targetElm.offsetTop) + elmRect.height
-          : 0;
-      $LIST_PLAYLIST.scrollTo({ top: move, behavior: 'smooth' });
-    }
+    scrollPlaylistToCurrentFocus($LIST_PLAYLIST);
   }
 
   const toggleLoopInput = getToggleInput($TOGGLE_LOOP);
@@ -6031,23 +6014,6 @@ function updateCookie(name: string, value: string, daysToExpire: number | null =
   const secureAttribute = window.location.protocol === 'https:' ? 'Secure; ' : '';
   const cookieString = `${name}=${value}; expires=${expirationDate.toUTCString()}; path=${window.location.pathname}; ${secureAttribute}SameSite=Lax`;
   document.cookie = cookieString;
-}
-
-/**
- * Retrieves a DOMRect object providing information about the size
- * of given an element and its position relative to the viewport.
- */
-function getRect(targetElement: any, property: string = ''): any {
-  if (isElement(targetElement)) {
-    const _RECT_OBJ: DOMRect = targetElement.getBoundingClientRect();
-    if (property === '') {
-      return _RECT_OBJ;
-    }
-    if (property in _RECT_OBJ) {
-      return (_RECT_OBJ as any)[property];
-    }
-  }
-  return false;
 }
 
 /**

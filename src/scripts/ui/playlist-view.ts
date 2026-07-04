@@ -243,6 +243,43 @@ export function syncPlaylistEmptyState(
   noMediaElement.classList.add('hidden');
 }
 
+export function syncPlaylistCurrentFocus(
+  listElement: HTMLElement,
+  currentId: number | null
+): void {
+  Array.from(listElement.querySelectorAll('a')).forEach((elm) => {
+    const itemElm = elm as HTMLElement;
+    if (currentId !== null && itemElm.dataset['playlistItem'] === String(currentId)) {
+      itemElm.setAttribute('aria-current', 'true');
+      itemElm.setAttribute(
+        'class',
+        'flex items-center gap-2 w-full px-4 py-2 text-white bg-blue-500 border-b border-gray-200 cursor-pointer dark:bg-gray-800 dark:border-gray-600'
+      );
+      return;
+    }
+
+    itemElm.removeAttribute('aria-current');
+    itemElm.setAttribute(
+      'class',
+      'flex items-center gap-2 w-full px-4 py-2 border-b border-gray-200 cursor-pointer hover:bg-gray-100 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:hover:text-white dark:focus:ring-gray-500 dark:focus:text-white'
+    );
+  });
+}
+
+export function scrollPlaylistToCurrentFocus(listElement: HTMLElement): void {
+  const targetElm = listElement.querySelector('a[aria-current="true"]') as HTMLElement | null;
+  if (!targetElm) {
+    return;
+  }
+
+  const rect = targetElm.getBoundingClientRect();
+  const move = targetElm.offsetTop > listElement.clientHeight
+    ? Math.abs(listElement.clientHeight - targetElm.offsetTop) + rect.height
+    : 0;
+
+  listElement.scrollTo({ top: move, behavior: 'smooth' });
+}
+
 export function createPlaylistItemElement(options: PlaylistItemRenderOptions): HTMLAnchorElement {
   const itemElm = document.createElement('a');
   itemElm.href = '#';
