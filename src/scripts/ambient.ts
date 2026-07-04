@@ -147,6 +147,7 @@ import {
   bindHtmlPlaybackStateEvents,
   bindHtmlSeekOnPlay,
   createHtmlMediaIssueReporter,
+  handleHtmlPlayingState,
 } from './ui/player/html-player-events';
 import {
   type PlayableSetupKind,
@@ -5299,20 +5300,17 @@ const init = function (): void {
       playerElement: playerElm,
       onPlaying: () => {
         showPlaybackPauseState($BUTTON_PLAY, $BUTTON_PAUSE);
-
-        if (AMP_STATUS.fader) {
-          if (mediaData.hasOwnProperty('fadeout') && mediaData.fadeout !== '') {
-            const { seekEnd } = resolveSeekRange(mediaData, playerElm.duration);
-            playerElm.volume = normalizeVolume(AMP_STATUS.volume, getDefaultVolume()) / 100;
-            fadeOut(playerElm, parseFloat(String(mediaData.fadeout)), seekEnd);
-          }
-
-          if (mediaData.hasOwnProperty('fadein') && mediaData.fadein !== '') {
-            const { seekStart } = resolveSeekRange(mediaData, playerElm.duration);
-            playerElm.volume = 0;
-            fadeIn(playerElm, parseFloat(String(mediaData.fadein)), seekStart);
-          }
-        }
+        handleHtmlPlayingState({
+          playerElement: playerElm,
+          mediaData,
+          faderEnabled: Boolean(AMP_STATUS.fader),
+          playbackVolume: AMP_STATUS.volume,
+          fallbackVolume: getDefaultVolume(),
+          normalizeVolume,
+          resolveSeekRange,
+          fadeOut,
+          fadeIn,
+        });
       },
       onPause: () => {
         showPlaybackPlayState($BUTTON_PLAY, $BUTTON_PAUSE);

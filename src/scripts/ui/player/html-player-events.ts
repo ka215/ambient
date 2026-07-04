@@ -72,6 +72,37 @@ export function bindHtmlPlaybackStateEvents(options: {
   options.playerElement.addEventListener('volumechange', options.onVolumeChange);
 }
 
+export function handleHtmlPlayingState(options: {
+  playerElement: HTMLMediaElement;
+  mediaData: MediaItem;
+  faderEnabled: boolean;
+  playbackVolume: number | null;
+  fallbackVolume: number;
+  normalizeVolume: (value: number | null, fallback?: number) => number;
+  resolveSeekRange: (mediaData: MediaItem, duration: number) => { seekStart: number; seekEnd: number };
+  fadeOut: (media: HTMLMediaElement, period: number, start: number) => void;
+  fadeIn: (media: HTMLMediaElement, period: number, start: number) => void;
+}): void {
+  if (!options.faderEnabled) {
+    return;
+  }
+
+  if (options.mediaData.hasOwnProperty('fadeout') && options.mediaData.fadeout !== '') {
+    const { seekEnd } = options.resolveSeekRange(options.mediaData, options.playerElement.duration);
+    options.playerElement.volume = options.normalizeVolume(
+      options.playbackVolume,
+      options.fallbackVolume
+    ) / 100;
+    options.fadeOut(options.playerElement, parseFloat(String(options.mediaData.fadeout)), seekEnd);
+  }
+
+  if (options.mediaData.hasOwnProperty('fadein') && options.mediaData.fadein !== '') {
+    const { seekStart } = options.resolveSeekRange(options.mediaData, options.playerElement.duration);
+    options.playerElement.volume = 0;
+    options.fadeIn(options.playerElement, parseFloat(String(options.mediaData.fadein)), seekStart);
+  }
+}
+
 export function bindHtmlEndedEvent(options: {
   playerElement: HTMLMediaElement;
   onBeforeTransition: () => void;
