@@ -157,11 +157,8 @@ import {
   showMediaEditPreviewErrorView,
 } from './ui/player/media-edit-preview';
 import {
-  bindHtmlEndedEvent,
-  bindHtmlErrorEvents,
-  bindHtmlPlaybackStateEvents,
+  bindHtmlPlayerPlaybackEvents,
   bindHtmlPreviewLoadEvents,
-  bindHtmlSeekOnPlay,
   createHtmlMediaIssueReporter,
   handleHtmlPlayingState,
 } from './ui/player/html-player-events';
@@ -5169,19 +5166,15 @@ const init = function (): void {
       mediaData,
       reportMediaPlaybackIssue,
     });
-
-    bindHtmlSeekOnPlay({
+    bindHtmlPlayerPlaybackEvents({
       playerElement: playerElm,
+      sourceElement: sourceElm,
       mediaData,
       seekEnabled: playbackConfig.seekEnabled,
       isSeekActive: () => playbackTimers.isSeekActive(),
       startSeek: (callback, intervalMs) => playbackTimers.startSeek(callback, intervalMs),
       abortSeeking,
       abortFadeOut: () => abortFader('fadeout'),
-    });
-
-    bindHtmlPlaybackStateEvents({
-      playerElement: playerElm,
       onPlaying: () => {
         syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
         handleHtmlPlayingState({
@@ -5202,10 +5195,6 @@ const init = function (): void {
       onVolumeChange: () => {
         logger('playerVolumeChange:', playerElm.volume, AMP_STATUS.volume);
       },
-    });
-
-    bindHtmlEndedEvent({
-      playerElement: playerElm,
       onBeforeTransition: () => {
         abortPlaybackTimers();
         cleanupHtmlPlayerWrapper($EMBED_WRAPPER);
@@ -5221,11 +5210,6 @@ const init = function (): void {
         }
         transitionToPlaybackTarget(playbackTarget);
       },
-    });
-
-    bindHtmlErrorEvents({
-      playerElement: playerElm,
-      sourceElement: sourceElm,
       reportIssue: (mediaElement, event, reason) => {
         reportHtmlMediaLoadIssue(mediaElement, event, reason);
       },

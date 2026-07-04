@@ -142,6 +142,54 @@ export function bindHtmlErrorEvents(options: {
   });
 }
 
+export function bindHtmlPlayerPlaybackEvents(options: {
+  playerElement: HTMLMediaElement;
+  sourceElement: HTMLSourceElement;
+  mediaData: MediaItem;
+  seekEnabled: boolean;
+  isSeekActive: () => boolean;
+  startSeek: (callback: () => void, intervalMs: number) => void;
+  abortSeeking: () => void;
+  abortFadeOut: () => void;
+  onPlaying: () => void;
+  onPause: () => void;
+  onVolumeChange: () => void;
+  onBeforeTransition: () => void;
+  resolvePlaybackTarget: () => PlaybackTarget | null;
+  onTransition: (target: PlaybackTarget) => void;
+  reportIssue: (mediaElement: HTMLMediaElement, event: Event, reason: string) => void;
+}): void {
+  bindHtmlSeekOnPlay({
+    playerElement: options.playerElement,
+    mediaData: options.mediaData,
+    seekEnabled: options.seekEnabled,
+    isSeekActive: options.isSeekActive,
+    startSeek: options.startSeek,
+    abortSeeking: options.abortSeeking,
+    abortFadeOut: options.abortFadeOut,
+  });
+
+  bindHtmlPlaybackStateEvents({
+    playerElement: options.playerElement,
+    onPlaying: options.onPlaying,
+    onPause: options.onPause,
+    onVolumeChange: options.onVolumeChange,
+  });
+
+  bindHtmlEndedEvent({
+    playerElement: options.playerElement,
+    onBeforeTransition: options.onBeforeTransition,
+    resolvePlaybackTarget: options.resolvePlaybackTarget,
+    onTransition: options.onTransition,
+  });
+
+  bindHtmlErrorEvents({
+    playerElement: options.playerElement,
+    sourceElement: options.sourceElement,
+    reportIssue: options.reportIssue,
+  });
+}
+
 export function createHtmlLoadErrorReporter(onError: () => void): () => void {
   let hasReportedLoadIssue = false;
 
