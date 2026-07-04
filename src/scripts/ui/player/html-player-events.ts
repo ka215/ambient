@@ -216,6 +216,80 @@ export function bindHtmlPlayerPlaybackEvents(options: {
   });
 }
 
+export function bindManagedHtmlPlaybackEvents(options: {
+  playerElement: HTMLMediaElement;
+  sourceElement: HTMLSourceElement;
+  mediaData: MediaItem;
+  reportMediaPlaybackIssue: (
+    mediaItem: MediaItem,
+    reason: string,
+    details: {
+      src: string;
+      networkState: number;
+      readyState: number;
+      errorCode: number | null;
+      errorMessage: string;
+      eventType: string;
+    }
+  ) => void;
+  seekEnabled: boolean;
+  isSeekActive: () => boolean;
+  startSeek: (callback: () => void, intervalMs: number) => void;
+  abortSeeking: () => void;
+  abortFadeOut: () => void;
+  showPlayingState: () => void;
+  showPausedState: () => void;
+  onVolumeChange: () => void;
+  faderEnabled: boolean;
+  playbackVolume: number | null;
+  fallbackVolume: number;
+  normalizeVolume: (value: number | null, fallback?: number) => number;
+  resolveSeekRange: (mediaData: MediaItem, duration: number) => { seekStart: number; seekEnd: number };
+  fadeOut: (media: HTMLMediaElement, period: number, start: number) => void;
+  fadeIn: (media: HTMLMediaElement, period: number, start: number) => void;
+  onBeforeTransition: () => void;
+  resolvePlaybackTarget: () => PlaybackTarget | null;
+  onTransition: (target: PlaybackTarget) => void;
+}): void {
+  const reportHtmlMediaLoadIssue = createHtmlMediaIssueReporter({
+    mediaData: options.mediaData,
+    reportMediaPlaybackIssue: options.reportMediaPlaybackIssue,
+  });
+
+  bindHtmlPlayerPlaybackEvents({
+    playerElement: options.playerElement,
+    sourceElement: options.sourceElement,
+    mediaData: options.mediaData,
+    seekEnabled: options.seekEnabled,
+    isSeekActive: options.isSeekActive,
+    startSeek: options.startSeek,
+    abortSeeking: options.abortSeeking,
+    abortFadeOut: options.abortFadeOut,
+    onPlaying: () => {
+      handleHtmlPlayingEvent({
+        showPlayingState: options.showPlayingState,
+        playerElement: options.playerElement,
+        mediaData: options.mediaData,
+        faderEnabled: options.faderEnabled,
+        playbackVolume: options.playbackVolume,
+        fallbackVolume: options.fallbackVolume,
+        normalizeVolume: options.normalizeVolume,
+        resolveSeekRange: options.resolveSeekRange,
+        fadeOut: options.fadeOut,
+        fadeIn: options.fadeIn,
+      });
+    },
+    onPause: options.showPausedState,
+    onVolumeChange: options.onVolumeChange,
+    onBeforeTransition: options.onBeforeTransition,
+    resolvePlaybackTarget: options.resolvePlaybackTarget,
+    onTransition: options.onTransition,
+    reportIssue: (mediaElement, event, reason) => {
+      reportHtmlMediaLoadIssue(mediaElement, event, reason);
+    },
+  });
+}
+
 export function createHtmlLoadErrorReporter(onError: () => void): () => void {
   let hasReportedLoadIssue = false;
 

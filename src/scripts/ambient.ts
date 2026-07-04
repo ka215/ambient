@@ -157,10 +157,8 @@ import {
   showMediaEditPreviewErrorView,
 } from './ui/player/media-edit-preview';
 import {
-  bindHtmlPlayerPlaybackEvents,
+  bindManagedHtmlPlaybackEvents,
   bindHtmlPreviewLoadEvents,
-  createHtmlMediaIssueReporter,
-  handleHtmlPlayingEvent,
 } from './ui/player/html-player-events';
 import {
   dispatchPlaybackSetup,
@@ -5182,41 +5180,32 @@ const init = function (): void {
       getViewportWidth: () => currentWindowSize.width,
     });
     applyInitialPlaybackStateToElement(playerElm, initialPlaybackState);
-    const reportHtmlMediaLoadIssue = createHtmlMediaIssueReporter({
-      mediaData,
-      reportMediaPlaybackIssue,
-    });
-    bindHtmlPlayerPlaybackEvents({
+    bindManagedHtmlPlaybackEvents({
       playerElement: playerElm,
       sourceElement: sourceElm,
       mediaData,
+      reportMediaPlaybackIssue,
       seekEnabled: playbackConfig.seekEnabled,
       isSeekActive: () => playbackTimers.isSeekActive(),
       startSeek: (callback, intervalMs) => playbackTimers.startSeek(callback, intervalMs),
       abortSeeking,
       abortFadeOut: () => abortFader('fadeout'),
-      onPlaying: () => {
-        handleHtmlPlayingEvent({
-          showPlayingState: () => {
-            syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
-          },
-          playerElement: playerElm,
-          mediaData,
-          faderEnabled: Boolean(AMP_STATUS.fader),
-          playbackVolume: AMP_STATUS.volume,
-          fallbackVolume: getDefaultVolume(),
-          normalizeVolume,
-          resolveSeekRange,
-          fadeOut,
-          fadeIn,
-        });
+      showPlayingState: () => {
+        syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
       },
-      onPause: () => {
+      showPausedState: () => {
         syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'paused');
       },
       onVolumeChange: () => {
         logger('playerVolumeChange:', playerElm.volume, AMP_STATUS.volume);
       },
+      faderEnabled: Boolean(AMP_STATUS.fader),
+      playbackVolume: AMP_STATUS.volume,
+      fallbackVolume: getDefaultVolume(),
+      normalizeVolume,
+      resolveSeekRange,
+      fadeOut,
+      fadeIn,
       onBeforeTransition: () => {
         abortPlaybackTimers();
         cleanupHtmlPlayerWrapper($EMBED_WRAPPER);
@@ -5231,9 +5220,6 @@ const init = function (): void {
           playerElm.remove();
         }
         transitionToPlaybackTarget(playbackTarget);
-      },
-      reportIssue: (mediaElement, event, reason) => {
-        reportHtmlMediaLoadIssue(mediaElement, event, reason);
       },
     });
   }
