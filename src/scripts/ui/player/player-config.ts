@@ -28,6 +28,24 @@ export interface InitialPlaybackState {
   startTime: number | null;
 }
 
+export function applyInitialPlaybackStateToStatus(
+  status: { fader?: boolean; volume: number | null },
+  initialPlaybackState: InitialPlaybackState
+): void {
+  status.fader = initialPlaybackState.faderEnabled;
+  status.volume = initialPlaybackState.volume;
+}
+
+export function applyInitialPlaybackStateToElement(
+  playerElement: HTMLMediaElement,
+  initialPlaybackState: InitialPlaybackState
+): void {
+  playerElement.volume = initialPlaybackState.elementVolume;
+  if (initialPlaybackState.startTime !== null) {
+    playerElement.currentTime = initialPlaybackState.startTime;
+  }
+}
+
 export function resolvePlaybackConfigSource(
   getOption: (key: 'autoplay' | 'controls' | 'fs' | 'cc_load_policy' | 'rel' | 'seek' | 'fader') => unknown
 ): PlaybackConfigSource {

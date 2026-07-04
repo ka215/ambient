@@ -113,6 +113,8 @@ import {
   getPlayerSizeForCurrentMode as getPlayerSizeForCurrentModeView,
 } from './ui/player/player-layout';
 import {
+  applyInitialPlaybackStateToElement,
+  applyInitialPlaybackStateToStatus,
   buildYouTubePlayerOptions,
   resolvePlaybackConfigSource,
   resolveInitialPlaybackState,
@@ -5230,8 +5232,7 @@ const init = function (): void {
       normalizeVolume,
       seekEnabled: playbackConfig.seekEnabled,
     });
-    AMP_STATUS.fader = initialPlaybackState.faderEnabled;
-    AMP_STATUS.volume = initialPlaybackState.volume;
+    applyInitialPlaybackStateToStatus(AMP_STATUS, initialPlaybackState);
 
     const adjustSize = getPlayerSizeForCurrentMode();
 
@@ -5274,12 +5275,8 @@ const init = function (): void {
       normalizeVolume,
       seekEnabled: playbackConfig.seekEnabled,
     });
-    AMP_STATUS.fader = initialPlaybackState.faderEnabled;
-    AMP_STATUS.volume = initialPlaybackState.volume;
-    playerElm.volume = initialPlaybackState.elementVolume;
-    if (initialPlaybackState.startTime !== null) {
-      playerElm.currentTime = initialPlaybackState.startTime;
-    }
+    applyInitialPlaybackStateToStatus(AMP_STATUS, initialPlaybackState);
+    applyInitialPlaybackStateToElement(playerElm, initialPlaybackState);
 
     const reportHtmlMediaLoadIssue = (
       mediaElement: HTMLMediaElement,
