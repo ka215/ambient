@@ -136,7 +136,6 @@ import {
   resolveYouTubeTransitionCleanupMode,
 } from './ui/player/player-runtime';
 import {
-  createHtmlPreviewPlayerView,
   cleanupHtmlPlayerWrapper,
   destroyHtmlPreviewPlayer,
 } from './ui/player/html-player-view';
@@ -144,14 +143,13 @@ import {
 } from './ui/player/html-player-source';
 import {
   clearMediaEditPreviewContainerView,
+  createManagedMediaEditPreview,
   hideMediaEditPreviewErrorView,
   resolveMediaEditPreviewCurrentTime,
-  resolveMediaEditPreviewSource,
   showMediaEditPreviewErrorView,
 } from './ui/player/media-edit-preview';
 import {
   bindManagedHtmlPlaybackEvents,
-  bindHtmlPreviewLoadEvents,
 } from './ui/player/html-player-events';
 import {
   dispatchPlaybackSetup,
@@ -159,8 +157,6 @@ import {
   resolvePlaybackSetupResolution,
 } from './ui/player/player-setup';
 import {
-  buildYouTubePreviewPlayerConfig,
-  createYouTubePreviewHost,
   destroyYouTubePreviewPlayer,
   resetYouTubePlayerView,
   setWatchOriginState,
@@ -1014,6 +1010,7 @@ const init = function (): void {
     }
     AMP_STATUS.playlist = null;
     applyCloudEditRestrictions();
+    setPlaylistReadyState(true);
   }
 
   // Process global data passed by the system.
@@ -2058,109 +2055,26 @@ const init = function (): void {
   function createMediaEditPreview(mediaItem: MediaItem): void {
     resetMediaEditPreviewState();
     mediaEditPreviewSourceItem = mediaItem;
-
-    if (!isElement($MEDIA_EDIT_PREVIEW)) {
-      return;
-    }
-
-    const previewSource = resolveMediaEditPreviewSource(mediaItem);
-
-    if (previewSource.kind === 'youtube') {
-      createYouTubePreviewHost({
-        embedWrapper: $MEDIA_EDIT_PREVIEW,
-        playerId: MEDIA_EDIT_PREVIEW_YT_PLAYER_ID,
-      });
-
-      const ytApi = (window as any).YT;
-      if (!ytApi || typeof ytApi.Player !== 'function') {
-        showMediaEditPreviewError(
-          getLocalizedMessage('mediaEditPreviewUnavailable', 'Preview is not available. Please retry after the player API loads.')
-        );
-        return;
-      }
-
-      try {
-        mediaEditPreviewType = 'youtube';
-        mediaEditPreviewYouTubePlayer = new ytApi.Player(MEDIA_EDIT_PREVIEW_YT_PLAYER_ID, {
-          ...buildYouTubePreviewPlayerConfig(previewSource.videoId),
-          events: {
-            onReady: () => {
-              syncYouTubePreviewDuration({
-                readDuration: () => normalizeMediaEditTimingValue(mediaEditPreviewYouTubePlayer?.getDuration(), null),
-                onDurationResolved: (duration) => {
-                  mediaEditPreviewDurationSeconds = duration;
-                  validateAndRenderMediaEditDraftFromForm();
-                },
-                onDurationAvailable: () => {
-                  maybeCompleteMediaEditDurationSyncWait();
-                },
-                hidePreviewError: hideMediaEditPreviewError,
-              });
-            },
-            onStateChange: () => {
-              syncYouTubePreviewDuration({
-                readDuration: () => normalizeMediaEditTimingValue(mediaEditPreviewYouTubePlayer?.getDuration(), null),
-                onDurationResolved: (duration) => {
-                  if (duration === null) {
-                    return;
-                  }
-                  mediaEditPreviewDurationSeconds = duration;
-                  validateAndRenderMediaEditDraftFromForm();
-                },
-                onDurationAvailable: () => {
-                  maybeCompleteMediaEditDurationSyncWait();
-                },
-                hidePreviewError: hideMediaEditPreviewError,
-              });
-            },
-            onError: () => {
-              showMediaEditPreviewError(
-                getLocalizedMessage('mediaEditPreviewLoadFailed', 'Failed to load media preview. Please try again.')
-              );
-            },
-          },
-        });
-      } catch (_error) {
-        showMediaEditPreviewError(
-          getLocalizedMessage('mediaEditPreviewLoadFailed', 'Failed to load media preview. Please try again.')
-        );
-      }
-      return;
-    }
-
-    if (previewSource.kind === 'html') {
-      const { playerElement: previewElm, sourceElement: sourceElm } = createHtmlPreviewPlayerView({
-        tagName: previewSource.tagName,
-        sourcePath: previewSource.sourcePath,
-        sourceType: previewSource.sourceType,
-      });
-
-      bindHtmlPreviewLoadEvents({
-        playerElement: previewElm,
-        sourceElement: sourceElm,
-        onLoadedMetadata: () => {
-          mediaEditPreviewDurationSeconds = normalizeMediaEditTimingValue(previewElm.duration, null);
-          validateAndRenderMediaEditDraftFromForm();
-          maybeCompleteMediaEditDurationSyncWait();
-          hideMediaEditPreviewError();
-        },
-        onLoadError: () => {
-          showMediaEditPreviewError(
-            getLocalizedMessage('mediaEditPreviewLoadFailed', 'Failed to load media preview. Please try again.')
-          );
-        },
-      });
-
-      $MEDIA_EDIT_PREVIEW.appendChild(previewElm);
-      mediaEditPreviewType = previewSource.tagName;
-      mediaEditPreviewHtmlPlayer = previewElm;
-      previewElm.load();
-      return;
-    }
-
-    showMediaEditPreviewError(
-      getLocalizedMessage('mediaEditPreviewNoSource', 'Preview is not available because the media source is missing.')
-    );
+    const previewState = createManagedMediaEditPreview({
+      mediaItem,
+      previewElement: isElement($MEDIA_EDIT_PREVIEW) ? $MEDIA_EDIT_PREVIEW : null,
+      previewPlayerId: MEDIA_EDIT_PREVIEW_YT_PLAYER_ID,
+      normalizeTimingValue: normalizeMediaEditTimingValue,
+      syncYouTubePreviewDuration,
+      onDurationResolved: (duration) => {
+        mediaEditPreviewDurationSeconds = duration;
+        validateAndRenderMediaEditDraftFromForm();
+      },
+      onDurationAvailable: () => {
+        maybeCompleteMediaEditDurationSyncWait();
+      },
+      hidePreviewError: hideMediaEditPreviewError,
+      showPreviewError: showMediaEditPreviewError,
+      getLocalizedMessage,
+    });
+    mediaEditPreviewType = previewState.previewType;
+    mediaEditPreviewYouTubePlayer = previewState.youtubePlayer;
+    mediaEditPreviewHtmlPlayer = previewState.htmlPlayer;
   }
 
   function setMediaEditDirtyState(isDirty: boolean): void {
@@ -3444,12 +3358,15 @@ const init = function (): void {
         void getPlaylistData(currentPlaylist);
       } else if (ambientData.hasOwnProperty('playlists') && playlistCount > 1) {
         // If there are multiple playlists, do nothing yet.
+        setPlaylistReadyState(true);
         releaseAppBootGate();
       } else {
+        setPlaylistReadyState(true);
         releaseAppBootGate();
       }
     }
   } else {
+    setPlaylistReadyState(true);
     releaseAppBootGate();
   }
 

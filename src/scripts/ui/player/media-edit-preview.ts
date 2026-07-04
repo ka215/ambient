@@ -1,4 +1,15 @@
 import type { MediaItem } from '../../types/ambient';
+import type { YTPlayer } from '../../types/youtube';
+import {
+  buildYouTubePreviewPlayerConfig,
+  createYouTubePreviewHost,
+} from './youtube-player-view';
+import {
+  bindHtmlPreviewLoadEvents,
+} from './html-player-events';
+import {
+  createHtmlPreviewPlayerView,
+} from './html-player-view';
 import {
   resolveHtmlMediaMimeType,
   resolveHtmlMediaSourcePath,
@@ -98,4 +109,146 @@ export function clearMediaEditPreviewContainerView(containerElement: HTMLElement
     return;
   }
   containerElement.innerHTML = '';
+}
+
+export function createManagedMediaEditPreview(options: {
+  mediaItem: MediaItem;
+  previewElement: HTMLElement | null;
+  previewPlayerId: string;
+  normalizeTimingValue: (value: unknown, fallback: number | null) => number | null;
+  syncYouTubePreviewDuration: (options: {
+    readDuration: () => number | null;
+    onDurationResolved: (duration: number | null) => void;
+    onDurationAvailable?: () => void;
+    hidePreviewError: () => void;
+  }) => void;
+  onDurationResolved: (duration: number | null) => void;
+  onDurationAvailable: () => void;
+  hidePreviewError: () => void;
+  showPreviewError: (message: string) => void;
+  getLocalizedMessage: (key: string, fallback: string) => string;
+}): {
+  previewType: 'youtube' | 'audio' | 'video' | null;
+  youtubePlayer: YTPlayer | null;
+  htmlPlayer: HTMLMediaElement | null;
+} {
+  if (!options.previewElement) {
+    return {
+      previewType: null,
+      youtubePlayer: null,
+      htmlPlayer: null,
+    };
+  }
+
+  const previewSource = resolveMediaEditPreviewSource(options.mediaItem);
+
+  if (previewSource.kind === 'youtube') {
+    createYouTubePreviewHost({
+      embedWrapper: options.previewElement,
+      playerId: options.previewPlayerId,
+    });
+
+    const ytApi = (window as any).YT;
+    if (!ytApi || typeof ytApi.Player !== 'function') {
+      options.showPreviewError(
+        options.getLocalizedMessage('mediaEditPreviewUnavailable', 'Preview is not available. Please retry after the player API loads.')
+      );
+      return {
+        previewType: null,
+        youtubePlayer: null,
+        htmlPlayer: null,
+      };
+    }
+
+    try {
+      let youtubePlayer: YTPlayer | null = null;
+      youtubePlayer = new ytApi.Player(options.previewPlayerId, {
+        ...buildYouTubePreviewPlayerConfig(previewSource.videoId),
+        events: {
+          onReady: () => {
+            options.syncYouTubePreviewDuration({
+              readDuration: () => options.normalizeTimingValue(youtubePlayer?.getDuration(), null),
+              onDurationResolved: options.onDurationResolved,
+              onDurationAvailable: options.onDurationAvailable,
+              hidePreviewError: options.hidePreviewError,
+            });
+          },
+          onStateChange: () => {
+            options.syncYouTubePreviewDuration({
+              readDuration: () => options.normalizeTimingValue(youtubePlayer?.getDuration(), null),
+              onDurationResolved: (duration) => {
+                if (duration === null) {
+                  return;
+                }
+                options.onDurationResolved(duration);
+              },
+              onDurationAvailable: options.onDurationAvailable,
+              hidePreviewError: options.hidePreviewError,
+            });
+          },
+          onError: () => {
+            options.showPreviewError(
+              options.getLocalizedMessage('mediaEditPreviewLoadFailed', 'Failed to load media preview. Please try again.')
+            );
+          },
+        },
+      });
+
+      return {
+        previewType: 'youtube',
+        youtubePlayer,
+        htmlPlayer: null,
+      };
+    } catch (_error) {
+      options.showPreviewError(
+        options.getLocalizedMessage('mediaEditPreviewLoadFailed', 'Failed to load media preview. Please try again.')
+      );
+      return {
+        previewType: null,
+        youtubePlayer: null,
+        htmlPlayer: null,
+      };
+    }
+  }
+
+  if (previewSource.kind === 'html') {
+    const { playerElement: htmlPlayer, sourceElement: sourceElement } = createHtmlPreviewPlayerView({
+      tagName: previewSource.tagName,
+      sourcePath: previewSource.sourcePath,
+      sourceType: previewSource.sourceType,
+    });
+
+    bindHtmlPreviewLoadEvents({
+      playerElement: htmlPlayer,
+      sourceElement,
+      onLoadedMetadata: () => {
+        options.onDurationResolved(options.normalizeTimingValue(htmlPlayer.duration, null));
+        options.onDurationAvailable();
+        options.hidePreviewError();
+      },
+      onLoadError: () => {
+        options.showPreviewError(
+          options.getLocalizedMessage('mediaEditPreviewLoadFailed', 'Failed to load media preview. Please try again.')
+        );
+      },
+    });
+
+    options.previewElement.appendChild(htmlPlayer);
+    htmlPlayer.load();
+
+    return {
+      previewType: previewSource.tagName,
+      youtubePlayer: null,
+      htmlPlayer,
+    };
+  }
+
+  options.showPreviewError(
+    options.getLocalizedMessage('mediaEditPreviewNoSource', 'Preview is not available because the media source is missing.')
+  );
+  return {
+    previewType: null,
+    youtubePlayer: null,
+    htmlPlayer: null,
+  };
 }
