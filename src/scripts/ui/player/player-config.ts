@@ -28,6 +28,13 @@ export interface InitialPlaybackState {
   startTime: number | null;
 }
 
+export interface InitialPlaybackStateResolvers {
+  fallbackVolume: number;
+  volumeInRange: (value: number) => boolean;
+  getPlaybackVolume: (item: MediaItem) => number;
+  normalizeVolume: (value: number, fallback?: number) => number;
+}
+
 export function resolveMediaFullscreenEnabled(
   mediaData: MediaItem,
   fullscreenOption: unknown
@@ -145,4 +152,19 @@ export function resolveInitialPlaybackState(
     elementVolume,
     startTime,
   };
+}
+
+export function resolveConfiguredInitialPlaybackState(
+  mediaData: MediaItem,
+  playbackConfig: Pick<PlaybackConfigSource, 'faderEnabled' | 'seekEnabled'>,
+  resolvers: InitialPlaybackStateResolvers
+): InitialPlaybackState {
+  return resolveInitialPlaybackState(mediaData, {
+    faderEnabled: playbackConfig.faderEnabled,
+    fallbackVolume: resolvers.fallbackVolume,
+    volumeInRange: resolvers.volumeInRange,
+    getPlaybackVolume: resolvers.getPlaybackVolume,
+    normalizeVolume: resolvers.normalizeVolume,
+    seekEnabled: playbackConfig.seekEnabled,
+  });
 }

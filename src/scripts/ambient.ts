@@ -117,8 +117,8 @@ import {
   applyInitialPlaybackStateToStatus,
   buildYouTubePlayerOptions,
   resolveMediaFullscreenEnabled,
+  resolveConfiguredInitialPlaybackState,
   resolvePlaybackConfigSource,
-  resolveInitialPlaybackState,
 } from './ui/player/player-config';
 import {
   renderCarouselItems,
@@ -5225,13 +5225,11 @@ const init = function (): void {
     createYouTubePlayerHost({ embedWrapper: $EMBED_WRAPPER, playerId: 'ytplayer' });
     const playbackConfig = resolvePlaybackConfigSource(getOption);
     const playerOptions = buildYouTubePlayerOptions(mediaData, playbackConfig);
-    const initialPlaybackState = resolveInitialPlaybackState(mediaData, {
-      faderEnabled: playbackConfig.faderEnabled,
+    const initialPlaybackState = resolveConfiguredInitialPlaybackState(mediaData, playbackConfig, {
       fallbackVolume: getDefaultVolume(),
       volumeInRange: (value: number) => inRange(value, 0, 100),
       getPlaybackVolume,
       normalizeVolume,
-      seekEnabled: playbackConfig.seekEnabled,
     });
     applyInitialPlaybackStateToStatus(AMP_STATUS, initialPlaybackState);
 
@@ -5266,13 +5264,11 @@ const init = function (): void {
       sourceType: resolveHtmlMediaMimeType(sourcePath, tagname),
     };
     const { playerElement: playerElm, sourceElement: sourceElm } = createHtmlPlayerView(playerViewOptions);
-    const initialPlaybackState = resolveInitialPlaybackState(mediaData, {
-      faderEnabled: playbackConfig.faderEnabled,
+    const initialPlaybackState = resolveConfiguredInitialPlaybackState(mediaData, playbackConfig, {
       fallbackVolume: getDefaultVolume(),
       volumeInRange: (value: number) => inRange(value, 0, 100),
       getPlaybackVolume,
       normalizeVolume,
-      seekEnabled: playbackConfig.seekEnabled,
     });
     applyInitialPlaybackStateToStatus(AMP_STATUS, initialPlaybackState);
     applyInitialPlaybackStateToElement(playerElm, initialPlaybackState);
