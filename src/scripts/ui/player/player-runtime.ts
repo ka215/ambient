@@ -1,5 +1,10 @@
 import type { MediaItem } from '../../types/ambient';
-import { resolvePlaybackSource, type PlaybackSourceType } from './player-setup';
+import {
+  resolvePlaybackSetupPlan,
+  resolvePlaybackSource,
+  type PlaybackSourceType,
+  type PlayableSetupKind,
+} from './player-setup';
 
 export interface PlaybackTarget {
   nextId: number;
@@ -62,6 +67,45 @@ export function resolveYouTubeTransitionCleanupMode(
     return 'remove_host';
   }
   return 'none';
+}
+
+export function applyYouTubeTransitionCleanup(
+  eventTarget: { destroy?: () => void; g?: { remove?: () => void } } | null | undefined,
+  cleanupMode: YouTubeTransitionCleanupMode
+): void {
+  if (!eventTarget) {
+    return;
+  }
+  if (cleanupMode === 'destroy') {
+    eventTarget.destroy?.();
+    return;
+  }
+  if (cleanupMode === 'remove_host') {
+    eventTarget.g?.remove?.();
+  }
+}
+
+export function resolvePlaybackTargetSetupKind(
+  playbackTarget: PlaybackTarget | null,
+  getExtension: (src: string) => string
+): PlayableSetupKind | null {
+  if (!playbackTarget) {
+    return null;
+  }
+  if (playbackTarget.playerType === 'youtube') {
+    return 'youtube';
+  }
+
+  const setupKind = resolvePlaybackSetupPlan({
+    mediaData: playbackTarget.mediaData,
+    getExtension,
+  }).kind;
+
+  if (setupKind === 'missing') {
+    return null;
+  }
+
+  return setupKind;
 }
 
 export function findMediaById(mediaItems: MediaItem[], targetId: number | null): MediaItem | null {

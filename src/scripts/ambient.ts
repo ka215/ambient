@@ -124,7 +124,9 @@ import {
   renderEmptyCarousel,
 } from './ui/player/carousel-view';
 import {
+  applyYouTubeTransitionCleanup,
   findMediaById,
+  resolvePlaybackTargetSetupKind,
   resolvePlaybackNeighborIds,
   resolveEndedPlaybackTarget as resolveEndedPlaybackTargetRuntime,
   resolveLoopAwareNextId,
@@ -5107,27 +5109,15 @@ const init = function (): void {
       return;
     }
     updatePlayStatus(playbackTarget.nextId);
-    const setupKind = playbackTarget.playerType === 'youtube'
-      ? 'youtube'
-      : resolvePlaybackSetupPlan({
-        mediaData: playbackTarget.mediaData,
-        getExtension: getExt,
-      }).kind;
-    if (setupKind === 'missing') {
+    const setupKind = resolvePlaybackTargetSetupKind(playbackTarget, getExt);
+    if (!setupKind) {
       return;
     }
     setupPlayer(setupKind, playbackTarget.mediaSrc, playbackTarget.mediaData);
   }
 
   function cleanupYouTubeTransition(event: any, playbackTarget: ReturnType<typeof resolveNextPlaybackTarget> | null): void {
-    const cleanupMode = resolveYouTubeTransitionCleanupMode(playbackTarget);
-    if (cleanupMode === 'destroy') {
-      event.target.destroy?.();
-      return;
-    }
-    if (cleanupMode === 'remove_host') {
-      event.target.g?.remove();
-    }
+    applyYouTubeTransitionCleanup(event.target, resolveYouTubeTransitionCleanupMode(playbackTarget));
   }
 
   async function activateImportedPlaylist(playlistName: string): Promise<void> {
