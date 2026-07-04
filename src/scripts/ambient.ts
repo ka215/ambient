@@ -117,11 +117,9 @@ import {
   getPlayerSizeForCurrentMode as getPlayerSizeForCurrentModeView,
 } from './ui/player/player-layout';
 import {
-  applyInitialPlaybackStateToElement,
-  applyInitialPlaybackStateToStatus,
+  applyConfiguredInitialPlaybackState,
   buildYouTubePlayerOptions,
   resolveMediaFullscreenEnabled,
-  resolveConfiguredInitialPlaybackState,
   resolvePlaybackConfigSource,
 } from './ui/player/player-config';
 import {
@@ -5114,14 +5112,17 @@ const init = function (): void {
     createYouTubePlayerHost({ embedWrapper: $EMBED_WRAPPER, playerId: 'ytplayer' });
     const playbackConfig = resolvePlaybackConfigSource(getOption);
     const playerOptions = buildYouTubePlayerOptions(mediaData, playbackConfig);
-    const initialPlaybackState = resolveConfiguredInitialPlaybackState(mediaData, playbackConfig, {
-      fallbackVolume: getDefaultVolume(),
-      volumeInRange: (value: number) => inRange(value, 0, 100),
-      getPlaybackVolume,
-      normalizeVolume,
+    applyConfiguredInitialPlaybackState({
+      mediaData,
+      playbackConfig,
+      status: AMP_STATUS,
+      resolvers: {
+        fallbackVolume: getDefaultVolume(),
+        volumeInRange: (value: number) => inRange(value, 0, 100),
+        getPlaybackVolume,
+        normalizeVolume,
+      },
     });
-    applyInitialPlaybackStateToStatus(AMP_STATUS, initialPlaybackState);
-
     const adjustSize = getPlayerSizeForCurrentMode();
 
     player = new (window as any).YT.Player('ytplayer', {
@@ -5153,14 +5154,18 @@ const init = function (): void {
       sourceType: resolveHtmlMediaMimeType(sourcePath, tagname),
     };
     const { playerElement: playerElm, sourceElement: sourceElm } = createHtmlPlayerView(playerViewOptions);
-    const initialPlaybackState = resolveConfiguredInitialPlaybackState(mediaData, playbackConfig, {
-      fallbackVolume: getDefaultVolume(),
-      volumeInRange: (value: number) => inRange(value, 0, 100),
-      getPlaybackVolume,
-      normalizeVolume,
+    applyConfiguredInitialPlaybackState({
+      mediaData,
+      playbackConfig,
+      status: AMP_STATUS,
+      playerElement: playerElm,
+      resolvers: {
+        fallbackVolume: getDefaultVolume(),
+        volumeInRange: (value: number) => inRange(value, 0, 100),
+        getPlaybackVolume,
+        normalizeVolume,
+      },
     });
-    applyInitialPlaybackStateToStatus(AMP_STATUS, initialPlaybackState);
-    applyInitialPlaybackStateToElement(playerElm, initialPlaybackState);
     const reportHtmlMediaLoadIssue = createHtmlMediaIssueReporter({
       mediaData,
       reportMediaPlaybackIssue,

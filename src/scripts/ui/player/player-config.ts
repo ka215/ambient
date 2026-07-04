@@ -168,3 +168,22 @@ export function resolveConfiguredInitialPlaybackState(
     seekEnabled: playbackConfig.seekEnabled,
   });
 }
+
+export function applyConfiguredInitialPlaybackState(options: {
+  mediaData: MediaItem;
+  playbackConfig: Pick<PlaybackConfigSource, 'faderEnabled' | 'seekEnabled'>;
+  resolvers: InitialPlaybackStateResolvers;
+  status: { fader?: boolean; volume: number | null };
+  playerElement?: HTMLMediaElement | null;
+}): InitialPlaybackState {
+  const initialPlaybackState = resolveConfiguredInitialPlaybackState(
+    options.mediaData,
+    options.playbackConfig,
+    options.resolvers
+  );
+  applyInitialPlaybackStateToStatus(options.status, initialPlaybackState);
+  if (options.playerElement) {
+    applyInitialPlaybackStateToElement(options.playerElement, initialPlaybackState);
+  }
+  return initialPlaybackState;
+}
