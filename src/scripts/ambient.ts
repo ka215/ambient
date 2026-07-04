@@ -49,6 +49,7 @@ import {
 } from './state/playlist-context';
 import {
   readPlaylistOption,
+  resolvePlaylistOptionState,
   setPlaylistOption,
 } from './state/playlist-options';
 import {
@@ -4269,58 +4270,48 @@ const init = function (): void {
    * Causes the application to apply specific option contents of the AMP_STATUS object.
    */
   function applyOptions(): void {
-    // Applies if a background image is specified.
-    const bgImage = getOption('background');
+    const optionState = resolvePlaylistOptionState({
+      getOption,
+      defaultVolume: getDefaultVolume(),
+    });
+
     const ambientData = (window as any).AmbientData as AmbientData;
     applyPlaylistBackground({
       body: $BODY,
       menu: $MENU,
       imageDir: ambientData?.imageDir,
-      backgroundImage: bgImage,
+      backgroundImage: optionState.backgroundImage,
     });
 
-    // Applies if a randomly playback is specified.
-    const isRandom = getOption('random');
-    if (isRandom !== null) {
-      AMP_STATUS.order = isRandom ? 'random' : 'normal';
+    if (optionState.hasRandom) {
+      AMP_STATUS.order = optionState.randomEnabled ? 'random' : 'normal';
     }
 
-    // Applies if a shuffle playback is specified.
-    const isShuffle = getOption('shuffle');
-    if (isShuffle !== null && isShuffle) {
+    if (optionState.hasShuffle && optionState.shuffleEnabled) {
       AMP_STATUS.shuffle = [];
       changeToggleShuffle();
     }
 
-    // Applies if a seeking playback is specified.
-    const isSeekplay = getOption('seek');
-    if (isSeekplay !== null) {
+    if (optionState.hasSeek) {
       changeToggleSeekplay();
     }
 
-    // Applies if a pseudo fader is specified, since v1.2.0
-    const isFader = getOption('fader');
-    if (isFader !== null) {
+    if (optionState.hasFader) {
       changeToggleFader();
     }
 
-    // Applies if a default volume is specified.
-    AMP_STATUS.volume = getDefaultVolume();
+    AMP_STATUS.volume = optionState.volume;
     changeRangeVolume();
     syncMediaVolumeField();
 
-    // Applies if a dark mode is specified.
-    const isDarkMode = getOption('dark');
-    if (isDarkMode !== null) {
+    if (optionState.hasDark) {
       if (AMP_STATUS.options) {
-        AMP_STATUS.options.dark = isDarkMode;
+        AMP_STATUS.options.dark = optionState.darkEnabled;
       }
     }
 
     changeToggleDarkmode();
-
-    const isFullWindow = getOption('fullwindow');
-    setFullWindowMode(!!isFullWindow, false);
+    setFullWindowMode(optionState.fullWindowEnabled, false);
   }
 
   /**
