@@ -226,6 +226,7 @@ import { appendUniqueCategory } from './domain/playlist-management-data';
 const init = function (): void {
   const selfURL = new URL(window.location.href);
   const BASE_URL = selfURL.origin + selfURL.pathname;
+  const isE2EMode = selfURL.searchParams.get('e2e') === '1';
 
   if (!window.hasOwnProperty('APP_KEY')) {
     (window as any).APP_KEY = USER_DATA_APP_KEY;
@@ -238,8 +239,34 @@ const init = function (): void {
   let bootGateDelayId: number | null = null;
   let bootGateFadeId: number | null = null;
   const bootGateStartedAt = Date.now();
-  const BOOT_SPLASH_MIN_VISIBLE_MS = 2400;
+  const BOOT_SPLASH_MIN_VISIBLE_MS = isE2EMode ? 0 : 2400;
   const BOOT_SPLASH_FADE_MS = 220;
+  let playlistReady = false;
+
+  function syncAppReadySignal(): void {
+    const body = document.body;
+    if (!body) {
+      return;
+    }
+
+    body.setAttribute('data-playlist-ready', String(playlistReady));
+    body.setAttribute('data-app-ready', String(body.getAttribute('data-boot') === 'ready'));
+  }
+
+  function setPlaylistReadyState(isReady: boolean): void {
+    playlistReady = isReady;
+    syncAppReadySignal();
+  }
+
+  function setBootState(state: 'pending' | 'transition' | 'ready'): void {
+    const body = document.body;
+    if (!body) {
+      return;
+    }
+
+    body.setAttribute('data-boot', state);
+    syncAppReadySignal();
+  }
 
   function completeAppBootGate(): void {
     const body = document.body;
@@ -247,8 +274,8 @@ const init = function (): void {
     if (body) {
       body.classList.remove('app-boot-transitioning');
       body.classList.remove('app-boot-pending');
-      body.setAttribute('data-boot', 'ready');
     }
+    setBootState('ready');
     if (splash) {
       splash.classList.remove('app-boot-fadeout');
     }
@@ -272,8 +299,8 @@ const init = function (): void {
       const splash = document.getElementById('app-boot-splash');
       if (body) {
         body.classList.add('app-boot-transitioning');
-        body.setAttribute('data-boot', 'transition');
       }
+      setBootState('transition');
       if (splash) {
         splash.classList.add('app-boot-fadeout');
       }
@@ -318,8 +345,8 @@ const init = function (): void {
     if (body) {
       body.classList.remove('app-boot-transitioning');
       body.classList.remove('app-boot-pending');
-      body.setAttribute('data-boot', 'ready');
     }
+    setBootState('ready');
     const splash = document.getElementById('app-boot-splash');
     if (splash) {
       splash.classList.remove('app-boot-fadeout');
@@ -329,6 +356,9 @@ const init = function (): void {
       updateWindowSize();
     }, 0);
   }
+
+  setBootState('pending');
+  setPlaylistReadyState(false);
 
   // Fail-safe: never leave the UI hidden even if initialization errors occur.
   window.setTimeout(() => {
@@ -527,6 +557,7 @@ const init = function (): void {
   }
 
   function beginPlaylistLoad(playlist: string): number {
+    setPlaylistReadyState(false);
     return playlistLoadGuard.begin(playlist, (nextPlaylist) => {
       AMP_STATUS.playlist = nextPlaylist;
       applyCloudEditRestrictions();
@@ -549,6 +580,7 @@ const init = function (): void {
     }
     clearCategory();
     updatePlaylist();
+    setPlaylistReadyState(false);
   }
 
   /**
@@ -4122,6 +4154,7 @@ const init = function (): void {
 
     syncPlaylistEmptyState($LIST_NO_MEDIA, isNoMedia, () => closePlaylistModeMenu());
     if (isNoMedia) {
+      setPlaylistReadyState(true);
       return;
     }
 
@@ -4185,6 +4218,8 @@ const init = function (): void {
     if (ambientData.hasOwnProperty('debug') && ambientData.debug) {
       execDebug();
     }
+
+    setPlaylistReadyState(true);
   }
 
   /**
