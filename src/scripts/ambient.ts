@@ -121,12 +121,6 @@ import {
   getPlayerSizeForCurrentMode as getPlayerSizeForCurrentModeView,
 } from './ui/player/player-layout';
 import {
-  applyInitialPlaybackStateToElement,
-  buildYouTubePlayerOptions,
-  prepareConfiguredPlayback,
-  resolveMediaFullscreenEnabled,
-} from './ui/player/player-config';
-import {
   renderCarouselItems,
   renderEmptyCarousel,
 } from './ui/player/carousel-view';
@@ -142,7 +136,6 @@ import {
   resolveYouTubeTransitionCleanupMode,
 } from './ui/player/player-runtime';
 import {
-  createMountedHtmlPlaybackView,
   createHtmlPreviewPlayerView,
   cleanupHtmlPlayerWrapper,
   destroyHtmlPreviewPlayer,
@@ -167,7 +160,6 @@ import {
 } from './ui/player/player-setup';
 import {
   buildYouTubePreviewPlayerConfig,
-  createMountedYouTubePlayer,
   createYouTubePreviewHost,
   destroyYouTubePreviewPlayer,
   resetYouTubePlayerView,
@@ -194,6 +186,7 @@ import {
   syncRangeProgress as syncRangeProgressView,
   updateCategoryView,
 } from './ui/forms/management-forms';
+import { createManagedHtmlPlayback, createManagedYouTubePlayback } from './ui/player/managed-player-factory';
 import { bindMediaManagementForm, type MediaManagementBindings } from './ui/forms/media-management';
 import { bindPlaylistManagementForm, type PlaylistManagementBindings } from './ui/forms/playlist-management';
 import { createPlaylistLoadGuard } from './domain/playlist-loader';
@@ -5111,8 +5104,11 @@ const init = function (): void {
    */
   function createYTPlayer(mediaData: MediaItem): void {
     emitYouTubeSignal('player_creating');
-    const { playbackConfig } = prepareConfiguredPlayback({
+    player = createManagedYouTubePlayback({
       mediaData,
+      embedWrapper: $EMBED_WRAPPER,
+      playerId: 'ytplayer',
+      size: getPlayerSizeForCurrentMode(),
       getOption,
       status: AMP_STATUS,
       resolvers: {
@@ -5121,16 +5117,6 @@ const init = function (): void {
         getPlaybackVolume,
         normalizeVolume,
       },
-    });
-    const playerOptions = buildYouTubePlayerOptions(mediaData, playbackConfig);
-    const adjustSize = getPlayerSizeForCurrentMode();
-
-    player = createMountedYouTubePlayer({
-      embedWrapper: $EMBED_WRAPPER,
-      playerId: 'ytplayer',
-      size: adjustSize,
-      videoId: mediaData.videoid || '',
-      playerVars: playerOptions,
       events: {
         onReady: onPlayerReady,
         onStateChange: onPlayerStateChange,
@@ -5144,8 +5130,16 @@ const init = function (): void {
    * Create a media playback player using HTML.
    */
   function createPlayerTag(tagname: 'audio' | 'video', mediaData: MediaItem): void {
-    const { playbackConfig, initialPlaybackState } = prepareConfiguredPlayback({
+    const { playerElement: playerElm, sourceElement: sourceElm, playbackConfig } = createManagedHtmlPlayback({
       mediaData,
+      embedWrapper: $EMBED_WRAPPER,
+      watchButton: $BUTTON_WATCH_TY,
+      optionalContainer: $OPTIONAL_CONTAINER,
+      tagName: tagname,
+      getPlaceholderPath: () => getNoMediaImagePath('placeholder'),
+      isFullWindowMode,
+      getFullWindowPlayerSize,
+      getViewportWidth: () => currentWindowSize.width,
       getOption,
       status: AMP_STATUS,
       resolvers: {
@@ -5155,21 +5149,6 @@ const init = function (): void {
         normalizeVolume,
       },
     });
-    const { playerElement: playerElm, sourceElement: sourceElm } = createMountedHtmlPlaybackView({
-      embedWrapper: $EMBED_WRAPPER,
-      watchButton: $BUTTON_WATCH_TY,
-      optionalContainer: $OPTIONAL_CONTAINER,
-      tagName: tagname,
-      mediaData,
-      controls: String(playbackConfig.controls || ''),
-      autoplay: String(playbackConfig.autoplay || ''),
-      allowFullScreen: resolveMediaFullscreenEnabled(mediaData, playbackConfig.fs),
-      getPlaceholderPath: () => getNoMediaImagePath('placeholder'),
-      isFullWindowMode,
-      getFullWindowPlayerSize,
-      getViewportWidth: () => currentWindowSize.width,
-    });
-    applyInitialPlaybackStateToElement(playerElm, initialPlaybackState);
     bindManagedHtmlPlaybackEvents({
       playerElement: playerElm,
       sourceElement: sourceElm,
