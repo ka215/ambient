@@ -207,6 +207,46 @@ export function handleYouTubeStateChangeEvent(options: {
   });
 }
 
+export function handleYouTubeEndedEvent<TPlaybackTarget>(options: {
+  emitEnded: () => void;
+  abortPlaybackTimers: () => void;
+  resetPlayerView: () => void;
+  resolvePlaybackTarget: () => TPlaybackTarget | null;
+  cleanupTransition: (playbackTarget: TPlaybackTarget) => void;
+  transitionToTarget: (playbackTarget: TPlaybackTarget) => void;
+}): void {
+  options.emitEnded();
+  options.abortPlaybackTimers();
+  options.resetPlayerView();
+  const playbackTarget = options.resolvePlaybackTarget();
+  if (!playbackTarget) {
+    return;
+  }
+  options.cleanupTransition(playbackTarget);
+  options.transitionToTarget(playbackTarget);
+}
+
+export function handleYouTubeErrorEvent<TPlaybackTarget>(options: {
+  emitError: () => void;
+  resetPlayerView: () => void;
+  resolvePlaybackTarget: () => TPlaybackTarget | null;
+  cleanupTransition: (playbackTarget: TPlaybackTarget) => void;
+  onYouTubeFallbackTarget?: (playbackTarget: TPlaybackTarget) => void;
+  abortPlaybackTimers: () => void;
+  transitionToTarget: (playbackTarget: TPlaybackTarget) => void;
+}): void {
+  options.emitError();
+  options.resetPlayerView();
+  const playbackTarget = options.resolvePlaybackTarget();
+  if (!playbackTarget) {
+    return;
+  }
+  options.cleanupTransition(playbackTarget);
+  options.onYouTubeFallbackTarget?.(playbackTarget);
+  options.abortPlaybackTimers();
+  options.transitionToTarget(playbackTarget);
+}
+
 export function applyYouTubePlaybackFader(options: {
   enabled: boolean;
   mediaData: MediaItem | null;

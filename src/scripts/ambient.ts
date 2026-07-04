@@ -178,6 +178,8 @@ import {
   showYouTubePlayerWrapper,
 } from './ui/player/youtube-player-view';
 import {
+  handleYouTubeEndedEvent,
+  handleYouTubeErrorEvent,
   handleYouTubeReadyEvent,
   handleYouTubePausedState,
   handleYouTubePlayingState,
@@ -5024,19 +5026,26 @@ const init = function (): void {
       autoplayEnabled: Boolean(getOption('autoplay')),
       logger,
       onEnded: () => {
-        emitYouTubeSignal('ended');
-        abortPlaybackTimers();
-
-        resetYouTubePlayerView({
-          embedWrapper: $EMBED_WRAPPER,
-          watchButton: $BUTTON_WATCH_TY,
-          optionalContainer: $OPTIONAL_CONTAINER,
+        handleYouTubeEndedEvent({
+          emitEnded: () => {
+            emitYouTubeSignal('ended');
+          },
+          abortPlaybackTimers,
+          resetPlayerView: () => {
+            resetYouTubePlayerView({
+              embedWrapper: $EMBED_WRAPPER,
+              watchButton: $BUTTON_WATCH_TY,
+              optionalContainer: $OPTIONAL_CONTAINER,
+            });
+          },
+          resolvePlaybackTarget: resolveEndedPlaybackTarget,
+          cleanupTransition: (playbackTarget) => {
+            cleanupYouTubeTransition(event, playbackTarget);
+          },
+          transitionToTarget: (playbackTarget) => {
+            transitionToPlaybackTarget(playbackTarget);
+          },
         });
-        const playbackTarget = resolveEndedPlaybackTarget();
-        if (!playbackTarget) return;
-
-        cleanupYouTubeTransition(event, playbackTarget);
-        transitionToPlaybackTarget(playbackTarget);
       },
       onPaused: () => {
         handleYouTubePausedState({
@@ -5078,24 +5087,31 @@ const init = function (): void {
    * Event handler called when the YouTube player encounters an error.
    */
   function onPlayerError(event: any): void {
-    emitYouTubeSignal('error', `yt_error_${event && event.data !== undefined ? event.data : 'unknown'}`);
-    // Skip if media playback fails.
-    resetYouTubePlayerView({
-      embedWrapper: $EMBED_WRAPPER,
-      watchButton: $BUTTON_WATCH_TY,
-      optionalContainer: $OPTIONAL_CONTAINER,
+    handleYouTubeErrorEvent({
+      emitError: () => {
+        emitYouTubeSignal('error', `yt_error_${event && event.data !== undefined ? event.data : 'unknown'}`);
+      },
+      resetPlayerView: () => {
+        resetYouTubePlayerView({
+          embedWrapper: $EMBED_WRAPPER,
+          watchButton: $BUTTON_WATCH_TY,
+          optionalContainer: $OPTIONAL_CONTAINER,
+        });
+      },
+      resolvePlaybackTarget: () => resolveNextPlaybackTarget(AMP_STATUS.media || [], AMP_STATUS.next),
+      cleanupTransition: (playbackTarget) => {
+        cleanupYouTubeTransition(event, playbackTarget);
+      },
+      onYouTubeFallbackTarget: (playbackTarget) => {
+        if (playbackTarget.playerType === 'youtube') {
+          logger('error', 'onYTPlayerError:', event, 'force');
+        }
+      },
+      abortPlaybackTimers,
+      transitionToTarget: (playbackTarget) => {
+        transitionToPlaybackTarget(playbackTarget);
+      },
     });
-
-    const playbackTarget = resolveNextPlaybackTarget(AMP_STATUS.media || [], AMP_STATUS.next);
-    if (!playbackTarget) return;
-
-    cleanupYouTubeTransition(event, playbackTarget);
-    if (playbackTarget.playerType === 'youtube') {
-      logger('error', 'onYTPlayerError:', event, 'force');
-    }
-
-    abortPlaybackTimers();
-    transitionToPlaybackTarget(playbackTarget);
   }
 
   /**
