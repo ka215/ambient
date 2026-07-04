@@ -21,6 +21,8 @@ export interface PlaybackConfigSource {
   faderEnabled: boolean;
 }
 
+export type PlaybackOptionKey = 'autoplay' | 'controls' | 'fs' | 'cc_load_policy' | 'rel' | 'seek' | 'fader';
+
 export interface InitialPlaybackState {
   faderEnabled: boolean;
   volume: number;
@@ -65,7 +67,7 @@ export function applyInitialPlaybackStateToElement(
 }
 
 export function resolvePlaybackConfigSource(
-  getOption: (key: 'autoplay' | 'controls' | 'fs' | 'cc_load_policy' | 'rel' | 'seek' | 'fader') => unknown
+  getOption: (key: PlaybackOptionKey) => unknown
 ): PlaybackConfigSource {
   return {
     autoplay: getOption('autoplay'),
@@ -186,4 +188,29 @@ export function applyConfiguredInitialPlaybackState(options: {
     applyInitialPlaybackStateToElement(options.playerElement, initialPlaybackState);
   }
   return initialPlaybackState;
+}
+
+export function prepareConfiguredPlayback(options: {
+  mediaData: MediaItem;
+  getOption: (key: PlaybackOptionKey) => unknown;
+  resolvers: InitialPlaybackStateResolvers;
+  status: { fader?: boolean; volume: number | null };
+  playerElement?: HTMLMediaElement | null;
+}): {
+  playbackConfig: PlaybackConfigSource;
+  initialPlaybackState: InitialPlaybackState;
+} {
+  const playbackConfig = resolvePlaybackConfigSource(options.getOption);
+  const initialPlaybackState = applyConfiguredInitialPlaybackState({
+    mediaData: options.mediaData,
+    playbackConfig,
+    resolvers: options.resolvers,
+    status: options.status,
+    playerElement: options.playerElement,
+  });
+
+  return {
+    playbackConfig,
+    initialPlaybackState,
+  };
 }

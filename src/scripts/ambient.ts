@@ -117,10 +117,10 @@ import {
   getPlayerSizeForCurrentMode as getPlayerSizeForCurrentModeView,
 } from './ui/player/player-layout';
 import {
-  applyConfiguredInitialPlaybackState,
+  applyInitialPlaybackStateToElement,
   buildYouTubePlayerOptions,
+  prepareConfiguredPlayback,
   resolveMediaFullscreenEnabled,
-  resolvePlaybackConfigSource,
 } from './ui/player/player-config';
 import {
   renderCarouselItems,
@@ -5100,11 +5100,9 @@ const init = function (): void {
   function createYTPlayer(mediaData: MediaItem): void {
     emitYouTubeSignal('player_creating');
     createYouTubePlayerHost({ embedWrapper: $EMBED_WRAPPER, playerId: 'ytplayer' });
-    const playbackConfig = resolvePlaybackConfigSource(getOption);
-    const playerOptions = buildYouTubePlayerOptions(mediaData, playbackConfig);
-    applyConfiguredInitialPlaybackState({
+    const { playbackConfig } = prepareConfiguredPlayback({
       mediaData,
-      playbackConfig,
+      getOption,
       status: AMP_STATUS,
       resolvers: {
         fallbackVolume: getDefaultVolume(),
@@ -5113,6 +5111,7 @@ const init = function (): void {
         normalizeVolume,
       },
     });
+    const playerOptions = buildYouTubePlayerOptions(mediaData, playbackConfig);
     const adjustSize = getPlayerSizeForCurrentMode();
 
     player = createYouTubePlayer({
@@ -5133,7 +5132,17 @@ const init = function (): void {
    * Create a media playback player using HTML.
    */
   function createPlayerTag(tagname: 'audio' | 'video', mediaData: MediaItem): void {
-    const playbackConfig = resolvePlaybackConfigSource(getOption);
+    const { playbackConfig, initialPlaybackState } = prepareConfiguredPlayback({
+      mediaData,
+      getOption,
+      status: AMP_STATUS,
+      resolvers: {
+        fallbackVolume: getDefaultVolume(),
+        volumeInRange: (value: number) => inRange(value, 0, 100),
+        getPlaybackVolume,
+        normalizeVolume,
+      },
+    });
     const { playerElement: playerElm, sourceElement: sourceElm } = createMountedHtmlPlaybackView({
       embedWrapper: $EMBED_WRAPPER,
       watchButton: $BUTTON_WATCH_TY,
@@ -5148,18 +5157,7 @@ const init = function (): void {
       getFullWindowPlayerSize,
       getViewportWidth: () => currentWindowSize.width,
     });
-    applyConfiguredInitialPlaybackState({
-      mediaData,
-      playbackConfig,
-      status: AMP_STATUS,
-      playerElement: playerElm,
-      resolvers: {
-        fallbackVolume: getDefaultVolume(),
-        volumeInRange: (value: number) => inRange(value, 0, 100),
-        getPlaybackVolume,
-        normalizeVolume,
-      },
-    });
+    applyInitialPlaybackStateToElement(playerElm, initialPlaybackState);
     const reportHtmlMediaLoadIssue = createHtmlMediaIssueReporter({
       mediaData,
       reportMediaPlaybackIssue,
