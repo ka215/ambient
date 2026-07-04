@@ -1,4 +1,5 @@
 import type { MediaItem } from '../../types/ambient';
+import type { YTPlayerEventHandlers } from '../../types/youtube';
 
 export function resolveYouTubeWatchUrl(mediaData: MediaItem, runtimeUrl: string | null | undefined): string {
   return runtimeUrl || `https://www.youtube.com/watch?v=${mediaData.videoid}`;
@@ -355,4 +356,132 @@ export function syncYouTubePreviewDuration(options: {
     options.onDurationAvailable?.();
   }
   options.hidePreviewError();
+}
+
+export function createManagedYouTubePlayerEventHandlers<TPlaybackTarget>(options: {
+  emitSignal: (phase: string, error?: string) => void;
+  showPlayerWrapper: () => void;
+  mediaItems: () => MediaItem[];
+  currentId: () => number | null;
+  nextId: () => number | null;
+  loopEnabled: () => boolean;
+  autoplayEnabled: () => boolean;
+  faderEnabled: () => boolean;
+  playbackVolume: () => number;
+  normalizedVolume: () => number;
+  findMediaById: (mediaItems: MediaItem[], targetId: number | null) => MediaItem | null;
+  onAutoplayConfirmed: (elapsedMs: number) => void;
+  onAutoplayTimeout: () => void;
+  setWatchOrigin: (watchUrl: string) => void;
+  showPausedState: () => void;
+  showPlayingState: () => void;
+  logger: (...args: unknown[]) => void;
+  resolveEndedPlaybackTarget: () => TPlaybackTarget | null;
+  resolveErrorPlaybackTarget: () => TPlaybackTarget | null;
+  cleanupTransition: (eventTarget: unknown, playbackTarget: TPlaybackTarget) => void;
+  transitionToTarget: (playbackTarget: TPlaybackTarget) => void;
+  onYouTubeFallbackTarget?: (playbackTarget: TPlaybackTarget, event: { data?: number }) => void;
+  abortPlaybackTimers: () => void;
+  resetPlayerView: () => void;
+  normalizeVolumeForPlayback: (value: number) => number;
+  resolveSeekRange: (mediaData: MediaItem, fallbackEnd: number) => { seekStart: number; seekEnd: number };
+  fadeIn: (eventTarget: unknown, period: number, start: number) => void;
+  fadeOut: (eventTarget: unknown, period: number, end: number) => void;
+  playingState: number;
+}): Required<Pick<YTPlayerEventHandlers, 'onReady' | 'onStateChange' | 'onError'>> {
+  return {
+    onReady: (event) => {
+      handleYouTubeReadyUiEvent({
+        emitReady: () => {
+          options.emitSignal('player_ready');
+        },
+        showPlayerWrapper: options.showPlayerWrapper,
+        mediaItems: options.mediaItems(),
+        currentId: options.currentId(),
+        findMediaById: options.findMediaById,
+        enabledAutoplayAssist: options.autoplayEnabled(),
+        runtimeUrl: event.target.getVideoUrl(),
+        playerStateGetter: () => event.target.getPlayerState(),
+        playingState: options.playingState,
+        onAutoplayConfirmed: options.onAutoplayConfirmed,
+        onAutoplayTimeout: options.onAutoplayTimeout,
+        setWatchOrigin: options.setWatchOrigin,
+        setVolume: (value: number) => {
+          event.target.setVolume(value);
+        },
+        playVideo: () => {
+          event.target.playVideo();
+        },
+        faderEnabled: options.faderEnabled(),
+        normalizedVolume: options.normalizedVolume(),
+      });
+    },
+    onStateChange: (event) => {
+      handleYouTubeStateChangeEvent({
+        state: event.data ?? -1,
+        autoplayEnabled: options.autoplayEnabled(),
+        logger: options.logger,
+        onEnded: () => {
+          handleYouTubeEndedEvent({
+            emitEnded: () => {
+              options.emitSignal('ended');
+            },
+            abortPlaybackTimers: options.abortPlaybackTimers,
+            resetPlayerView: options.resetPlayerView,
+            resolvePlaybackTarget: options.resolveEndedPlaybackTarget,
+            cleanupTransition: (playbackTarget) => {
+              options.cleanupTransition(event.target, playbackTarget);
+            },
+            transitionToTarget: options.transitionToTarget,
+          });
+        },
+        onPaused: () => {
+          handleYouTubePausedState({
+            emitPaused: () => {
+              options.emitSignal('paused');
+            },
+            showPlayState: options.showPausedState,
+          });
+        },
+        onPlaying: () => {
+          const currentMedia = options.findMediaById(options.mediaItems(), options.currentId());
+          handleYouTubePlayingEvent({
+            emitPlaying: () => {
+              options.emitSignal('playing');
+            },
+            showPauseState: options.showPlayingState,
+            faderEnabled: options.faderEnabled(),
+            mediaData: currentMedia,
+            duration: event.target.getDuration(),
+            playbackVolume: options.playbackVolume(),
+            normalizeVolume: options.normalizeVolumeForPlayback,
+            resolveSeekRange: options.resolveSeekRange,
+            setVolume: (value) => event.target.setVolume(value),
+            fadeIn: (period, start) => options.fadeIn(event.target, period, start),
+            fadeOut: (period, end) => options.fadeOut(event.target, period, end),
+          });
+        },
+        onUnstarted: () => {
+          options.emitSignal('unstarted');
+        },
+      });
+    },
+    onError: (event) => {
+      handleYouTubeErrorEvent({
+        emitError: () => {
+          options.emitSignal('error', `yt_error_${event && event.data !== undefined ? event.data : 'unknown'}`);
+        },
+        resetPlayerView: options.resetPlayerView,
+        resolvePlaybackTarget: options.resolveErrorPlaybackTarget,
+        cleanupTransition: (playbackTarget) => {
+          options.cleanupTransition(event.target, playbackTarget);
+        },
+        onYouTubeFallbackTarget: (playbackTarget) => {
+          options.onYouTubeFallbackTarget?.(playbackTarget, event);
+        },
+        abortPlaybackTimers: options.abortPlaybackTimers,
+        transitionToTarget: options.transitionToTarget,
+      });
+    },
+  };
 }
