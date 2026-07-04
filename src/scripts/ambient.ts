@@ -99,9 +99,8 @@ import {
   type NoticeController,
 } from './ui/notifications';
 import {
-  showPlaybackPauseState,
-  showPlaybackPlayState,
   syncCaptionMarquee,
+  syncPlaybackButtonState,
   syncMenuCollapseButtonState,
   syncPlaybackButtons,
   syncWindowFullButtonState,
@@ -4656,7 +4655,7 @@ const init = function (): void {
     }
 
     // Toggle this button shown.
-    showPlaybackPauseState($BUTTON_PLAY, $BUTTON_PAUSE);
+    syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
   });
 
   /**
@@ -4677,11 +4676,11 @@ const init = function (): void {
       const playerElm = _elms[0] as HTMLMediaElement;
       playerElm.pause();
     } else {
-      syncPlaybackButtons($BUTTON_PLAY, $BUTTON_PAUSE, false);
+      syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'disabled');
     }
 
     // Toggle this button shown.
-    showPlaybackPlayState($BUTTON_PLAY, $BUTTON_PAUSE);
+    syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'paused');
   });
 
   /**
@@ -5124,7 +5123,7 @@ const init = function (): void {
           emitYouTubeSignal('paused');
         },
         showPlayState: () => {
-          showPlaybackPlayState($BUTTON_PLAY, $BUTTON_PAUSE);
+          syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'paused');
         },
       });
     }
@@ -5136,7 +5135,7 @@ const init = function (): void {
           emitYouTubeSignal('playing');
         },
         showPauseState: () => {
-          showPlaybackPauseState($BUTTON_PLAY, $BUTTON_PAUSE);
+          syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
         },
         faderEnabled: Boolean(AMP_STATUS.fader),
         mediaData: currentMedia,
@@ -5252,7 +5251,7 @@ const init = function (): void {
     bindHtmlPlaybackStateEvents({
       playerElement: playerElm,
       onPlaying: () => {
-        showPlaybackPauseState($BUTTON_PLAY, $BUTTON_PAUSE);
+        syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
         handleHtmlPlayingState({
           playerElement: playerElm,
           mediaData,
@@ -5266,7 +5265,7 @@ const init = function (): void {
         });
       },
       onPause: () => {
-        showPlaybackPlayState($BUTTON_PLAY, $BUTTON_PAUSE);
+        syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'paused');
       },
       onVolumeChange: () => {
         logger('playerVolumeChange:', playerElm.volume, AMP_STATUS.volume);

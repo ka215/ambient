@@ -166,6 +166,25 @@ export function syncPlaybackButtons(
   pauseButton.classList.add('hidden');
 }
 
+export function syncPlaybackButtonState(
+  playButton: HTMLButtonElement,
+  pauseButton: HTMLButtonElement,
+  state: 'playing' | 'paused' | 'disabled'
+): void {
+  if (state === 'disabled') {
+    syncPlaybackButtons(playButton, pauseButton, false);
+    return;
+  }
+
+  syncPlaybackButtons(playButton, pauseButton, true);
+  if (state === 'playing') {
+    showPlaybackPauseState(playButton, pauseButton);
+    return;
+  }
+
+  showPlaybackPlayState(playButton, pauseButton);
+}
+
 export function showPlaybackPauseState(playButton: HTMLButtonElement, pauseButton: HTMLButtonElement): void {
   playButton.classList.add('hidden');
   pauseButton.classList.remove('hidden');
