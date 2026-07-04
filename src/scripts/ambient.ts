@@ -83,6 +83,11 @@ import {
   openPlaylistManagementCategoryCreate as openPlaylistManagementCategoryCreateView,
 } from './ui/modals';
 import {
+  isMediaEditModalVisible as isMediaEditModalVisibleView,
+  renderMediaEditSourceBadges as renderMediaEditSourceBadgesView,
+  trapMediaEditModalFocus as trapMediaEditModalFocusView,
+} from './ui/media-edit-modal-view';
+import {
   createPlaylistItemElement,
   closePlaylistModeMenu as closePlaylistModeMenuView,
   createPlaylistQuickAddElement,
@@ -2643,85 +2648,23 @@ const init = function (): void {
   hydrateMediaEditDraftStore();
 
   function isMediaEditModalVisible(): boolean {
-    return isElement($MODAL_MEDIA_EDIT) && !$MODAL_MEDIA_EDIT.classList.contains('hidden');
-  }
-
-  function getMediaEditFocusableElements(): HTMLElement[] {
-    if (!isElement($MODAL_MEDIA_EDIT)) {
-      return [];
-    }
-    return Array.from(
-      $MODAL_MEDIA_EDIT.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )
-    ).filter((elm) => !elm.hasAttribute('disabled'));
+    return isMediaEditModalVisibleView(isElement($MODAL_MEDIA_EDIT) ? $MODAL_MEDIA_EDIT : null);
   }
 
   function trapMediaEditModalFocus(evt: KeyboardEvent): void {
-    if (!isMediaEditModalVisible()) {
-      return;
-    }
-    const focusableElements = getMediaEditFocusableElements();
-    if (focusableElements.length === 0) {
-      evt.preventDefault();
-      $MODAL_MEDIA_EDIT?.focus();
-      return;
-    }
-    const activeElement = document.activeElement as HTMLElement | null;
-    const firstElement = focusableElements[0] || null;
-    const lastElement = focusableElements[focusableElements.length - 1] || null;
-    if (!firstElement || !lastElement) {
-      evt.preventDefault();
-      $MODAL_MEDIA_EDIT?.focus();
-      return;
-    }
-    if (evt.shiftKey && activeElement === firstElement) {
-      evt.preventDefault();
-      lastElement.focus();
-    } else if (!evt.shiftKey && activeElement === lastElement) {
-      evt.preventDefault();
-      firstElement.focus();
-    }
+    trapMediaEditModalFocusView({
+      modalElement: isElement($MODAL_MEDIA_EDIT) ? $MODAL_MEDIA_EDIT : null,
+      event: evt,
+    });
   }
 
   function renderMediaEditSourceBadges(mediaItem: MediaItem): void {
-    if (!isElement($MODAL_MEDIA_EDIT_ITEM_SOURCE)) {
-      return;
-    }
-    $MODAL_MEDIA_EDIT_ITEM_SOURCE.innerHTML = '';
-
-    const typeBadge = document.createElement('span');
-    typeBadge.className = 'media-edit-source-badge media-edit-source-badge--type';
-
-    if (mediaItem.videoid && mediaItem.videoid.trim() !== '') {
-      typeBadge.textContent = getLocalizedMessage('mediaEditTypeYoutube', 'YouTube');
-      const sourceBadge = document.createElement('span');
-      sourceBadge.className = 'media-edit-source-badge';
-      sourceBadge.textContent = mediaItem.videoid.trim();
-      $MODAL_MEDIA_EDIT_ITEM_SOURCE.appendChild(typeBadge);
-      $MODAL_MEDIA_EDIT_ITEM_SOURCE.appendChild(sourceBadge);
-    } else if (mediaItem.file && mediaItem.file.trim() !== '') {
-      const isAudio = /\.(mp3|aac|ogg|flac|wav|m4a|opus)(\?.*)?$/i.test(mediaItem.file);
-      typeBadge.textContent = isAudio
-        ? getLocalizedMessage('mediaEditTypeLocalAudio', 'Local audio')
-        : getLocalizedMessage('mediaEditTypeLocalVideo', 'Local video');
-      const sourceBadge = document.createElement('span');
-      sourceBadge.className = 'media-edit-source-badge';
-      sourceBadge.textContent = mediaItem.file.trim();
-      $MODAL_MEDIA_EDIT_ITEM_SOURCE.appendChild(typeBadge);
-      $MODAL_MEDIA_EDIT_ITEM_SOURCE.appendChild(sourceBadge);
-    } else {
-      typeBadge.textContent = getLocalizedMessage('mediaEditTypeUnknown', 'Unknown');
-      $MODAL_MEDIA_EDIT_ITEM_SOURCE.appendChild(typeBadge);
-    }
-
-    const categoryName = getMediaCategoryName(mediaItem);
-    if (categoryName !== '') {
-      const catBadge = document.createElement('span');
-      catBadge.className = 'media-edit-source-badge';
-      catBadge.textContent = categoryName;
-      $MODAL_MEDIA_EDIT_ITEM_SOURCE.appendChild(catBadge);
-    }
+    renderMediaEditSourceBadgesView({
+      container: isElement($MODAL_MEDIA_EDIT_ITEM_SOURCE) ? $MODAL_MEDIA_EDIT_ITEM_SOURCE : null,
+      mediaItem,
+      getLocalizedMessage,
+      getCategoryName: getMediaCategoryName,
+    });
   }
 
   function getMediaEditThumbnailSrc(mediaItem: MediaItem | null, draft: MediaEditDraft | null = null): string {
