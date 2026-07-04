@@ -180,10 +180,10 @@ import {
   showYouTubePlayerWrapper,
 } from './ui/player/youtube-player-view';
 import {
-  applyYouTubeReadyPlayback,
+  handleYouTubeReadyEvent,
   handleYouTubePausedState,
   handleYouTubePlayingState,
-  handleYouTubeUnstartedState,
+  handleYouTubeStateChangeEvent,
   syncYouTubePreviewDuration,
 } from './ui/player/youtube-player-events';
 import {
@@ -4960,13 +4960,11 @@ const init = function (): void {
   function onPlayerReady(event: any): void {
     emitYouTubeSignal('player_ready');
     showYouTubePlayerWrapper($EMBED_WRAPPER);
-
-    const mediaData = findMediaById(AMP_STATUS.media || [], AMP_STATUS.current);
-    if (!mediaData) return;
-
-    applyYouTubeReadyPlayback({
+    handleYouTubeReadyEvent({
+      mediaItems: AMP_STATUS.media || [],
+      currentId: AMP_STATUS.current,
+      findMediaById,
       enabledAutoplayAssist: Boolean(getOption('autoplay')),
-      mediaData,
       runtimeUrl: event.target.getVideoUrl(),
       playerStateGetter: () => event.target.getPlayerState(),
       playingState: (window as any).YT.PlayerState.PLAYING,
@@ -5029,64 +5027,58 @@ const init = function (): void {
    * Event handler called when the state of the YouTube player changes.
    */
   function onPlayerStateChange(event: any): void {
-    const YT_ENDED = 0;
-    const YT_PLAYING = 1;
-    const YT_PAUSED = 2;
+    handleYouTubeStateChangeEvent({
+      state: event.data,
+      autoplayEnabled: Boolean(getOption('autoplay')),
+      logger,
+      onEnded: () => {
+        emitYouTubeSignal('ended');
+        abortPlaybackTimers();
 
-    if (event.data === YT_ENDED) {
-      emitYouTubeSignal('ended');
-      abortPlaybackTimers();
+        resetYouTubePlayerView({
+          embedWrapper: $EMBED_WRAPPER,
+          watchButton: $BUTTON_WATCH_TY,
+          optionalContainer: $OPTIONAL_CONTAINER,
+        });
+        const playbackTarget = resolveEndedPlaybackTarget();
+        if (!playbackTarget) return;
 
-      resetYouTubePlayerView({
-        embedWrapper: $EMBED_WRAPPER,
-        watchButton: $BUTTON_WATCH_TY,
-        optionalContainer: $OPTIONAL_CONTAINER,
-      });
-      const playbackTarget = resolveEndedPlaybackTarget();
-      if (!playbackTarget) return;
-
-      cleanupYouTubeTransition(event, playbackTarget);
-      transitionToPlaybackTarget(playbackTarget);
-    }
-
-    if (event.data === YT_PAUSED) {
-      handleYouTubePausedState({
-        emitPaused: () => {
-          emitYouTubeSignal('paused');
-        },
-        showPlayState: () => {
-          syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'paused');
-        },
-      });
-    }
-
-    if (event.data === YT_PLAYING) {
-      const currentMedia = findMediaById(AMP_STATUS.media || [], AMP_STATUS.current);
-      handleYouTubePlayingState({
-        emitPlaying: () => {
-          emitYouTubeSignal('playing');
-        },
-        showPauseState: () => {
-          syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
-        },
-        faderEnabled: Boolean(AMP_STATUS.fader),
-        mediaData: currentMedia,
-        duration: event.target.getDuration(),
-        playbackVolume: AMP_STATUS.volume ?? getDefaultVolume(),
-        normalizeVolume: (value) => normalizeVolume(value, getDefaultVolume()),
-        resolveSeekRange,
-        setVolume: (value) => event.target.setVolume(value),
-        fadeIn: (period, start) => fadeIn(event.target, period, start),
-        fadeOut: (period, end) => fadeOut(event.target, period, end),
-      });
-    }
-
-    handleYouTubeUnstartedState({
-      autoplayEnabled: Boolean(getOption('autoplay')) && event.data === -1,
-      emitUnstarted: () => {
+        cleanupYouTubeTransition(event, playbackTarget);
+        transitionToPlaybackTarget(playbackTarget);
+      },
+      onPaused: () => {
+        handleYouTubePausedState({
+          emitPaused: () => {
+            emitYouTubeSignal('paused');
+          },
+          showPlayState: () => {
+            syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'paused');
+          },
+        });
+      },
+      onPlaying: () => {
+        const currentMedia = findMediaById(AMP_STATUS.media || [], AMP_STATUS.current);
+        handleYouTubePlayingState({
+          emitPlaying: () => {
+            emitYouTubeSignal('playing');
+          },
+          showPauseState: () => {
+            syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
+          },
+          faderEnabled: Boolean(AMP_STATUS.fader),
+          mediaData: currentMedia,
+          duration: event.target.getDuration(),
+          playbackVolume: AMP_STATUS.volume ?? getDefaultVolume(),
+          normalizeVolume: (value) => normalizeVolume(value, getDefaultVolume()),
+          resolveSeekRange,
+          setVolume: (value) => event.target.setVolume(value),
+          fadeIn: (period, start) => fadeIn(event.target, period, start),
+          fadeOut: (period, end) => fadeOut(event.target, period, end),
+        });
+      },
+      onUnstarted: () => {
         emitYouTubeSignal('unstarted');
       },
-      logger,
     });
   }
 

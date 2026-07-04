@@ -93,6 +93,43 @@ export function applyYouTubeReadyPlayback(options: {
   options.playVideo();
 }
 
+export function handleYouTubeReadyEvent(options: {
+  mediaItems: MediaItem[];
+  currentId: number | null;
+  findMediaById: (mediaItems: MediaItem[], targetId: number | null) => MediaItem | null;
+  enabledAutoplayAssist: boolean;
+  runtimeUrl: string | null | undefined;
+  playerStateGetter: () => number;
+  playingState: number;
+  onAutoplayConfirmed: (elapsedMs: number) => void;
+  onAutoplayTimeout: () => void;
+  setWatchOrigin: (watchUrl: string) => void;
+  setVolume: (value: number) => void;
+  playVideo: () => void;
+  faderEnabled: boolean;
+  normalizedVolume: number;
+}): void {
+  const mediaData = options.findMediaById(options.mediaItems, options.currentId);
+  if (!mediaData) {
+    return;
+  }
+
+  applyYouTubeReadyPlayback({
+    enabledAutoplayAssist: options.enabledAutoplayAssist,
+    mediaData,
+    runtimeUrl: options.runtimeUrl,
+    playerStateGetter: options.playerStateGetter,
+    playingState: options.playingState,
+    onAutoplayConfirmed: options.onAutoplayConfirmed,
+    onAutoplayTimeout: options.onAutoplayTimeout,
+    setWatchOrigin: options.setWatchOrigin,
+    setVolume: options.setVolume,
+    playVideo: options.playVideo,
+    faderEnabled: options.faderEnabled,
+    normalizedVolume: options.normalizedVolume,
+  });
+}
+
 export function handleYouTubePausedState(options: {
   emitPaused: () => void;
   showPlayState: () => void;
@@ -140,6 +177,34 @@ export function handleYouTubeUnstartedState(options: {
   }
   options.emitUnstarted();
   options.logger('onPlayerStateChange::unstarted.');
+}
+
+export function handleYouTubeStateChangeEvent(options: {
+  state: number;
+  autoplayEnabled: boolean;
+  logger: (...args: unknown[]) => void;
+  onEnded: () => void;
+  onPaused: () => void;
+  onPlaying: () => void;
+  onUnstarted: () => void;
+}): void {
+  if (options.state === 0) {
+    options.onEnded();
+  }
+
+  if (options.state === 2) {
+    options.onPaused();
+  }
+
+  if (options.state === 1) {
+    options.onPlaying();
+  }
+
+  handleYouTubeUnstartedState({
+    autoplayEnabled: options.autoplayEnabled && options.state === -1,
+    emitUnstarted: options.onUnstarted,
+    logger: options.logger,
+  });
 }
 
 export function applyYouTubePlaybackFader(options: {
