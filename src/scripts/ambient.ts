@@ -141,6 +141,10 @@ import {
   prepareHtmlPlayerWrapper,
 } from './ui/player/html-player-view';
 import {
+  resolveHtmlMediaMimeType,
+  resolveHtmlMediaSourcePath,
+} from './ui/player/html-player-source';
+import {
   bindHtmlEndedEvent,
   bindHtmlErrorEvents,
   bindHtmlPlaybackStateEvents,
@@ -2114,7 +2118,7 @@ const init = function (): void {
     }
 
     if (mediaItem.file && mediaItem.file.trim() !== '') {
-      const sourcePath = resolveLocalMediaSrc(mediaItem.file);
+      const sourcePath = resolveHtmlMediaSourcePath(mediaItem.file);
       const tagName = resolveMediaEditPreviewTagName(sourcePath);
       const previewElm = document.createElement(tagName) as HTMLMediaElement;
       const sourceElm = document.createElement('source');
@@ -2130,7 +2134,7 @@ const init = function (): void {
       previewElm.setAttribute('playsinline', 'true');
 
       sourceElm.src = sourcePath;
-      sourceElm.setAttribute('type', getMediaMimeType(sourcePath, tagName));
+      sourceElm.setAttribute('type', resolveHtmlMediaMimeType(sourcePath, tagName));
       previewElm.appendChild(sourceElm);
 
       const showLoadErrorOnce = (): void => {
@@ -5256,7 +5260,7 @@ const init = function (): void {
    * Create a media playback player using HTML.
    */
   function createPlayerTag(tagname: 'audio' | 'video', mediaData: MediaItem): void {
-    const sourcePath = resolveLocalMediaSrc(mediaData.file || '');
+    const sourcePath = resolveHtmlMediaSourcePath(mediaData.file || '');
     const playbackConfig = resolvePlaybackConfigSource(getOption);
     const playerViewOptions = {
       tagName: tagname,
@@ -5264,7 +5268,7 @@ const init = function (): void {
       controls: String(playbackConfig.controls || ''),
       autoplay: String(playbackConfig.autoplay || ''),
       sourcePath,
-      sourceType: getMediaMimeType(sourcePath, tagname),
+      sourceType: resolveHtmlMediaMimeType(sourcePath, tagname),
     };
     const { playerElement: playerElm, sourceElement: sourceElm } = createHtmlPlayerView(playerViewOptions);
     const initialPlaybackState = resolveInitialPlaybackState(mediaData, {
@@ -5985,56 +5989,6 @@ function basename(path: string): string {
  */
 function getExt(path: string): string {
   return sharedGetExt(path);
-}
-
-function getMediaMimeType(path: string, tagname: 'audio' | 'video'): string {
-  const ext = getExt(path);
-  const mimeTypes: Record<string, string> = {
-    aac: 'audio/aac',
-    mid: 'audio/midi',
-    midi: 'audio/midi',
-    mp3: 'audio/mpeg',
-    m4a: 'audio/mp4',
-    ogg: 'audio/ogg',
-    opus: 'audio/opus',
-    wav: 'audio/wav',
-    weba: 'audio/webm',
-    wma: 'audio/x-ms-wma',
-    avi: 'video/x-msvideo',
-    mpeg: 'video/mpeg',
-    mpg: 'video/mpeg',
-    mp4: 'video/mp4',
-    ogv: 'video/ogg',
-    ts: 'video/mp2t',
-    webm: 'video/webm',
-    '3gp': 'video/3gpp',
-    '3g2': 'video/3gpp2',
-  };
-  return mimeTypes[ext] || `${tagname}/${ext || 'mpeg'}`;
-}
-
-function resolveLocalMediaSrc(path: string): string {
-  const normalizedPath = String(path || '').replace(/\\/g, '/');
-  if (!normalizedPath) {
-    return '';
-  }
-  if (/^(https?:)?\/\//i.test(normalizedPath) || /^(blob|data):/i.test(normalizedPath)) {
-    return normalizedPath;
-  }
-
-  const ambientData = (window as any).AmbientData as AmbientData | undefined;
-  const mediaDir = (ambientData?.mediaDir || './assets/media/').replace(/\\/g, '/').replace(/\/?$/, '/');
-  const mediaDirWithoutDot = mediaDir.replace(/^\.\//, '');
-  const pathWithoutDot = normalizedPath.replace(/^\.\//, '');
-
-  if (pathWithoutDot.startsWith(mediaDirWithoutDot)) {
-    return `${mediaDir}${pathWithoutDot.slice(mediaDirWithoutDot.length)}`;
-  }
-  if (pathWithoutDot.startsWith('assets/media/')) {
-    return `${mediaDir}${pathWithoutDot.slice('assets/media/'.length)}`;
-  }
-
-  return `${mediaDir}${pathWithoutDot.replace(/^\/+/, '')}`;
 }
 
 function escapeHTML(value: string): string {
