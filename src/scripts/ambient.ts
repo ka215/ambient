@@ -112,6 +112,10 @@ import {
   syncWindowFullButtonState,
 } from './ui/player/player-shell';
 import {
+  runPlaybackFadeIn,
+  runPlaybackFadeOut,
+} from './ui/player/player-fader';
+import {
   getBottomMenuHeight as getBottomMenuHeightView,
   getFullWindowPlayerSize as getFullWindowPlayerSizeView,
   getPlayerSizeForCurrentMode as getPlayerSizeForCurrentModeView,
@@ -5216,117 +5220,67 @@ const init = function (): void {
    * Fade in the volume of the specified media.
    */
   function fadeIn(media: any, period: number, start: number): void {
-    abortFader('fadein');
-    const mediaType = isElement(media) ? 'local' : 'youtube';
-    const fadeEnd = (start + period) * 1000; // unit milliseconds
-    const steps = period * 10;
-    const stepVolume = normalizeVolume(AMP_STATUS.volume, getDefaultVolume()) / steps;
-
-    logger(
-      'fadeIn::',
-      mediaType === 'youtube' ? media.getDuration() : media.duration,
-      mediaType === 'youtube' ? media.getVolume() : media.volume,
+    const isLocalMedia = isElement(media);
+    const localMedia = isLocalMedia ? media as HTMLMediaElement : null;
+    runPlaybackFadeIn({
+      adapter: {
+        kind: isLocalMedia ? 'local' : 'youtube',
+        readDuration: () => localMedia ? localMedia.duration : media.getDuration(),
+        readLevel: () => localMedia ? localMedia.volume * 100 : media.getVolume(),
+        readCurrentTimeMs: () => (localMedia ? localMedia.currentTime : media.getCurrentTime()) * 1000,
+        writeLevel: (level) => {
+          if (localMedia) {
+            localMedia.volume = level / 100;
+            return;
+          }
+          media.setVolume(level);
+        },
+      },
       period,
-      start,
-      fadeEnd,
-      steps,
-      stepVolume,
-      AMP_STATUS.volume
-    );
-
-    let elapsed = 0;
-    let incrementVolume = 0;
-
-    playbackTimers.startFader('fadein', () => {
-      const currentTime = (mediaType === 'youtube' ? media.getCurrentTime() : media.currentTime) * 1000; // unit milliseconds
-
-      if (inRange(currentTime, start * 1000, fadeEnd)) {
-        elapsed = Math.floor((currentTime - start * 1000) / 100);
-        incrementVolume = elapsed > 0 ? (stepVolume * elapsed * elapsed) / steps : 0;
-
-        if (mediaType === 'youtube') {
-          media.setVolume(incrementVolume);
-        } else {
-          media.volume = incrementVolume / 100;
-        }
-      } else if (currentTime >= fadeEnd) {
-        if (mediaType === 'youtube') {
-          media.setVolume(normalizeVolume(AMP_STATUS.volume, getDefaultVolume()));
-        }
-        abortFader('fadein');
-      } else {
-        if (mediaType === 'youtube') {
-          media.setVolume(0);
-        } else {
-          media.volume = 0;
-        }
-      }
-
-      logger(
-        `fadeIn:: ${currentTime}ms from ${start}; elapsed: ${elapsed}`,
-        incrementVolume,
-        mediaType === 'youtube' ? media.getVolume() : media.volume
-      );
-    }, 100);
+      point: start,
+      readTargetVolume: () => normalizeVolume(AMP_STATUS.volume, getDefaultVolume()),
+      startFader: (callback, intervalMs) => playbackTimers.startFader('fadein', callback, intervalMs),
+      abortFader: () => abortFader('fadein'),
+      inRange,
+      logger,
+    });
   }
 
   /**
    * Fade out the volume of the specified media.
    */
   function fadeOut(media: any, period: number, end: number): void {
-    abortFader('fadeout');
-    const mediaType = isElement(media) ? 'local' : 'youtube';
-    const fadeStart = (end - period) * 1000; // unit milliseconds
-    const steps = period * 10;
-    const stepVolume = ((mediaType === 'youtube' ? AMP_STATUS.volume : media.volume * 100) || 100) / steps;
-
-    logger(
-      'fadeOut::',
-      mediaType === 'youtube' ? media.getDuration() : media.duration,
-      mediaType === 'youtube' ? media.getVolume() : media.volume,
-      period,
-      end,
-      fadeStart,
-      steps,
-      stepVolume,
-      AMP_STATUS.volume
-    );
-
-    let elapsed = 0;
-    let decrementVolume = 0;
-
-    playbackTimers.startFader('fadeout', () => {
-      const currentTime = (mediaType === 'youtube' ? media.getCurrentTime() : media.currentTime) * 1000; // unit milliseconds
-
-      if (inRange(currentTime, fadeStart, end * 1000)) {
-        elapsed = Math.floor((end * 1000 - currentTime) / 100);
-        decrementVolume = elapsed > 0 ? stepVolume * elapsed : 0;
-
-        if (mediaType === 'youtube') {
-          media.setVolume(decrementVolume);
-        } else {
-          media.volume = decrementVolume / 100;
-        }
-
-        logger(
-          `fadeOut:: ${currentTime}ms until ${end * 1000}ms; elapsed: ${elapsed}`,
-          decrementVolume,
-          mediaType === 'youtube' ? media.getVolume() : media.volume
-        );
-      } else if (currentTime < fadeStart) {
-        // continue
-      } else {
-        if (mediaType === 'youtube') {
-          media.setVolume(0);
-          abortFader('fadeout');
+    const isLocalMedia = isElement(media);
+    const localMedia = isLocalMedia ? media as HTMLMediaElement : null;
+    runPlaybackFadeOut({
+      adapter: {
+        kind: isLocalMedia ? 'local' : 'youtube',
+        readDuration: () => localMedia ? localMedia.duration : media.getDuration(),
+        readLevel: () => localMedia ? localMedia.volume * 100 : media.getVolume(),
+        readCurrentTimeMs: () => (localMedia ? localMedia.currentTime : media.getCurrentTime()) * 1000,
+        writeLevel: (level) => {
+          if (localMedia) {
+            localMedia.volume = level / 100;
+            return;
+          }
+          media.setVolume(level);
+        },
+        onFadeOutCompleted: () => {
+          if (localMedia) {
+            localMedia.dispatchEvent(new Event('ended'));
+            return;
+          }
           logger([media]);
-        } else {
-          media.volume = 0;
-          abortFader('fadeout');
-          media.dispatchEvent(new Event('ended'));
-        }
-      }
-    }, 100);
+        },
+      },
+      period,
+      point: end,
+      readTargetVolume: () => normalizeVolume(AMP_STATUS.volume, getDefaultVolume()),
+      startFader: (callback, intervalMs) => playbackTimers.startFader('fadeout', callback, intervalMs),
+      abortFader: () => abortFader('fadeout'),
+      inRange,
+      logger,
+    });
   }
 
   // ============================================================================
