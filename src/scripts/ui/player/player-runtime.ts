@@ -137,6 +137,21 @@ export function resolvePlayableTransitionTarget(
   };
 }
 
+export function runPlaybackTransition(options: {
+  playbackTarget: PlaybackTarget | null;
+  getExtension: (src: string) => string;
+  updatePlayStatus: (nextId: number) => void;
+  setupPlayer: (setupKind: PlayableSetupKind, mediaSrc: string | null, mediaData: MediaItem) => void;
+}): void {
+  const playableTarget = resolvePlayableTransitionTarget(options.playbackTarget, options.getExtension);
+  if (!playableTarget) {
+    return;
+  }
+
+  options.updatePlayStatus(playableTarget.nextId);
+  options.setupPlayer(playableTarget.setupKind, playableTarget.mediaSrc, playableTarget.mediaData);
+}
+
 export function findMediaById(mediaItems: MediaItem[], targetId: number | null): MediaItem | null {
   if (targetId === null) {
     return null;

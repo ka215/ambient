@@ -133,10 +133,10 @@ import {
 import {
   applyYouTubeTransitionCleanup,
   findMediaById,
-  resolvePlayableTransitionTarget,
   resolvePlaybackSelectionById,
   resolvePlaybackNeighborIds,
   resolveEndedPlaybackTarget as resolveEndedPlaybackTargetRuntime,
+  runPlaybackTransition,
   resolveSeekRange,
   resolveNextPlaybackTarget,
   resolveYouTubeTransitionCleanupMode,
@@ -4986,36 +4986,12 @@ const init = function (): void {
     });
   }
 
-  function transitionToPlaybackTarget(
-    playbackTarget: ReturnType<typeof resolveNextPlaybackTarget> | null
-  ): void {
-    const playableTarget = resolvePlayableTransitionTarget(playbackTarget, getExt);
-    if (!playableTarget) {
-      return;
-    }
-    updatePlayStatus(playableTarget.nextId);
-    setupPlayer(playableTarget.setupKind, playableTarget.mediaSrc, playableTarget.mediaData);
-  }
-
-  function cleanupYouTubeTransition(event: any, playbackTarget: ReturnType<typeof resolveNextPlaybackTarget> | null): void {
-    applyYouTubeTransitionCleanup(event.target, resolveYouTubeTransitionCleanupMode(playbackTarget));
-  }
-
   async function activateImportedPlaylist(playlistName: string): Promise<void> {
     ensurePlaylistOption(playlistName);
     selectPlaylistOption(playlistName);
     requestCategoryResume(null);
     requestMediaResume(null);
     await getPlaylistData(playlistName, true);
-  }
-
-  function resolveEndedPlaybackTarget(): ReturnType<typeof resolveNextPlaybackTarget> | null {
-    return resolveEndedPlaybackTargetRuntime(
-      AMP_STATUS.media || [],
-      AMP_STATUS.current,
-      AMP_STATUS.next,
-      Boolean(AMP_STATUS.loop)
-    );
   }
 
   /**
@@ -5039,12 +5015,22 @@ const init = function (): void {
               optionalContainer: $OPTIONAL_CONTAINER,
             });
           },
-          resolvePlaybackTarget: resolveEndedPlaybackTarget,
+          resolvePlaybackTarget: () => resolveEndedPlaybackTargetRuntime(
+            AMP_STATUS.media || [],
+            AMP_STATUS.current,
+            AMP_STATUS.next,
+            Boolean(AMP_STATUS.loop)
+          ),
           cleanupTransition: (playbackTarget) => {
-            cleanupYouTubeTransition(event, playbackTarget);
+            applyYouTubeTransitionCleanup(event.target, resolveYouTubeTransitionCleanupMode(playbackTarget));
           },
           transitionToTarget: (playbackTarget) => {
-            transitionToPlaybackTarget(playbackTarget);
+            runPlaybackTransition({
+              playbackTarget,
+              getExtension: getExt,
+              updatePlayStatus,
+              setupPlayer,
+            });
           },
         });
       },
@@ -5101,7 +5087,7 @@ const init = function (): void {
       },
       resolvePlaybackTarget: () => resolveNextPlaybackTarget(AMP_STATUS.media || [], AMP_STATUS.next),
       cleanupTransition: (playbackTarget) => {
-        cleanupYouTubeTransition(event, playbackTarget);
+        applyYouTubeTransitionCleanup(event.target, resolveYouTubeTransitionCleanupMode(playbackTarget));
       },
       onYouTubeFallbackTarget: (playbackTarget) => {
         if (playbackTarget.playerType === 'youtube') {
@@ -5110,7 +5096,12 @@ const init = function (): void {
       },
       abortPlaybackTimers,
       transitionToTarget: (playbackTarget) => {
-        transitionToPlaybackTarget(playbackTarget);
+        runPlaybackTransition({
+          playbackTarget,
+          getExtension: getExt,
+          updatePlayStatus,
+          setupPlayer,
+        });
       },
     });
   }
@@ -5210,7 +5201,12 @@ const init = function (): void {
         cleanupHtmlPlayerWrapper($EMBED_WRAPPER);
       },
       resolvePlaybackTarget: () => {
-        const playbackTarget = resolveEndedPlaybackTarget();
+        const playbackTarget = resolveEndedPlaybackTargetRuntime(
+          AMP_STATUS.media || [],
+          AMP_STATUS.current,
+          AMP_STATUS.next,
+          Boolean(AMP_STATUS.loop)
+        );
         logger('ended:', AMP_STATUS, playbackTarget?.nextId ?? null);
         return playbackTarget;
       },
@@ -5218,7 +5214,12 @@ const init = function (): void {
         if (playbackTarget.playerType === 'youtube') {
           playerElm.remove();
         }
-        transitionToPlaybackTarget(playbackTarget);
+        runPlaybackTransition({
+          playbackTarget,
+          getExtension: getExt,
+          updatePlayStatus,
+          setupPlayer,
+        });
       },
     });
   }
