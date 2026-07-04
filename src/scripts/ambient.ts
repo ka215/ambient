@@ -139,6 +139,7 @@ import {
   createHtmlPreviewPlayerView,
   bindHtmlVideoPresentation,
   cleanupHtmlPlayerWrapper,
+  destroyHtmlPreviewPlayer,
   prepareHtmlPlayerWrapper,
 } from './ui/player/html-player-view';
 import {
@@ -161,6 +162,7 @@ import {
 } from './ui/player/player-setup';
 import {
   createYouTubePlayerHost,
+  destroyYouTubePreviewPlayer,
   hideYouTubePlayerWrapper,
   setWatchOriginState,
   showYouTubePlayerWrapper,
@@ -1972,24 +1974,11 @@ const init = function (): void {
 
   function destroyMediaEditPreviewPlayer(): void {
     if (mediaEditPreviewYouTubePlayer) {
-      try {
-        mediaEditPreviewYouTubePlayer.destroy();
-      } catch (_error) {
-        // Ignore destroy failures when preview iframe is already gone.
-      }
+      destroyYouTubePreviewPlayer(mediaEditPreviewYouTubePlayer);
       mediaEditPreviewYouTubePlayer = null;
     }
     if (mediaEditPreviewHtmlPlayer) {
-      try {
-        mediaEditPreviewHtmlPlayer.pause();
-      } catch (_error) {
-        // Ignore pause failures.
-      }
-      mediaEditPreviewHtmlPlayer.removeAttribute('src');
-      while (mediaEditPreviewHtmlPlayer.firstChild) {
-        mediaEditPreviewHtmlPlayer.removeChild(mediaEditPreviewHtmlPlayer.firstChild);
-      }
-      mediaEditPreviewHtmlPlayer.load();
+      destroyHtmlPreviewPlayer(mediaEditPreviewHtmlPlayer);
       mediaEditPreviewHtmlPlayer = null;
     }
     mediaEditPreviewType = null;

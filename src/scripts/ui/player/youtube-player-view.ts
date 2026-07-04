@@ -41,3 +41,15 @@ export function setWatchOriginState(
   watchButton.removeAttribute('disabled');
   optionalContainer.classList.remove('hidden', 'opacity-0');
 }
+
+export function destroyYouTubePreviewPlayer(player: { destroy?: () => void } | null): void {
+  if (!player) {
+    return;
+  }
+
+  try {
+    player.destroy?.();
+  } catch (_error) {
+    // Ignore destroy failures when preview iframe is already gone.
+  }
+}

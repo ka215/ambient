@@ -153,6 +153,24 @@ export function prepareHtmlPlayerWrapper(options: {
   resetWatchOriginState(options.watchButton, options.optionalContainer);
 }
 
+export function destroyHtmlPreviewPlayer(playerElement: HTMLMediaElement | null): void {
+  if (!playerElement) {
+    return;
+  }
+
+  try {
+    playerElement.pause();
+  } catch (_error) {
+    // Ignore pause failures.
+  }
+
+  playerElement.removeAttribute('src');
+  while (playerElement.firstChild) {
+    playerElement.removeChild(playerElement.firstChild);
+  }
+  playerElement.load();
+}
+
 export function resetWatchOriginState(
   watchButton: HTMLAnchorElement,
   optionalContainer: HTMLElement
