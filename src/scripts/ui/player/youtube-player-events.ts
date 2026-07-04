@@ -4,6 +4,18 @@ export function resolveYouTubeWatchUrl(mediaData: MediaItem, runtimeUrl: string 
   return runtimeUrl || `https://www.youtube.com/watch?v=${mediaData.videoid}`;
 }
 
+export function syncYouTubeWatchOrigin(options: {
+  mediaData: MediaItem;
+  runtimeUrl: string | null | undefined;
+  delayMs?: number;
+  setWatchOrigin: (watchUrl: string) => void;
+}): void {
+  const watchUrl = resolveYouTubeWatchUrl(options.mediaData, options.runtimeUrl);
+  window.setTimeout(() => {
+    options.setWatchOrigin(watchUrl);
+  }, options.delayMs ?? 500);
+}
+
 export function runYouTubeAutoplayAssist(options: {
   enabled: boolean;
   getPlayerState: () => number;
@@ -43,6 +55,91 @@ export function resolveYouTubeInitialVolume(options: {
     return 0;
   }
   return options.normalizedVolume;
+}
+
+export function applyYouTubeReadyPlayback(options: {
+  enabledAutoplayAssist: boolean;
+  mediaData: MediaItem;
+  runtimeUrl: string | null | undefined;
+  playerStateGetter: () => number;
+  playingState: number;
+  onAutoplayConfirmed: (elapsedMs: number) => void;
+  onAutoplayTimeout: () => void;
+  setWatchOrigin: (watchUrl: string) => void;
+  setVolume: (value: number) => void;
+  playVideo: () => void;
+  faderEnabled: boolean;
+  normalizedVolume: number;
+}): void {
+  syncYouTubeWatchOrigin({
+    mediaData: options.mediaData,
+    runtimeUrl: options.runtimeUrl,
+    setWatchOrigin: options.setWatchOrigin,
+  });
+
+  runYouTubeAutoplayAssist({
+    enabled: options.enabledAutoplayAssist,
+    getPlayerState: options.playerStateGetter,
+    playingState: options.playingState,
+    onPlaying: options.onAutoplayConfirmed,
+    onTimeout: options.onAutoplayTimeout,
+  });
+
+  options.setVolume(resolveYouTubeInitialVolume({
+    faderEnabled: options.faderEnabled,
+    mediaData: options.mediaData,
+    normalizedVolume: options.normalizedVolume,
+  }));
+  options.playVideo();
+}
+
+export function handleYouTubePausedState(options: {
+  emitPaused: () => void;
+  showPlayState: () => void;
+}): void {
+  options.emitPaused();
+  options.showPlayState();
+}
+
+export function handleYouTubePlayingState(options: {
+  emitPlaying: () => void;
+  showPauseState: () => void;
+  faderEnabled: boolean;
+  mediaData: MediaItem | null;
+  duration: number;
+  playbackVolume: number;
+  normalizeVolume: (value: number) => number;
+  resolveSeekRange: (mediaData: MediaItem, fallbackEnd: number) => { seekStart: number; seekEnd: number };
+  setVolume: (value: number) => void;
+  fadeIn: (period: number, start: number) => void;
+  fadeOut: (period: number, end: number) => void;
+}): void {
+  options.emitPlaying();
+  options.showPauseState();
+
+  applyYouTubePlaybackFader({
+    enabled: options.faderEnabled,
+    mediaData: options.mediaData,
+    duration: options.duration,
+    playbackVolume: options.playbackVolume,
+    normalizeVolume: options.normalizeVolume,
+    resolveSeekRange: options.resolveSeekRange,
+    setVolume: options.setVolume,
+    fadeIn: options.fadeIn,
+    fadeOut: options.fadeOut,
+  });
+}
+
+export function handleYouTubeUnstartedState(options: {
+  autoplayEnabled: boolean;
+  emitUnstarted: () => void;
+  logger: (...args: unknown[]) => void;
+}): void {
+  if (!options.autoplayEnabled) {
+    return;
+  }
+  options.emitUnstarted();
+  options.logger('onPlayerStateChange::unstarted.');
 }
 
 export function applyYouTubePlaybackFader(options: {

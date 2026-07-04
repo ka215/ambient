@@ -157,10 +157,10 @@ import {
   showYouTubePlayerWrapper,
 } from './ui/player/youtube-player-view';
 import {
-  applyYouTubePlaybackFader,
-  resolveYouTubeInitialVolume,
-  resolveYouTubeWatchUrl,
-  runYouTubeAutoplayAssist,
+  applyYouTubeReadyPlayback,
+  handleYouTubePausedState,
+  handleYouTubePlayingState,
+  handleYouTubeUnstartedState,
 } from './ui/player/youtube-player-events';
 import {
   clearCategoryView,
@@ -5069,29 +5069,30 @@ const init = function (): void {
     const mediaData = findMediaById(AMP_STATUS.media || [], AMP_STATUS.current);
     if (!mediaData) return;
 
-    const watchUrl = resolveYouTubeWatchUrl(mediaData, event.target.getVideoUrl());
-    setTimeout(() => {
-      setWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER, watchUrl);
-    }, 500);
-
-    runYouTubeAutoplayAssist({
-      enabled: Boolean(getOption('autoplay')),
-      getPlayerState: () => event.target.getPlayerState(),
+    applyYouTubeReadyPlayback({
+      enabledAutoplayAssist: Boolean(getOption('autoplay')),
+      mediaData,
+      runtimeUrl: event.target.getVideoUrl(),
+      playerStateGetter: () => event.target.getPlayerState(),
       playingState: (window as any).YT.PlayerState.PLAYING,
-      onPlaying: (elapsedMs: number) => {
+      onAutoplayConfirmed: (elapsedMs: number) => {
         logger(`onPlayerReady::elapsed ${elapsedMs}ms:`, 'Playback has started!');
       },
-      onTimeout: () => {
+      onAutoplayTimeout: () => {
         (document.getElementById('btn-play') as HTMLButtonElement).dispatchEvent(new Event('click'));
       },
-    });
-
-    event.target.setVolume(resolveYouTubeInitialVolume({
+      setWatchOrigin: (watchUrl: string) => {
+        setWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER, watchUrl);
+      },
+      setVolume: (value: number) => {
+        event.target.setVolume(value);
+      },
+      playVideo: () => {
+        event.target.playVideo();
+      },
       faderEnabled: Boolean(AMP_STATUS.fader),
-      mediaData,
       normalizedVolume: normalizeVolume(AMP_STATUS.volume, getDefaultVolume()),
-    }));
-    event.target.playVideo();
+    });
   }
 
   function clearYouTubePlaybackUi(): void {
@@ -5167,17 +5168,26 @@ const init = function (): void {
     }
 
     if (event.data === YT_PAUSED) {
-      emitYouTubeSignal('paused');
-      showPlaybackPlayState($BUTTON_PLAY, $BUTTON_PAUSE);
+      handleYouTubePausedState({
+        emitPaused: () => {
+          emitYouTubeSignal('paused');
+        },
+        showPlayState: () => {
+          showPlaybackPlayState($BUTTON_PLAY, $BUTTON_PAUSE);
+        },
+      });
     }
 
     if (event.data === YT_PLAYING) {
-      emitYouTubeSignal('playing');
-      showPlaybackPauseState($BUTTON_PLAY, $BUTTON_PAUSE);
-
       const currentMedia = findMediaById(AMP_STATUS.media || [], AMP_STATUS.current);
-      applyYouTubePlaybackFader({
-        enabled: Boolean(AMP_STATUS.fader),
+      handleYouTubePlayingState({
+        emitPlaying: () => {
+          emitYouTubeSignal('playing');
+        },
+        showPauseState: () => {
+          showPlaybackPauseState($BUTTON_PLAY, $BUTTON_PAUSE);
+        },
+        faderEnabled: Boolean(AMP_STATUS.fader),
         mediaData: currentMedia,
         duration: event.target.getDuration(),
         playbackVolume: AMP_STATUS.volume ?? getDefaultVolume(),
@@ -5189,11 +5199,13 @@ const init = function (): void {
       });
     }
 
-    if (event.data === -1 && getOption('autoplay')) {
-      emitYouTubeSignal('unstarted');
-      // When playback unstarted.
-      logger('onPlayerStateChange::unstarted.');
-    }
+    handleYouTubeUnstartedState({
+      autoplayEnabled: Boolean(getOption('autoplay')) && event.data === -1,
+      emitUnstarted: () => {
+        emitYouTubeSignal('unstarted');
+      },
+      logger,
+    });
   }
 
   /**
