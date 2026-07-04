@@ -138,16 +138,12 @@ import {
   resolveYouTubeTransitionCleanupMode,
 } from './ui/player/player-runtime';
 import {
-  createHtmlPlayerView,
+  createMountedHtmlPlaybackView,
   createHtmlPreviewPlayerView,
-  bindHtmlVideoPresentation,
   cleanupHtmlPlayerWrapper,
   destroyHtmlPreviewPlayer,
-  prepareHtmlPlayerWrapper,
 } from './ui/player/html-player-view';
 import {
-  resolveHtmlMediaMimeType,
-  resolveHtmlMediaSourcePath,
 } from './ui/player/html-player-source';
 import {
   clearMediaEditPreviewContainerView,
@@ -5139,17 +5135,21 @@ const init = function (): void {
    * Create a media playback player using HTML.
    */
   function createPlayerTag(tagname: 'audio' | 'video', mediaData: MediaItem): void {
-    const sourcePath = resolveHtmlMediaSourcePath(mediaData.file || '');
     const playbackConfig = resolvePlaybackConfigSource(getOption);
-    const playerViewOptions = {
+    const { playerElement: playerElm, sourceElement: sourceElm } = createMountedHtmlPlaybackView({
+      embedWrapper: $EMBED_WRAPPER,
+      watchButton: $BUTTON_WATCH_TY,
+      optionalContainer: $OPTIONAL_CONTAINER,
       tagName: tagname,
       mediaData,
       controls: String(playbackConfig.controls || ''),
       autoplay: String(playbackConfig.autoplay || ''),
-      sourcePath,
-      sourceType: resolveHtmlMediaMimeType(sourcePath, tagname),
-    };
-    const { playerElement: playerElm, sourceElement: sourceElm } = createHtmlPlayerView(playerViewOptions);
+      allowFullScreen: resolveMediaFullscreenEnabled(mediaData, playbackConfig.fs),
+      getPlaceholderPath: () => getNoMediaImagePath('placeholder'),
+      isFullWindowMode,
+      getFullWindowPlayerSize,
+      getViewportWidth: () => currentWindowSize.width,
+    });
     applyConfiguredInitialPlaybackState({
       mediaData,
       playbackConfig,
@@ -5213,20 +5213,6 @@ const init = function (): void {
       reportIssue: (mediaElement, event, reason) => {
         reportHtmlMediaLoadIssue(mediaElement, event, reason);
       },
-    });
-    prepareHtmlPlayerWrapper({
-      embedWrapper: $EMBED_WRAPPER,
-      playerElement: playerElm,
-      watchButton: $BUTTON_WATCH_TY,
-      optionalContainer: $OPTIONAL_CONTAINER,
-    });
-    bindHtmlVideoPresentation({
-      playerElement: playerElm,
-      allowFullScreen: resolveMediaFullscreenEnabled(mediaData, playbackConfig.fs),
-      getPlaceholderPath: () => getNoMediaImagePath('placeholder'),
-      isFullWindowMode,
-      getFullWindowPlayerSize,
-      getViewportWidth: () => currentWindowSize.width,
     });
   }
 

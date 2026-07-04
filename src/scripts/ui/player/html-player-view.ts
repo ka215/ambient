@@ -1,4 +1,8 @@
 import type { MediaItem } from '../../types/ambient';
+import {
+  resolveHtmlMediaMimeType,
+  resolveHtmlMediaSourcePath,
+} from './html-player-source';
 
 export interface CreateHtmlPlayerViewOptions {
   tagName: 'audio' | 'video';
@@ -29,6 +33,52 @@ export function createHtmlPlayerView(options: CreateHtmlPlayerViewOptions): {
   playerElement.appendChild(sourceElement);
 
   return { playerElement, sourceElement };
+}
+
+export function createMountedHtmlPlaybackView(options: {
+  embedWrapper: HTMLElement;
+  watchButton: HTMLAnchorElement;
+  optionalContainer: HTMLElement;
+  tagName: 'audio' | 'video';
+  mediaData: MediaItem;
+  controls: string;
+  autoplay: string;
+  allowFullScreen: boolean;
+  getPlaceholderPath: () => string;
+  isFullWindowMode: () => boolean;
+  getFullWindowPlayerSize: () => { width: number; height: number };
+  getViewportWidth: () => number;
+}): {
+  playerElement: HTMLMediaElement;
+  sourceElement: HTMLSourceElement;
+  sourcePath: string;
+} {
+  const sourcePath = resolveHtmlMediaSourcePath(options.mediaData.file || '');
+  const { playerElement, sourceElement } = createHtmlPlayerView({
+    tagName: options.tagName,
+    mediaData: options.mediaData,
+    controls: options.controls,
+    autoplay: options.autoplay,
+    sourcePath,
+    sourceType: resolveHtmlMediaMimeType(sourcePath, options.tagName),
+  });
+
+  prepareHtmlPlayerWrapper({
+    embedWrapper: options.embedWrapper,
+    playerElement,
+    watchButton: options.watchButton,
+    optionalContainer: options.optionalContainer,
+  });
+  bindHtmlVideoPresentation({
+    playerElement,
+    allowFullScreen: options.allowFullScreen,
+    getPlaceholderPath: options.getPlaceholderPath,
+    isFullWindowMode: options.isFullWindowMode,
+    getFullWindowPlayerSize: options.getFullWindowPlayerSize,
+    getViewportWidth: options.getViewportWidth,
+  });
+
+  return { playerElement, sourceElement, sourcePath };
 }
 
 export function createHtmlPreviewPlayerView(options: {
