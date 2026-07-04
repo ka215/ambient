@@ -1,3 +1,5 @@
+import { basename } from '../shared/string';
+
 export function applyPlaylistBackground(options: {
   body: HTMLElement;
   menu: HTMLElement | null;
@@ -55,6 +57,50 @@ export function applyDarkModeAppearance(options: {
       options.setStyles(audioPlayers[0]);
     }
   }
+}
+
+export function resolveNoMediaImagePath(
+  enabled: boolean,
+  kind: 'placeholder' | 'thumb' = 'placeholder'
+): string {
+  const suffix = enabled ? '-dark' : '';
+  return `./views/images/no-media-${kind}${suffix}.svg`;
+}
+
+export function resolveAmbientPlaceholderPath(enabled: boolean): string {
+  const suffix = enabled ? '-dark' : '';
+  return `./views/images/ambient-placeholder${suffix}.svg`;
+}
+
+export function updateNoMediaImageForTheme(options: {
+  image: HTMLImageElement;
+  darkModeEnabled: boolean;
+}): void {
+  const name = basename(options.image.src);
+  if (name === 'no-media-placeholder' || name === 'no-media-placeholder-dark') {
+    options.image.src = resolveNoMediaImagePath(options.darkModeEnabled, 'placeholder');
+    options.image.removeAttribute('style');
+  }
+  if (name === 'no-media-thumb' || name === 'no-media-thumb-dark') {
+    options.image.src = resolveNoMediaImagePath(options.darkModeEnabled, 'thumb');
+    options.image.removeAttribute('style');
+  }
+  if (name === 'ambient-placeholder' || name === 'ambient-placeholder-dark') {
+    options.image.src = resolveAmbientPlaceholderPath(options.darkModeEnabled);
+    options.image.removeAttribute('style');
+  }
+}
+
+export function updateNoMediaImagesForTheme(darkModeEnabled: boolean): void {
+  (document.querySelectorAll('img') as NodeListOf<HTMLImageElement>).forEach((image: HTMLImageElement) => {
+    updateNoMediaImageForTheme({ image, darkModeEnabled });
+  });
+  (document.querySelectorAll('video#html-player') as NodeListOf<HTMLVideoElement>).forEach((video: HTMLVideoElement) => {
+    const posterName = basename(video.poster || '');
+    if (posterName === 'no-media-placeholder' || posterName === 'no-media-placeholder-dark') {
+      video.poster = resolveNoMediaImagePath(darkModeEnabled, 'placeholder');
+    }
+  });
 }
 
 export function getToggleInput(toggleRoot: ParentNode | null): HTMLInputElement | null {

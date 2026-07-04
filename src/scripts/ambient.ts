@@ -61,8 +61,10 @@ import {
   applyDarkModeAppearance,
   applyPlaylistBackground,
   getToggleInput,
+  resolveNoMediaImagePath,
   syncToggleRoot,
   syncVolumeSlider,
+  updateNoMediaImagesForTheme,
 } from './ui/settings-view';
 import {
   applyFullWindowMode,
@@ -2948,41 +2950,7 @@ const init = function (): void {
   }
 
   function getNoMediaImagePath(kind: 'placeholder' | 'thumb' = 'placeholder'): string {
-    const suffix = isDarkModeEnabled() ? '-dark' : '';
-    return `./views/images/no-media-${kind}${suffix}.svg`;
-  }
-
-  function getAmbientPlaceholderPath(): string {
-    const suffix = isDarkModeEnabled() ? '-dark' : '';
-    return `./views/images/ambient-placeholder${suffix}.svg`;
-  }
-
-  function updateNoMediaImageForTheme(image: HTMLImageElement): void {
-    const name = basename(image.src);
-    if (name === 'no-media-placeholder' || name === 'no-media-placeholder-dark') {
-      image.src = getNoMediaImagePath('placeholder');
-      image.removeAttribute('style');
-    }
-    if (name === 'no-media-thumb' || name === 'no-media-thumb-dark') {
-      image.src = getNoMediaImagePath('thumb');
-      image.removeAttribute('style');
-    }
-    if (name === 'ambient-placeholder' || name === 'ambient-placeholder-dark') {
-      image.src = getAmbientPlaceholderPath();
-      image.removeAttribute('style');
-    }
-  }
-
-  function updateNoMediaImagesForTheme(): void {
-    (document.querySelectorAll('img') as NodeListOf<HTMLImageElement>).forEach((image: HTMLImageElement) => {
-      updateNoMediaImageForTheme(image);
-    });
-    (document.querySelectorAll('video#html-player') as NodeListOf<HTMLVideoElement>).forEach((video: HTMLVideoElement) => {
-      const posterName = basename(video.poster || '');
-      if (posterName === 'no-media-placeholder' || posterName === 'no-media-placeholder-dark') {
-        video.poster = getNoMediaImagePath('placeholder');
-      }
-    });
+    return resolveNoMediaImagePath(isDarkModeEnabled(), kind);
   }
 
   function getViewportWidth(): number {
@@ -4326,7 +4294,7 @@ const init = function (): void {
     applyDarkModeAppearance({
       enabled: isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark ? !!AMP_STATUS.options.dark : false,
       toggleInput: toggleDarkmodeInput,
-      updateNoMediaImagesForTheme,
+      updateNoMediaImagesForTheme: () => updateNoMediaImagesForTheme(isDarkModeEnabled()),
       setStyles,
     });
     setFullWindowMode(optionState.fullWindowEnabled, false);
@@ -4840,7 +4808,7 @@ const init = function (): void {
       applyDarkModeAppearance({
         enabled: isDarkmode,
         toggleInput: toggleDarkmodeInput,
-        updateNoMediaImagesForTheme,
+        updateNoMediaImagesForTheme: () => updateNoMediaImagesForTheme(isDarkModeEnabled()),
         setStyles,
       });
     }, 200);
