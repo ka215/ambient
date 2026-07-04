@@ -94,3 +94,53 @@ export function renderMediaEditSourceBadges(options: {
     options.container.appendChild(categoryBadge);
   }
 }
+
+export function resetMediaEditModalView(options: {
+  modalElement: HTMLElement | null;
+  titleElement: HTMLElement | null;
+  itemTitleElement: HTMLElement | null;
+  itemSourceElement: HTMLElement | null;
+  defaultTitle: string;
+}): void {
+  if (!options.modalElement) {
+    return;
+  }
+
+  options.modalElement.classList.add('hidden');
+  options.modalElement.setAttribute('aria-hidden', 'true');
+
+  if (options.titleElement) {
+    options.titleElement.textContent = options.defaultTitle;
+  }
+  if (options.itemTitleElement) {
+    options.itemTitleElement.textContent = '';
+  }
+  if (options.itemSourceElement) {
+    options.itemSourceElement.innerHTML = '';
+  }
+}
+
+export function showMediaEditModalView(options: {
+  modalElement: HTMLElement | null;
+  titleElement: HTMLElement | null;
+  itemTitleElement: HTMLElement | null;
+  closeButton: HTMLElement | null;
+  defaultTitle: string;
+  itemTitle: string;
+}): void {
+  if (!options.modalElement || !options.titleElement) {
+    return;
+  }
+  const modalElement = options.modalElement;
+  const titleElement = options.titleElement;
+
+  if (options.itemTitleElement) {
+    options.itemTitleElement.textContent = options.itemTitle;
+  }
+  titleElement.textContent = options.defaultTitle;
+  modalElement.classList.remove('hidden');
+  modalElement.removeAttribute('aria-hidden');
+  window.requestAnimationFrame(() => {
+    (options.closeButton || modalElement).focus();
+  });
+}

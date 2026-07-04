@@ -85,6 +85,8 @@ import {
 import {
   isMediaEditModalVisible as isMediaEditModalVisibleView,
   renderMediaEditSourceBadges as renderMediaEditSourceBadgesView,
+  resetMediaEditModalView,
+  showMediaEditModalView,
   trapMediaEditModalFocus as trapMediaEditModalFocusView,
 } from './ui/media-edit-modal-view';
 import {
@@ -2689,17 +2691,13 @@ const init = function (): void {
     const editedMediaId = mediaEditActiveItem?.amId ?? null;
     resetMediaEditPreviewState();
     clearMediaEditValidationView();
-    $MODAL_MEDIA_EDIT.classList.add('hidden');
-    $MODAL_MEDIA_EDIT.setAttribute('aria-hidden', 'true');
-    if (isElement($MODAL_MEDIA_EDIT_TITLE)) {
-      $MODAL_MEDIA_EDIT_TITLE.textContent = defaultMediaEditModalTitle;
-    }
-    if (isElement($MODAL_MEDIA_EDIT_ITEM_TITLE)) {
-      $MODAL_MEDIA_EDIT_ITEM_TITLE.textContent = '';
-    }
-    if (isElement($MODAL_MEDIA_EDIT_ITEM_SOURCE)) {
-      $MODAL_MEDIA_EDIT_ITEM_SOURCE.innerHTML = '';
-    }
+    resetMediaEditModalView({
+      modalElement: $MODAL_MEDIA_EDIT,
+      titleElement: isElement($MODAL_MEDIA_EDIT_TITLE) ? $MODAL_MEDIA_EDIT_TITLE : null,
+      itemTitleElement: isElement($MODAL_MEDIA_EDIT_ITEM_TITLE) ? $MODAL_MEDIA_EDIT_ITEM_TITLE : null,
+      itemSourceElement: isElement($MODAL_MEDIA_EDIT_ITEM_SOURCE) ? $MODAL_MEDIA_EDIT_ITEM_SOURCE : null,
+      defaultTitle: defaultMediaEditModalTitle,
+    });
     closeMediaEditCategoryDropdown(false);
     const restoreTarget = activeMediaEditTrigger;
     activeMediaEditTrigger = null;
@@ -2769,10 +2767,8 @@ const init = function (): void {
     }
     activeMediaEditTrigger = trigger;
     closePlaylistModeMenu();
-    if (isElement($MODAL_MEDIA_EDIT_ITEM_TITLE)) {
-      $MODAL_MEDIA_EDIT_ITEM_TITLE.textContent = sanitizeMediaText(mediaItem.title || '', MEDIA_TITLE_MAX_LENGTH)
-        || getLocalizedMessage('mediaEditUntitled', 'Untitled media');
-    }
+    const modalItemTitle = sanitizeMediaText(mediaItem.title || '', MEDIA_TITLE_MAX_LENGTH)
+      || getLocalizedMessage('mediaEditUntitled', 'Untitled media');
     renderMediaEditSourceBadges(mediaItem);
     bindMediaEditForm(mediaItem);
     if (playlistMode === 'edit') {
@@ -2780,11 +2776,13 @@ const init = function (): void {
     }
     createMediaEditPreview(mediaItem);
     startMediaEditDurationSyncWaitIfNeeded();
-    $MODAL_MEDIA_EDIT_TITLE.textContent = defaultMediaEditModalTitle;
-    $MODAL_MEDIA_EDIT.classList.remove('hidden');
-    $MODAL_MEDIA_EDIT.removeAttribute('aria-hidden');
-    window.requestAnimationFrame(() => {
-      (isElement($BUTTON_CLOSE_MEDIA_EDIT) ? $BUTTON_CLOSE_MEDIA_EDIT : $MODAL_MEDIA_EDIT)?.focus();
+    showMediaEditModalView({
+      modalElement: $MODAL_MEDIA_EDIT,
+      titleElement: $MODAL_MEDIA_EDIT_TITLE,
+      itemTitleElement: isElement($MODAL_MEDIA_EDIT_ITEM_TITLE) ? $MODAL_MEDIA_EDIT_ITEM_TITLE : null,
+      closeButton: isElement($BUTTON_CLOSE_MEDIA_EDIT) ? $BUTTON_CLOSE_MEDIA_EDIT : null,
+      defaultTitle: defaultMediaEditModalTitle,
+      itemTitle: modalItemTitle,
     });
   }
 
