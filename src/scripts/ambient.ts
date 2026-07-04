@@ -483,23 +483,29 @@ const init = function (): void {
             savePlaylistContext();
           }
           if ('order' === prop) {
-            changeToggleRandomly();
+            syncToggleRoot($TOGGLE_RANDOMLY, AMP_STATUS.order === 'random');
           }
           break;
         case /^playlist$/i.test(prop):
           savePlaylistContext();
           break;
         case /^media$/i.test(prop):
-          togglePlayerControllButtons();
+          syncPlaybackButtons($BUTTON_PLAY, $BUTTON_PAUSE, AMP_STATUS.media !== null && AMP_STATUS.media.length > 0);
           break;
         case /^category$/i.test(prop):
           updateCategory();
           break;
         case /^shuffle$/i.test(prop):
-          changeToggleShuffle();
+          syncToggleRoot($TOGGLE_SHUFFLE, !!(AMP_STATUS.options && AMP_STATUS.options.shuffle));
+          AMP_STATUS.shuffle = shufflePlaylist();
           break;
         case /^volume$/i.test(prop):
-          changeRangeVolume();
+          syncVolumeSlider({
+            input: $RANGE_VOLUME,
+            volume: normalizeVolume(AMP_STATUS.volume, getDefaultVolume()),
+            syncRangeProgress,
+            display: document.getElementById('default-volume-value') as HTMLElement | null,
+          });
           break;
         case /^notice$/i.test(prop):
           if (newValue) {
@@ -4290,19 +4296,25 @@ const init = function (): void {
 
     if (optionState.hasShuffle && optionState.shuffleEnabled) {
       AMP_STATUS.shuffle = [];
-      changeToggleShuffle();
+      syncToggleRoot($TOGGLE_SHUFFLE, !!(AMP_STATUS.options && AMP_STATUS.options.shuffle));
+      AMP_STATUS.shuffle = shufflePlaylist();
     }
 
     if (optionState.hasSeek) {
-      changeToggleSeekplay();
+      syncToggleRoot($TOGGLE_SEEKPLAY, !!(AMP_STATUS.options && AMP_STATUS.options.seek));
     }
 
     if (optionState.hasFader) {
-      changeToggleFader();
+      syncToggleRoot($TOGGLE_FADER, !!(AMP_STATUS.options && AMP_STATUS.options.fader));
     }
 
     AMP_STATUS.volume = optionState.volume;
-    changeRangeVolume();
+    syncVolumeSlider({
+      input: $RANGE_VOLUME,
+      volume: normalizeVolume(AMP_STATUS.volume, getDefaultVolume()),
+      syncRangeProgress,
+      display: document.getElementById('default-volume-value') as HTMLElement | null,
+    });
     syncMediaVolumeField();
 
     if (optionState.hasDark) {
@@ -4311,7 +4323,12 @@ const init = function (): void {
       }
     }
 
-    changeToggleDarkmode();
+    applyDarkModeAppearance({
+      enabled: isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark ? !!AMP_STATUS.options.dark : false,
+      toggleInput: toggleDarkmodeInput,
+      updateNoMediaImagesForTheme,
+      setStyles,
+    });
     setFullWindowMode(optionState.fullWindowEnabled, false);
   }
 
@@ -4395,13 +4412,6 @@ const init = function (): void {
   }
 
   /**
-   * Sync icon pair of full-window toggle button.
-   */
-  function syncWindowFullButtonIcons(enabled: boolean): void {
-    syncWindowFullButtonState($BUTTON_WINDOW_FULL, enabled);
-  }
-
-  /**
    * Toggle full-window mode and synchronize controls from drawer and bottom menu.
    * @param closeDrawers When true, auto-close any open drawers (only for bottom-menu trigger).
    */
@@ -4423,17 +4433,10 @@ const init = function (): void {
       persistMyPlaylistIfNeeded();
     }
 
-    syncWindowFullButtonIcons(enabled);
+    syncWindowFullButtonState($BUTTON_WINDOW_FULL, enabled);
     updateWindowSize();
     toggleMarqueeCaption();
     refreshViewportMetricsAfter(240);
-  }
-
-  /**
-   * Synchronize the bottom menu minimize button icon and state.
-   */
-  function syncMenuCollapseButton(minimized: boolean): void {
-    syncMenuCollapseButtonState($BUTTON_MENU_COLLAPSE, minimized);
   }
 
   /**
@@ -4444,7 +4447,9 @@ const init = function (): void {
       body: $BODY,
       menu: $MENU,
       minimized,
-      syncButtonState: syncMenuCollapseButton,
+      syncButtonState: (nextMinimized: boolean) => {
+        syncMenuCollapseButtonState($BUTTON_MENU_COLLAPSE, nextMinimized);
+      },
       afterToggle: toggleMarqueeCaption,
     });
   }
@@ -4647,13 +4652,6 @@ const init = function (): void {
   }
 
   /**
-   * Toggle the display of player controls button after media loaded.
-   */
-  function togglePlayerControllButtons(): void {
-    syncPlaybackButtons($BUTTON_PLAY, $BUTTON_PAUSE, AMP_STATUS.media !== null && AMP_STATUS.media.length > 0);
-  }
-
-  /**
    * Event listener when the "play" button in bottom menu has been clicked.
    */
   $BUTTON_PLAY.addEventListener('click', (_evt: Event) => {
@@ -4758,13 +4756,6 @@ const init = function (): void {
   });
 
   /**
-   * Toggle the randomly of settings menu toggle button.
-   */
-  function changeToggleRandomly(): void {
-    syncToggleRoot($TOGGLE_RANDOMLY, AMP_STATUS.order === 'random');
-  }
-
-  /**
    * Event listener when changing the shuffle play of settings menu toggle button.
    */
   toggleShuffleInput?.addEventListener('change', (evt: Event) => {
@@ -4772,14 +4763,6 @@ const init = function (): void {
     AMP_STATUS.shuffle = shufflePlaylist();
     persistMyPlaylistIfNeeded();
   });
-
-  /**
-   * Toggle the shuffle play of settings menu toggle button.
-   */
-  function changeToggleShuffle(): void {
-    syncToggleRoot($TOGGLE_SHUFFLE, !!(AMP_STATUS.options && AMP_STATUS.options.shuffle));
-    AMP_STATUS.shuffle = shufflePlaylist();
-  }
 
   /**
    * Shuffle playlist.
@@ -4813,26 +4796,12 @@ const init = function (): void {
   });
 
   /**
-   * Toggle the seekplay of settings menu toggle button.
-   */
-  function changeToggleSeekplay(): void {
-    syncToggleRoot($TOGGLE_SEEKPLAY, !!(AMP_STATUS.options && AMP_STATUS.options.seek));
-  }
-
-  /**
    * Event listener when changing the pseudo fader of settings menu toggle button.
    */
   toggleFaderInput?.addEventListener('change', (evt: Event) => {
     setPlaylistOption(AMP_STATUS, 'fader', (evt.target as HTMLInputElement).checked);
     persistMyPlaylistIfNeeded();
   });
-
-  /**
-   * Toggle the pseudo fader of settings menu toggle button.
-   */
-  function changeToggleFader(): void {
-    syncToggleRoot($TOGGLE_FADER, !!(AMP_STATUS.options && AMP_STATUS.options.fader));
-  }
 
   /**
    * Event listener when inputting the volume of settings menu range slider.
@@ -4861,40 +4830,22 @@ const init = function (): void {
   });
 
   /**
-   * Fires an input event of range slider when was changed default playback volume.
-   */
-  function changeRangeVolume(): void {
-    const currentVolume = normalizeVolume(AMP_STATUS.volume, getDefaultVolume());
-    syncVolumeSlider({
-      input: $RANGE_VOLUME,
-      volume: currentVolume,
-      syncRangeProgress,
-      display: document.getElementById('default-volume-value') as HTMLElement | null,
-    });
-  }
-
-  /**
    * Event listener when changing the darkmode of settings menu toggle button.
    */
   toggleDarkmodeInput?.addEventListener('change', (evt: Event) => {
     setPlaylistOption(AMP_STATUS, 'dark', (evt.target as HTMLInputElement).checked);
     // Delay dark class toggle to let the knob slide animation complete (~150ms)
-    setTimeout(() => changeToggleDarkmode(), 200);
+    setTimeout(() => {
+      const isDarkmode = isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark ? !!AMP_STATUS.options.dark : false;
+      applyDarkModeAppearance({
+        enabled: isDarkmode,
+        toggleInput: toggleDarkmodeInput,
+        updateNoMediaImagesForTheme,
+        setStyles,
+      });
+    }, 200);
     persistMyPlaylistIfNeeded();
   });
-
-  /**
-   * Toggle the darkmode of settings menu toggle button.
-   */
-  function changeToggleDarkmode(): void {
-    const isDarkmode = isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark ? !!AMP_STATUS.options.dark : false;
-    applyDarkModeAppearance({
-      enabled: isDarkmode,
-      toggleInput: toggleDarkmodeInput,
-      updateNoMediaImagesForTheme,
-      setStyles,
-    });
-  }
 
   $SELECT_LANGUAGE.addEventListener('change', (evt: Event) => {
     const currentLanguage = getCookie('lang');
