@@ -166,9 +166,8 @@ import {
   resolvePlaybackSetupResolution,
 } from './ui/player/player-setup';
 import {
-  createYouTubePlayer,
   buildYouTubePreviewPlayerConfig,
-  createYouTubePlayerHost,
+  createMountedYouTubePlayer,
   createYouTubePreviewHost,
   destroyYouTubePreviewPlayer,
   resetYouTubePlayerView,
@@ -5121,7 +5120,6 @@ const init = function (): void {
    */
   function createYTPlayer(mediaData: MediaItem): void {
     emitYouTubeSignal('player_creating');
-    createYouTubePlayerHost({ embedWrapper: $EMBED_WRAPPER, playerId: 'ytplayer' });
     const { playbackConfig } = prepareConfiguredPlayback({
       mediaData,
       getOption,
@@ -5136,7 +5134,8 @@ const init = function (): void {
     const playerOptions = buildYouTubePlayerOptions(mediaData, playbackConfig);
     const adjustSize = getPlayerSizeForCurrentMode();
 
-    player = createYouTubePlayer({
+    player = createMountedYouTubePlayer({
+      embedWrapper: $EMBED_WRAPPER,
       playerId: 'ytplayer',
       size: adjustSize,
       videoId: mediaData.videoid || '',

@@ -45,6 +45,23 @@ export function createYouTubePlayer(options: CreateYouTubePlayerOptions): YTPlay
   });
 }
 
+export function createMountedYouTubePlayer(options: CreateYouTubePlayerOptions & {
+  embedWrapper: HTMLElement;
+}): YTPlayer {
+  createYouTubePlayerHost({
+    embedWrapper: options.embedWrapper,
+    playerId: options.playerId,
+  });
+
+  return createYouTubePlayer({
+    playerId: options.playerId,
+    size: options.size,
+    videoId: options.videoId,
+    playerVars: options.playerVars,
+    events: options.events,
+  });
+}
+
 export function buildYouTubePreviewPlayerConfig(videoId: string): {
   height: number;
   width: number;
