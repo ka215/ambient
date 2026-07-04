@@ -31,6 +31,12 @@ export interface PlaybackSetupResolution {
   } | null;
 }
 
+export interface PlaybackSetupDispatch {
+  setupKind: PlayableSetupKind;
+  onYouTube: () => void;
+  onHtml: (kind: HtmlPlayerKind) => void;
+}
+
 export function resolvePlaybackSource(mediaData: MediaItem): ResolvedPlaybackSource {
   if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== '') {
     return {
@@ -173,4 +179,15 @@ export function resolvePlaybackSetupResolution(options: {
       },
     },
   };
+}
+
+export function dispatchPlaybackSetup(options: PlaybackSetupDispatch): void {
+  if (options.setupKind === 'youtube') {
+    options.onYouTube();
+    return;
+  }
+
+  if (options.setupKind === 'audio' || options.setupKind === 'video') {
+    options.onHtml(options.setupKind);
+  }
 }

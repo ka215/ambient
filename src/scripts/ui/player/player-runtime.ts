@@ -19,6 +19,10 @@ export interface PlaybackSelection {
   playbackPlan: PlaybackSetupPlan;
 }
 
+export interface PlayableTransitionTarget extends PlaybackTarget {
+  setupKind: PlayableSetupKind;
+}
+
 export type YouTubeTransitionCleanupMode = 'destroy' | 'remove_host' | 'none';
 
 export function resolveNextPlaybackTarget(
@@ -112,6 +116,25 @@ export function resolvePlaybackTargetSetupKind(
   }
 
   return setupKind;
+}
+
+export function resolvePlayableTransitionTarget(
+  playbackTarget: PlaybackTarget | null,
+  getExtension: (src: string) => string
+): PlayableTransitionTarget | null {
+  if (!playbackTarget) {
+    return null;
+  }
+
+  const setupKind = resolvePlaybackTargetSetupKind(playbackTarget, getExtension);
+  if (!setupKind) {
+    return null;
+  }
+
+  return {
+    ...playbackTarget,
+    setupKind,
+  };
 }
 
 export function findMediaById(mediaItems: MediaItem[], targetId: number | null): MediaItem | null {

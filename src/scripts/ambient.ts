@@ -129,8 +129,8 @@ import {
 import {
   applyYouTubeTransitionCleanup,
   findMediaById,
+  resolvePlayableTransitionTarget,
   resolvePlaybackSelectionById,
-  resolvePlaybackTargetSetupKind,
   resolvePlaybackNeighborIds,
   resolveEndedPlaybackTarget as resolveEndedPlaybackTargetRuntime,
   resolveSeekRange,
@@ -159,6 +159,7 @@ import {
   handleHtmlPlayingState,
 } from './ui/player/html-player-events';
 import {
+  dispatchPlaybackSetup,
   type PlayableSetupKind,
   resolvePlaybackSetupResolution,
 } from './ui/player/player-setup';
@@ -4932,17 +4933,16 @@ const init = function (): void {
       reportMediaPlaybackIssue(mediaData, setupResolution.issue.reason, setupResolution.issue.details);
       return;
     }
-
-    if (setupKind === 'youtube') {
-      AMP_STATUS.yt_error = '';
-      createYTPlayer(mediaData);
-      return;
-    }
-
-    if (setupKind === 'audio' || setupKind === 'video') {
-      createPlayerTag(setupKind, mediaData);
-      return;
-    }
+    dispatchPlaybackSetup({
+      setupKind,
+      onYouTube: () => {
+        AMP_STATUS.yt_error = '';
+        createYTPlayer(mediaData);
+      },
+      onHtml: (kind) => {
+        createPlayerTag(kind, mediaData);
+      },
+    });
   }
 
   /**
@@ -4982,15 +4982,12 @@ const init = function (): void {
   function transitionToPlaybackTarget(
     playbackTarget: ReturnType<typeof resolveNextPlaybackTarget> | null
   ): void {
-    if (!playbackTarget) {
+    const playableTarget = resolvePlayableTransitionTarget(playbackTarget, getExt);
+    if (!playableTarget) {
       return;
     }
-    updatePlayStatus(playbackTarget.nextId);
-    const setupKind = resolvePlaybackTargetSetupKind(playbackTarget, getExt);
-    if (!setupKind) {
-      return;
-    }
-    setupPlayer(setupKind, playbackTarget.mediaSrc, playbackTarget.mediaData);
+    updatePlayStatus(playableTarget.nextId);
+    setupPlayer(playableTarget.setupKind, playableTarget.mediaSrc, playableTarget.mediaData);
   }
 
   function cleanupYouTubeTransition(event: any, playbackTarget: ReturnType<typeof resolveNextPlaybackTarget> | null): void {
