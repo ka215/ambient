@@ -161,7 +161,9 @@ import {
   resolvePlaybackSetupPlan,
 } from './ui/player/player-setup';
 import {
+  buildYouTubePreviewPlayerConfig,
   createYouTubePlayerHost,
+  createYouTubePreviewHost,
   destroyYouTubePreviewPlayer,
   hideYouTubePlayerWrapper,
   setWatchOriginState,
@@ -2047,10 +2049,10 @@ const init = function (): void {
     }
 
     if (mediaItem.videoid && mediaItem.videoid.trim() !== '') {
-      const ytRoot = document.createElement('div');
-      ytRoot.id = MEDIA_EDIT_PREVIEW_YT_PLAYER_ID;
-      ytRoot.className = 'media-edit-preview-embed mx-auto aspect-video w-full max-w-3xl';
-      $MEDIA_EDIT_PREVIEW.appendChild(ytRoot);
+      createYouTubePreviewHost({
+        embedWrapper: $MEDIA_EDIT_PREVIEW,
+        playerId: MEDIA_EDIT_PREVIEW_YT_PLAYER_ID,
+      });
 
       const ytApi = (window as any).YT;
       if (!ytApi || typeof ytApi.Player !== 'function') {
@@ -2063,15 +2065,7 @@ const init = function (): void {
       try {
         mediaEditPreviewType = 'youtube';
         mediaEditPreviewYouTubePlayer = new ytApi.Player(MEDIA_EDIT_PREVIEW_YT_PLAYER_ID, {
-          height: 270,
-          width: 480,
-          videoId: mediaItem.videoid,
-          playerVars: {
-            autoplay: 0,
-            controls: 1,
-            rel: 0,
-            fs: 0,
-          },
+          ...buildYouTubePreviewPlayerConfig(mediaItem.videoid),
           events: {
             onReady: () => {
               syncYouTubePreviewDuration({

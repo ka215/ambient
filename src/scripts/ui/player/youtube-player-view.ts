@@ -15,6 +15,36 @@ export function createYouTubePlayerHost(options: YouTubePlayerHostOptions): HTML
   return playerElement;
 }
 
+export function createYouTubePreviewHost(options: YouTubePlayerHostOptions): HTMLDivElement {
+  const playerElement = createYouTubePlayerHost(options);
+  playerElement.className = 'media-edit-preview-embed mx-auto aspect-video w-full max-w-3xl';
+  return playerElement;
+}
+
+export function buildYouTubePreviewPlayerConfig(videoId: string): {
+  height: number;
+  width: number;
+  videoId: string;
+  playerVars: {
+    autoplay: number;
+    controls: number;
+    rel: number;
+    fs: number;
+  };
+} {
+  return {
+    height: 270,
+    width: 480,
+    videoId,
+    playerVars: {
+      autoplay: 0,
+      controls: 1,
+      rel: 0,
+      fs: 0,
+    },
+  };
+}
+
 export function showYouTubePlayerWrapper(embedWrapper: HTMLElement): void {
   embedWrapper.classList.add('w-max', 'h-max');
   embedWrapper.classList.remove('w-full', 'h-0', 'opacity-0');
