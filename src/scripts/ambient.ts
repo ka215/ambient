@@ -130,7 +130,6 @@ import {
   resolvePlaybackTargetSetupKind,
   resolvePlaybackNeighborIds,
   resolveEndedPlaybackTarget as resolveEndedPlaybackTargetRuntime,
-  resolveLoopAwareNextId,
   resolveSeekRange,
   resolveNextPlaybackTarget,
   resolveYouTubeTransitionCleanupMode,
@@ -5327,9 +5326,9 @@ const init = function (): void {
         $EMBED_WRAPPER.classList.remove('max-w-2xl', 'w-max', 'h-max', 'border-0');
       },
       resolvePlaybackTarget: () => {
-        const resolvedNextId = resolveLoopAwareNextId(AMP_STATUS.current, AMP_STATUS.next, Boolean(AMP_STATUS.loop));
-        logger('ended:', AMP_STATUS, resolvedNextId);
-        return resolveNextPlaybackTarget(AMP_STATUS.media || [], resolvedNextId);
+        const playbackTarget = resolveEndedPlaybackTarget();
+        logger('ended:', AMP_STATUS, playbackTarget?.nextId ?? null);
+        return playbackTarget;
       },
       onTransition: (playbackTarget) => {
         if (playbackTarget.playerType === 'youtube') {
