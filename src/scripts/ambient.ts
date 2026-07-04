@@ -71,6 +71,7 @@ import {
   applyMenuMinimizedState,
   bindViewportSyncEvents,
   isFullWindowMode as isFullWindowModeView,
+  syncViewportMetricsState,
   syncViewportLayout,
 } from './ui/viewport';
 import {
@@ -2983,21 +2984,15 @@ const init = function (): void {
   }
 
   function syncViewportMetrics(): void {
-    const visualViewport = window.visualViewport;
-    const width = getViewportWidth();
-    const height = getViewportHeight();
-    const offsetTop = Math.max(0, Math.round(visualViewport?.offsetTop || 0));
-    const visualBottomInset = Math.max(0, Math.round(window.innerHeight - height - offsetTop));
-    const rootStyle = document.documentElement.style;
-    rootStyle.setProperty('--amp-viewport-width', `${width}px`);
-    rootStyle.setProperty('--amp-viewport-height', `${height}px`);
-    rootStyle.setProperty('--amp-visual-offset-top', `${offsetTop}px`);
-    rootStyle.setProperty('--amp-visual-bottom-inset', `${visualBottomInset}px`);
-    rootStyle.setProperty('--amp-bottom-menu-height', `${getBottomMenuHeight()}px`);
-    document.body.style.minHeight = `${height}px`;
-    document.body.style.height = `${height}px`;
-    currentWindowSize.width = width;
-    currentWindowSize.height = height;
+    syncViewportMetricsState({
+      getViewportWidth,
+      getViewportHeight,
+      getBottomMenuHeight,
+      onMeasured: ({ width, height }) => {
+        currentWindowSize.width = width;
+        currentWindowSize.height = height;
+      },
+    });
   }
 
   function scheduleViewportMetricsSync(delay = 0): void {

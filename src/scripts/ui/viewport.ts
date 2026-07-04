@@ -42,6 +42,38 @@ export function bindViewportSyncEvents(options: {
   });
 }
 
+export function syncViewportMetricsState(options: {
+  getViewportWidth: () => number;
+  getViewportHeight: () => number;
+  getBottomMenuHeight: () => number;
+  onMeasured?: (metrics: {
+    width: number;
+    height: number;
+    offsetTop: number;
+    visualBottomInset: number;
+  }) => void;
+}): void {
+  const visualViewport = window.visualViewport;
+  const width = options.getViewportWidth();
+  const height = options.getViewportHeight();
+  const offsetTop = Math.max(0, Math.round(visualViewport?.offsetTop || 0));
+  const visualBottomInset = Math.max(0, Math.round(window.innerHeight - height - offsetTop));
+  const rootStyle = document.documentElement.style;
+  rootStyle.setProperty('--amp-viewport-width', `${width}px`);
+  rootStyle.setProperty('--amp-viewport-height', `${height}px`);
+  rootStyle.setProperty('--amp-visual-offset-top', `${offsetTop}px`);
+  rootStyle.setProperty('--amp-visual-bottom-inset', `${visualBottomInset}px`);
+  rootStyle.setProperty('--amp-bottom-menu-height', `${options.getBottomMenuHeight()}px`);
+  document.body.style.minHeight = `${height}px`;
+  document.body.style.height = `${height}px`;
+  options.onMeasured?.({
+    width,
+    height,
+    offsetTop,
+    visualBottomInset,
+  });
+}
+
 export function isFullWindowMode(body: HTMLElement): boolean {
   return body.classList.contains('amp-full-window');
 }
