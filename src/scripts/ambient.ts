@@ -101,12 +101,12 @@ import {
   type NoticeController,
 } from './ui/notifications';
 import {
+  renderMediaCaption,
   syncCaptionMarquee,
   syncPlaybackButtonState,
   syncMenuCollapseButtonState,
   syncPlaybackButtons,
   syncWindowFullButtonState,
-  updateMediaCaptionView,
 } from './ui/player/player-shell';
 import {
   getBottomMenuHeight as getBottomMenuHeightView,
@@ -4370,12 +4370,13 @@ const init = function (): void {
    * Update the media caption display.
    */
   function updateMediaCaption(mediaData: MediaItem): void {
-    updateMediaCaptionView({
+    renderMediaCaption({
       mediaData,
+      bodyElement: $BODY,
       captionElement: $MEDIA_CAPTION,
+      fallbackWidth: currentWindowSize.width,
       sanitizeTitle: (value: string) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
       sanitizeArtist: (value: string) => sanitizeMediaText(value, MEDIA_ARTIST_MAX_LENGTH),
-      onUpdated: toggleMarqueeCaption,
     });
   }
 

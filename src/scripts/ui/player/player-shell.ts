@@ -96,6 +96,22 @@ export function syncCaptionMarquee(
   captionElement.appendChild(marqueeClone);
 }
 
+export function renderMediaCaption(options: MediaCaptionOptions & {
+  bodyElement: HTMLElement;
+  fallbackWidth: number;
+}): void {
+  updateMediaCaptionView({
+    mediaData: options.mediaData,
+    captionElement: options.captionElement,
+    sanitizeTitle: options.sanitizeTitle,
+    sanitizeArtist: options.sanitizeArtist,
+    onUpdated: () => {
+      syncCaptionMarquee(options.bodyElement, options.captionElement, options.fallbackWidth);
+      options.onUpdated?.();
+    },
+  });
+}
+
 export function syncWindowFullButtonState(button: HTMLButtonElement | null, enabled: boolean): void {
   if (!button) {
     return;
