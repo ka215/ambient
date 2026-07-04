@@ -136,9 +136,8 @@ import {
 } from './ui/player/player-runtime';
 import {
   bindHtmlVideoPresentation,
-  mountPlayerElement,
-  resetWatchOriginState,
-  showHtmlPlayerWrapper,
+  cleanupHtmlPlayerWrapper,
+  prepareHtmlPlayerWrapper,
 } from './ui/player/html-player-view';
 import {
   bindHtmlEndedEvent,
@@ -5323,7 +5322,7 @@ const init = function (): void {
       playerElement: playerElm,
       onBeforeTransition: () => {
         abortPlaybackTimers();
-        $EMBED_WRAPPER.classList.remove('max-w-2xl', 'w-max', 'h-max', 'border-0');
+        cleanupHtmlPlayerWrapper($EMBED_WRAPPER);
       },
       resolvePlaybackTarget: () => {
         const playbackTarget = resolveEndedPlaybackTarget();
@@ -5345,9 +5344,12 @@ const init = function (): void {
         reportHtmlMediaLoadIssue(mediaElement, event, reason);
       },
     });
-    mountPlayerElement($EMBED_WRAPPER, playerElm);
-    showHtmlPlayerWrapper($EMBED_WRAPPER);
-    resetWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER);
+    prepareHtmlPlayerWrapper({
+      embedWrapper: $EMBED_WRAPPER,
+      playerElement: playerElm,
+      watchButton: $BUTTON_WATCH_TY,
+      optionalContainer: $OPTIONAL_CONTAINER,
+    });
     bindHtmlVideoPresentation({
       playerElement: playerElm,
       allowFullScreen: resolveMediaFullscreenEnabled(mediaData, playbackConfig.fs),

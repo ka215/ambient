@@ -38,6 +38,10 @@ export function mountPlayerElement(embedWrapper: HTMLElement, playerElement: HTM
   embedWrapper.appendChild(playerElement);
 }
 
+export function cleanupHtmlPlayerWrapper(embedWrapper: HTMLElement): void {
+  embedWrapper.classList.remove('max-w-2xl', 'w-max', 'h-max', 'border-0');
+}
+
 export function applyHtmlPlayerSize(
   playerElement: HTMLVideoElement,
   size: { width: number; height: number },
@@ -108,6 +112,17 @@ export function bindHtmlVideoPresentation(options: {
 export function showHtmlPlayerWrapper(embedWrapper: HTMLElement): void {
   embedWrapper.classList.add('max-w-2xl', 'w-max', 'h-max', 'border-0');
   embedWrapper.classList.remove('border', 'w-full', 'h-0', 'opacity-0');
+}
+
+export function prepareHtmlPlayerWrapper(options: {
+  embedWrapper: HTMLElement;
+  playerElement: HTMLElement;
+  watchButton: HTMLAnchorElement;
+  optionalContainer: HTMLElement;
+}): void {
+  mountPlayerElement(options.embedWrapper, options.playerElement);
+  showHtmlPlayerWrapper(options.embedWrapper);
+  resetWatchOriginState(options.watchButton, options.optionalContainer);
 }
 
 export function resetWatchOriginState(
