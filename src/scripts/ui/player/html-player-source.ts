@@ -49,6 +49,13 @@ export function resolveHtmlMediaSourcePath(path: string): string {
   return `${mediaDir}${pathWithoutDot.replace(/^\/+/, '')}`;
 }
 
+export function resolveHtmlMediaTagName(path: string): 'audio' | 'video' {
+  const ext = getExtension(path);
+  const videoExtensions = new Set(['avi', 'mp4', 'mpeg', 'mpg', 'ogv', 'ts', 'webm', '3gp', '3g2']);
+
+  return videoExtensions.has(ext) ? 'video' : 'audio';
+}
+
 function getExtension(path: string): string {
   const normalizedPath = String(path || '').split(/[?#]/, 1)[0] || '';
   const lastSlashIndex = Math.max(normalizedPath.lastIndexOf('/'), normalizedPath.lastIndexOf('\\'));

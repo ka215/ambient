@@ -143,6 +143,7 @@ import {
 import {
   resolveHtmlMediaMimeType,
   resolveHtmlMediaSourcePath,
+  resolveHtmlMediaTagName,
 } from './ui/player/html-player-source';
 import {
   bindHtmlEndedEvent,
@@ -2045,12 +2046,6 @@ const init = function (): void {
     validateAndRenderMediaEditDraftFromForm();
   }
 
-  function resolveMediaEditPreviewTagName(path: string): 'audio' | 'video' {
-    const ext = getExt(path);
-    const videoExtSet = new Set(['avi', 'mp4', 'mpeg', 'mpg', 'ogv', 'ts', 'webm', '3gp', '3g2']);
-    return videoExtSet.has(ext) ? 'video' : 'audio';
-  }
-
   function createMediaEditPreview(mediaItem: MediaItem): void {
     resetMediaEditPreviewState();
     mediaEditPreviewSourceItem = mediaItem;
@@ -2119,7 +2114,7 @@ const init = function (): void {
 
     if (mediaItem.file && mediaItem.file.trim() !== '') {
       const sourcePath = resolveHtmlMediaSourcePath(mediaItem.file);
-      const tagName = resolveMediaEditPreviewTagName(sourcePath);
+      const tagName = resolveHtmlMediaTagName(sourcePath);
       const previewElm = document.createElement(tagName) as HTMLMediaElement;
       const sourceElm = document.createElement('source');
       let hasReportedLoadIssue = false;
