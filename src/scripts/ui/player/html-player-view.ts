@@ -31,6 +31,34 @@ export function createHtmlPlayerView(options: CreateHtmlPlayerViewOptions): {
   return { playerElement, sourceElement };
 }
 
+export function createHtmlPreviewPlayerView(options: {
+  tagName: 'audio' | 'video';
+  sourcePath: string;
+  sourceType: string;
+}): {
+  playerElement: HTMLMediaElement;
+  sourceElement: HTMLSourceElement;
+} {
+  const { playerElement, sourceElement } = createHtmlPlayerView({
+    tagName: options.tagName,
+    mediaData: {} as MediaItem,
+    controls: 'true',
+    autoplay: 'false',
+    sourcePath: options.sourcePath,
+    sourceType: options.sourceType,
+  });
+
+  playerElement.className = [
+    'media-edit-preview-player',
+    options.tagName === 'audio' ? 'ambient-audio-player' : '',
+    'mx-auto block w-full max-h-[280px] rounded',
+  ].filter(Boolean).join(' ');
+  playerElement.setAttribute('preload', 'metadata');
+  playerElement.setAttribute('playsinline', 'true');
+
+  return { playerElement, sourceElement };
+}
+
 export function mountPlayerElement(embedWrapper: HTMLElement, playerElement: HTMLElement): void {
   while (embedWrapper.firstChild) {
     embedWrapper.removeChild(embedWrapper.firstChild);

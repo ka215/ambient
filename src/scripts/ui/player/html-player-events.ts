@@ -141,3 +141,39 @@ export function bindHtmlErrorEvents(options: {
     options.reportIssue(options.playerElement, event, 'source_error');
   });
 }
+
+export function createHtmlLoadErrorReporter(onError: () => void): () => void {
+  let hasReportedLoadIssue = false;
+
+  return (): void => {
+    if (hasReportedLoadIssue) {
+      return;
+    }
+
+    hasReportedLoadIssue = true;
+    onError();
+  };
+}
+
+export function bindHtmlPreviewLoadEvents(options: {
+  playerElement: HTMLMediaElement;
+  sourceElement: HTMLSourceElement;
+  onLoadedMetadata: () => void;
+  onLoadError: () => void;
+}): void {
+  const reportLoadErrorOnce = createHtmlLoadErrorReporter(options.onLoadError);
+
+  options.playerElement.addEventListener('loadedmetadata', options.onLoadedMetadata);
+  options.playerElement.addEventListener('error', reportLoadErrorOnce);
+  options.sourceElement.addEventListener('error', reportLoadErrorOnce);
+  options.playerElement.addEventListener('loadstart', () => {
+    window.setTimeout(() => {
+      if (
+        options.playerElement.readyState === 0
+        && (options.playerElement.networkState === 3 || options.playerElement.error)
+      ) {
+        reportLoadErrorOnce();
+      }
+    }, 5000);
+  });
+}

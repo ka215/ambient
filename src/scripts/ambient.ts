@@ -136,6 +136,7 @@ import {
 } from './ui/player/player-runtime';
 import {
   createHtmlPlayerView,
+  createHtmlPreviewPlayerView,
   bindHtmlVideoPresentation,
   cleanupHtmlPlayerWrapper,
   prepareHtmlPlayerWrapper,
@@ -149,6 +150,7 @@ import {
   bindHtmlEndedEvent,
   bindHtmlErrorEvents,
   bindHtmlPlaybackStateEvents,
+  bindHtmlPreviewLoadEvents,
   bindHtmlSeekOnPlay,
   createHtmlMediaIssueReporter,
   handleHtmlPlayingState,
@@ -2115,51 +2117,26 @@ const init = function (): void {
     if (mediaItem.file && mediaItem.file.trim() !== '') {
       const sourcePath = resolveHtmlMediaSourcePath(mediaItem.file);
       const tagName = resolveHtmlMediaTagName(sourcePath);
-      const previewElm = document.createElement(tagName) as HTMLMediaElement;
-      const sourceElm = document.createElement('source');
-      let hasReportedLoadIssue = false;
-
-      previewElm.className = [
-        'media-edit-preview-player',
-        tagName === 'audio' ? 'ambient-audio-player' : '',
-        'mx-auto block w-full max-h-[280px] rounded',
-      ].filter(Boolean).join(' ');
-      previewElm.setAttribute('controls', 'true');
-      previewElm.setAttribute('preload', 'metadata');
-      previewElm.setAttribute('playsinline', 'true');
-
-      sourceElm.src = sourcePath;
-      sourceElm.setAttribute('type', resolveHtmlMediaMimeType(sourcePath, tagName));
-      previewElm.appendChild(sourceElm);
-
-      const showLoadErrorOnce = (): void => {
-        if (hasReportedLoadIssue) {
-          return;
-        }
-        hasReportedLoadIssue = true;
-        showMediaEditPreviewError(
-          getLocalizedMessage('mediaEditPreviewLoadFailed', 'Failed to load media preview. Please try again.')
-        );
-      };
-
-      previewElm.addEventListener('loadedmetadata', () => {
-        mediaEditPreviewDurationSeconds = normalizeMediaEditTimingValue(previewElm.duration, null);
-        validateAndRenderMediaEditDraftFromForm();
-        maybeCompleteMediaEditDurationSyncWait();
-        hideMediaEditPreviewError();
+      const { playerElement: previewElm, sourceElement: sourceElm } = createHtmlPreviewPlayerView({
+        tagName,
+        sourcePath,
+        sourceType: resolveHtmlMediaMimeType(sourcePath, tagName),
       });
-      previewElm.addEventListener('error', () => {
-        showLoadErrorOnce();
-      });
-      sourceElm.addEventListener('error', () => {
-        showLoadErrorOnce();
-      });
-      previewElm.addEventListener('loadstart', () => {
-        window.setTimeout(() => {
-          if (previewElm.readyState === 0 && (previewElm.networkState === 3 || previewElm.error)) {
-            showLoadErrorOnce();
-          }
-        }, 5000);
+
+      bindHtmlPreviewLoadEvents({
+        playerElement: previewElm,
+        sourceElement: sourceElm,
+        onLoadedMetadata: () => {
+          mediaEditPreviewDurationSeconds = normalizeMediaEditTimingValue(previewElm.duration, null);
+          validateAndRenderMediaEditDraftFromForm();
+          maybeCompleteMediaEditDurationSyncWait();
+          hideMediaEditPreviewError();
+        },
+        onLoadError: () => {
+          showMediaEditPreviewError(
+            getLocalizedMessage('mediaEditPreviewLoadFailed', 'Failed to load media preview. Please try again.')
+          );
+        },
       });
 
       $MEDIA_EDIT_PREVIEW.appendChild(previewElm);
