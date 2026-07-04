@@ -103,6 +103,32 @@ export function handleHtmlPlayingState(options: {
   }
 }
 
+export function handleHtmlPlayingEvent(options: {
+  showPlayingState: () => void;
+  playerElement: HTMLMediaElement;
+  mediaData: MediaItem;
+  faderEnabled: boolean;
+  playbackVolume: number | null;
+  fallbackVolume: number;
+  normalizeVolume: (value: number | null, fallback?: number) => number;
+  resolveSeekRange: (mediaData: MediaItem, duration: number) => { seekStart: number; seekEnd: number };
+  fadeOut: (media: HTMLMediaElement, period: number, start: number) => void;
+  fadeIn: (media: HTMLMediaElement, period: number, start: number) => void;
+}): void {
+  options.showPlayingState();
+  handleHtmlPlayingState({
+    playerElement: options.playerElement,
+    mediaData: options.mediaData,
+    faderEnabled: options.faderEnabled,
+    playbackVolume: options.playbackVolume,
+    fallbackVolume: options.fallbackVolume,
+    normalizeVolume: options.normalizeVolume,
+    resolveSeekRange: options.resolveSeekRange,
+    fadeOut: options.fadeOut,
+    fadeIn: options.fadeIn,
+  });
+}
+
 export function bindHtmlEndedEvent(options: {
   playerElement: HTMLMediaElement;
   onBeforeTransition: () => void;

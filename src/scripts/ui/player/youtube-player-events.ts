@@ -167,6 +167,34 @@ export function handleYouTubePlayingState(options: {
   });
 }
 
+export function handleYouTubePlayingEvent(options: {
+  emitPlaying: () => void;
+  showPauseState: () => void;
+  faderEnabled: boolean;
+  mediaData: MediaItem | null;
+  duration: number;
+  playbackVolume: number;
+  normalizeVolume: (value: number) => number;
+  resolveSeekRange: (mediaData: MediaItem, fallbackEnd: number) => { seekStart: number; seekEnd: number };
+  setVolume: (value: number) => void;
+  fadeIn: (period: number, start: number) => void;
+  fadeOut: (period: number, end: number) => void;
+}): void {
+  handleYouTubePlayingState({
+    emitPlaying: options.emitPlaying,
+    showPauseState: options.showPauseState,
+    faderEnabled: options.faderEnabled,
+    mediaData: options.mediaData,
+    duration: options.duration,
+    playbackVolume: options.playbackVolume,
+    normalizeVolume: options.normalizeVolume,
+    resolveSeekRange: options.resolveSeekRange,
+    setVolume: options.setVolume,
+    fadeIn: options.fadeIn,
+    fadeOut: options.fadeOut,
+  });
+}
+
 export function handleYouTubeUnstartedState(options: {
   autoplayEnabled: boolean;
   emitUnstarted: () => void;

@@ -160,7 +160,7 @@ import {
   bindHtmlPlayerPlaybackEvents,
   bindHtmlPreviewLoadEvents,
   createHtmlMediaIssueReporter,
-  handleHtmlPlayingState,
+  handleHtmlPlayingEvent,
 } from './ui/player/html-player-events';
 import {
   dispatchPlaybackSetup,
@@ -180,9 +180,9 @@ import {
 import {
   handleYouTubeEndedEvent,
   handleYouTubeErrorEvent,
+  handleYouTubePlayingEvent,
   handleYouTubeReadyEvent,
   handleYouTubePausedState,
-  handleYouTubePlayingState,
   handleYouTubeStateChangeEvent,
   syncYouTubePreviewDuration,
 } from './ui/player/youtube-player-events';
@@ -5059,7 +5059,7 @@ const init = function (): void {
       },
       onPlaying: () => {
         const currentMedia = findMediaById(AMP_STATUS.media || [], AMP_STATUS.current);
-        handleYouTubePlayingState({
+        handleYouTubePlayingEvent({
           emitPlaying: () => {
             emitYouTubeSignal('playing');
           },
@@ -5192,8 +5192,10 @@ const init = function (): void {
       abortSeeking,
       abortFadeOut: () => abortFader('fadeout'),
       onPlaying: () => {
-        syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
-        handleHtmlPlayingState({
+        handleHtmlPlayingEvent({
+          showPlayingState: () => {
+            syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
+          },
           playerElement: playerElm,
           mediaData,
           faderEnabled: Boolean(AMP_STATUS.fader),
