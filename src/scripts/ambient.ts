@@ -131,6 +131,7 @@ import {
 import {
   applyYouTubeTransitionCleanup,
   findMediaById,
+  resolvePlaybackSelectionById,
   resolvePlaybackTargetSetupKind,
   resolvePlaybackNeighborIds,
   resolveEndedPlaybackTarget as resolveEndedPlaybackTargetRuntime,
@@ -168,7 +169,6 @@ import {
 } from './ui/player/html-player-events';
 import {
   type PlayableSetupKind,
-  resolvePlaybackSetupPlan,
 } from './ui/player/player-setup';
 import {
   buildYouTubePreviewPlayerConfig,
@@ -4881,14 +4881,14 @@ const init = function (): void {
   function playItem(object: HTMLElement | null = null, id: number | null = null): void {
     const thisElm = isElement(object) ? (object as HTMLElement) : null;
     const amId = id !== null ? id : Number((thisElm as any)?.dataset?.playlistItem || 0);
-    const mediaData = (AMP_STATUS.media || []).filter((item: MediaItem) => item.amId === amId).shift();
-
-    if (!mediaData) return;
-
-    const playbackPlan = resolvePlaybackSetupPlan({
-      mediaData,
+    const playbackSelection = resolvePlaybackSelectionById({
+      mediaItems: AMP_STATUS.media || [],
+      targetId: amId,
       getExtension: getExt,
     });
+    if (!playbackSelection) return;
+
+    const { mediaData, playbackPlan } = playbackSelection;
 
     logger('playItem:', amId, playbackPlan.src, playbackPlan.kind);
     updatePlayStatus(amId);

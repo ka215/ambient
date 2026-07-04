@@ -1,5 +1,6 @@
 import type { MediaItem } from '../../types/ambient';
 import {
+  type PlaybackSetupPlan,
   resolvePlaybackSetupPlan,
   resolvePlaybackSource,
   type PlaybackSourceType,
@@ -11,6 +12,11 @@ export interface PlaybackTarget {
   mediaData: MediaItem;
   mediaSrc: string | null;
   playerType: PlaybackSourceType | null;
+}
+
+export interface PlaybackSelection {
+  mediaData: MediaItem;
+  playbackPlan: PlaybackSetupPlan;
 }
 
 export type YouTubeTransitionCleanupMode = 'destroy' | 'remove_host' | 'none';
@@ -113,6 +119,25 @@ export function findMediaById(mediaItems: MediaItem[], targetId: number | null):
     return null;
   }
   return mediaItems.find((item) => item.amId === targetId) || null;
+}
+
+export function resolvePlaybackSelectionById(options: {
+  mediaItems: MediaItem[];
+  targetId: number | null;
+  getExtension: (src: string) => string;
+}): PlaybackSelection | null {
+  const mediaData = findMediaById(options.mediaItems, options.targetId);
+  if (!mediaData) {
+    return null;
+  }
+
+  return {
+    mediaData,
+    playbackPlan: resolvePlaybackSetupPlan({
+      mediaData,
+      getExtension: options.getExtension,
+    }),
+  };
 }
 
 export function resolveSeekRange(mediaData: MediaItem, fallbackEnd: number): {
