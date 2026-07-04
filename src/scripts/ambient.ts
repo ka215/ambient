@@ -181,7 +181,7 @@ import {
   handleYouTubeEndedEvent,
   handleYouTubeErrorEvent,
   handleYouTubePlayingEvent,
-  handleYouTubeReadyEvent,
+  handleYouTubeReadyUiEvent,
   handleYouTubePausedState,
   handleYouTubeStateChangeEvent,
   syncYouTubePreviewDuration,
@@ -4955,9 +4955,13 @@ const init = function (): void {
    * Event handler that is called when the YouTube player is ready to play.
    */
   function onPlayerReady(event: any): void {
-    emitYouTubeSignal('player_ready');
-    showYouTubePlayerWrapper($EMBED_WRAPPER);
-    handleYouTubeReadyEvent({
+    handleYouTubeReadyUiEvent({
+      emitReady: () => {
+        emitYouTubeSignal('player_ready');
+      },
+      showPlayerWrapper: () => {
+        showYouTubePlayerWrapper($EMBED_WRAPPER);
+      },
       mediaItems: AMP_STATUS.media || [],
       currentId: AMP_STATUS.current,
       findMediaById,
