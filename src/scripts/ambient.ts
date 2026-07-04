@@ -167,6 +167,7 @@ import {
 } from './ui/player/html-player-events';
 import {
   type PlayableSetupKind,
+  resolvePlaybackSetupResolution,
 } from './ui/player/player-setup';
 import {
   buildYouTubePreviewPlayerConfig,
@@ -4919,37 +4920,35 @@ const init = function (): void {
     abortPlaybackTimers();
     // update media caption.
     updateMediaCaption(mediaData);
+    const setupResolution = resolvePlaybackSetupResolution({
+      setupKind,
+      src,
+      extension,
+      getExtension: getExt,
+    });
+    AMP_STATUS.playertype = setupResolution.playerType;
+
+    if (setupResolution.youtubeSignal?.phase === 'inactive') {
+      emitYouTubeSignal('inactive');
+    }
+    if (setupResolution.youtubeSignal?.phase === 'error') {
+      emitYouTubeSignal('error', setupResolution.youtubeSignal.error || '');
+    }
+    if (setupResolution.issue) {
+      reportMediaPlaybackIssue(mediaData, setupResolution.issue.reason, setupResolution.issue.details);
+      return;
+    }
 
     if (setupKind === 'youtube') {
-      AMP_STATUS.playertype = 'youtube';
       AMP_STATUS.yt_error = '';
       createYTPlayer(mediaData);
       return;
     }
 
     if (setupKind === 'audio' || setupKind === 'video') {
-      emitYouTubeSignal('inactive');
-      AMP_STATUS.playertype = setupKind;
       createPlayerTag(setupKind, mediaData);
       return;
     }
-
-    if (setupKind === 'unsupported_html') {
-      emitYouTubeSignal('inactive');
-      AMP_STATUS.playertype = null;
-      reportMediaPlaybackIssue(mediaData, 'unsupported_file_format', {
-        src,
-        extension: extension || getExt(src || ''),
-      });
-      return;
-    }
-
-    AMP_STATUS.playertype = null;
-    emitYouTubeSignal('error', 'unsupported_player_specified');
-    reportMediaPlaybackIssue(mediaData, 'unsupported_player_specified', {
-      src,
-      type: setupKind,
-    });
   }
 
   /**

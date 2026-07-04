@@ -4,6 +4,7 @@ export type PlaybackSourceType = 'youtube' | 'html';
 export type HtmlPlayerKind = 'audio' | 'video';
 export type PlaybackSetupKind = 'youtube' | 'audio' | 'video' | 'missing' | 'unsupported_html' | 'unsupported_player';
 export type PlayableSetupKind = Exclude<PlaybackSetupKind, 'missing'>;
+export type ActivePlayerType = HtmlPlayerKind | 'youtube' | null;
 
 export interface ResolvedPlaybackSource {
   type: PlaybackSourceType | null;
@@ -16,6 +17,18 @@ export interface PlaybackSetupPlan {
   src: string | null;
   extension: string | null;
   htmlPlayerKind: HtmlPlayerKind | null;
+}
+
+export interface PlaybackSetupResolution {
+  playerType: ActivePlayerType;
+  youtubeSignal: {
+    phase: 'inactive' | 'error';
+    error?: string;
+  } | null;
+  issue: {
+    reason: 'unsupported_file_format' | 'unsupported_player_specified';
+    details: Record<string, unknown>;
+  } | null;
 }
 
 export function resolvePlaybackSource(mediaData: MediaItem): ResolvedPlaybackSource {
@@ -103,5 +116,61 @@ export function resolvePlaybackSetupPlan(options: {
     src: source.src,
     extension: null,
     htmlPlayerKind: null,
+  };
+}
+
+export function resolvePlaybackSetupResolution(options: {
+  setupKind: PlayableSetupKind;
+  src: string | null;
+  extension: string | null;
+  getExtension: (src: string) => string;
+}): PlaybackSetupResolution {
+  if (options.setupKind === 'youtube') {
+    return {
+      playerType: 'youtube',
+      youtubeSignal: null,
+      issue: null,
+    };
+  }
+
+  if (options.setupKind === 'audio' || options.setupKind === 'video') {
+    return {
+      playerType: options.setupKind,
+      youtubeSignal: {
+        phase: 'inactive',
+      },
+      issue: null,
+    };
+  }
+
+  if (options.setupKind === 'unsupported_html') {
+    return {
+      playerType: null,
+      youtubeSignal: {
+        phase: 'inactive',
+      },
+      issue: {
+        reason: 'unsupported_file_format',
+        details: {
+          src: options.src,
+          extension: options.extension || options.getExtension(options.src || ''),
+        },
+      },
+    };
+  }
+
+  return {
+    playerType: null,
+    youtubeSignal: {
+      phase: 'error',
+      error: 'unsupported_player_specified',
+    },
+    issue: {
+      reason: 'unsupported_player_specified',
+      details: {
+        src: options.src,
+        type: options.setupKind,
+      },
+    },
   };
 }
