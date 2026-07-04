@@ -171,3 +171,17 @@ export function applyYouTubePlaybackFader(options: {
     options.fadeIn(parseFloat(String(currentMedia.fadein)), seekStart);
   }
 }
+
+export function syncYouTubePreviewDuration(options: {
+  readDuration: () => number | null;
+  onDurationResolved: (duration: number | null) => void;
+  onDurationAvailable?: () => void;
+  hidePreviewError: () => void;
+}): void {
+  const duration = options.readDuration();
+  options.onDurationResolved(duration);
+  if (duration !== null) {
+    options.onDurationAvailable?.();
+  }
+  options.hidePreviewError();
+}

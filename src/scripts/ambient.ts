@@ -170,6 +170,7 @@ import {
   handleYouTubePausedState,
   handleYouTubePlayingState,
   handleYouTubeUnstartedState,
+  syncYouTubePreviewDuration,
 } from './ui/player/youtube-player-events';
 import {
   clearCategoryView,
@@ -2084,20 +2085,33 @@ const init = function (): void {
           },
           events: {
             onReady: () => {
-              const duration = normalizeMediaEditTimingValue(mediaEditPreviewYouTubePlayer?.getDuration(), null);
-              mediaEditPreviewDurationSeconds = duration;
-              validateAndRenderMediaEditDraftFromForm();
-              maybeCompleteMediaEditDurationSyncWait();
-              hideMediaEditPreviewError();
+              syncYouTubePreviewDuration({
+                readDuration: () => normalizeMediaEditTimingValue(mediaEditPreviewYouTubePlayer?.getDuration(), null),
+                onDurationResolved: (duration) => {
+                  mediaEditPreviewDurationSeconds = duration;
+                  validateAndRenderMediaEditDraftFromForm();
+                },
+                onDurationAvailable: () => {
+                  maybeCompleteMediaEditDurationSyncWait();
+                },
+                hidePreviewError: hideMediaEditPreviewError,
+              });
             },
             onStateChange: () => {
-              const duration = normalizeMediaEditTimingValue(mediaEditPreviewYouTubePlayer?.getDuration(), null);
-              if (duration !== null) {
-                mediaEditPreviewDurationSeconds = duration;
-                validateAndRenderMediaEditDraftFromForm();
-                maybeCompleteMediaEditDurationSyncWait();
-              }
-              hideMediaEditPreviewError();
+              syncYouTubePreviewDuration({
+                readDuration: () => normalizeMediaEditTimingValue(mediaEditPreviewYouTubePlayer?.getDuration(), null),
+                onDurationResolved: (duration) => {
+                  if (duration === null) {
+                    return;
+                  }
+                  mediaEditPreviewDurationSeconds = duration;
+                  validateAndRenderMediaEditDraftFromForm();
+                },
+                onDurationAvailable: () => {
+                  maybeCompleteMediaEditDurationSyncWait();
+                },
+                hidePreviewError: hideMediaEditPreviewError,
+              });
             },
             onError: () => {
               showMediaEditPreviewError(
