@@ -28,6 +28,17 @@ export interface InitialPlaybackState {
   startTime: number | null;
 }
 
+export function resolveMediaFullscreenEnabled(
+  mediaData: MediaItem,
+  fullscreenOption: unknown
+): boolean {
+  if (mediaData.hasOwnProperty('fs') && mediaData.fs !== '') {
+    return Boolean(mediaData.fs);
+  }
+
+  return Boolean(fullscreenOption);
+}
+
 export function applyInitialPlaybackStateToStatus(
   status: { fader?: boolean; volume: number | null },
   initialPlaybackState: InitialPlaybackState
@@ -84,9 +95,7 @@ export function buildYouTubePlayerOptions(
   if (options.fs) {
     playerOptions.fs = Number(options.fs);
   }
-  if (mediaData.hasOwnProperty('fs') && mediaData.fs !== '') {
-    playerOptions.fs = Number(Boolean(mediaData.fs));
-  }
+  playerOptions.fs = Number(resolveMediaFullscreenEnabled(mediaData, playerOptions.fs));
   if (options.ccLoadPolicy) {
     playerOptions.cc_load_policy = Number(options.ccLoadPolicy);
   }

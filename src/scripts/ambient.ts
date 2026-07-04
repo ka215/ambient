@@ -116,6 +116,7 @@ import {
   applyInitialPlaybackStateToElement,
   applyInitialPlaybackStateToStatus,
   buildYouTubePlayerOptions,
+  resolveMediaFullscreenEnabled,
   resolvePlaybackConfigSource,
   resolveInitialPlaybackState,
 } from './ui/player/player-config';
@@ -145,6 +146,7 @@ import {
   bindHtmlErrorEvents,
   bindHtmlPlaybackStateEvents,
   bindHtmlSeekOnPlay,
+  createHtmlMediaIssueReporter,
 } from './ui/player/html-player-events';
 import {
   type PlayableSetupKind,
@@ -5268,7 +5270,6 @@ const init = function (): void {
     const { playerElement: playerElm, sourceElement: sourceElm } = tagname === 'audio'
       ? createAudioPlayerView(playerViewOptions)
       : createVideoPlayerView(playerViewOptions);
-    let hasReportedLoadIssue = false;
     const initialPlaybackState = resolveInitialPlaybackState(mediaData, {
       faderEnabled: playbackConfig.faderEnabled,
       fallbackVolume: getDefaultVolume(),
@@ -5279,24 +5280,10 @@ const init = function (): void {
     });
     applyInitialPlaybackStateToStatus(AMP_STATUS, initialPlaybackState);
     applyInitialPlaybackStateToElement(playerElm, initialPlaybackState);
-
-    const reportHtmlMediaLoadIssue = (
-      mediaElement: HTMLMediaElement,
-      mediaItem: MediaItem,
-      evt: Event,
-      reason: string
-    ): void => {
-      if (hasReportedLoadIssue) return;
-      hasReportedLoadIssue = true;
-      reportMediaPlaybackIssue(mediaItem, reason, {
-        src: mediaElement.currentSrc || mediaItem.file || '',
-        networkState: mediaElement.networkState,
-        readyState: mediaElement.readyState,
-        errorCode: mediaElement.error?.code ?? null,
-        errorMessage: mediaElement.error?.message ?? '',
-        eventType: evt.type,
-      });
-    };
+    const reportHtmlMediaLoadIssue = createHtmlMediaIssueReporter({
+      mediaData,
+      reportMediaPlaybackIssue,
+    });
 
     bindHtmlSeekOnPlay({
       playerElement: playerElm,
@@ -5358,20 +5345,15 @@ const init = function (): void {
       playerElement: playerElm,
       sourceElement: sourceElm,
       reportIssue: (mediaElement, event, reason) => {
-        reportHtmlMediaLoadIssue(mediaElement, mediaData, event, reason);
+        reportHtmlMediaLoadIssue(mediaElement, event, reason);
       },
     });
-    let allowFullScreen = Boolean(playbackConfig.fs);
-    if (mediaData.hasOwnProperty('fs') && mediaData.fs !== '') {
-      allowFullScreen = Boolean(mediaData.fs);
-    }
-
     mountPlayerElement($EMBED_WRAPPER, playerElm);
     showHtmlPlayerWrapper($EMBED_WRAPPER);
     resetWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER);
     bindHtmlVideoPresentation({
       playerElement: playerElm,
-      allowFullScreen,
+      allowFullScreen: resolveMediaFullscreenEnabled(mediaData, playbackConfig.fs),
       getPlaceholderPath: () => getNoMediaImagePath('placeholder'),
       isFullWindowMode,
       getFullWindowPlayerSize,

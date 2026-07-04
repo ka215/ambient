@@ -1,6 +1,40 @@
 import type { MediaItem } from '../../types/ambient';
 import type { PlaybackTarget } from './player-runtime';
 
+export function createHtmlMediaIssueReporter(options: {
+  mediaData: MediaItem;
+  reportMediaPlaybackIssue: (
+    mediaItem: MediaItem,
+    reason: string,
+    details: {
+      src: string;
+      networkState: number;
+      readyState: number;
+      errorCode: number | null;
+      errorMessage: string;
+      eventType: string;
+    }
+  ) => void;
+}): (mediaElement: HTMLMediaElement, event: Event, reason: string) => void {
+  let hasReportedLoadIssue = false;
+
+  return (mediaElement: HTMLMediaElement, event: Event, reason: string): void => {
+    if (hasReportedLoadIssue) {
+      return;
+    }
+
+    hasReportedLoadIssue = true;
+    options.reportMediaPlaybackIssue(options.mediaData, reason, {
+      src: mediaElement.currentSrc || options.mediaData.file || '',
+      networkState: mediaElement.networkState,
+      readyState: mediaElement.readyState,
+      errorCode: mediaElement.error?.code ?? null,
+      errorMessage: mediaElement.error?.message ?? '',
+      eventType: event.type,
+    });
+  };
+}
+
 export function bindHtmlSeekOnPlay(options: {
   playerElement: HTMLMediaElement;
   mediaData: MediaItem;
