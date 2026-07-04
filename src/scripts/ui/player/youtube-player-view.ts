@@ -72,6 +72,15 @@ export function setWatchOriginState(
   optionalContainer.classList.remove('hidden', 'opacity-0');
 }
 
+export function resetYouTubePlayerView(options: {
+  embedWrapper: HTMLElement;
+  watchButton: HTMLAnchorElement;
+  optionalContainer: HTMLElement;
+}): void {
+  hideYouTubePlayerWrapper(options.embedWrapper);
+  setWatchOriginState(options.watchButton, options.optionalContainer, null);
+}
+
 export function destroyYouTubePreviewPlayer(player: { destroy?: () => void } | null): void {
   if (!player) {
     return;

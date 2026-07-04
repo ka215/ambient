@@ -175,7 +175,7 @@ import {
   createYouTubePlayerHost,
   createYouTubePreviewHost,
   destroyYouTubePreviewPlayer,
-  hideYouTubePlayerWrapper,
+  resetYouTubePlayerView,
   setWatchOriginState,
   showYouTubePlayerWrapper,
 } from './ui/player/youtube-player-view';
@@ -4990,11 +4990,6 @@ const init = function (): void {
     });
   }
 
-  function clearYouTubePlaybackUi(): void {
-    hideYouTubePlayerWrapper($EMBED_WRAPPER);
-    setWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER, null);
-  }
-
   function transitionToPlaybackTarget(
     playbackTarget: ReturnType<typeof resolveNextPlaybackTarget> | null
   ): void {
@@ -5042,7 +5037,11 @@ const init = function (): void {
       emitYouTubeSignal('ended');
       abortPlaybackTimers();
 
-      clearYouTubePlaybackUi();
+      resetYouTubePlayerView({
+        embedWrapper: $EMBED_WRAPPER,
+        watchButton: $BUTTON_WATCH_TY,
+        optionalContainer: $OPTIONAL_CONTAINER,
+      });
       const playbackTarget = resolveEndedPlaybackTarget();
       if (!playbackTarget) return;
 
@@ -5097,7 +5096,11 @@ const init = function (): void {
   function onPlayerError(event: any): void {
     emitYouTubeSignal('error', `yt_error_${event && event.data !== undefined ? event.data : 'unknown'}`);
     // Skip if media playback fails.
-    clearYouTubePlaybackUi();
+    resetYouTubePlayerView({
+      embedWrapper: $EMBED_WRAPPER,
+      watchButton: $BUTTON_WATCH_TY,
+      optionalContainer: $OPTIONAL_CONTAINER,
+    });
 
     const playbackTarget = resolveNextPlaybackTarget(AMP_STATUS.media || [], AMP_STATUS.next);
     if (!playbackTarget) return;
