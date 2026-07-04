@@ -147,8 +147,11 @@ import {
   resolveHtmlMediaSourcePath,
 } from './ui/player/html-player-source';
 import {
+  clearMediaEditPreviewContainerView,
+  hideMediaEditPreviewErrorView,
   resolveMediaEditPreviewCurrentTime,
   resolveMediaEditPreviewSource,
+  showMediaEditPreviewErrorView,
 } from './ui/player/media-edit-preview';
 import {
   bindHtmlEndedEvent,
@@ -1960,21 +1963,18 @@ const init = function (): void {
   }
 
   function hideMediaEditPreviewError(): void {
-    if (isElement($MEDIA_EDIT_PREVIEW_ERROR)) {
-      $MEDIA_EDIT_PREVIEW_ERROR.classList.add('hidden');
-    }
-    if (isElement($MEDIA_EDIT_PREVIEW_ERROR_MESSAGE)) {
-      $MEDIA_EDIT_PREVIEW_ERROR_MESSAGE.textContent = '';
-    }
+    hideMediaEditPreviewErrorView({
+      errorElement: isElement($MEDIA_EDIT_PREVIEW_ERROR) ? $MEDIA_EDIT_PREVIEW_ERROR : null,
+      errorMessageElement: isElement($MEDIA_EDIT_PREVIEW_ERROR_MESSAGE) ? $MEDIA_EDIT_PREVIEW_ERROR_MESSAGE : null,
+    });
   }
 
   function showMediaEditPreviewError(message: string): void {
-    if (isElement($MEDIA_EDIT_PREVIEW_ERROR_MESSAGE)) {
-      $MEDIA_EDIT_PREVIEW_ERROR_MESSAGE.textContent = message;
-    }
-    if (isElement($MEDIA_EDIT_PREVIEW_ERROR)) {
-      $MEDIA_EDIT_PREVIEW_ERROR.classList.remove('hidden');
-    }
+    showMediaEditPreviewErrorView({
+      errorElement: isElement($MEDIA_EDIT_PREVIEW_ERROR) ? $MEDIA_EDIT_PREVIEW_ERROR : null,
+      errorMessageElement: isElement($MEDIA_EDIT_PREVIEW_ERROR_MESSAGE) ? $MEDIA_EDIT_PREVIEW_ERROR_MESSAGE : null,
+      message,
+    });
   }
 
   function destroyMediaEditPreviewPlayer(): void {
@@ -1990,10 +1990,7 @@ const init = function (): void {
   }
 
   function clearMediaEditPreviewContainer(): void {
-    if (!isElement($MEDIA_EDIT_PREVIEW)) {
-      return;
-    }
-    $MEDIA_EDIT_PREVIEW.innerHTML = '';
+    clearMediaEditPreviewContainerView(isElement($MEDIA_EDIT_PREVIEW) ? $MEDIA_EDIT_PREVIEW : null);
   }
 
   function resetMediaEditPreviewState(): void {

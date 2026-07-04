@@ -71,3 +71,31 @@ export function resolveMediaEditPreviewCurrentTime(options: {
 
   return null;
 }
+
+export function hideMediaEditPreviewErrorView(options: {
+  errorElement: HTMLElement | null;
+  errorMessageElement: HTMLElement | null;
+}): void {
+  options.errorElement?.classList.add('hidden');
+  if (options.errorMessageElement) {
+    options.errorMessageElement.textContent = '';
+  }
+}
+
+export function showMediaEditPreviewErrorView(options: {
+  errorElement: HTMLElement | null;
+  errorMessageElement: HTMLElement | null;
+  message: string;
+}): void {
+  if (options.errorMessageElement) {
+    options.errorMessageElement.textContent = options.message;
+  }
+  options.errorElement?.classList.remove('hidden');
+}
+
+export function clearMediaEditPreviewContainerView(containerElement: HTMLElement | null): void {
+  if (!containerElement) {
+    return;
+  }
+  containerElement.innerHTML = '';
+}
