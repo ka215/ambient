@@ -135,6 +135,7 @@ import {
   resolveYouTubeTransitionCleanupMode,
 } from './ui/player/player-runtime';
 import {
+  createHtmlPlayerView,
   bindHtmlVideoPresentation,
   cleanupHtmlPlayerWrapper,
   prepareHtmlPlayerWrapper,
@@ -151,8 +152,6 @@ import {
   type PlayableSetupKind,
   resolvePlaybackSetupPlan,
 } from './ui/player/player-setup';
-import { createAudioPlayerView } from './ui/player/audio-player-view';
-import { createVideoPlayerView } from './ui/player/video-player-view';
 import {
   createYouTubePlayerHost,
   hideYouTubePlayerWrapper,
@@ -5260,15 +5259,14 @@ const init = function (): void {
     const sourcePath = resolveLocalMediaSrc(mediaData.file || '');
     const playbackConfig = resolvePlaybackConfigSource(getOption);
     const playerViewOptions = {
+      tagName: tagname,
       mediaData,
       controls: String(playbackConfig.controls || ''),
       autoplay: String(playbackConfig.autoplay || ''),
       sourcePath,
       sourceType: getMediaMimeType(sourcePath, tagname),
     };
-    const { playerElement: playerElm, sourceElement: sourceElm } = tagname === 'audio'
-      ? createAudioPlayerView(playerViewOptions)
-      : createVideoPlayerView(playerViewOptions);
+    const { playerElement: playerElm, sourceElement: sourceElm } = createHtmlPlayerView(playerViewOptions);
     const initialPlaybackState = resolveInitialPlaybackState(mediaData, {
       faderEnabled: playbackConfig.faderEnabled,
       fallbackVolume: getDefaultVolume(),
