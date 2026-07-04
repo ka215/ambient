@@ -163,6 +163,7 @@ import {
   resolvePlaybackSetupResolution,
 } from './ui/player/player-setup';
 import {
+  createYouTubePlayer,
   buildYouTubePreviewPlayerConfig,
   createYouTubePlayerHost,
   createYouTubePreviewHost,
@@ -5117,10 +5118,10 @@ const init = function (): void {
     });
     const adjustSize = getPlayerSizeForCurrentMode();
 
-    player = new (window as any).YT.Player('ytplayer', {
-      height: adjustSize.height,
-      width: adjustSize.width,
-      videoId: mediaData.videoid,
+    player = createYouTubePlayer({
+      playerId: 'ytplayer',
+      size: adjustSize,
+      videoId: mediaData.videoid || '',
       playerVars: playerOptions,
       events: {
         onReady: onPlayerReady,

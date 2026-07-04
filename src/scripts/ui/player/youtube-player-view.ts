@@ -1,6 +1,20 @@
+import type { YTPlayer, YTPlayerConfig, YTPlayerEvent } from '../../types/youtube';
+
 export interface YouTubePlayerHostOptions {
   embedWrapper: HTMLElement;
   playerId?: string;
+}
+
+export interface CreateYouTubePlayerOptions {
+  playerId: string;
+  size: { width: number; height: number };
+  videoId: string;
+  playerVars: YTPlayerConfig['playerVars'];
+  events: {
+    onReady: (event: YTPlayerEvent) => void;
+    onStateChange: (event: YTPlayerEvent) => void;
+    onError: (event: YTPlayerEvent) => void;
+  };
 }
 
 export function createYouTubePlayerHost(options: YouTubePlayerHostOptions): HTMLDivElement {
@@ -19,6 +33,16 @@ export function createYouTubePreviewHost(options: YouTubePlayerHostOptions): HTM
   const playerElement = createYouTubePlayerHost(options);
   playerElement.className = 'media-edit-preview-embed mx-auto aspect-video w-full max-w-3xl';
   return playerElement;
+}
+
+export function createYouTubePlayer(options: CreateYouTubePlayerOptions): YTPlayer {
+  return new (window as any).YT.Player(options.playerId, {
+    height: options.size.height,
+    width: options.size.width,
+    videoId: options.videoId,
+    playerVars: options.playerVars,
+    events: options.events,
+  });
 }
 
 export function buildYouTubePreviewPlayerConfig(videoId: string): {
