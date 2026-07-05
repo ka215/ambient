@@ -59,6 +59,7 @@ import {
   createPlaylistReorderSnapshot,
   getPlaylistItemsForView,
   isPlaylistReorderDirty,
+  resolvePlaylistModeButtonAction,
   resolvePlaylistModeTransition,
   shouldResetPlaylistOperationMode,
 } from './state/playlist-mode-state';
@@ -3051,59 +3052,63 @@ const init = function (): void {
     $BUTTON_PLAYLIST_MODE.addEventListener('click', (evt: Event) => {
       evt.preventDefault();
       evt.stopPropagation();
-
-      // In delete mode, pressing the mode button should trigger commit flow first.
-      if (playlistMode === 'delete') {
-        closePlaylistModeMenu();
-        if (deleteSelectedIds.size > 0) {
-          const title = $BUTTON_PLAYLIST_MODE.dataset['confirmDeleteTitle'] || 'Delete selected items?';
-          const body = $BUTTON_PLAYLIST_MODE.dataset['confirmDeleteBody'] || 'Selected items will be removed from your playlist.';
-          playlistConfirmModal.open(title, body, () => {
-            void commitDeleteSelections();
-          }, () => {
-            if (playlistMode === 'reorder') {
-              reorderWorkingIds = [...reorderInitialIds];
-              updatePlaylist();
-            }
-          });
-          return;
-        }
-
-        // Nothing selected: just exit delete mode and return to normal.
-        deleteSelectedIds.clear();
-        playlistMode = 'normal';
-        updatePlaylistModeUI();
-        updatePlaylist();
-        return;
-      }
-
       if (playlistMode === 'reorder') {
-        closePlaylistModeMenu();
         syncReorderWorkingIdsFromDom();
-        if (isReorderDirty()) {
-          const title = $BUTTON_PLAYLIST_MODE.dataset['confirmReorderTitle'] || 'Apply reordered sequence?';
-          const body = $BUTTON_PLAYLIST_MODE.dataset['confirmReorderBody'] || 'Apply the current item order to your playlist.';
-          playlistConfirmModal.open(title, body, () => {
-            applyReorderChanges();
-            playlistMode = 'normal';
-            updatePlaylistModeUI();
-            updatePlaylist();
-          }, () => {
-            if (playlistMode === 'reorder') {
-              reorderWorkingIds = [...reorderInitialIds];
-              updatePlaylist();
-            }
-          });
-          return;
-        }
-        resetReorderState();
-        playlistMode = 'normal';
-        updatePlaylistModeUI();
-        updatePlaylist();
+      }
+
+      const action = resolvePlaylistModeButtonAction({
+        currentMode: playlistMode,
+        deleteSelectionCount: deleteSelectedIds.size,
+        reorderDirty: isReorderDirty(),
+      });
+
+      if (action.kind === 'toggle_menu') {
+        togglePlaylistModeMenu();
         return;
       }
 
-      togglePlaylistModeMenu();
+      closePlaylistModeMenu();
+
+      if (action.kind === 'confirm_delete') {
+        const title = $BUTTON_PLAYLIST_MODE.dataset['confirmDeleteTitle'] || 'Delete selected items?';
+        const body = $BUTTON_PLAYLIST_MODE.dataset['confirmDeleteBody'] || 'Selected items will be removed from your playlist.';
+        playlistConfirmModal.open(title, body, () => {
+          void commitDeleteSelections();
+        }, () => {
+          if (playlistMode === 'reorder') {
+            reorderWorkingIds = [...reorderInitialIds];
+            updatePlaylist();
+          }
+        });
+        return;
+      }
+
+      if (action.kind === 'confirm_reorder') {
+        const title = $BUTTON_PLAYLIST_MODE.dataset['confirmReorderTitle'] || 'Apply reordered sequence?';
+        const body = $BUTTON_PLAYLIST_MODE.dataset['confirmReorderBody'] || 'Apply the current item order to your playlist.';
+        playlistConfirmModal.open(title, body, () => {
+          applyReorderChanges();
+          playlistMode = 'normal';
+          updatePlaylistModeUI();
+          updatePlaylist();
+        }, () => {
+          if (playlistMode === 'reorder') {
+            reorderWorkingIds = [...reorderInitialIds];
+            updatePlaylist();
+          }
+        });
+        return;
+      }
+
+      if (action.kind === 'exit_delete') {
+        deleteSelectedIds.clear();
+      } else if (action.kind === 'exit_reorder') {
+        resetReorderState();
+      }
+
+      playlistMode = 'normal';
+      updatePlaylistModeUI();
+      updatePlaylist();
     });
 
     Array.from($PLAYLIST_MODE_MENU.querySelectorAll('.playlist-mode-option')).forEach((elm) => {

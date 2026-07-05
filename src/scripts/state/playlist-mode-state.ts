@@ -130,3 +130,34 @@ export function createPlaylistReorderSnapshot(options: {
     reorderWorkingIds: [...reorderInitialIds],
   };
 }
+
+export type PlaylistModeButtonActionDecision =
+  | { kind: 'toggle_menu' }
+  | { kind: 'exit_delete' }
+  | { kind: 'confirm_delete' }
+  | { kind: 'exit_reorder' }
+  | { kind: 'confirm_reorder' };
+
+export function resolvePlaylistModeButtonAction(options: {
+  currentMode: PlaylistMode;
+  deleteSelectionCount: number;
+  reorderDirty: boolean;
+}): PlaylistModeButtonActionDecision {
+  if (options.currentMode === 'delete') {
+    if (options.deleteSelectionCount > 0) {
+      return { kind: 'confirm_delete' };
+    }
+
+    return { kind: 'exit_delete' };
+  }
+
+  if (options.currentMode === 'reorder') {
+    if (options.reorderDirty) {
+      return { kind: 'confirm_reorder' };
+    }
+
+    return { kind: 'exit_reorder' };
+  }
+
+  return { kind: 'toggle_menu' };
+}
