@@ -471,3 +471,25 @@ export function appendPlaylistQuickAddItem(options: {
   });
   options.listElement.appendChild(addItemElement);
 }
+
+export function enablePlaylistDownloadButton(button: HTMLButtonElement | null): void {
+  if (!button) {
+    return;
+  }
+
+  button.removeAttribute('disabled');
+}
+
+export function finalizePlaylistRender(options: {
+  noMediaElement: HTMLElement;
+  isEmpty: boolean;
+  closePlaylistModeMenu: () => void;
+  setPlaylistReadyState: (isReady: boolean) => void;
+}): boolean {
+  syncPlaylistEmptyState(options.noMediaElement, options.isEmpty, options.closePlaylistModeMenu);
+  if (options.isEmpty) {
+    options.setPlaylistReadyState(true);
+    return true;
+  }
+  return false;
+}

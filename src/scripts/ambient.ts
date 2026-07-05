@@ -108,6 +108,8 @@ import {
   appendPlaylistQuickAddItem,
   createShuffledPlaylist,
   closePlaylistModeMenu as closePlaylistModeMenuView,
+  enablePlaylistDownloadButton,
+  finalizePlaylistRender,
   filterPlaylistItemsByCategory,
   getPlaylistDescriptionPayload,
   PlaylistMode,
@@ -116,7 +118,6 @@ import {
   resolvePlaylistModeForRendering,
   scrollPlaylistToCurrentFocus,
   syncPlaylistCurrentFocus,
-  syncPlaylistEmptyState,
   syncPlaylistModeAvailabilityButton,
   syncPlaylistModeButton as syncPlaylistModeButtonView,
   syncDeleteSelectionIndicator as syncDeleteSelectionIndicatorView,
@@ -3973,13 +3974,16 @@ const init = function (): void {
     const isNoMedia = items.length === 0;
     syncPlaylistModeAvailability(items.length);
 
-    // Enable playlist download
     const $BUTTON_DOWNLOAD_PLAYLIST = document.getElementById('btn-download-playlist') as HTMLButtonElement;
-    setAtts($BUTTON_DOWNLOAD_PLAYLIST, { disabled: '' }, true);
+    enablePlaylistDownloadButton($BUTTON_DOWNLOAD_PLAYLIST);
 
-    syncPlaylistEmptyState($LIST_NO_MEDIA, isNoMedia, () => closePlaylistModeMenu());
-    if (isNoMedia) {
-      setPlaylistReadyState(true);
+    const ambientData = (window as any).AmbientData as AmbientData;
+    if (finalizePlaylistRender({
+      noMediaElement: $LIST_NO_MEDIA,
+      isEmpty: isNoMedia,
+      closePlaylistModeMenu,
+      setPlaylistReadyState,
+    })) {
       return;
     }
 
@@ -3999,7 +4003,6 @@ const init = function (): void {
       logger('updatePlaylist::createShufflePlaylist:', AMP_STATUS.shuffle);
     }
 
-    const ambientData = (window as any).AmbientData as AmbientData;
     renderPlaylistItems({
       listElement: $LIST_PLAYLIST,
       items,
@@ -4036,11 +4039,9 @@ const init = function (): void {
       },
     });
 
-    // For debugging code
     if (ambientData.hasOwnProperty('debug') && ambientData.debug) {
       execDebug();
     }
-
     setPlaylistReadyState(true);
   }
 
@@ -5717,28 +5718,6 @@ function getAtts(targetElement: HTMLElement, attribute: string = ''): any {
       return isNumberString(_val) ? Number(_val) : isBooleanString(_val) ? /^true$/i.test(_val) : _val;
     }
   }
-}
-
-/**
- * Set or remove attributes on the specified element.
- */
-function setAtts(
-  targetElements: HTMLElement | HTMLElement[],
-  attributes: Record<string, string> = {},
-  remove: boolean = false
-): void {
-  const _ELMS = targetElements instanceof Array ? targetElements : [targetElements];
-  _ELMS.forEach((elm: HTMLElement) => {
-    for (const _key in attributes) {
-      const val = attributes[_key];
-      if (val === undefined) continue;
-      if (!remove) {
-        elm.setAttribute(_key, val);
-      } else {
-        elm.removeAttribute(_key);
-      }
-    }
-  });
 }
 
 /**
