@@ -7,12 +7,53 @@ export interface ResponsiveDrawerElements {
   settingsCloseButton: HTMLElement | null;
 }
 
+export interface DrawerToggleButtonStateOptions {
+  active: boolean;
+  button: HTMLButtonElement | null;
+}
+
 function isElement(value: unknown): value is HTMLElement {
   return value instanceof HTMLElement;
 }
 
 function isDrawerOpen(drawer: HTMLElement | null): boolean {
   return drawer?.getAttribute('aria-modal') === 'true';
+}
+
+export function isResponsiveDrawerOpen(drawer: HTMLElement | null, hiddenClass: string): boolean {
+  if (!drawer) {
+    return false;
+  }
+  const ariaModal = drawer.getAttribute('aria-modal') === 'true';
+  const hiddenByClass = drawer.classList.contains(hiddenClass);
+  return ariaModal || !hiddenByClass;
+}
+
+export function syncDrawerToggleButtonState(options: DrawerToggleButtonStateOptions): void {
+  const button = options.button;
+  if (!button) {
+    return;
+  }
+
+  button.setAttribute('aria-pressed', options.active ? 'true' : 'false');
+  button.classList.toggle('bg-blue-50', options.active);
+  button.classList.toggle('dark:bg-gray-800', options.active);
+
+  const labelNodes = Array.from(button.querySelectorAll('span:not(.sr-only)')) as HTMLElement[];
+  labelNodes.forEach((node: HTMLElement) => {
+    node.classList.toggle('text-blue-600', options.active);
+    node.classList.toggle('dark:text-blue-500', options.active);
+    node.classList.toggle('text-gray-500', !options.active);
+    node.classList.toggle('dark:text-gray-400', !options.active);
+  });
+
+  const iconNodes = Array.from(button.querySelectorAll('svg')) as SVGElement[];
+  iconNodes.forEach((node: SVGElement) => {
+    node.classList.toggle('text-blue-600', options.active);
+    node.classList.toggle('dark:text-blue-500', options.active);
+    node.classList.toggle('text-gray-500', !options.active);
+    node.classList.toggle('dark:text-gray-400', !options.active);
+  });
 }
 
 export function cleanupDrawerBackdrops(drawers: Array<HTMLElement | null>): void {

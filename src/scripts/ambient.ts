@@ -79,6 +79,8 @@ import {
 import {
   closeResponsiveDrawers,
   cleanupDrawerBackdrops,
+  isResponsiveDrawerOpen,
+  syncDrawerToggleButtonState as syncDrawerToggleButtonStateView,
   syncDrawerAndModalBackdrops,
 } from './ui/drawers';
 import {
@@ -3155,40 +3157,15 @@ const init = function (): void {
   /**
    * Sync active styles of bottom menu drawer toggle buttons.
    */
-  function syncDrawerToggleButtonState(button: HTMLButtonElement, active: boolean): void {
-    if (!isElement(button)) {
-      return;
-    }
-    button.setAttribute('aria-pressed', active ? 'true' : 'false');
-    button.classList.toggle('bg-blue-50', active);
-    button.classList.toggle('dark:bg-gray-800', active);
-
-    const labelNodes = Array.from(button.querySelectorAll('span:not(.sr-only)')) as HTMLElement[];
-    labelNodes.forEach((node: HTMLElement) => {
-      node.classList.toggle('text-blue-600', active);
-      node.classList.toggle('dark:text-blue-500', active);
-      node.classList.toggle('text-gray-500', !active);
-      node.classList.toggle('dark:text-gray-400', !active);
-    });
-
-    const iconNodes = Array.from(button.querySelectorAll('svg')) as SVGElement[];
-    iconNodes.forEach((node: SVGElement) => {
-      node.classList.toggle('text-blue-600', active);
-      node.classList.toggle('dark:text-blue-500', active);
-      node.classList.toggle('text-gray-500', !active);
-      node.classList.toggle('dark:text-gray-400', !active);
-    });
-  }
-
-  function isDrawerOpen(drawer: HTMLElement, hiddenClass: string): boolean {
-    const ariaModal = drawer.getAttribute('aria-modal') === 'true';
-    const hiddenByClass = drawer.classList.contains(hiddenClass);
-    return ariaModal || !hiddenByClass;
-  }
-
   function syncDrawerToggleButtons(): void {
-    syncDrawerToggleButtonState($BUTTON_PLAYLIST, isDrawerOpen($DRAWER_PLAYLIST, '-translate-x-full'));
-    syncDrawerToggleButtonState($BUTTON_SETTINGS, isDrawerOpen($DRAWER_SETTINGS, 'translate-x-full'));
+    syncDrawerToggleButtonStateView({
+      button: $BUTTON_PLAYLIST,
+      active: isResponsiveDrawerOpen($DRAWER_PLAYLIST, '-translate-x-full'),
+    });
+    syncDrawerToggleButtonStateView({
+      button: $BUTTON_SETTINGS,
+      active: isResponsiveDrawerOpen($DRAWER_SETTINGS, 'translate-x-full'),
+    });
   }
 
   watcher($MODAL_OPTIONS, (mutation: MutationRecord) => {
@@ -3299,7 +3276,7 @@ const init = function (): void {
     if (currentWindowSize.width >= currentWindowSize.minFullUIWidth) {
       return;
     }
-    if (!isDrawerOpen($DRAWER_PLAYLIST, '-translate-x-full')) {
+    if (!isResponsiveDrawerOpen($DRAWER_PLAYLIST, '-translate-x-full')) {
       return;
     }
     (document.getElementById('btn-close-playlist') as HTMLButtonElement | null)?.click();
@@ -3309,7 +3286,7 @@ const init = function (): void {
     if (currentWindowSize.width >= currentWindowSize.minFullUIWidth) {
       return;
     }
-    if (!isDrawerOpen($DRAWER_SETTINGS, 'translate-x-full')) {
+    if (!isResponsiveDrawerOpen($DRAWER_SETTINGS, 'translate-x-full')) {
       return;
     }
     (document.getElementById('btn-close-settings') as HTMLButtonElement | null)?.click();
