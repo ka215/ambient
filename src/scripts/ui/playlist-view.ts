@@ -21,6 +21,11 @@ export interface PlaylistQuickAddOptions {
   onClick: (event: Event) => void;
 }
 
+export interface PlaylistModeAdjustmentResult {
+  nextMode: PlaylistMode;
+  changed: boolean;
+}
+
 export interface PlaylistItemsRenderOptions {
   listElement: HTMLElement;
   items: MediaItem[];
@@ -430,4 +435,39 @@ export function renderPlaylistItems(options: PlaylistItemsRenderOptions): void {
     });
     options.listElement.appendChild(itemElement);
   });
+}
+
+export function resolvePlaylistModeForRendering(options: {
+  mode: PlaylistMode;
+  canUseReorderMode: boolean;
+}): PlaylistModeAdjustmentResult {
+  if (options.mode === 'reorder' && !options.canUseReorderMode) {
+    return {
+      nextMode: 'normal',
+      changed: true,
+    };
+  }
+
+  return {
+    nextMode: options.mode,
+    changed: false,
+  };
+}
+
+export function appendPlaylistQuickAddItem(options: {
+  listElement: HTMLElement;
+  canMutatePlaylist: boolean;
+  playlistMode: PlaylistMode;
+  registerText: string;
+  onClick: (event: Event) => void;
+}): void {
+  if (!options.canMutatePlaylist || options.playlistMode !== 'normal') {
+    return;
+  }
+
+  const addItemElement = createPlaylistQuickAddElement({
+    registerText: options.registerText,
+    onClick: options.onClick,
+  });
+  options.listElement.appendChild(addItemElement);
 }

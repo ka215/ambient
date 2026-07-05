@@ -105,14 +105,15 @@ import {
   trapMediaEditModalFocus as trapMediaEditModalFocusView,
 } from './ui/media-edit-modal-view';
 import {
+  appendPlaylistQuickAddItem,
   createShuffledPlaylist,
   closePlaylistModeMenu as closePlaylistModeMenuView,
-  createPlaylistQuickAddElement,
   filterPlaylistItemsByCategory,
   getPlaylistDescriptionPayload,
   PlaylistMode,
   readPlaylistItemIdsFromDom,
   renderPlaylistItems,
+  resolvePlaylistModeForRendering,
   scrollPlaylistToCurrentFocus,
   syncPlaylistCurrentFocus,
   syncPlaylistEmptyState,
@@ -3982,9 +3983,13 @@ const init = function (): void {
       return;
     }
 
-    if (playlistMode === 'reorder' && !canUseReorderMode()) {
+    const playlistModeAdjustment = resolvePlaylistModeForRendering({
+      mode: playlistMode,
+      canUseReorderMode: canUseReorderMode(),
+    });
+    if (playlistModeAdjustment.changed) {
       resetReorderState();
-      playlistMode = 'normal';
+      playlistMode = playlistModeAdjustment.nextMode;
     }
     updatePlaylistModeUI();
 
@@ -4015,21 +4020,21 @@ const init = function (): void {
     // Append "[+] Add media" item at the bottom of the playlist
     // Hidden in cloud mode for existing JSON playlists (read-only)
     // and hidden when playlist operation mode is not normal.
-    if (canMutateCurrentPlaylist() && playlistMode === 'normal') {
-      const registerBtn = document.getElementById('btn-add-media-from-drawer');
-      const registerText = (registerBtn?.dataset['label'] || registerBtn?.innerText || 'Register media').trim();
-      const addItemElm = createPlaylistQuickAddElement({
-        registerText,
-        onClick: (evt: Event) => {
+    const registerBtn = document.getElementById('btn-add-media-from-drawer');
+    const registerText = (registerBtn?.dataset['label'] || registerBtn?.innerText || 'Register media').trim();
+    appendPlaylistQuickAddItem({
+      listElement: $LIST_PLAYLIST,
+      canMutatePlaylist: canMutateCurrentPlaylist(),
+      playlistMode,
+      registerText,
+      onClick: (evt: Event) => {
         evt.preventDefault();
         const activeCatId = (AMP_STATUS.ctg !== undefined && AMP_STATUS.ctg !== null && Number(AMP_STATUS.ctg) >= 0)
           ? Number(AMP_STATUS.ctg)
           : null;
         openMediaManagement(activeCatId);
-        },
-      });
-      $LIST_PLAYLIST.appendChild(addItemElm);
-    }
+      },
+    });
 
     // For debugging code
     if (ambientData.hasOwnProperty('debug') && ambientData.debug) {
