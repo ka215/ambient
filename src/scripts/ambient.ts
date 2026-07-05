@@ -261,8 +261,8 @@ import {
   ensureCloudMyPlaylistSeed as domainEnsureCloudMyPlaylistSeed,
   hasStoredMyPlaylist,
   MYPLAYLIST_NAME,
+  parseStoredMyPlaylist,
   readMyPlaylistJson,
-  sanitizeMyPlaylistOptions as domainSanitizeMyPlaylistOptions,
   writeMyPlaylistJson,
 } from './domain/myplaylist-storage';
 import { createPlaybackTimerController } from './domain/media-playback';
@@ -599,12 +599,6 @@ const init = function (): void {
     return platformGetLocalizedMessage(key, fallback);
   }
 
-  function sanitizeMyPlaylistOptions(
-    options: PlaylistOptions | null | undefined
-  ): PlaylistOptions | null {
-    return domainSanitizeMyPlaylistOptions(options) as PlaylistOptions | null;
-  }
-
   function getCurrentCategoryName(): string {
     const catId = Number(AMP_STATUS.ctg);
     if (Number.isInteger(catId) && catId >= 0 && Array.isArray(AMP_STATUS.category)) {
@@ -892,24 +886,17 @@ const init = function (): void {
     const raw = readMyPlaylistJson();
     if (!raw) return false;
     try {
-      const data = JSON.parse(raw);
-      if (!data || typeof data !== 'object' || Array.isArray(data)) {
-        logger('loadMyPlaylistFromStorage: invalid schema', data);
+      const storedPlaylist = parseStoredMyPlaylist({
+        raw,
+        sanitizeMediaItem: sanitizeMediaItemTextFields,
+      });
+      if (!storedPlaylist) {
+        logger('loadMyPlaylistFromStorage: invalid schema');
         return false;
       }
 
-      const nextOptions = Object.prototype.hasOwnProperty.call(data, 'options')
-        ? sanitizeMyPlaylistOptions((data as PlaylistData).options || null)
-        : null;
-      const categoryData = Object.fromEntries(
-        Object.entries(data).filter(([k]) => k !== 'options')
-      ) as Record<string, MediaItem[]>;
       const materialized = materializeCategorizedMedia(
-        Object.fromEntries(
-          Object.entries(categoryData).map(([category, items]) => {
-            return [category, (items || []).map((item: MediaItem) => sanitizeMediaItemTextFields(item))];
-          })
-        ) as Record<string, MediaItem[]>
+        storedPlaylist.mediaByCategory
       );
       const categories = materialized.categories;
       let media = materialized.media;
@@ -918,7 +905,7 @@ const init = function (): void {
         media = assignSequentialMediaIds(media);
       }
 
-      AMP_STATUS.options = nextOptions;
+      AMP_STATUS.options = storedPlaylist.options as PlaylistOptions | null;
       AMP_STATUS.category = categories;
       AMP_STATUS.media = media;
       AMP_STATUS.playlist = MYPLAYLIST_NAME;

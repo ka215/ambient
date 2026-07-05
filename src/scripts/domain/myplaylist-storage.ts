@@ -57,6 +57,42 @@ export function sanitizeMyPlaylistOptions(
   return nextOptions;
 }
 
+export interface ParsedStoredMyPlaylist {
+  categories: string[];
+  mediaByCategory: Record<string, MediaItem[]>;
+  options: Record<string, unknown> | null;
+}
+
+export function parseStoredMyPlaylist(options: {
+  raw: string;
+  sanitizeMediaItem<T extends Partial<MediaItem>>(item: T): T;
+}): ParsedStoredMyPlaylist | null {
+  const data = JSON.parse(options.raw);
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return null;
+  }
+
+  const nextOptions = Object.prototype.hasOwnProperty.call(data, 'options')
+    ? sanitizeMyPlaylistOptions((data as Record<string, unknown>).options as Record<string, unknown> | null | undefined)
+    : null;
+  const mediaByCategory = Object.fromEntries(
+    Object.entries(data)
+      .filter(([key]) => key !== 'options')
+      .map(([category, items]) => {
+        const normalizedItems = Array.isArray(items)
+          ? items.map((item) => options.sanitizeMediaItem((item || {}) as Partial<MediaItem>))
+          : [];
+        return [category, normalizedItems];
+      })
+  ) as Record<string, MediaItem[]>;
+
+  return {
+    categories: Object.keys(mediaByCategory),
+    mediaByCategory,
+    options: nextOptions,
+  };
+}
+
 function convertPlaylistTimeValue(value: string | number | undefined): string | number | undefined {
   if (value === '' || value === undefined || Number(value) === 0) {
     return '';
