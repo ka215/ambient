@@ -155,6 +155,13 @@ import {
   bindPlaylistInteractionControls,
 } from './ui/app-controls';
 import {
+  handleCategorySelectionChange,
+  handlePlayerPause,
+  handlePlayerPlay,
+  handlePlaylistItemActivation,
+  handlePlaylistSelectionChange,
+} from './ui/app-event-handlers';
+import {
   bindSelectorControls,
   bindSettingsControls,
 } from './ui/settings-controls';
@@ -3921,55 +3928,52 @@ const init = function (): void {
     categorySelect: $SELECT_CATEGORY,
     languageSelect: $SELECT_LANGUAGE,
     onPlaylistChange: (evt: Event) => {
-      const selectElm = evt.target as HTMLSelectElement;
-      const oldPlaylist = AMP_STATUS.hasOwnProperty('playlist') ? AMP_STATUS.playlist : null;
-      const newPlaylist = selectElm.value;
-      if (oldPlaylist !== newPlaylist) {
-        if (playlistMode !== 'normal') {
-          if (playlistMode === 'edit' && !confirmDiscardActiveMediaEditIfNeeded()) {
-            selectElm.value = oldPlaylist || '';
-            return;
-          }
+      handlePlaylistSelectionChange(evt, {
+        getCurrentPlaylist: () => AMP_STATUS.hasOwnProperty('playlist') ? AMP_STATUS.playlist : null,
+        getPlaylistMode: () => playlistMode,
+        canDiscardEditMode: () => confirmDiscardActiveMediaEditIfNeeded(),
+        clearDeleteSelections: () => {
           deleteSelectedIds.clear();
-          resetReorderState();
-          if (playlistMode === 'edit') {
-            hideMediaEditModal(false);
-            clearMediaEditContext();
-          }
+        },
+        resetReorderState,
+        hideMediaEditModal: () => {
+          hideMediaEditModal(false);
+        },
+        clearMediaEditContext,
+        resetPlaylistMode: () => {
           playlistMode = 'normal';
-          updatePlaylistModeUI();
-        }
-        void getPlaylistData(newPlaylist);
-      }
+        },
+        updatePlaylistModeUi: updatePlaylistModeUI,
+        loadPlaylist: (playlist) => {
+          void getPlaylistData(playlist);
+        },
+      });
     },
     onCategoryChange: (evt: Event) => {
-      const selectElm = evt.target as HTMLSelectElement;
-      let oldCtgId: number | null = null;
-      if (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null) {
-        oldCtgId = AMP_STATUS.ctg;
-      }
-      const newCtgId = Number(selectElm.value);
-      if (oldCtgId !== newCtgId) {
-        if (playlistMode !== 'normal') {
-          if (playlistMode === 'edit' && !confirmDiscardActiveMediaEditIfNeeded()) {
-            selectElm.value = oldCtgId !== null ? String(oldCtgId) : '-1';
-            return;
-          }
+      handleCategorySelectionChange(evt, {
+        getCurrentCategoryId: () => (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null ? AMP_STATUS.ctg : null),
+        getPlaylistMode: () => playlistMode,
+        canDiscardEditMode: () => confirmDiscardActiveMediaEditIfNeeded(),
+        clearDeleteSelections: () => {
           deleteSelectedIds.clear();
-          resetReorderState();
-          if (playlistMode === 'edit') {
-            hideMediaEditModal(false);
-            clearMediaEditContext();
-          }
+        },
+        resetReorderState,
+        hideMediaEditModal: () => {
+          hideMediaEditModal(false);
+        },
+        clearMediaEditContext,
+        resetPlaylistMode: () => {
           playlistMode = 'normal';
-          updatePlaylistModeUI();
-        }
-        AMP_STATUS.ctg = newCtgId;
-        AMP_STATUS.prev = null;
-        AMP_STATUS.current = null;
-        AMP_STATUS.next = null;
-      }
-      updatePlaylist();
+        },
+        updatePlaylistModeUi: updatePlaylistModeUI,
+        applyCategoryChange: (newCtgId) => {
+          AMP_STATUS.ctg = newCtgId;
+          AMP_STATUS.prev = null;
+          AMP_STATUS.current = null;
+          AMP_STATUS.next = null;
+        },
+        updatePlaylist,
+      });
     },
     onLanguageChange: (evt: Event) => {
       const currentLanguage = getCookie('lang');
@@ -4000,31 +4004,21 @@ const init = function (): void {
       );
     },
     onItemActivate: (itemElm: HTMLElement, event: Event) => {
-      event.preventDefault();
-      if (playlistMode === 'delete') {
-        const amId = Number(itemElm.getAttribute('data-playlist-item'));
-        if (deleteSelectedIds.has(amId)) {
-          deleteSelectedIds.delete(amId);
-        } else {
-          deleteSelectedIds.add(amId);
-        }
-        syncDeleteSelectionIndicator(itemElm, deleteSelectedIds.has(amId));
-        return;
-      }
-      if (playlistMode === 'edit') {
-        const amId = Number(itemElm.getAttribute('data-playlist-item'));
-        const mediaItem = AMP_STATUS.media?.find((item: MediaItem) => item.amId === amId) || null;
-        if (mediaItem) {
-          openMediaEditModal(mediaItem, itemElm);
-        }
-        return;
-      }
-      if (isPlaylistInteractionLocked()) {
-        return;
-      }
-      playItem(itemElm);
-      $BUTTON_PLAY.classList.add('hidden');
-      $BUTTON_PAUSE.classList.remove('hidden');
+      handlePlaylistItemActivation(itemElm, event, {
+        getPlaylistMode: () => playlistMode,
+        deleteSelectedIds,
+        syncDeleteSelectionIndicator,
+        resolveMediaItem: (amId) => AMP_STATUS.media?.find((item: MediaItem) => item.amId === amId) || null,
+        openMediaEditModal,
+        isPlaylistInteractionLocked,
+        playItem: (target) => {
+          playItem(target);
+        },
+        showPlayingState: () => {
+          $BUTTON_PLAY.classList.add('hidden');
+          $BUTTON_PAUSE.classList.remove('hidden');
+        },
+      });
     },
   });
 
@@ -4063,53 +4057,42 @@ const init = function (): void {
       setMenuMinimized(!$MENU.classList.contains('menu-minimized'));
     },
     onPlay: () => {
-      const playableIds = resolvePlaybackCandidateIds({
-        mediaItems: AMP_STATUS.media || [],
-        categoryId: AMP_STATUS.ctg,
-        shuffleEnabled: Boolean(getOption('shuffle')),
-        shuffleItems: AMP_STATUS.shuffle || [],
+      handlePlayerPlay({
+        playertype: AMP_STATUS.playertype,
+        player,
+        logger,
+        resolvePlayId: () => {
+          const playableIds = resolvePlaybackCandidateIds({
+            mediaItems: AMP_STATUS.media || [],
+            categoryId: AMP_STATUS.ctg,
+            shuffleEnabled: Boolean(getOption('shuffle')),
+            shuffleItems: AMP_STATUS.shuffle || [],
+          });
+          return resolveRequestedPlayId({
+            currentId: AMP_STATUS.current,
+            candidateIds: playableIds,
+            order: AMP_STATUS.order,
+          });
+        },
+        playItem: (playId) => {
+          playItem(null, playId);
+        },
+        showPlayingState: () => {
+          syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
+        },
       });
-      const playId = resolveRequestedPlayId({
-        currentId: AMP_STATUS.current,
-        candidateIds: playableIds,
-        order: AMP_STATUS.order,
-      });
-
-      if (AMP_STATUS.playertype === 'youtube' && player) {
-        const YTPstate = player.getPlayerState();
-        logger('"Play" the YouTube Player:', YTPstate);
-        if (YTPstate !== -1) {
-          player.playVideo();
-        }
-      } else if (/^(audio|video)$/i.test(AMP_STATUS.playertype || '')) {
-        const _elms = document.getElementsByTagName(AMP_STATUS.playertype as any);
-        const playerElm = _elms[0] as HTMLMediaElement;
-        playerElm.play();
-      } else {
-        playItem(null, playId);
-      }
-
-      syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
     },
     onPause: () => {
-      if (!AMP_STATUS.hasOwnProperty('playertype') || AMP_STATUS.playertype === null) {
-        return;
-      }
-      if (AMP_STATUS.playertype === 'youtube' && player) {
-        if (player.getPlayerState() === 1) {
-          player.pauseVideo();
-        } else {
-          player.stopVideo();
-        }
-      } else if (/^(audio|video)$/i.test(AMP_STATUS.playertype)) {
-        const _elms = document.getElementsByTagName(AMP_STATUS.playertype as any);
-        const playerElm = _elms[0] as HTMLMediaElement;
-        playerElm.pause();
-      } else {
-        syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'disabled');
-      }
-
-      syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'paused');
+      handlePlayerPause({
+        playertype: AMP_STATUS.playertype,
+        player,
+        showDisabledState: () => {
+          syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'disabled');
+        },
+        showPausedState: () => {
+          syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'paused');
+        },
+      });
     },
   });
 
