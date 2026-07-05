@@ -20,6 +20,13 @@ export interface MediaEditCategoryControlBindings {
   renderOptions(): void;
 }
 
+export interface MediaEditCategoryOptionBindings {
+  categoryInput: HTMLInputElement | null;
+  categoryName: string;
+  isSelected: boolean;
+  onCloseDropdown(restoreFocus?: boolean): void;
+}
+
 export interface MediaEditFieldBindings {
   draftFields: Array<HTMLInputElement | HTMLTextAreaElement | null>;
   volumeInput: HTMLInputElement | null;
@@ -127,6 +134,25 @@ export function bindMediaEditCategoryControls(bindings: MediaEditCategoryControl
       bindings.closeDropdown(false);
     }
   });
+}
+
+export function createMediaEditCategoryOptionButton(bindings: MediaEditCategoryOptionBindings): HTMLButtonElement {
+  const optionElm = document.createElement('button');
+  optionElm.type = 'button';
+  optionElm.className = 'media-edit-category-option block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:text-gray-100 dark:hover:bg-gray-600 dark:focus:ring-blue-900';
+  optionElm.setAttribute('role', 'option');
+  optionElm.setAttribute('aria-selected', bindings.isSelected ? 'true' : 'false');
+  optionElm.textContent = bindings.categoryName;
+  optionElm.addEventListener('click', () => {
+    if (!bindings.categoryInput) {
+      return;
+    }
+    bindings.categoryInput.value = bindings.categoryName;
+    bindings.categoryInput.dispatchEvent(new Event('input', { bubbles: true }));
+    bindings.categoryInput.dispatchEvent(new Event('change', { bubbles: true }));
+    bindings.onCloseDropdown(true);
+  });
+  return optionElm;
 }
 
 export function bindMediaEditFieldControls(bindings: MediaEditFieldBindings): void {

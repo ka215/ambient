@@ -69,6 +69,7 @@ export interface OptionsModalBindings {
   modal: HTMLElement | null;
   onTrigger(): void;
   onClose(): void;
+  onCloseCapture?(): void;
   onBackdropPointerDown(evt: PointerEvent): void;
   onBackdropClick(evt: Event): void;
 }
@@ -291,6 +292,12 @@ export function createOptionsModalController(options: OptionsModalControllerOpti
 }
 
 export function bindOptionsModalControls(bindings: OptionsModalBindings): void {
+  if (bindings.closeButton && bindings.onCloseCapture) {
+    bindings.closeButton.addEventListener('click', () => {
+      bindings.onCloseCapture?.();
+    }, true);
+  }
+
   bindings.triggerButton?.addEventListener('click', (evt: Event) => {
     evt.preventDefault();
     bindings.onTrigger();

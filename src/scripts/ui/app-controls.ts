@@ -24,6 +24,11 @@ export interface PlayerControlBindings {
   onPause(): void;
 }
 
+export interface AddMediaTriggerBindings {
+  trigger: Element;
+  onActivate(evt: Event): void;
+}
+
 export function bindPlaylistInteractionControls(bindings: PlaylistInteractionBindings): void {
   bindings.listElement?.addEventListener('click', (evt: Event) => {
     const target = evt.target as HTMLElement | null;
@@ -86,5 +91,16 @@ export function bindPlayerControls(bindings: PlayerControlBindings): void {
 
   bindings.pauseButton?.addEventListener('click', () => {
     bindings.onPause();
+  });
+}
+
+export function bindAddMediaTrigger(bindings: AddMediaTriggerBindings): void {
+  const btn = bindings.trigger as HTMLElement & { __ambientBound?: boolean };
+  if (btn.__ambientBound) {
+    return;
+  }
+  btn.__ambientBound = true;
+  btn.addEventListener('click', (evt: Event) => {
+    bindings.onActivate(evt);
   });
 }

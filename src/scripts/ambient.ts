@@ -124,6 +124,7 @@ import {
 } from './ui/media-edit-modal-view';
 import {
   bindMediaEditCategoryControls,
+  createMediaEditCategoryOptionButton,
   bindMediaEditFieldControls,
   bindMediaEditPreviewControls,
   bindMediaEditPrimaryControls,
@@ -154,6 +155,7 @@ import {
   bindPlaylistModeControls,
 } from './ui/playlist-mode-controls';
 import {
+  bindAddMediaTrigger,
   bindPlayerControls,
   bindPlaylistInteractionControls,
 } from './ui/app-controls';
@@ -1725,20 +1727,11 @@ const init = function (): void {
     }
 
     options.forEach((catName: string) => {
-      const optionElm = document.createElement('button');
-      optionElm.type = 'button';
-      optionElm.className = 'media-edit-category-option block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:text-gray-100 dark:hover:bg-gray-600 dark:focus:ring-blue-900';
-      optionElm.setAttribute('role', 'option');
-      optionElm.setAttribute('aria-selected', selected === catName ? 'true' : 'false');
-      optionElm.textContent = catName;
-      optionElm.addEventListener('click', () => {
-        if (!isElement($MEDIA_EDIT_CATEGORY)) {
-          return;
-        }
-        $MEDIA_EDIT_CATEGORY.value = catName;
-        $MEDIA_EDIT_CATEGORY.dispatchEvent(new Event('input', { bubbles: true }));
-        $MEDIA_EDIT_CATEGORY.dispatchEvent(new Event('change', { bubbles: true }));
-        closeMediaEditCategoryDropdown(true);
+      const optionElm = createMediaEditCategoryOptionButton({
+        categoryInput: $MEDIA_EDIT_CATEGORY,
+        categoryName: catName,
+        isSelected: selected === catName,
+        onCloseDropdown: closeMediaEditCategoryDropdown,
       });
       $MEDIA_EDIT_CATEGORY_OPTIONS.appendChild(optionElm);
     });
@@ -3361,12 +3354,6 @@ const init = function (): void {
     }
   }
 
-  if (isElement($BUTTON_CLOSE_OPTIONS)) {
-    $BUTTON_CLOSE_OPTIONS.addEventListener('click', () => {
-      restoreOptionsTriggerFocus();
-    }, true);
-  }
-
   function isOptionsModalVisible(): boolean {
     return optionsModal.isVisible();
   }
@@ -3497,16 +3484,16 @@ const init = function (): void {
   }
 
   function bindAddMediaFromDrawer(addBtn: Element): void {
-    const btn = addBtn as HTMLElement & { __ambientBound?: boolean };
-    if (btn.__ambientBound) return;
-    btn.__ambientBound = true;
-    btn.addEventListener('click', (evt: Event) => {
-      evt.preventDefault();
-      evt.stopPropagation();
-      const activeCatId = (AMP_STATUS.ctg !== undefined && AMP_STATUS.ctg !== null && Number(AMP_STATUS.ctg) >= 0)
-        ? Number(AMP_STATUS.ctg)
-        : null;
-      openMediaManagement(activeCatId);
+    bindAddMediaTrigger({
+      trigger: addBtn,
+      onActivate: (evt: Event) => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        const activeCatId = (AMP_STATUS.ctg !== undefined && AMP_STATUS.ctg !== null && Number(AMP_STATUS.ctg) >= 0)
+          ? Number(AMP_STATUS.ctg)
+          : null;
+        openMediaManagement(activeCatId);
+      },
     });
   }
 
@@ -3629,6 +3616,9 @@ const init = function (): void {
     },
     onClose: () => {
       hideOptionsModal();
+    },
+    onCloseCapture: () => {
+      restoreOptionsTriggerFocus();
     },
     onBackdropPointerDown: (evt: PointerEvent) => {
       optionsModal.handleBackdropPointerDown(evt);
