@@ -42,6 +42,7 @@ import {
   useAppStorage,
 } from './platform/storage';
 import {
+  createPlaylistResumeController,
   getSavedPlaylistResumeContext,
   PlaylistResumeContext,
   PlaylistResumeMediaContext,
@@ -529,8 +530,7 @@ const init = function (): void {
   const DISALLOWED_CONTROL_CHARS_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
   const DEFAULT_VOLUME = 50;
   const playlistLoadGuard = createPlaylistLoadGuard();
-  let pendingResumeCategoryName: string | null = null;
-  let pendingResumeMediaContext: PlaylistResumeMediaContext | null = null;
+  const playlistResume = createPlaylistResumeController();
 
   function isPlaylistLoadActive(seq: number): boolean {
     return playlistLoadGuard.isActive(seq);
@@ -625,22 +625,13 @@ const init = function (): void {
   }
 
   function createResumeMediaContext(mediaItem: MediaItem | null): PlaylistResumeMediaContext | null {
-    if (!mediaItem) {
-      return null;
-    }
-    const currentCategory = getCurrentCategoryName();
-    const mediaCategory = getMediaCategoryName(mediaItem);
-    if (currentCategory !== '' && mediaCategory !== currentCategory) {
-      return null;
-    }
-    return {
-      amId: mediaItem.amId,
-      category: mediaCategory,
-      title: sanitizeMediaText(mediaItem.title || '', MEDIA_TITLE_MAX_LENGTH),
-      artist: sanitizeMediaText(mediaItem.artist || '', MEDIA_ARTIST_MAX_LENGTH),
-      file: typeof mediaItem.file === 'string' ? mediaItem.file : '',
-      videoid: typeof mediaItem.videoid === 'string' ? mediaItem.videoid : '',
-    };
+    return playlistResume.createResumeMediaContext(
+      mediaItem,
+      getCurrentCategoryName(),
+      getMediaCategoryName(mediaItem as MediaItem),
+      (value) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
+      (value) => sanitizeMediaText(value, MEDIA_ARTIST_MAX_LENGTH)
+    );
   }
 
   function savePlaylistContext(): void {
@@ -675,68 +666,29 @@ const init = function (): void {
   }
 
   function requestCategoryResume(categoryName: string | null | undefined): void {
-    pendingResumeCategoryName = categoryName && categoryName.trim() !== '' ? categoryName.trim() : null;
+    playlistResume.requestCategoryResume(categoryName);
   }
 
   function requestMediaResume(mediaContext: PlaylistResumeMediaContext | null | undefined): void {
-    pendingResumeMediaContext = mediaContext || null;
+    playlistResume.requestMediaResume(mediaContext);
   }
 
   function applyPendingCategoryResume(): void {
-    if (pendingResumeCategoryName === null) {
-      AMP_STATUS.ctg = -1;
-      syncTargetCategorySelection();
-      return;
-    }
-    const nextCategoryId = Array.isArray(AMP_STATUS.category)
-      ? AMP_STATUS.category.indexOf(pendingResumeCategoryName)
-      : -1;
-    AMP_STATUS.ctg = nextCategoryId >= 0 ? nextCategoryId : -1;
-    pendingResumeCategoryName = null;
+    AMP_STATUS.ctg = playlistResume.applyPendingCategoryResume(AMP_STATUS.category);
     syncTargetCategorySelection();
   }
 
-  function isSameResumeMedia(item: MediaItem, mediaContext: PlaylistResumeMediaContext): boolean {
-    const sameVideo = mediaContext.videoid !== '' && item.videoid === mediaContext.videoid;
-    const sameFile = mediaContext.file !== '' && item.file === mediaContext.file;
-    const sameTitle = sanitizeMediaText(item.title || '', MEDIA_TITLE_MAX_LENGTH) === mediaContext.title;
-    const sameArtist = sanitizeMediaText(item.artist || '', MEDIA_ARTIST_MAX_LENGTH) === mediaContext.artist;
-    return sameVideo || sameFile || (sameTitle && sameArtist);
-  }
-
-  function findResumeMediaItem(mediaContext: PlaylistResumeMediaContext): MediaItem | null {
-    const media = AMP_STATUS.media || [];
-    const expectedCategory = mediaContext.category || pendingResumeCategoryName || '';
-    const isCategoryCompatible = (item: MediaItem): boolean => {
-      if (expectedCategory === '') {
-        return true;
-      }
-      return getMediaCategoryName(item) === expectedCategory;
-    };
-    const exactAmId = media.find((item: MediaItem) =>
-      item.amId === mediaContext.amId &&
-      isCategoryCompatible(item) &&
-      isSameResumeMedia(item, mediaContext)
-    );
-    if (exactAmId) {
-      return exactAmId;
-    }
-    return media.find((item: MediaItem) =>
-      isCategoryCompatible(item) &&
-      isSameResumeMedia(item, mediaContext)
-    ) || null;
-  }
-
   function applyPendingMediaResume(): boolean {
-    if (pendingResumeMediaContext === null) {
+    const resumeAmId = playlistResume.applyPendingMediaResume(
+      AMP_STATUS.media || [],
+      (item) => (AMP_STATUS.category || [])[item.catId] || '',
+      (value) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
+      (value) => sanitizeMediaText(value, MEDIA_ARTIST_MAX_LENGTH)
+    );
+    if (resumeAmId === null) {
       return false;
     }
-    const resumeItem = findResumeMediaItem(pendingResumeMediaContext);
-    pendingResumeMediaContext = null;
-    if (!resumeItem) {
-      return false;
-    }
-    updatePlayStatus(resumeItem.amId);
+    updatePlayStatus(resumeAmId);
     return true;
   }
 
