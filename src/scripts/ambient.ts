@@ -244,8 +244,12 @@ import {
   updateCategoryView,
 } from './ui/forms/management-forms';
 import { createManagedHtmlPlayback, createManagedYouTubePlayback } from './ui/player/managed-player-factory';
-import { bindMediaManagementForm, type MediaManagementBindings } from './ui/forms/media-management';
-import { bindPlaylistManagementForm, type PlaylistManagementBindings } from './ui/forms/playlist-management';
+import { bindMediaManagementForm } from './ui/forms/media-management';
+import { bindPlaylistManagementForm } from './ui/forms/playlist-management';
+import {
+  buildMediaManagementBindings as buildMediaManagementBindingsView,
+  buildPlaylistManagementBindings as buildPlaylistManagementBindingsView,
+} from './ui/forms/management-binding-builders';
 import { createPlaylistLoadGuard } from './domain/playlist-loader';
 import {
   buildPlaylistJson,
@@ -5170,8 +5174,8 @@ const init = function (): void {
     };
   }
 
-  function buildMediaManagementBindings(): MediaManagementBindings {
-    return {
+  if ($MEDIA_MANAGE_FORM) {
+    bindMediaManagementForm(buildMediaManagementBindingsView({
       form: $MEDIA_MANAGE_FORM,
       elements: $MEDIA_MANAGE_ELMS,
       mediaCategorySelect: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
@@ -5196,9 +5200,7 @@ const init = function (): void {
           updatePlayStatus((AMP_STATUS.media || [])[0]?.amId ?? 0);
         }
       },
-      persistMediaEditForCurrentPlaylist: async (workingMedia: unknown[]) => {
-        return persistMediaEditForCurrentPlaylist(workingMedia as MediaItem[]);
-      },
+      persistMediaEditForCurrentPlaylist,
       hideOptionsModal,
       setValidated,
       sanitizeMediaText,
@@ -5215,11 +5217,11 @@ const init = function (): void {
       setAddType: (nextType: string) => {
         AMP_STATUS.addtype = nextType;
       },
-    };
+    }));
   }
 
-  function buildPlaylistManagementBindings(): PlaylistManagementBindings {
-    return {
+  if ($PLAYLIST_MANAGE_FORM) {
+    bindPlaylistManagementForm(buildPlaylistManagementBindingsView({
       form: $PLAYLIST_MANAGE_FORM,
       elements: $PLAYLIST_MANAGE_ELMS,
       canMutateCurrentPlaylist,
@@ -5245,15 +5247,7 @@ const init = function (): void {
       createCategory: createPlaylistCategory,
       downloadPlaylist: downloadCurrentPlaylist,
       importPlaylist: importPlaylistFromManagementForm,
-    };
-  }
-
-  if ($MEDIA_MANAGE_FORM) {
-    bindMediaManagementForm(buildMediaManagementBindings());
-  }
-
-  if ($PLAYLIST_MANAGE_FORM) {
-    bindPlaylistManagementForm(buildPlaylistManagementBindings());
+    }));
   }
 
   const $INITIAL_ALERT = document.getElementById('alert-notification') as HTMLElement | null;
