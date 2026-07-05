@@ -186,9 +186,7 @@ import {
   updatePlaybackStatus,
 } from './ui/player/player-actions';
 import {
-  bindManagedHtmlPlaybackOrchestration,
   cleanupManagedYouTubeTransition,
-  createManagedYouTubePlaybackOrchestration,
 } from './ui/player/player-orchestration';
 import {
   reportPlaybackIssue,
@@ -245,7 +243,10 @@ import {
   updateCategoryView,
 } from './ui/forms/management-forms';
 import { applyCloudEditRestrictionsView as applyCloudEditRestrictionsFormView } from './ui/forms/cloud-edit-restrictions';
-import { createManagedHtmlPlayback, createManagedYouTubePlayback } from './ui/player/managed-player-factory';
+import {
+  createHtmlPlayerInstance,
+  createYouTubePlayerInstance,
+} from './ui/player/player-instantiation';
 import { bindMediaManagementForm } from './ui/forms/media-management';
 import { bindPlaylistManagementForm } from './ui/forms/playlist-management';
 import {
@@ -4322,116 +4323,85 @@ const init = function (): void {
    * Create a YouTube player.
    */
   function createYTPlayer(mediaData: MediaItem): void {
-    emitYouTubeSignal('player_creating');
-    player = createManagedYouTubePlayback({
+    player = createYouTubePlayerInstance({
       mediaData,
       embedWrapper: $EMBED_WRAPPER,
       playerId: 'ytplayer',
       size: getPlayerSizeForCurrentMode(),
       getOption,
-      status: AMP_STATUS,
-      resolvers: {
-        fallbackVolume: getDefaultVolume(),
-        volumeInRange: (value: number) => inRange(value, 0, 100),
-        getPlaybackVolume,
-        normalizeVolume,
+      status: AMP_STATUS as any,
+      getDefaultVolume,
+      getPlaybackVolume,
+      normalizeVolume,
+      inRange,
+      emitYouTubeSignal,
+      showPlayerWrapper: () => {
+        showYouTubePlayerWrapper($EMBED_WRAPPER);
       },
-      events: createManagedYouTubePlaybackOrchestration({
-        emitSignal: emitYouTubeSignal,
-        showPlayerWrapper: () => {
-          showYouTubePlayerWrapper($EMBED_WRAPPER);
-        },
-        mediaItems: () => AMP_STATUS.media || [],
-        currentId: () => AMP_STATUS.current,
-        nextId: () => AMP_STATUS.next,
-        loopEnabled: () => Boolean(AMP_STATUS.loop),
-        autoplayEnabled: () => Boolean(getOption('autoplay')),
-        faderEnabled: () => Boolean(AMP_STATUS.fader),
-        playbackVolume: () => AMP_STATUS.volume ?? getDefaultVolume(),
-        normalizedVolume: () => normalizeVolume(AMP_STATUS.volume, getDefaultVolume()),
-        findMediaById,
-        onAutoplayConfirmed: (elapsedMs: number) => {
-          logger(`onPlayerReady::elapsed ${elapsedMs}ms:`, 'Playback has started!');
-        },
-        onAutoplayTimeout: () => {
-          (document.getElementById('btn-play') as HTMLButtonElement).dispatchEvent(new Event('click'));
-        },
-        setWatchOrigin: (watchUrl: string) => {
-          setWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER, watchUrl);
-        },
-        showPausedState: () => {
-          syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'paused');
-        },
-        showPlayingState: () => {
-          syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
-        },
-        logger,
-        cleanupTransition: (eventTarget, playbackTarget) => {
-          cleanupManagedYouTubeTransition(
-            eventTarget as { destroy?: () => void; g?: { remove?: () => void } },
-            playbackTarget
-          );
-        },
-        transitionToTarget: (playbackTarget) => {
-          runPlaybackTransition({
-            playbackTarget,
-            getExtension: getExt,
-            updatePlayStatus,
-            setupPlayer,
-          });
-        },
-        onYouTubeFallbackTarget: (playbackTarget, event) => {
-          if (playbackTarget.playerType === 'youtube') {
-            logger('error', 'onYTPlayerError:', event, 'force');
-          }
-        },
-        abortPlaybackTimers,
-        resetPlayerView: () => {
-          resetYouTubePlayerView({
-            embedWrapper: $EMBED_WRAPPER,
-            watchButton: $BUTTON_WATCH_TY,
-            optionalContainer: $OPTIONAL_CONTAINER,
-          });
-        },
-        normalizeVolumeForPlayback: (value) => normalizeVolume(value, getDefaultVolume()),
-        resolveSeekRange,
-        fadeIn: (eventTarget, period, start) => fadeIn(eventTarget, period, start),
-        fadeOut: (eventTarget, period, end) => fadeOut(eventTarget, period, end),
-        playingState: (window as any).YT.PlayerState.PLAYING,
-      }),
+      findMediaById,
+      logger,
+      onAutoplayTimeout: () => {
+        (document.getElementById('btn-play') as HTMLButtonElement).dispatchEvent(new Event('click'));
+      },
+      setWatchOrigin: (watchUrl: string) => {
+        setWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER, watchUrl);
+      },
+      showPausedState: () => {
+        syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'paused');
+      },
+      showPlayingState: () => {
+        syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
+      },
+      cleanupTransition: (eventTarget, playbackTarget) => {
+        cleanupManagedYouTubeTransition(
+          eventTarget as { destroy?: () => void; g?: { remove?: () => void } },
+          playbackTarget
+        );
+      },
+      transitionToTarget: (playbackTarget) => {
+        runPlaybackTransition({
+          playbackTarget,
+          getExtension: getExt,
+          updatePlayStatus,
+          setupPlayer,
+        });
+      },
+      abortPlaybackTimers,
+      resetPlayerView: () => {
+        resetYouTubePlayerView({
+          embedWrapper: $EMBED_WRAPPER,
+          watchButton: $BUTTON_WATCH_TY,
+          optionalContainer: $OPTIONAL_CONTAINER,
+        });
+      },
+      resolveSeekRange,
+      fadeIn: (eventTarget, period, start) => fadeIn(eventTarget, period, start),
+      fadeOut: (eventTarget, period, end) => fadeOut(eventTarget, period, end),
+      playingState: (window as any).YT.PlayerState.PLAYING,
     });
-    emitYouTubeSignal('player_created');
   }
 
   /**
    * Create a media playback player using HTML.
    */
   function createPlayerTag(tagname: 'audio' | 'video', mediaData: MediaItem): void {
-    const { playerElement: playerElm, sourceElement: sourceElm, playbackConfig } = createManagedHtmlPlayback({
+    createHtmlPlayerInstance({
+      tagName: tagname,
       mediaData,
       embedWrapper: $EMBED_WRAPPER,
       watchButton: $BUTTON_WATCH_TY,
       optionalContainer: $OPTIONAL_CONTAINER,
-      tagName: tagname,
       getPlaceholderPath: () => getNoMediaImagePath('placeholder'),
       isFullWindowMode,
       getFullWindowPlayerSize,
       getViewportWidth: () => currentWindowSize.width,
       getOption,
-      status: AMP_STATUS,
-      resolvers: {
-        fallbackVolume: getDefaultVolume(),
-        volumeInRange: (value: number) => inRange(value, 0, 100),
-        getPlaybackVolume,
-        normalizeVolume,
-      },
-    });
-    bindManagedHtmlPlaybackOrchestration({
-      playerElement: playerElm,
-      sourceElement: sourceElm,
-      mediaData,
+      status: AMP_STATUS as any,
+      getDefaultVolume,
+      getPlaybackVolume,
+      normalizeVolume,
+      inRange,
       reportMediaPlaybackIssue,
-      seekEnabled: playbackConfig.seekEnabled,
       isSeekActive: () => playbackTimers.isSeekActive(),
       startSeek: (callback, intervalMs) => playbackTimers.startSeek(callback, intervalMs),
       abortSeeking,
@@ -4442,13 +4412,7 @@ const init = function (): void {
       showPausedState: () => {
         syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'paused');
       },
-      onVolumeChange: () => {
-        logger('playerVolumeChange:', playerElm.volume, AMP_STATUS.volume);
-      },
-      faderEnabled: Boolean(AMP_STATUS.fader),
-      playbackVolume: AMP_STATUS.volume,
-      fallbackVolume: getDefaultVolume(),
-      normalizeVolume,
+      logger,
       resolveSeekRange,
       fadeOut,
       fadeIn,
@@ -4456,11 +4420,6 @@ const init = function (): void {
         abortPlaybackTimers();
         cleanupHtmlPlayerWrapper($EMBED_WRAPPER);
       },
-      mediaItems: () => AMP_STATUS.media || [],
-      currentId: () => AMP_STATUS.current,
-      nextId: () => AMP_STATUS.next,
-      loopEnabled: () => Boolean(AMP_STATUS.loop),
-      logger,
       getExtension: getExt,
       updatePlayStatus,
       setupPlayer,
