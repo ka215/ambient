@@ -71,8 +71,8 @@ import {
   syncDrawerAndModalBackdrops,
 } from './ui/drawers';
 import {
+  applyResolvedPlaylistOptions,
   applyDarkModeAppearance,
-  applyPlaylistBackground,
   getToggleInput,
   resolveNoMediaImagePath,
   syncToggleRoot,
@@ -4100,53 +4100,48 @@ const init = function (): void {
     });
 
     const ambientData = (window as any).AmbientData as AmbientData;
-    applyPlaylistBackground({
+    applyResolvedPlaylistOptions({
+      optionState,
       body: $BODY,
       menu: $MENU,
       imageDir: ambientData?.imageDir,
-      backgroundImage: optionState.backgroundImage,
-    });
-
-    if (optionState.hasRandom) {
-      AMP_STATUS.order = optionState.randomEnabled ? 'random' : 'normal';
-    }
-
-    if (optionState.hasShuffle && optionState.shuffleEnabled) {
-      AMP_STATUS.shuffle = [];
-      syncToggleRoot($TOGGLE_SHUFFLE, !!(AMP_STATUS.options && AMP_STATUS.options.shuffle));
-      AMP_STATUS.shuffle = shufflePlaylist();
-    }
-
-    if (optionState.hasSeek) {
-      syncToggleRoot($TOGGLE_SEEKPLAY, !!(AMP_STATUS.options && AMP_STATUS.options.seek));
-    }
-
-    if (optionState.hasFader) {
-      syncToggleRoot($TOGGLE_FADER, !!(AMP_STATUS.options && AMP_STATUS.options.fader));
-    }
-
-    AMP_STATUS.volume = optionState.volume;
-    syncVolumeSlider({
-      input: $RANGE_VOLUME,
-      volume: normalizeVolume(AMP_STATUS.volume, getDefaultVolume()),
-      syncRangeProgress,
-      display: document.getElementById('default-volume-value') as HTMLElement | null,
-    });
-    syncMediaVolumeField();
-
-    if (optionState.hasDark) {
-      if (AMP_STATUS.options) {
-        AMP_STATUS.options.dark = optionState.darkEnabled;
-      }
-    }
-
-    applyDarkModeAppearance({
-      enabled: isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark ? !!AMP_STATUS.options.dark : false,
+      syncRandomOrder: (enabled) => {
+        AMP_STATUS.order = enabled ? 'random' : 'normal';
+      },
+      syncShuffle: () => {
+        AMP_STATUS.shuffle = [];
+        syncToggleRoot($TOGGLE_SHUFFLE, !!(AMP_STATUS.options && AMP_STATUS.options.shuffle));
+        AMP_STATUS.shuffle = shufflePlaylist();
+      },
+      syncSeek: (enabled) => {
+        syncToggleRoot($TOGGLE_SEEKPLAY, enabled);
+      },
+      syncFader: (enabled) => {
+        syncToggleRoot($TOGGLE_FADER, enabled);
+      },
+      applyVolume: (volume) => {
+        AMP_STATUS.volume = volume;
+        syncVolumeSlider({
+          input: $RANGE_VOLUME,
+          volume: normalizeVolume(AMP_STATUS.volume, getDefaultVolume()),
+          syncRangeProgress,
+          display: document.getElementById('default-volume-value') as HTMLElement | null,
+        });
+        syncMediaVolumeField();
+      },
+      applyDarkModeFlag: (enabled) => {
+        if (AMP_STATUS.options) {
+          AMP_STATUS.options.dark = enabled;
+        }
+      },
+      darkModeEnabled: () => isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark ? !!AMP_STATUS.options.dark : false,
       toggleInput: toggleDarkmodeInput,
       updateNoMediaImagesForTheme: () => updateNoMediaImagesForTheme(isDarkModeEnabled()),
       setStyles,
+      applyFullWindowMode: (enabled) => {
+        setFullWindowMode(enabled, false);
+      },
     });
-    setFullWindowMode(optionState.fullWindowEnabled, false);
   }
 
   /**

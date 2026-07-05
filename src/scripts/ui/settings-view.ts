@@ -1,4 +1,5 @@
 import { basename } from '../shared/string';
+import type { PlaylistOptionState } from '../state/playlist-options';
 
 export function applyPlaylistBackground(options: {
   body: HTMLElement;
@@ -132,4 +133,60 @@ export function syncVolumeSlider(options: {
   if (options.display) {
     options.display.textContent = String(options.volume);
   }
+}
+
+export function applyResolvedPlaylistOptions(options: {
+  optionState: PlaylistOptionState;
+  body: HTMLElement;
+  menu: HTMLElement | null;
+  imageDir: string | null | undefined;
+  syncRandomOrder: (enabled: boolean) => void;
+  syncShuffle: () => void;
+  syncSeek: (enabled: boolean) => void;
+  syncFader: (enabled: boolean) => void;
+  applyVolume: (volume: number) => void;
+  applyDarkModeFlag: (enabled: boolean) => void;
+  darkModeEnabled: () => boolean;
+  toggleInput: HTMLInputElement | null;
+  updateNoMediaImagesForTheme: () => void;
+  setStyles: (targetElements: HTMLElement | HTMLElement[], styles?: string | Record<string, string>) => void;
+  applyFullWindowMode: (enabled: boolean) => void;
+}): void {
+  applyPlaylistBackground({
+    body: options.body,
+    menu: options.menu,
+    imageDir: options.imageDir,
+    backgroundImage: options.optionState.backgroundImage,
+  });
+
+  if (options.optionState.hasRandom) {
+    options.syncRandomOrder(options.optionState.randomEnabled);
+  }
+
+  if (options.optionState.hasShuffle && options.optionState.shuffleEnabled) {
+    options.syncShuffle();
+  }
+
+  if (options.optionState.hasSeek) {
+    options.syncSeek(options.optionState.seekEnabled);
+  }
+
+  if (options.optionState.hasFader) {
+    options.syncFader(options.optionState.faderEnabled);
+  }
+
+  options.applyVolume(options.optionState.volume);
+
+  if (options.optionState.hasDark) {
+    options.applyDarkModeFlag(options.optionState.darkEnabled);
+  }
+
+  applyDarkModeAppearance({
+    enabled: options.darkModeEnabled(),
+    toggleInput: options.toggleInput,
+    updateNoMediaImagesForTheme: options.updateNoMediaImagesForTheme,
+    setStyles: options.setStyles,
+  });
+
+  options.applyFullWindowMode(options.optionState.fullWindowEnabled);
 }
