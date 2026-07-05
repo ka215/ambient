@@ -58,6 +58,10 @@ import {
   syncSessionDraftState,
 } from './state/session-draft-store';
 import {
+  applyMediaEditDirtyState,
+  hasActiveUnsavedMediaEditDraft,
+} from './state/media-edit-state';
+import {
   closeResponsiveDrawers,
   cleanupDrawerBackdrops,
   syncDrawerAndModalBackdrops,
@@ -2090,10 +2094,13 @@ const init = function (): void {
   }
 
   function setMediaEditDirtyState(isDirty: boolean): void {
-    mediaEditIsDirty = isDirty;
-    if (isElement($MODAL_MEDIA_EDIT)) {
-      $MODAL_MEDIA_EDIT.setAttribute('data-dirty', String(isDirty));
-    }
+    applyMediaEditDirtyState({
+      isDirty,
+      modalElement: isElement($MODAL_MEDIA_EDIT) ? $MODAL_MEDIA_EDIT : null,
+      onDirtyChange: (nextDirty) => {
+        mediaEditIsDirty = nextDirty;
+      },
+    });
   }
 
   function getMediaEditItemIdentity(mediaItem: MediaItem): string {
@@ -2560,10 +2567,11 @@ const init = function (): void {
   }
 
   function isActiveMediaEditUnsaved(): boolean {
-    if (!mediaEditActiveItem) {
-      return false;
-    }
-    return mediaEditDraftStore.has(getMediaEditDraftKey(mediaEditActiveItem));
+    return hasActiveUnsavedMediaEditDraft({
+      activeItem: mediaEditActiveItem,
+      draftStore: mediaEditDraftStore,
+      getDraftKey: getMediaEditDraftKey,
+    });
   }
 
   function syncMediaEditDraftStateFromForm(): void {
