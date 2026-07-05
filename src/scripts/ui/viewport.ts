@@ -195,3 +195,39 @@ export function applyMenuMinimizedState(options: {
   options.syncButtonState(options.minimized);
   options.afterToggle?.();
 }
+
+export function applyFullWindowModeWorkflow(options: {
+  applyMode: () => void;
+  syncOption?: () => void;
+  syncButtonState: () => void;
+  onLayoutRefresh: () => void;
+  onCaptionRefresh: () => void;
+  scheduleMetricsRefresh: (delay: number) => void;
+}): void {
+  options.applyMode();
+  options.syncOption?.();
+  options.syncButtonState();
+  options.onLayoutRefresh();
+  options.onCaptionRefresh();
+  options.scheduleMetricsRefresh(240);
+}
+
+export function updateViewportLayoutWorkflow(options: {
+  currentWidth: number;
+  currentHeight: number;
+  getViewportWidth: () => number;
+  getViewportHeight: () => number;
+  onMeasured: (size: { width: number; height: number }) => void;
+  syncLayout: (size: { width: number; height: number }) => void;
+}): void {
+  const size = {
+    width: options.getViewportWidth(),
+    height: options.getViewportHeight(),
+  };
+
+  if (size.width !== options.currentWidth || size.height !== options.currentHeight) {
+    options.onMeasured(size);
+  }
+
+  options.syncLayout(size);
+}

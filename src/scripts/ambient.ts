@@ -82,12 +82,14 @@ import {
 import {
   applyFullWindowMode,
   applyMenuMinimizedState,
+  applyFullWindowModeWorkflow,
   bindViewportSyncEvents,
   isFullWindowMode as isFullWindowModeView,
   refreshViewportMetricsTask,
   scheduleViewportMetricsSyncTask,
   syncViewportMetricsState,
   syncViewportLayout,
+  updateViewportLayoutWorkflow,
 } from './ui/viewport';
 import {
   createOptionsModalController,
@@ -4236,27 +4238,33 @@ const init = function (): void {
    * @param closeDrawers When true, auto-close any open drawers (only for bottom-menu trigger).
    */
   function setFullWindowMode(enabled: boolean, syncOption = true, closeDrawers = false): void {
-    applyFullWindowMode({
-      body: $BODY,
-      enabled,
-      toggleInput: toggleWindowFullInput,
-      closeDrawers,
-      shouldAutoCloseDrawers: currentWindowSize.width < currentWindowSize.minFullUIWidth,
-      playlistDrawer: $DRAWER_PLAYLIST,
-      settingsDrawer: $DRAWER_SETTINGS,
-      playlistCloseButton: document.getElementById('btn-close-playlist') as HTMLElement | null,
-      settingsCloseButton: document.getElementById('btn-close-settings') as HTMLElement | null,
+    applyFullWindowModeWorkflow({
+      applyMode: () => {
+        applyFullWindowMode({
+          body: $BODY,
+          enabled,
+          toggleInput: toggleWindowFullInput,
+          closeDrawers,
+          shouldAutoCloseDrawers: currentWindowSize.width < currentWindowSize.minFullUIWidth,
+          playlistDrawer: $DRAWER_PLAYLIST,
+          settingsDrawer: $DRAWER_SETTINGS,
+          playlistCloseButton: document.getElementById('btn-close-playlist') as HTMLElement | null,
+          settingsCloseButton: document.getElementById('btn-close-settings') as HTMLElement | null,
+        });
+      },
+      syncOption: syncOption
+        ? () => {
+          setPlaylistOption(AMP_STATUS, 'fullwindow', enabled);
+          persistMyPlaylistIfNeeded();
+        }
+        : undefined,
+      syncButtonState: () => {
+        syncWindowFullButtonState($BUTTON_WINDOW_FULL, enabled);
+      },
+      onLayoutRefresh: updateWindowSize,
+      onCaptionRefresh: toggleMarqueeCaption,
+      scheduleMetricsRefresh: refreshViewportMetricsAfter,
     });
-
-    if (syncOption) {
-      setPlaylistOption(AMP_STATUS, 'fullwindow', enabled);
-      persistMyPlaylistIfNeeded();
-    }
-
-    syncWindowFullButtonState($BUTTON_WINDOW_FULL, enabled);
-    updateWindowSize();
-    toggleMarqueeCaption();
-    refreshViewportMetricsAfter(240);
   }
 
   /**
@@ -5083,28 +5091,38 @@ const init = function (): void {
    * Event handler when the window size is resized.
    */
   function updateWindowSize(): void {
-    currentWindowSize.width = getViewportWidth();
-    currentWindowSize.height = getViewportHeight();
-    const $HTMLPlayer = document.getElementById('html-player') as HTMLVideoElement | null;
-    syncViewportLayout({
-      width: currentWindowSize.width,
-      height: currentWindowSize.height,
-      getBottomMenuHeight,
-      isFullWindow: isFullWindowMode(),
-      getPlayerSizeForCurrentMode,
-      player,
-      htmlPlayer: $HTMLPlayer,
-      drawerElements: {
-        playlistDrawer: $DRAWER_PLAYLIST,
-        settingsDrawer: $DRAWER_SETTINGS,
-        playlistButton: $BUTTON_PLAYLIST,
-        settingsButton: $BUTTON_SETTINGS,
-        playlistCloseButton: document.getElementById('btn-close-playlist') as HTMLButtonElement | null,
-        settingsCloseButton: document.getElementById('btn-close-settings') as HTMLButtonElement | null,
+    updateViewportLayoutWorkflow({
+      currentWidth: currentWindowSize.width,
+      currentHeight: currentWindowSize.height,
+      getViewportWidth,
+      getViewportHeight,
+      onMeasured: ({ width, height }) => {
+        currentWindowSize.width = width;
+        currentWindowSize.height = height;
       },
-      minFullUiWidth: currentWindowSize.minFullUIWidth,
-      onAfterResponsiveLayout: () => {
-        toggleMarqueeCaption();
+      syncLayout: ({ width, height }) => {
+        const $HTMLPlayer = document.getElementById('html-player') as HTMLVideoElement | null;
+        syncViewportLayout({
+          width,
+          height,
+          getBottomMenuHeight,
+          isFullWindow: isFullWindowMode(),
+          getPlayerSizeForCurrentMode,
+          player,
+          htmlPlayer: $HTMLPlayer,
+          drawerElements: {
+            playlistDrawer: $DRAWER_PLAYLIST,
+            settingsDrawer: $DRAWER_SETTINGS,
+            playlistButton: $BUTTON_PLAYLIST,
+            settingsButton: $BUTTON_SETTINGS,
+            playlistCloseButton: document.getElementById('btn-close-playlist') as HTMLButtonElement | null,
+            settingsCloseButton: document.getElementById('btn-close-settings') as HTMLButtonElement | null,
+          },
+          minFullUiWidth: currentWindowSize.minFullUIWidth,
+          onAfterResponsiveLayout: () => {
+            toggleMarqueeCaption();
+          },
+        });
       },
     });
   }
