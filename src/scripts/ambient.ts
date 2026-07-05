@@ -140,6 +140,10 @@ import {
   updatePlaylistModeMenuState,
 } from './ui/playlist-view';
 import {
+  bindPlaylistConfirmModalControls,
+  bindPlaylistModeControls,
+} from './ui/playlist-mode-controls';
+import {
   createNoticeController,
   dispatchInitialNotice,
   type NoticeController,
@@ -3048,97 +3052,74 @@ const init = function (): void {
     updatePlaylist();
   }
 
-  if ($BUTTON_PLAYLIST_MODE && $PLAYLIST_MODE_MENU) {
-    $BUTTON_PLAYLIST_MODE.addEventListener('click', (evt: Event) => {
-      evt.preventDefault();
-      evt.stopPropagation();
-      if (playlistMode === 'reorder') {
-        syncReorderWorkingIdsFromDom();
-      }
+  function handlePlaylistModeButtonClick(): void {
+    if (playlistMode === 'reorder') {
+      syncReorderWorkingIdsFromDom();
+    }
 
-      const action = resolvePlaylistModeButtonAction({
-        currentMode: playlistMode,
-        deleteSelectionCount: deleteSelectedIds.size,
-        reorderDirty: isReorderDirty(),
-      });
+    const action = resolvePlaylistModeButtonAction({
+      currentMode: playlistMode,
+      deleteSelectionCount: deleteSelectedIds.size,
+      reorderDirty: isReorderDirty(),
+    });
 
-      if (action.kind === 'toggle_menu') {
-        togglePlaylistModeMenu();
-        return;
-      }
+    if (action.kind === 'toggle_menu') {
+      togglePlaylistModeMenu();
+      return;
+    }
 
-      closePlaylistModeMenu();
+    closePlaylistModeMenu();
 
-      if (action.kind === 'confirm_delete') {
-        const title = $BUTTON_PLAYLIST_MODE.dataset['confirmDeleteTitle'] || 'Delete selected items?';
-        const body = $BUTTON_PLAYLIST_MODE.dataset['confirmDeleteBody'] || 'Selected items will be removed from your playlist.';
-        playlistConfirmModal.open(title, body, () => {
-          void commitDeleteSelections();
-        }, () => {
-          if (playlistMode === 'reorder') {
-            reorderWorkingIds = [...reorderInitialIds];
-            updatePlaylist();
-          }
-        });
-        return;
-      }
-
-      if (action.kind === 'confirm_reorder') {
-        const title = $BUTTON_PLAYLIST_MODE.dataset['confirmReorderTitle'] || 'Apply reordered sequence?';
-        const body = $BUTTON_PLAYLIST_MODE.dataset['confirmReorderBody'] || 'Apply the current item order to your playlist.';
-        playlistConfirmModal.open(title, body, () => {
-          applyReorderChanges();
-          playlistMode = 'normal';
-          updatePlaylistModeUI();
+    if (action.kind === 'confirm_delete') {
+      const title = $BUTTON_PLAYLIST_MODE?.dataset['confirmDeleteTitle'] || 'Delete selected items?';
+      const body = $BUTTON_PLAYLIST_MODE?.dataset['confirmDeleteBody'] || 'Selected items will be removed from your playlist.';
+      playlistConfirmModal.open(title, body, () => {
+        void commitDeleteSelections();
+      }, () => {
+        if (playlistMode === 'reorder') {
+          reorderWorkingIds = [...reorderInitialIds];
           updatePlaylist();
-        }, () => {
-          if (playlistMode === 'reorder') {
-            reorderWorkingIds = [...reorderInitialIds];
-            updatePlaylist();
-          }
-        });
-        return;
-      }
-
-      if (action.kind === 'exit_delete') {
-        deleteSelectedIds.clear();
-      } else if (action.kind === 'exit_reorder') {
-        resetReorderState();
-      }
-
-      playlistMode = 'normal';
-      updatePlaylistModeUI();
-      updatePlaylist();
-    });
-
-    Array.from($PLAYLIST_MODE_MENU.querySelectorAll('.playlist-mode-option')).forEach((elm) => {
-      elm.addEventListener('click', (evt: Event) => {
-        evt.preventDefault();
-        evt.stopPropagation();
-        const optionElm = evt.currentTarget as HTMLButtonElement;
-        if (optionElm.disabled || optionElm.getAttribute('aria-disabled') === 'true') {
-          return;
-        }
-        const nextMode = optionElm.dataset['mode'];
-        if (nextMode === 'normal' || nextMode === 'edit' || nextMode === 'reorder' || nextMode === 'delete') {
-          setPlaylistMode(nextMode);
         }
       });
-    });
+      return;
+    }
 
-    document.addEventListener('click', (evt: MouseEvent) => {
-      const target = evt.target as Node;
-      if (!$PLAYLIST_MODE_MENU.contains(target) && !$BUTTON_PLAYLIST_MODE.contains(target)) {
-        closePlaylistModeMenu();
-      }
-    });
+    if (action.kind === 'confirm_reorder') {
+      const title = $BUTTON_PLAYLIST_MODE?.dataset['confirmReorderTitle'] || 'Apply reordered sequence?';
+      const body = $BUTTON_PLAYLIST_MODE?.dataset['confirmReorderBody'] || 'Apply the current item order to your playlist.';
+      playlistConfirmModal.open(title, body, () => {
+        applyReorderChanges();
+        playlistMode = 'normal';
+        updatePlaylistModeUI();
+        updatePlaylist();
+      }, () => {
+        if (playlistMode === 'reorder') {
+          reorderWorkingIds = [...reorderInitialIds];
+          updatePlaylist();
+        }
+      });
+      return;
+    }
 
-    document.addEventListener('keydown', (evt: KeyboardEvent) => {
-      if (evt.key === 'Escape') {
-        closePlaylistModeMenu();
-      }
-    });
+    if (action.kind === 'exit_delete') {
+      deleteSelectedIds.clear();
+    } else if (action.kind === 'exit_reorder') {
+      resetReorderState();
+    }
 
+    playlistMode = 'normal';
+    updatePlaylistModeUI();
+    updatePlaylist();
+  }
+
+  if ($BUTTON_PLAYLIST_MODE && $PLAYLIST_MODE_MENU) {
+    bindPlaylistModeControls({
+      button: $BUTTON_PLAYLIST_MODE,
+      menu: $PLAYLIST_MODE_MENU,
+      onModeButtonClick: handlePlaylistModeButtonClick,
+      onModeSelect: setPlaylistMode,
+      closeMenu: closePlaylistModeMenu,
+    });
     updatePlaylistModeUI();
   }
 
@@ -3295,29 +3276,17 @@ const init = function (): void {
     });
   }
 
-  if ($BTN_PLAYLIST_CONFIRM_APPLY) {
-    $BTN_PLAYLIST_CONFIRM_APPLY.addEventListener('click', () => {
+  bindPlaylistConfirmModalControls({
+    modal: $MODAL_PLAYLIST_CONFIRM,
+    applyButton: $BTN_PLAYLIST_CONFIRM_APPLY,
+    cancelButton: $BTN_PLAYLIST_CONFIRM_CANCEL,
+    onApply: () => {
       playlistConfirmModal.apply();
-    });
-  }
-
-  if ($BTN_PLAYLIST_CONFIRM_CANCEL) {
-    $BTN_PLAYLIST_CONFIRM_CANCEL.addEventListener('click', () => {
+    },
+    onCancel: () => {
       playlistConfirmModal.cancel();
-    });
-  }
-
-  if ($MODAL_PLAYLIST_CONFIRM) {
-    $MODAL_PLAYLIST_CONFIRM.addEventListener('click', (evt: MouseEvent) => {
-      const target = evt.target;
-      const isBackdrop = target instanceof HTMLElement &&
-        target.parentElement === $MODAL_PLAYLIST_CONFIRM &&
-        target.getAttribute('aria-hidden') === 'true';
-      if (target === $MODAL_PLAYLIST_CONFIRM || isBackdrop) {
-        playlistConfirmModal.cancel();
-      }
-    });
-  }
+    },
+  });
 
   // Process global data passed by the system.
   // In cloud mode: load MyPlaylist from localStorage before processing server data.
