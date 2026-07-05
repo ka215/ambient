@@ -56,7 +56,9 @@ import {
   canUseAnyPlaylistMode,
   canUsePlaylistEditMode,
   canUsePlaylistReorderMode,
+  createPlaylistReorderSnapshot,
   getPlaylistItemsForView,
+  isPlaylistReorderDirty,
   resolvePlaylistModeTransition,
   shouldResetPlaylistOperationMode,
 } from './state/playlist-mode-state';
@@ -3218,15 +3220,17 @@ const init = function (): void {
   }
 
   function isReorderDirty(): boolean {
-    return reorderInitialIds.length > 0 &&
-      reorderInitialIds.length === reorderWorkingIds.length &&
-      reorderInitialIds.some((amId, index) => amId !== reorderWorkingIds[index]);
+    return isPlaylistReorderDirty(reorderInitialIds, reorderWorkingIds);
   }
 
   function captureReorderSnapshot(): void {
-    reorderCategoryId = Number(AMP_STATUS.ctg);
-    reorderInitialIds = getPlaylistItemsForCurrentView().map((item: MediaItem) => item.amId);
-    reorderWorkingIds = [...reorderInitialIds];
+    const snapshot = createPlaylistReorderSnapshot({
+      categoryId: AMP_STATUS.ctg,
+      visibleItems: getPlaylistItemsForCurrentView(),
+    });
+    reorderCategoryId = snapshot.reorderCategoryId;
+    reorderInitialIds = snapshot.reorderInitialIds;
+    reorderWorkingIds = snapshot.reorderWorkingIds;
   }
 
   function syncReorderWorkingIdsFromDom(): void {

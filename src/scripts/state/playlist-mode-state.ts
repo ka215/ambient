@@ -107,3 +107,26 @@ export function canUseAnyPlaylistMode(options: {
 export function shouldResetPlaylistOperationMode(currentMode: PlaylistMode, canUsePlaylistModes: boolean): boolean {
   return !canUsePlaylistModes && currentMode !== 'normal';
 }
+
+export function isPlaylistReorderDirty(initialIds: number[], workingIds: number[]): boolean {
+  return initialIds.length > 0
+    && initialIds.length === workingIds.length
+    && initialIds.some((amId, index) => amId !== workingIds[index]);
+}
+
+export function createPlaylistReorderSnapshot(options: {
+  categoryId: number | null | undefined;
+  visibleItems: MediaItem[];
+}): {
+  reorderCategoryId: number;
+  reorderInitialIds: number[];
+  reorderWorkingIds: number[];
+} {
+  const reorderInitialIds = options.visibleItems.map((item: MediaItem) => item.amId);
+
+  return {
+    reorderCategoryId: Number(options.categoryId),
+    reorderInitialIds,
+    reorderWorkingIds: [...reorderInitialIds],
+  };
+}
