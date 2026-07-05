@@ -151,6 +151,14 @@ import {
   bindPlaylistModeControls,
 } from './ui/playlist-mode-controls';
 import {
+  bindPlayerControls,
+  bindPlaylistInteractionControls,
+} from './ui/app-controls';
+import {
+  bindSelectorControls,
+  bindSettingsControls,
+} from './ui/settings-controls';
+import {
   createNoticeController,
   dispatchInitialNotice,
   type NoticeController,
@@ -4248,243 +4256,208 @@ const init = function (): void {
   // EVENT HANDLERS
   // ============================================================================
 
-  /**
-   * Event listener when the playlist selection field in the settings menu is changed.
-   */
-  $SELECT_PLAYLIST.addEventListener('change', (evt: Event) => {
-    const selectElm = evt.target as HTMLSelectElement;
-    const newPlaylist = selectElm.value;
-    let oldPlaylist: string | null = null;
-    if (AMP_STATUS.hasOwnProperty('playlist')) {
-      oldPlaylist = AMP_STATUS.playlist;
-    }
-    if (oldPlaylist !== newPlaylist) {
-      if (playlistMode !== 'normal') {
-        if (playlistMode === 'edit' && !confirmDiscardActiveMediaEditIfNeeded()) {
-          selectElm.value = oldPlaylist || '';
-          return;
+  bindSelectorControls({
+    playlistSelect: $SELECT_PLAYLIST,
+    categorySelect: $SELECT_CATEGORY,
+    languageSelect: $SELECT_LANGUAGE,
+    onPlaylistChange: (evt: Event) => {
+      const selectElm = evt.target as HTMLSelectElement;
+      const oldPlaylist = AMP_STATUS.hasOwnProperty('playlist') ? AMP_STATUS.playlist : null;
+      const newPlaylist = selectElm.value;
+      if (oldPlaylist !== newPlaylist) {
+        if (playlistMode !== 'normal') {
+          if (playlistMode === 'edit' && !confirmDiscardActiveMediaEditIfNeeded()) {
+            selectElm.value = oldPlaylist || '';
+            return;
+          }
+          deleteSelectedIds.clear();
+          resetReorderState();
+          if (playlistMode === 'edit') {
+            hideMediaEditModal(false);
+            clearMediaEditContext();
+          }
+          playlistMode = 'normal';
+          updatePlaylistModeUI();
         }
-        deleteSelectedIds.clear();
-        resetReorderState();
-        if (playlistMode === 'edit') {
-          hideMediaEditModal(false);
-          clearMediaEditContext();
-        }
-        playlistMode = 'normal';
-        updatePlaylistModeUI();
+        void getPlaylistData(newPlaylist);
       }
-      void getPlaylistData(newPlaylist);
-    }
+    },
+    onCategoryChange: (evt: Event) => {
+      const selectElm = evt.target as HTMLSelectElement;
+      let oldCtgId: number | null = null;
+      if (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null) {
+        oldCtgId = AMP_STATUS.ctg;
+      }
+      const newCtgId = Number(selectElm.value);
+      if (oldCtgId !== newCtgId) {
+        if (playlistMode !== 'normal') {
+          if (playlistMode === 'edit' && !confirmDiscardActiveMediaEditIfNeeded()) {
+            selectElm.value = oldCtgId !== null ? String(oldCtgId) : '-1';
+            return;
+          }
+          deleteSelectedIds.clear();
+          resetReorderState();
+          if (playlistMode === 'edit') {
+            hideMediaEditModal(false);
+            clearMediaEditContext();
+          }
+          playlistMode = 'normal';
+          updatePlaylistModeUI();
+        }
+        AMP_STATUS.ctg = newCtgId;
+        AMP_STATUS.prev = null;
+        AMP_STATUS.current = null;
+        AMP_STATUS.next = null;
+      }
+      updatePlaylist();
+    },
+    onLanguageChange: (evt: Event) => {
+      const currentLanguage = getCookie('lang');
+      const newLanguage = (evt.target as HTMLSelectElement).value;
+      logger('changeLanguage::', currentLanguage, newLanguage);
+      if (currentLanguage !== newLanguage) {
+        updateCookie('lang', newLanguage);
+        reloadPage();
+      }
+    },
   });
 
-  /**
-   * Event listener when the category selection field in the settings menu is changed.
-   */
-  $SELECT_CATEGORY.addEventListener('change', (evt: Event) => {
-    const selectElm = evt.target as HTMLSelectElement;
-    let oldCtgId: number | null = null;
-    if (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null) {
-      oldCtgId = AMP_STATUS.ctg;
-    }
-    const newCtgId = Number(selectElm.value);
-    if (oldCtgId !== newCtgId) {
-      if (playlistMode !== 'normal') {
-        if (playlistMode === 'edit' && !confirmDiscardActiveMediaEditIfNeeded()) {
-          selectElm.value = oldCtgId !== null ? String(oldCtgId) : '-1';
-          return;
-        }
-        deleteSelectedIds.clear();
-        resetReorderState();
-        if (playlistMode === 'edit') {
-          hideMediaEditModal(false);
-          clearMediaEditContext();
-        }
-        playlistMode = 'normal';
-        updatePlaylistModeUI();
+  bindPlaylistInteractionControls({
+    listElement: $LIST_PLAYLIST,
+    getDescriptionPayload: getPlaylistDescriptionPayload,
+    onDescriptionActivate: (target: HTMLElement, event: Event) => {
+      const descPayload = getPlaylistDescriptionPayload(target);
+      if (!descPayload) {
+        return;
       }
-      AMP_STATUS.ctg = newCtgId;
-      AMP_STATUS.prev = null;
-      AMP_STATUS.current = null;
-      AMP_STATUS.next = null;
-    }
-    updatePlaylist();
-  });
-
-  $LIST_PLAYLIST.addEventListener('click', (evt: Event) => {
-    const target = evt.target as HTMLElement | null;
-    const descPayload = getPlaylistDescriptionPayload(target);
-    if (descPayload) {
-      evt.preventDefault();
-      evt.stopPropagation();
+      event.preventDefault();
+      event.stopPropagation();
       playlistDescModal.open(
         descPayload.titleText,
         descPayload.artistText,
         descPayload.descText,
         descPayload.trigger
       );
-      return;
-    }
-
-    if (!target) {
-      return;
-    }
-
-    const itemElm = target.closest('a[data-playlist-item]') as HTMLElement | null;
-    if (!itemElm) {
-      return;
-    }
-
-    evt.preventDefault();
-    if (playlistMode === 'delete') {
-      const amId = Number(itemElm.getAttribute('data-playlist-item'));
-      if (deleteSelectedIds.has(amId)) {
-        deleteSelectedIds.delete(amId);
-      } else {
-        deleteSelectedIds.add(amId);
+    },
+    onItemActivate: (itemElm: HTMLElement, event: Event) => {
+      event.preventDefault();
+      if (playlistMode === 'delete') {
+        const amId = Number(itemElm.getAttribute('data-playlist-item'));
+        if (deleteSelectedIds.has(amId)) {
+          deleteSelectedIds.delete(amId);
+        } else {
+          deleteSelectedIds.add(amId);
+        }
+        syncDeleteSelectionIndicator(itemElm, deleteSelectedIds.has(amId));
+        return;
       }
-      syncDeleteSelectionIndicator(itemElm, deleteSelectedIds.has(amId));
-      return;
-    }
-    if (playlistMode === 'edit') {
-      const amId = Number(itemElm.getAttribute('data-playlist-item'));
-      const mediaItem = AMP_STATUS.media?.find((item: MediaItem) => item.amId === amId) || null;
-      if (mediaItem) {
-        openMediaEditModal(mediaItem, itemElm);
+      if (playlistMode === 'edit') {
+        const amId = Number(itemElm.getAttribute('data-playlist-item'));
+        const mediaItem = AMP_STATUS.media?.find((item: MediaItem) => item.amId === amId) || null;
+        if (mediaItem) {
+          openMediaEditModal(mediaItem, itemElm);
+        }
+        return;
       }
-      return;
-    }
-    if (isPlaylistInteractionLocked()) {
-      return;
-    }
-    playItem(itemElm);
-    $BUTTON_PLAY.classList.add('hidden');
-    $BUTTON_PAUSE.classList.remove('hidden');
-  });
-
-  $LIST_PLAYLIST.addEventListener('keydown', (evt: KeyboardEvent) => {
-    const target = evt.target as HTMLElement | null;
-    const descPayload = getPlaylistDescriptionPayload(target);
-    if (!descPayload) {
-      return;
-    }
-    if (evt.key === 'Enter' || evt.key === ' ') {
-      evt.preventDefault();
-      playlistDescModal.open(
-        descPayload.titleText,
-        descPayload.artistText,
-        descPayload.descText,
-        descPayload.trigger
-      );
-    }
+      if (isPlaylistInteractionLocked()) {
+        return;
+      }
+      playItem(itemElm);
+      $BUTTON_PLAY.classList.add('hidden');
+      $BUTTON_PAUSE.classList.remove('hidden');
+    },
   });
 
   /**
    * Event listener when the button of "previous" for carousel has been clicked.
    */
-  $CAROUSEL_PREV.addEventListener('click', (_evt: Event) => {
-    if (AMP_STATUS.prev !== null) {
-      playItem(null, AMP_STATUS.prev);
-    }
-  });
-
-  /**
-   * Event listener when the button of "next" for carousel has been clicked.
-   */
-  $CAROUSEL_NEXT.addEventListener('click', (_evt: Event) => {
-    if (AMP_STATUS.next !== null) {
-      playItem(null, AMP_STATUS.next);
-    }
-  });
-
-  /**
-   * Event listener when the button of "refresh" in bottom menu has been clicked.
-   */
-  $BUTTON_REFRESH.addEventListener('click', (_evt: Event) => {
-    reloadPage();
-  });
-
-  if (isElement($BUTTON_WINDOW_FULL)) {
-    $BUTTON_WINDOW_FULL.addEventListener('click', (_evt: Event) => {
+  bindPlayerControls({
+    carouselPrevButton: $CAROUSEL_PREV,
+    carouselNextButton: $CAROUSEL_NEXT,
+    refreshButton: $BUTTON_REFRESH,
+    windowFullButton: $BUTTON_WINDOW_FULL,
+    windowFullToggle: toggleWindowFullInput,
+    menuCollapseButton: $BUTTON_MENU_COLLAPSE,
+    playButton: $BUTTON_PLAY,
+    pauseButton: $BUTTON_PAUSE,
+    onCarouselPrev: () => {
+      if (AMP_STATUS.prev !== null) {
+        playItem(null, AMP_STATUS.prev);
+      }
+    },
+    onCarouselNext: () => {
+      if (AMP_STATUS.next !== null) {
+        playItem(null, AMP_STATUS.next);
+      }
+    },
+    onRefresh: () => {
+      reloadPage();
+    },
+    onToggleWindowFull: () => {
       setFullWindowMode(!isFullWindowMode(), true, true);
-    });
-  }
-
-  toggleWindowFullInput?.addEventListener('change', (evt: Event) => {
-    setFullWindowMode((evt.target as HTMLInputElement).checked);
-  });
-
-  if (isElement($BUTTON_MENU_COLLAPSE)) {
-    $BUTTON_MENU_COLLAPSE.addEventListener('click', (_evt: Event) => {
+    },
+    onWindowFullToggleChange: (checked: boolean) => {
+      setFullWindowMode(checked);
+    },
+    onToggleMenuCollapse: () => {
       setMenuMinimized(!$MENU.classList.contains('menu-minimized'));
-    });
-  }
-
-  /**
-   * Event listener when the "play" button in bottom menu has been clicked.
-   */
-  $BUTTON_PLAY.addEventListener('click', (_evt: Event) => {
-    let playableIds = (AMP_STATUS.media || []).map((item: MediaItem) => item.amId);
-    if (AMP_STATUS.ctg > -1) {
-      playableIds = (AMP_STATUS.media || [])
-        .filter((item: MediaItem) => item.catId === AMP_STATUS.ctg)
-        .map((item: MediaItem) => item.amId);
-    }
-    const isShuffle = getOption('shuffle') || false;
-    if (isShuffle && AMP_STATUS.hasOwnProperty('shuffle') && (AMP_STATUS.shuffle || []).length > 0) {
-      playableIds = (AMP_STATUS.shuffle || []).map((item: MediaItem) => item.amId);
-    }
-    let playId: number;
-    if (AMP_STATUS.current !== null) {
-      playId = AMP_STATUS.current;
-    } else {
-      if (AMP_STATUS.order === 'random') {
+    },
+    onPlay: () => {
+      let playableIds = (AMP_STATUS.media || []).map((item: MediaItem) => item.amId);
+      if (AMP_STATUS.ctg > -1) {
+        playableIds = (AMP_STATUS.media || [])
+          .filter((item: MediaItem) => item.catId === AMP_STATUS.ctg)
+          .map((item: MediaItem) => item.amId);
+      }
+      const isShuffle = getOption('shuffle') || false;
+      if (isShuffle && AMP_STATUS.hasOwnProperty('shuffle') && (AMP_STATUS.shuffle || []).length > 0) {
+        playableIds = (AMP_STATUS.shuffle || []).map((item: MediaItem) => item.amId);
+      }
+      let playId: number;
+      if (AMP_STATUS.current !== null) {
+        playId = AMP_STATUS.current;
+      } else if (AMP_STATUS.order === 'random') {
         playId = playableIds[Math.floor(Math.random() * playableIds.length)] ?? 0;
       } else {
         playId = playableIds.shift() || 0;
       }
-    }
 
-    if (AMP_STATUS.playertype === 'youtube' && player) {
-      const YTPstate = player.getPlayerState();
-      logger('"Play" the YouTube Player:', YTPstate);
-      if (YTPstate !== -1) {
-        player.playVideo();
-      }
-    } else if (/^(audio|video)$/i.test(AMP_STATUS.playertype || '')) {
-      const _elms = document.getElementsByTagName(AMP_STATUS.playertype as any);
-      const playerElm = _elms[0] as HTMLMediaElement;
-      playerElm.play();
-    } else {
-      playItem(null, playId);
-    }
-
-    // Toggle this button shown.
-    syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
-  });
-
-  /**
-   * Event listener when the "pause" button in bottom menu has been clicked.
-   */
-  $BUTTON_PAUSE.addEventListener('click', (_evt: Event) => {
-    if (!AMP_STATUS.hasOwnProperty('playertype') || AMP_STATUS.playertype === null) {
-      return;
-    }
-    if (AMP_STATUS.playertype === 'youtube' && player) {
-      if (player.getPlayerState() === 1) {
-        player.pauseVideo();
+      if (AMP_STATUS.playertype === 'youtube' && player) {
+        const YTPstate = player.getPlayerState();
+        logger('"Play" the YouTube Player:', YTPstate);
+        if (YTPstate !== -1) {
+          player.playVideo();
+        }
+      } else if (/^(audio|video)$/i.test(AMP_STATUS.playertype || '')) {
+        const _elms = document.getElementsByTagName(AMP_STATUS.playertype as any);
+        const playerElm = _elms[0] as HTMLMediaElement;
+        playerElm.play();
       } else {
-        player.stopVideo();
+        playItem(null, playId);
       }
-    } else if (/^(audio|video)$/i.test(AMP_STATUS.playertype)) {
-      const _elms = document.getElementsByTagName(AMP_STATUS.playertype as any);
-      const playerElm = _elms[0] as HTMLMediaElement;
-      playerElm.pause();
-    } else {
-      syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'disabled');
-    }
 
-    // Toggle this button shown.
-    syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'paused');
+      syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
+    },
+    onPause: () => {
+      if (!AMP_STATUS.hasOwnProperty('playertype') || AMP_STATUS.playertype === null) {
+        return;
+      }
+      if (AMP_STATUS.playertype === 'youtube' && player) {
+        if (player.getPlayerState() === 1) {
+          player.pauseVideo();
+        } else {
+          player.stopVideo();
+        }
+      } else if (/^(audio|video)$/i.test(AMP_STATUS.playertype)) {
+        const _elms = document.getElementsByTagName(AMP_STATUS.playertype as any);
+        const playerElm = _elms[0] as HTMLMediaElement;
+        playerElm.pause();
+      } else {
+        syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'disabled');
+      }
+
+      syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'paused');
+    },
   });
 
   /**
@@ -4512,24 +4485,67 @@ const init = function (): void {
   /**
    * Event listener when changing the loop play of settings menu toggle button.
    */
-  toggleLoopInput?.addEventListener('change', (evt: Event) => {
-    AMP_STATUS.loop = (evt.target as HTMLInputElement).checked;
-  });
-
-  /**
-   * Event listener when changing the randomly of settings menu toggle button.
-   */
-  toggleRandomlyInput?.addEventListener('change', (evt: Event) => {
-    AMP_STATUS.order = (evt.target as HTMLInputElement).checked ? 'random' : 'normal';
-  });
-
-  /**
-   * Event listener when changing the shuffle play of settings menu toggle button.
-   */
-  toggleShuffleInput?.addEventListener('change', (evt: Event) => {
-    setPlaylistOption(AMP_STATUS, 'shuffle', (evt.target as HTMLInputElement).checked);
-    AMP_STATUS.shuffle = shufflePlaylist();
-    persistMyPlaylistIfNeeded();
+  bindSettingsControls({
+    loopToggle: toggleLoopInput,
+    randomlyToggle: toggleRandomlyInput,
+    shuffleToggle: toggleShuffleInput,
+    seekplayToggle: toggleSeekplayInput,
+    faderToggle: toggleFaderInput,
+    darkmodeToggle: toggleDarkmodeInput,
+    volumeRange: $RANGE_VOLUME,
+    onLoopChange: (evt: Event) => {
+      AMP_STATUS.loop = (evt.target as HTMLInputElement).checked;
+    },
+    onRandomlyChange: (evt: Event) => {
+      AMP_STATUS.order = (evt.target as HTMLInputElement).checked ? 'random' : 'normal';
+    },
+    onShuffleChange: (evt: Event) => {
+      setPlaylistOption(AMP_STATUS, 'shuffle', (evt.target as HTMLInputElement).checked);
+      AMP_STATUS.shuffle = shufflePlaylist();
+      persistMyPlaylistIfNeeded();
+    },
+    onSeekplayChange: (evt: Event) => {
+      setPlaylistOption(AMP_STATUS, 'seek', (evt.target as HTMLInputElement).checked);
+      persistMyPlaylistIfNeeded();
+    },
+    onFaderChange: (evt: Event) => {
+      setPlaylistOption(AMP_STATUS, 'fader', (evt.target as HTMLInputElement).checked);
+      persistMyPlaylistIfNeeded();
+    },
+    onDarkmodeChange: (evt: Event) => {
+      setPlaylistOption(AMP_STATUS, 'dark', (evt.target as HTMLInputElement).checked);
+      setTimeout(() => {
+        const isDarkmode = isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark ? !!AMP_STATUS.options.dark : false;
+        applyDarkModeAppearance({
+          enabled: isDarkmode,
+          toggleInput: toggleDarkmodeInput,
+          updateNoMediaImagesForTheme: () => updateNoMediaImagesForTheme(isDarkModeEnabled()),
+          setStyles,
+        });
+      }, 200);
+      persistMyPlaylistIfNeeded();
+    },
+    onVolumeInput: (evt: Event) => {
+      const currentVolume = normalizeVolume((evt.target as HTMLInputElement).value);
+      syncVolumeSlider({
+        input: evt.target as HTMLInputElement,
+        volume: currentVolume,
+        syncRangeProgress,
+        display: document.getElementById('default-volume-value') as HTMLElement | null,
+      });
+    },
+    onVolumeChange: (evt: Event) => {
+      const currentVolume = normalizeVolume((evt.target as HTMLInputElement).value);
+      syncVolumeSlider({
+        input: evt.target as HTMLInputElement,
+        volume: currentVolume,
+        syncRangeProgress,
+        display: document.getElementById('default-volume-value') as HTMLElement | null,
+      });
+      AMP_STATUS.volume = currentVolume;
+      setPlaylistOption(AMP_STATUS, 'volume', currentVolume);
+      persistMyPlaylistIfNeeded();
+    },
   });
 
   /**
@@ -4554,76 +4570,6 @@ const init = function (): void {
     }
     return newList;
   }
-
-  /**
-   * Event listener when changing the seekplay of settings menu toggle button.
-   */
-  toggleSeekplayInput?.addEventListener('change', (evt: Event) => {
-    setPlaylistOption(AMP_STATUS, 'seek', (evt.target as HTMLInputElement).checked);
-    persistMyPlaylistIfNeeded();
-  });
-
-  /**
-   * Event listener when changing the pseudo fader of settings menu toggle button.
-   */
-  toggleFaderInput?.addEventListener('change', (evt: Event) => {
-    setPlaylistOption(AMP_STATUS, 'fader', (evt.target as HTMLInputElement).checked);
-    persistMyPlaylistIfNeeded();
-  });
-
-  /**
-   * Event listener when inputting the volume of settings menu range slider.
-   */
-  $RANGE_VOLUME.addEventListener('input', (evt: Event) => {
-    const currentVolume = normalizeVolume((evt.target as HTMLInputElement).value);
-    syncVolumeSlider({
-      input: evt.target as HTMLInputElement,
-      volume: currentVolume,
-      syncRangeProgress,
-      display: document.getElementById('default-volume-value') as HTMLElement | null,
-    });
-  });
-
-  $RANGE_VOLUME.addEventListener('change', (evt: Event) => {
-    const currentVolume = normalizeVolume((evt.target as HTMLInputElement).value);
-    syncVolumeSlider({
-      input: evt.target as HTMLInputElement,
-      volume: currentVolume,
-      syncRangeProgress,
-      display: document.getElementById('default-volume-value') as HTMLElement | null,
-    });
-    AMP_STATUS.volume = currentVolume;
-    setPlaylistOption(AMP_STATUS, 'volume', currentVolume);
-    persistMyPlaylistIfNeeded();
-  });
-
-  /**
-   * Event listener when changing the darkmode of settings menu toggle button.
-   */
-  toggleDarkmodeInput?.addEventListener('change', (evt: Event) => {
-    setPlaylistOption(AMP_STATUS, 'dark', (evt.target as HTMLInputElement).checked);
-    // Delay dark class toggle to let the knob slide animation complete (~150ms)
-    setTimeout(() => {
-      const isDarkmode = isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark ? !!AMP_STATUS.options.dark : false;
-      applyDarkModeAppearance({
-        enabled: isDarkmode,
-        toggleInput: toggleDarkmodeInput,
-        updateNoMediaImagesForTheme: () => updateNoMediaImagesForTheme(isDarkModeEnabled()),
-        setStyles,
-      });
-    }, 200);
-    persistMyPlaylistIfNeeded();
-  });
-
-  $SELECT_LANGUAGE.addEventListener('change', (evt: Event) => {
-    const currentLanguage = getCookie('lang');
-    const newLanguage = (evt.target as HTMLSelectElement).value;
-    logger('changeLanguage::', currentLanguage, newLanguage);
-    if (currentLanguage !== newLanguage) {
-      updateCookie('lang', newLanguage);
-      reloadPage();
-    }
-  });
 
   /**
    * Updates the user's media playback state.
