@@ -183,9 +183,10 @@ import {
   createManagedYouTubePlaybackOrchestration,
 } from './ui/player/player-orchestration';
 import {
-  runPlaybackFadeIn,
-  runPlaybackFadeOut,
-} from './ui/player/player-fader';
+  fadePlaybackIn,
+  fadePlaybackOut,
+  reportPlaybackIssue,
+} from './ui/player/player-effects';
 import {
   getBottomMenuHeight as getBottomMenuHeightView,
   getFullWindowPlayerSize as getFullWindowPlayerSizeView,
@@ -4544,24 +4545,16 @@ const init = function (): void {
     reason: string,
     details: Record<string, unknown> = {}
   ): void {
-    const title = mediaItem.title || mediaItem.file || mediaItem.videoid || 'Unknown media';
-    logger('error', 'Media playback issue:', {
+    reportPlaybackIssue({
+      mediaItem,
       reason,
-      title,
-      file: mediaItem.file || '',
-      videoid: mediaItem.videoid || '',
-      media: mediaItem,
-      ...details,
-    }, 'force');
-
-    const messagePrefix = getLocalizedMessage(
-      'mediaLoadFailedPrefix',
-      'Media could not be loaded: '
-    );
-    updateNotice({
-      type: 'error',
-      message: `${escapeHTML(messagePrefix)}${escapeHTML(title)}`,
-      delay: 6000,
+      details,
+      logger,
+      getLocalizedMessage,
+      escapeHtml: escapeHTML,
+      updateNotice: ({ type, message, delay }) => {
+        updateNotice({ type, message, delay });
+      },
     });
   }
 
@@ -4793,24 +4786,10 @@ const init = function (): void {
    * Fade in the volume of the specified media.
    */
   function fadeIn(media: any, period: number, start: number): void {
-    const isLocalMedia = isElement(media);
-    const localMedia = isLocalMedia ? media as HTMLMediaElement : null;
-    runPlaybackFadeIn({
-      adapter: {
-        kind: isLocalMedia ? 'local' : 'youtube',
-        readDuration: () => localMedia ? localMedia.duration : media.getDuration(),
-        readLevel: () => localMedia ? localMedia.volume * 100 : media.getVolume(),
-        readCurrentTimeMs: () => (localMedia ? localMedia.currentTime : media.getCurrentTime()) * 1000,
-        writeLevel: (level) => {
-          if (localMedia) {
-            localMedia.volume = level / 100;
-            return;
-          }
-          media.setVolume(level);
-        },
-      },
+    fadePlaybackIn({
+      media,
       period,
-      point: start,
+      start,
       readTargetVolume: () => normalizeVolume(AMP_STATUS.volume, getDefaultVolume()),
       startFader: (callback, intervalMs) => playbackTimers.startFader('fadein', callback, intervalMs),
       abortFader: () => abortFader('fadein'),
@@ -4823,31 +4802,10 @@ const init = function (): void {
    * Fade out the volume of the specified media.
    */
   function fadeOut(media: any, period: number, end: number): void {
-    const isLocalMedia = isElement(media);
-    const localMedia = isLocalMedia ? media as HTMLMediaElement : null;
-    runPlaybackFadeOut({
-      adapter: {
-        kind: isLocalMedia ? 'local' : 'youtube',
-        readDuration: () => localMedia ? localMedia.duration : media.getDuration(),
-        readLevel: () => localMedia ? localMedia.volume * 100 : media.getVolume(),
-        readCurrentTimeMs: () => (localMedia ? localMedia.currentTime : media.getCurrentTime()) * 1000,
-        writeLevel: (level) => {
-          if (localMedia) {
-            localMedia.volume = level / 100;
-            return;
-          }
-          media.setVolume(level);
-        },
-        onFadeOutCompleted: () => {
-          if (localMedia) {
-            localMedia.dispatchEvent(new Event('ended'));
-            return;
-          }
-          logger([media]);
-        },
-      },
+    fadePlaybackOut({
+      media,
       period,
-      point: end,
+      end,
       readTargetVolume: () => normalizeVolume(AMP_STATUS.volume, getDefaultVolume()),
       startFader: (callback, intervalMs) => playbackTimers.startFader('fadeout', callback, intervalMs),
       abortFader: () => abortFader('fadeout'),
