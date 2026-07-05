@@ -53,6 +53,11 @@ import {
   setPlaylistOption,
 } from './state/playlist-options';
 import {
+  canUsePlaylistEditMode,
+  canUsePlaylistReorderMode,
+  getPlaylistItemsForView,
+} from './state/playlist-mode-state';
+import {
   deleteSessionDraftByKey,
   hydrateSessionDraftStore,
   syncSessionDraftState,
@@ -2916,21 +2921,17 @@ const init = function (): void {
 
   function canUseEditMode(): boolean {
     const ambientData = getAmbientData();
-    if (!AMP_STATUS.playlist || getPlaylistItemsForCurrentView().length === 0) {
-      return false;
-    }
-    if (ambientData?.isCloud === true) {
-      return AMP_STATUS.playlist === MYPLAYLIST_NAME && localStorage.getItem(MYPLAYLIST_KEY) !== null;
-    }
-    return true;
+    return canUsePlaylistEditMode({
+      playlist: AMP_STATUS.playlist,
+      visibleItems: getPlaylistItemsForCurrentView(),
+      isCloud: ambientData?.isCloud === true,
+      myPlaylistName: MYPLAYLIST_NAME,
+      hasStoredMyPlaylist: localStorage.getItem(MYPLAYLIST_KEY) !== null,
+    });
   }
 
   function getPlaylistItemsForCurrentView(): MediaItem[] {
-    if (!AMP_STATUS.media) return [];
-    if (!AMP_STATUS.hasOwnProperty('ctg') || AMP_STATUS.ctg === null || Number(AMP_STATUS.ctg) === -1) {
-      return AMP_STATUS.media || [];
-    }
-    return (AMP_STATUS.media || []).filter((item: MediaItem) => item.catId === AMP_STATUS.ctg);
+    return getPlaylistItemsForView(AMP_STATUS.media, AMP_STATUS.ctg);
   }
 
   function isSortableAvailable(): boolean {
@@ -2938,16 +2939,12 @@ const init = function (): void {
   }
 
   function canUseReorderMode(): boolean {
-    if (!canMutateCurrentPlaylist()) {
-      return false;
-    }
-    if (!isSortableAvailable()) {
-      return false;
-    }
-    if (Number(AMP_STATUS.ctg) === -1) {
-      return false;
-    }
-    return getPlaylistItemsForCurrentView().length > 1;
+    return canUsePlaylistReorderMode({
+      canMutatePlaylist: canMutateCurrentPlaylist(),
+      sortableAvailable: isSortableAvailable(),
+      categoryId: AMP_STATUS.ctg,
+      visibleItems: getPlaylistItemsForCurrentView(),
+    });
   }
 
   function closePlaylistModeMenu(): void {
