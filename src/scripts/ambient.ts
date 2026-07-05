@@ -250,7 +250,12 @@ import {
   buildMediaManagementBindings as buildMediaManagementBindingsView,
   buildPlaylistManagementBindings as buildPlaylistManagementBindingsView,
 } from './ui/forms/management-binding-builders';
-import { createPlaylistLoadGuard } from './domain/playlist-loader';
+import {
+  assignSequentialMediaIds,
+  createPlaylistLoadGuard,
+  materializeCategorizedMedia,
+  resetPlaylistRuntimeStatus,
+} from './domain/playlist-loader';
 import {
   buildPlaylistJson,
   ensureCloudMyPlaylistSeed as domainEnsureCloudMyPlaylistSeed,
@@ -629,15 +634,7 @@ const init = function (): void {
   }
 
   function resetPlaylistRuntimeState(preserveOptions: boolean = false): void {
-    AMP_STATUS.prev = null;
-    AMP_STATUS.current = null;
-    AMP_STATUS.next = null;
-    AMP_STATUS.ctg = -1;
-    AMP_STATUS.category = null;
-    AMP_STATUS.media = [];
-    if (!preserveOptions) {
-      AMP_STATUS.options = null;
-    }
+    resetPlaylistRuntimeStatus(AMP_STATUS, preserveOptions);
     clearCategory();
     updatePlaylist();
     setPlaylistReadyState(false);
@@ -992,33 +989,21 @@ const init = function (): void {
       const nextOptions = Object.prototype.hasOwnProperty.call(data, 'options')
         ? sanitizeMyPlaylistOptions((data as PlaylistData).options || null)
         : null;
-      let media: MediaItem[] = [];
       const categoryData = Object.fromEntries(
         Object.entries(data).filter(([k]) => k !== 'options')
       ) as Record<string, MediaItem[]>;
-      const categories = Object.keys(categoryData);
-
-      categories.forEach((category: string, cid: number) => {
-        const items = categoryData[category];
-        if (!Array.isArray(items) || items.length === 0) {
-          return;
-        }
-        media = media.concat(
-          items.map((item: MediaItem) => ({
-            ...sanitizeMediaItemTextFields(item),
-            catId: cid,
-          }))
-        );
-      });
+      const materialized = materializeCategorizedMedia(
+        Object.fromEntries(
+          Object.entries(categoryData).map(([category, items]) => {
+            return [category, (items || []).map((item: MediaItem) => sanitizeMediaItemTextFields(item))];
+          })
+        ) as Record<string, MediaItem[]>
+      );
+      const categories = materialized.categories;
+      let media = materialized.media;
 
       if (media.length > 0) {
-        let amid = 0;
-        media = media
-          .filter((item: MediaItem) => item.hasOwnProperty('title') && item.title !== '')
-          .map((item: MediaItem) => ({
-            ...item,
-            amId: amid++,
-          }));
+        media = assignSequentialMediaIds(media);
       }
 
       AMP_STATUS.options = nextOptions;
@@ -1119,28 +1104,13 @@ const init = function (): void {
         if (data && data.hasOwnProperty('media')) {
           let media: MediaItem[] = [];
           if (data.media && Object.keys(data.media).length > 0) {
-            const categories = Object.keys(data.media);
-            categories.forEach((category: string, cid: number) => {
-              if (data.media && data.media[category] && data.media[category].length > 0) {
-                media = media.concat(
-                  data.media[category].map((item: MediaItem) => ({
-                    ...item,
-                    catId: cid,
-                  }))
-                );
-              }
-            });
-            AMP_STATUS.category = categories;
+            const materialized = materializeCategorizedMedia(data.media);
+            media = materialized.media;
+            AMP_STATUS.category = materialized.categories;
           }
           applyPendingCategoryResume();
           if (media.length > 0) {
-            let amid = 0;
-            media = media
-              .filter((item: MediaItem) => item.hasOwnProperty('title') && item.title !== '')
-              .map((item: MediaItem) => ({
-                ...item,
-                amId: amid++,
-              }));
+            media = assignSequentialMediaIds(media);
           }
           AMP_STATUS.media = media;
           AMP_STATUS.playlist = playlist;
