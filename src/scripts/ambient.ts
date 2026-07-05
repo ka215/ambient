@@ -84,6 +84,8 @@ import {
   applyMenuMinimizedState,
   bindViewportSyncEvents,
   isFullWindowMode as isFullWindowModeView,
+  refreshViewportMetricsTask,
+  scheduleViewportMetricsSyncTask,
   syncViewportMetricsState,
   syncViewportLayout,
 } from './ui/viewport';
@@ -2855,21 +2857,28 @@ const init = function (): void {
   }
 
   function scheduleViewportMetricsSync(delay = 0): void {
-    if (viewportMetricsTimer !== null) {
-      window.clearTimeout(viewportMetricsTimer);
-    }
-    viewportMetricsTimer = window.setTimeout(() => {
-      viewportMetricsTimer = null;
-      syncViewportMetrics();
-      updateWindowSize();
-    }, delay);
+    scheduleViewportMetricsSyncTask({
+      currentTimer: viewportMetricsTimer,
+      delay,
+      clearTimer: (timerId) => {
+        window.clearTimeout(timerId);
+      },
+      setTimer: (handler, timeout) => window.setTimeout(handler, timeout),
+      onTimerChange: (timerId) => {
+        viewportMetricsTimer = timerId;
+      },
+      runSync: syncViewportMetrics,
+      onAfterSync: updateWindowSize,
+    });
   }
 
   function refreshViewportMetricsAfter(delay: number): void {
-    window.setTimeout(() => {
-      syncViewportMetrics();
-      updateWindowSize();
-    }, delay);
+    refreshViewportMetricsTask({
+      delay,
+      setTimer: (handler, timeout) => window.setTimeout(handler, timeout),
+      runSync: syncViewportMetrics,
+      onAfterSync: updateWindowSize,
+    });
   }
 
   // Playlist operation mode UI (v2.2.0 Slice A)

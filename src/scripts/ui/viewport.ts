@@ -74,6 +74,40 @@ export function syncViewportMetricsState(options: {
   });
 }
 
+export function scheduleViewportMetricsSyncTask(options: {
+  currentTimer: number | null;
+  delay: number;
+  clearTimer: (timerId: number) => void;
+  setTimer: (handler: () => void, delay: number) => number;
+  onTimerChange: (timerId: number | null) => void;
+  runSync: () => void;
+  onAfterSync: () => void;
+}): void {
+  if (options.currentTimer !== null) {
+    options.clearTimer(options.currentTimer);
+  }
+
+  const timerId = options.setTimer(() => {
+    options.onTimerChange(null);
+    options.runSync();
+    options.onAfterSync();
+  }, options.delay);
+
+  options.onTimerChange(timerId);
+}
+
+export function refreshViewportMetricsTask(options: {
+  delay: number;
+  setTimer: (handler: () => void, delay: number) => number;
+  runSync: () => void;
+  onAfterSync: () => void;
+}): void {
+  options.setTimer(() => {
+    options.runSync();
+    options.onAfterSync();
+  }, options.delay);
+}
+
 export function isFullWindowMode(body: HTMLElement): boolean {
   return body.classList.contains('amp-full-window');
 }
