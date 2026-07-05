@@ -105,12 +105,14 @@ import {
   trapMediaEditModalFocus as trapMediaEditModalFocusView,
 } from './ui/media-edit-modal-view';
 import {
-  createPlaylistItemElement,
+  createShuffledPlaylist,
   closePlaylistModeMenu as closePlaylistModeMenuView,
   createPlaylistQuickAddElement,
+  filterPlaylistItemsByCategory,
   getPlaylistDescriptionPayload,
   PlaylistMode,
   readPlaylistItemIdsFromDom,
+  renderPlaylistItems,
   scrollPlaylistToCurrentFocus,
   syncPlaylistCurrentFocus,
   syncPlaylistEmptyState,
@@ -3966,12 +3968,7 @@ const init = function (): void {
     playlistDescModal.close(false);
     clearPlaylist();
     const $LIST_NO_MEDIA = document.getElementById('no-media') as HTMLElement;
-    let items: MediaItem[] = [];
-    if (!AMP_STATUS.hasOwnProperty('ctg') || AMP_STATUS.ctg === null || Number(AMP_STATUS.ctg) === -1) {
-      items = AMP_STATUS.media || [];
-    } else {
-      items = (AMP_STATUS.media || []).filter((item: MediaItem) => item.catId === AMP_STATUS.ctg);
-    }
+    const items = filterPlaylistItemsByCategory(AMP_STATUS.media || [], AMP_STATUS.ctg);
     const isNoMedia = items.length === 0;
     syncPlaylistModeAvailability(items.length);
 
@@ -3993,30 +3990,24 @@ const init = function (): void {
 
     const isShuffle = getOption('shuffle') || false;
     if (isShuffle) {
-      // Shuffle (evenly mix) the items array
-      AMP_STATUS.shuffle = items
-        .map((value: MediaItem) => ({ value, random: Math.random() }))
-        .sort((a, b) => a.random - b.random)
-        .map(({ value }) => value);
+      AMP_STATUS.shuffle = createShuffledPlaylist(items);
       logger('updatePlaylist::createShufflePlaylist:', AMP_STATUS.shuffle);
     }
 
-    items.forEach((item: MediaItem) => {
-      const ambientData = (window as any).AmbientData as AmbientData;
-      const itemElm = createPlaylistItemElement({
-        item,
-        isCurrent: AMP_STATUS.current !== null && AMP_STATUS.current === item.amId,
-        mode: playlistMode,
-        isDeleteSelected: deleteSelectedIds.has(item.amId),
-        isEditSelected: mediaEditActiveItem?.amId === item.amId,
-        format: getOption('playlist'),
-        imageDir: ambientData?.imageDir || null,
-        fallbackThumbPath: getNoMediaImagePath('thumb'),
-        resolveYoutubeThumbnailUrl: getYoutubeThumbnailURL,
-        trimTitle: (value: string) => mb_strimwidth(value, 0, 50, '...'),
-        formatLabel: filterText,
-      });
-      $LIST_PLAYLIST.appendChild(itemElm);
+    const ambientData = (window as any).AmbientData as AmbientData;
+    renderPlaylistItems({
+      listElement: $LIST_PLAYLIST,
+      items,
+      currentId: AMP_STATUS.current,
+      mode: playlistMode,
+      deleteSelectedIds,
+      editSelectedId: mediaEditActiveItem?.amId ?? null,
+      format: getOption('playlist'),
+      imageDir: ambientData?.imageDir || null,
+      fallbackThumbPath: getNoMediaImagePath('thumb'),
+      resolveYoutubeThumbnailUrl: getYoutubeThumbnailURL,
+      trimTitle: (value: string) => mb_strimwidth(value, 0, 50, '...'),
+      formatLabel: filterText,
     });
 
     ensurePlaylistSortable();
@@ -4041,7 +4032,6 @@ const init = function (): void {
     }
 
     // For debugging code
-    const ambientData = (window as any).AmbientData as AmbientData;
     if (ambientData.hasOwnProperty('debug') && ambientData.debug) {
       execDebug();
     }

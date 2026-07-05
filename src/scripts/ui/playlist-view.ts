@@ -21,6 +21,21 @@ export interface PlaylistQuickAddOptions {
   onClick: (event: Event) => void;
 }
 
+export interface PlaylistItemsRenderOptions {
+  listElement: HTMLElement;
+  items: MediaItem[];
+  currentId: number | null;
+  mode: PlaylistMode;
+  deleteSelectedIds: Set<number>;
+  editSelectedId: number | null;
+  format: string | null;
+  imageDir?: string | null;
+  fallbackThumbPath: string;
+  resolveYoutubeThumbnailUrl: (videoId: string) => string;
+  trimTitle: (value: string) => string;
+  formatLabel: (format: string, item: MediaItem) => string;
+}
+
 export interface PlaylistDescriptionPayload {
   trigger: HTMLElement;
   titleText: string;
@@ -378,4 +393,41 @@ export function createPlaylistQuickAddElement(options: PlaylistQuickAddOptions):
   addItemElm.appendChild(addLabelElm);
   addItemElm.addEventListener('click', options.onClick);
   return addItemElm;
+}
+
+export function filterPlaylistItemsByCategory(
+  mediaItems: MediaItem[],
+  categoryId: number | null | undefined
+): MediaItem[] {
+  if (categoryId === null || categoryId === undefined || Number(categoryId) === -1) {
+    return mediaItems;
+  }
+
+  return mediaItems.filter((item) => item.catId === Number(categoryId));
+}
+
+export function createShuffledPlaylist(items: MediaItem[]): MediaItem[] {
+  return items
+    .map((value: MediaItem) => ({ value, random: Math.random() }))
+    .sort((a, b) => a.random - b.random)
+    .map(({ value }) => value);
+}
+
+export function renderPlaylistItems(options: PlaylistItemsRenderOptions): void {
+  options.items.forEach((item: MediaItem) => {
+    const itemElement = createPlaylistItemElement({
+      item,
+      isCurrent: options.currentId !== null && options.currentId === item.amId,
+      mode: options.mode,
+      isDeleteSelected: options.deleteSelectedIds.has(item.amId),
+      isEditSelected: options.editSelectedId === item.amId,
+      format: options.format,
+      imageDir: options.imageDir || null,
+      fallbackThumbPath: options.fallbackThumbPath,
+      resolveYoutubeThumbnailUrl: options.resolveYoutubeThumbnailUrl,
+      trimTitle: options.trimTitle,
+      formatLabel: options.formatLabel,
+    });
+    options.listElement.appendChild(itemElement);
+  });
 }
