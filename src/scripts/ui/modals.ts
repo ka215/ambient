@@ -63,6 +63,16 @@ export interface ExpandMediaManagementOptions {
   syncMediaVolumeField(): void;
 }
 
+export interface OptionsModalBindings {
+  triggerButton: HTMLButtonElement | null;
+  closeButton: HTMLButtonElement | null;
+  modal: HTMLElement | null;
+  onTrigger(): void;
+  onClose(): void;
+  onBackdropPointerDown(evt: PointerEvent): void;
+  onBackdropClick(evt: Event): void;
+}
+
 function isElement(value: unknown): value is HTMLElement {
   return value instanceof HTMLElement;
 }
@@ -257,6 +267,26 @@ export function createOptionsModalController(options: OptionsModalControllerOpti
       });
     },
   };
+}
+
+export function bindOptionsModalControls(bindings: OptionsModalBindings): void {
+  bindings.triggerButton?.addEventListener('click', (evt: Event) => {
+    evt.preventDefault();
+    bindings.onTrigger();
+  });
+
+  bindings.closeButton?.addEventListener('click', (evt: Event) => {
+    evt.preventDefault();
+    bindings.onClose();
+  });
+
+  bindings.modal?.addEventListener('pointerdown', (evt: PointerEvent) => {
+    bindings.onBackdropPointerDown(evt);
+  });
+
+  bindings.modal?.addEventListener('click', (evt: Event) => {
+    bindings.onBackdropClick(evt);
+  });
 }
 
 export function createPlaylistConfirmModalController(

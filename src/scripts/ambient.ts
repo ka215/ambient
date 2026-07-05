@@ -103,6 +103,7 @@ import {
   updateViewportLayoutWorkflow,
 } from './ui/viewport';
 import {
+  bindOptionsModalControls,
   createOptionsModalController,
   createPlaylistConfirmModalController,
   createPlaylistDescModalController,
@@ -3595,9 +3596,11 @@ const init = function (): void {
     optionsModal.hide();
   }
 
-  if (isElement($BUTTON_OPTIONS)) {
-    $BUTTON_OPTIONS.addEventListener('click', (evt: Event) => {
-      evt.preventDefault();
+  bindOptionsModalControls({
+    triggerButton: $BUTTON_OPTIONS,
+    closeButton: $BUTTON_CLOSE_OPTIONS,
+    modal: $MODAL_OPTIONS,
+    onTrigger: () => {
       if (isOptionsModalVisible()) {
         hideOptionsModal();
       } else {
@@ -3606,25 +3609,17 @@ const init = function (): void {
         syncMediaCategoryField();
         showOptionsModal();
       }
-    });
-  }
-
-  if (isElement($BUTTON_CLOSE_OPTIONS)) {
-    $BUTTON_CLOSE_OPTIONS.addEventListener('click', (evt: Event) => {
-      evt.preventDefault();
+    },
+    onClose: () => {
       hideOptionsModal();
-    });
-  }
-
-  if (isElement($MODAL_OPTIONS)) {
-    $MODAL_OPTIONS.addEventListener('pointerdown', (evt: PointerEvent) => {
+    },
+    onBackdropPointerDown: (evt: PointerEvent) => {
       optionsModal.handleBackdropPointerDown(evt);
-    });
-
-    $MODAL_OPTIONS.addEventListener('click', (evt: Event) => {
+    },
+    onBackdropClick: (evt: Event) => {
       optionsModal.handleBackdropClick(evt, restoreOptionsTriggerFocus);
-    });
-  }
+    },
+  });
 
   (document.getElementById('link-open-playlist-management-category') as HTMLAnchorElement | null)
     ?.addEventListener('click', (evt: Event) => {
