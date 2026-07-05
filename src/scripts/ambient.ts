@@ -221,9 +221,8 @@ import {
   bindManagedHtmlPlaybackEvents,
 } from './ui/player/html-player-events';
 import {
-  dispatchPlaybackSetup,
   type PlayableSetupKind,
-  resolvePlaybackSetupResolution,
+  runResolvedPlaybackSetup,
 } from './ui/player/player-setup';
 import {
   destroyYouTubePreviewPlayer,
@@ -4612,26 +4611,20 @@ const init = function (): void {
     abortPlaybackTimers();
     // update media caption.
     updateMediaCaption(mediaData);
-    const setupResolution = resolvePlaybackSetupResolution({
+    runResolvedPlaybackSetup({
       setupKind,
       src,
       extension,
       getExtension: getExt,
-    });
-    AMP_STATUS.playertype = setupResolution.playerType;
-
-    if (setupResolution.youtubeSignal?.phase === 'inactive') {
-      emitYouTubeSignal('inactive');
-    }
-    if (setupResolution.youtubeSignal?.phase === 'error') {
-      emitYouTubeSignal('error', setupResolution.youtubeSignal.error || '');
-    }
-    if (setupResolution.issue) {
-      reportMediaPlaybackIssue(mediaData, setupResolution.issue.reason, setupResolution.issue.details);
-      return;
-    }
-    dispatchPlaybackSetup({
-      setupKind,
+      onPlayerTypeResolved: (playerType) => {
+        AMP_STATUS.playertype = playerType;
+      },
+      onYouTubeSignal: (phase, error) => {
+        emitYouTubeSignal(phase, error || '');
+      },
+      onIssue: (issue) => {
+        reportMediaPlaybackIssue(mediaData, issue.reason, issue.details);
+      },
       onYouTube: () => {
         AMP_STATUS.yt_error = '';
         createYTPlayer(mediaData);

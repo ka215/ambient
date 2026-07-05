@@ -37,6 +37,18 @@ export interface PlaybackSetupDispatch {
   onHtml: (kind: HtmlPlayerKind) => void;
 }
 
+export interface ResolvedPlaybackSetupWorkflow {
+  setupKind: PlayableSetupKind;
+  src: string | null;
+  extension: string | null;
+  getExtension: (src: string) => string;
+  onPlayerTypeResolved: (playerType: ActivePlayerType) => void;
+  onYouTubeSignal: (phase: 'inactive' | 'error', error?: string) => void;
+  onIssue: (issue: NonNullable<PlaybackSetupResolution['issue']>) => void;
+  onYouTube: () => void;
+  onHtml: (kind: HtmlPlayerKind) => void;
+}
+
 export function resolvePlaybackSource(mediaData: MediaItem): ResolvedPlaybackSource {
   if (mediaData.hasOwnProperty('videoid') && mediaData.videoid !== '') {
     return {
@@ -190,4 +202,33 @@ export function dispatchPlaybackSetup(options: PlaybackSetupDispatch): void {
   if (options.setupKind === 'audio' || options.setupKind === 'video') {
     options.onHtml(options.setupKind);
   }
+}
+
+export function runResolvedPlaybackSetup(options: ResolvedPlaybackSetupWorkflow): boolean {
+  const setupResolution = resolvePlaybackSetupResolution({
+    setupKind: options.setupKind,
+    src: options.src,
+    extension: options.extension,
+    getExtension: options.getExtension,
+  });
+
+  options.onPlayerTypeResolved(setupResolution.playerType);
+
+  if (setupResolution.youtubeSignal?.phase === 'inactive') {
+    options.onYouTubeSignal('inactive');
+  }
+  if (setupResolution.youtubeSignal?.phase === 'error') {
+    options.onYouTubeSignal('error', setupResolution.youtubeSignal.error || '');
+  }
+  if (setupResolution.issue) {
+    options.onIssue(setupResolution.issue);
+    return false;
+  }
+
+  dispatchPlaybackSetup({
+    setupKind: options.setupKind,
+    onYouTube: options.onYouTube,
+    onHtml: options.onHtml,
+  });
+  return true;
 }
