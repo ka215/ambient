@@ -8,6 +8,20 @@ export interface MediaCaptionOptions {
   onUpdated?: () => void;
 }
 
+export function buildMediaCaptionText(options: {
+  mediaData: MediaItem;
+  sanitizeTitle: (value: string) => string;
+  sanitizeArtist: (value: string) => string;
+}): {
+  titleText: string;
+  artistText: string;
+} {
+  return {
+    titleText: options.sanitizeTitle(options.mediaData.title || '') || 'Unknown media',
+    artistText: options.sanitizeArtist(options.mediaData.artist || ''),
+  };
+}
+
 export function updateMediaCaptionView(options: MediaCaptionOptions): void {
   const {
     mediaData,
@@ -24,8 +38,11 @@ export function updateMediaCaptionView(options: MediaCaptionOptions): void {
   const textWrap = document.createElement('div');
   textWrap.classList.add('marquee-inner');
 
-  const titleText = sanitizeTitle(mediaData.title || '') || 'Unknown media';
-  const artistText = sanitizeArtist(mediaData.artist || '');
+  const { titleText, artistText } = buildMediaCaptionText({
+    mediaData,
+    sanitizeTitle,
+    sanitizeArtist,
+  });
 
   const titleElm = document.createElement('span');
   titleElm.className = 'media-caption-title';

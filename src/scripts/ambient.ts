@@ -132,6 +132,7 @@ import {
   type NoticeController,
 } from './ui/notifications';
 import {
+  buildMediaCaptionText,
   renderMediaCaption,
   syncCaptionMarquee,
   syncPlaybackButtonState,
@@ -149,6 +150,7 @@ import {
   getPlayerSizeForCurrentMode as getPlayerSizeForCurrentModeView,
 } from './ui/player/player-layout';
 import {
+  resolveCarouselItemIds,
   renderCarouselItems,
   renderEmptyCarousel,
 } from './ui/player/carousel-view';
@@ -4169,21 +4171,13 @@ const init = function (): void {
    * Update the carousel display.
    */
   function updateCarousel(): void {
-    const items: number[] = [];
-    let is_show = false;
+    const carouselState = resolveCarouselItemIds({
+      prevId: AMP_STATUS.hasOwnProperty('prev') ? AMP_STATUS.prev : null,
+      currentId: AMP_STATUS.hasOwnProperty('current') ? AMP_STATUS.current : null,
+      nextId: AMP_STATUS.hasOwnProperty('next') ? AMP_STATUS.next : null,
+    });
 
-    if (AMP_STATUS.hasOwnProperty('prev') && AMP_STATUS.prev !== null) {
-      items.push(AMP_STATUS.prev);
-    }
-    if (AMP_STATUS.hasOwnProperty('current') && AMP_STATUS.current !== null) {
-      items.push(AMP_STATUS.current);
-      is_show = true;
-    }
-    if (AMP_STATUS.hasOwnProperty('next') && AMP_STATUS.next !== null) {
-      items.push(AMP_STATUS.next);
-    }
-
-    if (!is_show) {
+    if (!carouselState.hasCurrent) {
       clearCarousel();
       return;
     }
@@ -4193,7 +4187,7 @@ const init = function (): void {
       prevButton: $CAROUSEL_PREV,
       nextButton: $CAROUSEL_NEXT,
       currentId: AMP_STATUS.current,
-      itemIds: items,
+      itemIds: carouselState.itemIds,
       mediaItems: AMP_STATUS.media || [],
       placeholderImage: getNoMediaImagePath('placeholder'),
       resolveYouTubeThumbnail: getYoutubeThumbnailURL,
@@ -4208,13 +4202,18 @@ const init = function (): void {
    * Update the media caption display.
    */
   function updateMediaCaption(mediaData: MediaItem): void {
+    const captionText = buildMediaCaptionText({
+      mediaData,
+      sanitizeTitle: (value: string) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
+      sanitizeArtist: (value: string) => sanitizeMediaText(value, MEDIA_ARTIST_MAX_LENGTH),
+    });
     renderMediaCaption({
       mediaData,
       bodyElement: $BODY,
       captionElement: $MEDIA_CAPTION,
       fallbackWidth: currentWindowSize.width,
-      sanitizeTitle: (value: string) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
-      sanitizeArtist: (value: string) => sanitizeMediaText(value, MEDIA_ARTIST_MAX_LENGTH),
+      sanitizeTitle: () => captionText.titleText,
+      sanitizeArtist: () => captionText.artistText,
     });
   }
 

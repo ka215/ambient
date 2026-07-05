@@ -1,5 +1,33 @@
 import type { MediaItem } from '../../types/ambient';
 
+export function resolveCarouselItemIds(options: {
+  prevId: number | null;
+  currentId: number | null;
+  nextId: number | null;
+}): {
+  itemIds: number[];
+  hasCurrent: boolean;
+} {
+  const itemIds: number[] = [];
+  let hasCurrent = false;
+
+  if (options.prevId !== null) {
+    itemIds.push(options.prevId);
+  }
+  if (options.currentId !== null) {
+    itemIds.push(options.currentId);
+    hasCurrent = true;
+  }
+  if (options.nextId !== null) {
+    itemIds.push(options.nextId);
+  }
+
+  return {
+    itemIds,
+    hasCurrent,
+  };
+}
+
 export function renderEmptyCarousel(options: {
   wrapper: HTMLElement;
   prevButton: HTMLButtonElement;
