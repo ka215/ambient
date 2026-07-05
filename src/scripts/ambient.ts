@@ -266,6 +266,12 @@ import {
   writeMyPlaylistJson,
 } from './domain/myplaylist-storage';
 import { createPlaybackTimerController } from './domain/media-playback';
+import { createAppBootController } from './bootstrap/app-boot';
+import {
+  ensureMyPlaylistOptionFromStorage as ensureMyPlaylistOptionFromStorageBootstrap,
+  removeMyPlaylistOption,
+  resolveInitialPlaylistStartup,
+} from './bootstrap/playlist-startup';
 import { appendManagedMediaItem, buildManagedMediaItem } from './domain/media-management-data';
 import {
   getCloudImportSizeLimitBytes as getCloudImportSizeLimitBytesDomain,
@@ -293,127 +299,33 @@ const init = function (): void {
 
   useStge();
   const AMP_STATUS = initStatus();
-  let bootGateReleased = false;
-  let bootGateCompleting = false;
-  let bootGateDelayId: number | null = null;
-  let bootGateFadeId: number | null = null;
-  const bootGateStartedAt = Date.now();
   const BOOT_SPLASH_MIN_VISIBLE_MS = isE2EMode ? 0 : 2400;
   const BOOT_SPLASH_FADE_MS = 220;
-  let playlistReady = false;
-
-  function syncAppReadySignal(): void {
-    const body = document.body;
-    if (!body) {
-      return;
-    }
-
-    body.setAttribute('data-playlist-ready', String(playlistReady));
-    body.setAttribute('data-app-ready', String(body.getAttribute('data-boot') === 'ready'));
-  }
+  const appBoot = createAppBootController({
+    body: document.body,
+    splash: document.getElementById('app-boot-splash'),
+    minVisibleMs: BOOT_SPLASH_MIN_VISIBLE_MS,
+    fadeMs: BOOT_SPLASH_FADE_MS,
+    onReady: () => {
+      syncViewportMetrics();
+      updateWindowSize();
+    },
+  });
 
   function setPlaylistReadyState(isReady: boolean): void {
-    playlistReady = isReady;
-    syncAppReadySignal();
+    appBoot.setPlaylistReadyState(isReady);
   }
 
   function setBootState(state: 'pending' | 'transition' | 'ready'): void {
-    const body = document.body;
-    if (!body) {
-      return;
-    }
-
-    body.setAttribute('data-boot', state);
-    syncAppReadySignal();
-  }
-
-  function completeAppBootGate(): void {
-    const body = document.body;
-    const splash = document.getElementById('app-boot-splash');
-    if (body) {
-      body.classList.remove('app-boot-transitioning');
-      body.classList.remove('app-boot-pending');
-    }
-    setBootState('ready');
-    if (splash) {
-      splash.classList.remove('app-boot-fadeout');
-    }
-    window.setTimeout(() => {
-      syncViewportMetrics();
-      updateWindowSize();
-    }, 0);
+    appBoot.setBootState(state);
   }
 
   function releaseAppBootGate(): void {
-    if (bootGateReleased || bootGateCompleting) {
-      return;
-    }
-
-    const startFadeOut = (): void => {
-      if (bootGateCompleting) {
-        return;
-      }
-      bootGateCompleting = true;
-      const body = document.body;
-      const splash = document.getElementById('app-boot-splash');
-      if (body) {
-        body.classList.add('app-boot-transitioning');
-      }
-      setBootState('transition');
-      if (splash) {
-        splash.classList.add('app-boot-fadeout');
-      }
-      bootGateFadeId = window.setTimeout(() => {
-        bootGateReleased = true;
-        completeAppBootGate();
-      }, BOOT_SPLASH_FADE_MS);
-    };
-
-    const elapsed = Date.now() - bootGateStartedAt;
-    const waitMs = Math.max(0, BOOT_SPLASH_MIN_VISIBLE_MS - elapsed);
-    if (waitMs === 0) {
-      startFadeOut();
-      return;
-    }
-
-    if (bootGateDelayId !== null) {
-      window.clearTimeout(bootGateDelayId);
-      bootGateDelayId = null;
-    }
-    bootGateDelayId = window.setTimeout(() => {
-      bootGateDelayId = null;
-      startFadeOut();
-    }, waitMs);
+    appBoot.release();
   }
 
   function forceReleaseAppBootGate(): void {
-    if (bootGateReleased) {
-      return;
-    }
-    if (bootGateDelayId !== null) {
-      window.clearTimeout(bootGateDelayId);
-      bootGateDelayId = null;
-    }
-    if (bootGateFadeId !== null) {
-      window.clearTimeout(bootGateFadeId);
-      bootGateFadeId = null;
-    }
-    bootGateCompleting = false;
-    bootGateReleased = true;
-    const body = document.body;
-    if (body) {
-      body.classList.remove('app-boot-transitioning');
-      body.classList.remove('app-boot-pending');
-    }
-    setBootState('ready');
-    const splash = document.getElementById('app-boot-splash');
-    if (splash) {
-      splash.classList.remove('app-boot-fadeout');
-    }
-    window.setTimeout(() => {
-      syncViewportMetrics();
-      updateWindowSize();
-    }, 0);
+    appBoot.forceRelease();
   }
 
   setBootState('pending');
@@ -1032,20 +944,12 @@ const init = function (): void {
   // NOTE: This block runs after DOM element constants are declared.
   function ensureMyPlaylistOptionFromStorage(): boolean {
     const ambientData = (window as any).AmbientData as AmbientData | undefined;
-    if (!ambientData?.isCloud || !hasStoredMyPlaylist()) return false;
-    const $sel = document.getElementById('current-playlist') as HTMLSelectElement | null;
-    if ($sel) {
-      const alreadyExists = Array.from($sel.options).some(
-        (opt) => opt.value === MYPLAYLIST_NAME
-      );
-      if (!alreadyExists) {
-        const opt = document.createElement('option');
-        opt.value = MYPLAYLIST_NAME;
-        opt.textContent = MYPLAYLIST_NAME.replace('.json', '');
-        $sel.appendChild(opt);
-      }
-    }
-    return true;
+    return ensureMyPlaylistOptionFromStorageBootstrap({
+      hasStoredMyPlaylist: hasStoredMyPlaylist(),
+      isCloud: ambientData?.isCloud === true,
+      myPlaylistName: MYPLAYLIST_NAME,
+      selectElement: document.getElementById('current-playlist') as HTMLSelectElement | null,
+    });
   }
 
   function initMyPlaylistFromStorage(): void {
@@ -1056,13 +960,10 @@ const init = function (): void {
       applyCloudEditRestrictions();
       return;
     }
-    const $sel = document.getElementById('current-playlist') as HTMLSelectElement | null;
-    if ($sel) {
-      Array.from($sel.options).find((opt) => opt.value === MYPLAYLIST_NAME)?.remove();
-      if ($sel.value === MYPLAYLIST_NAME) {
-        $sel.selectedIndex = 0;
-      }
-    }
+    removeMyPlaylistOption(
+      document.getElementById('current-playlist') as HTMLSelectElement | null,
+      MYPLAYLIST_NAME
+    );
     AMP_STATUS.playlist = null;
     applyCloudEditRestrictions();
     setPlaylistReadyState(true);
@@ -3278,40 +3179,31 @@ const init = function (): void {
   const savedPlaylistContext = getSavedPlaylistContext();
   ensureCloudMyPlaylistSeed();
   ensureMyPlaylistOptionFromStorage();
-  if ((window as any).AmbientData) {
-    const ambientData: AmbientData = (window as any).AmbientData;
-    if (
-      savedPlaylistContext &&
-      (!ambientData.isCloud || savedPlaylistContext.playlist === MYPLAYLIST_NAME) &&
-      isPlaylistAvailableForResume(savedPlaylistContext.playlist)
-    ) {
-      requestCategoryResume(savedPlaylistContext.category);
-      requestMediaResume(savedPlaylistContext.media);
-      selectPlaylistOption(savedPlaylistContext.playlist);
-      void getPlaylistData(savedPlaylistContext.playlist);
-    } else {
-      const playlistCount = Object.keys(ambientData.playlists || {}).length;
-      const shouldAutoloadMyPlaylist = ambientData?.isCloud === true &&
-        localStorage.getItem(MYPLAYLIST_KEY) !== null;
-      if (shouldAutoloadMyPlaylist) {
-        initMyPlaylistFromStorage();
-        releaseAppBootGate();
-      } else if (ambientData.hasOwnProperty('currentPlaylist')) {
-        // If there is only one playlist, load immediately.
-        const currentPlaylist = ambientData.currentPlaylist as string;
-        void getPlaylistData(currentPlaylist);
-      } else if (ambientData.hasOwnProperty('playlists') && playlistCount > 1) {
-        // If there are multiple playlists, do nothing yet.
-        setPlaylistReadyState(true);
-        releaseAppBootGate();
-      } else {
-        setPlaylistReadyState(true);
-        releaseAppBootGate();
-      }
-    }
-  } else {
-    setPlaylistReadyState(true);
-    releaseAppBootGate();
+  const initialPlaylistStartup = resolveInitialPlaylistStartup<PlaylistResumeMediaContext>({
+    ambientData: ((window as any).AmbientData as AmbientData | undefined) ?? null,
+    hasStoredMyPlaylist: localStorage.getItem(MYPLAYLIST_KEY) !== null,
+    isPlaylistAvailableForResume,
+    myPlaylistName: MYPLAYLIST_NAME,
+    savedPlaylistContext,
+  });
+  switch (initialPlaylistStartup.type) {
+    case 'resume':
+      requestCategoryResume(initialPlaylistStartup.category);
+      requestMediaResume(initialPlaylistStartup.media);
+      selectPlaylistOption(initialPlaylistStartup.playlist);
+      void getPlaylistData(initialPlaylistStartup.playlist);
+      break;
+    case 'autoload_myplaylist':
+      initMyPlaylistFromStorage();
+      releaseAppBootGate();
+      break;
+    case 'autoload_current_playlist':
+      void getPlaylistData(initialPlaylistStartup.playlist);
+      break;
+    case 'ready':
+      setPlaylistReadyState(true);
+      releaseAppBootGate();
+      break;
   }
 
   if (isElement($ALERT)) {
