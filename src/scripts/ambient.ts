@@ -59,6 +59,8 @@ import {
 } from './state/session-draft-store';
 import {
   applyMediaEditDirtyState,
+  bindMediaEditDraftState,
+  discardMediaEditDraft,
   hasActiveUnsavedMediaEditDraft,
 } from './state/media-edit-state';
 import {
@@ -2610,10 +2612,12 @@ const init = function (): void {
   }
 
   function discardActiveMediaEditDraft(): void {
-    if (mediaEditActiveItem) {
-      deleteMediaEditDraftByKey(getMediaEditDraftKey(mediaEditActiveItem));
-    }
-    setMediaEditDirtyState(false);
+    discardMediaEditDraft({
+      activeItem: mediaEditActiveItem,
+      getDraftKey: getMediaEditDraftKey,
+      deleteDraftByKey: deleteMediaEditDraftByKey,
+      setDirtyState: setMediaEditDirtyState,
+    });
   }
 
   function clearMediaEditContext(): void {
@@ -2639,13 +2643,18 @@ const init = function (): void {
   }
 
   function bindMediaEditForm(mediaItem: MediaItem): void {
-    mediaEditActiveItem = mediaItem;
-    mediaEditBaseDraft = createMediaEditBaseDraft(mediaItem);
-    const draftKey = getMediaEditDraftKey(mediaItem);
-    const sessionDraft = mediaEditDraftStore.get(draftKey) || null;
-    const initialDraft = sessionDraft || mediaEditBaseDraft;
+    const binding = bindMediaEditDraftState({
+      mediaItem,
+      draftStore: mediaEditDraftStore,
+      getDraftKey: getMediaEditDraftKey,
+      createBaseDraft: createMediaEditBaseDraft,
+      isSameDraft: isSameMediaEditDraft,
+    });
+    mediaEditActiveItem = binding.activeItem;
+    mediaEditBaseDraft = binding.baseDraft;
+    const initialDraft = binding.initialDraft;
     applyMediaEditDraftToForm(initialDraft);
-    setMediaEditDirtyState(!isSameMediaEditDraft(initialDraft, mediaEditBaseDraft));
+    setMediaEditDirtyState(binding.isDirty);
     validateAndRenderMediaEditDraftFromForm();
   }
 

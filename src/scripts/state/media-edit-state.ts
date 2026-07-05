@@ -20,3 +20,40 @@ export function hasActiveUnsavedMediaEditDraft<TDraft>(options: {
 
   return options.draftStore.has(options.getDraftKey(options.activeItem));
 }
+
+export function bindMediaEditDraftState<TDraft>(options: {
+  mediaItem: MediaItem;
+  draftStore: Map<string, TDraft>;
+  getDraftKey: (mediaItem: MediaItem) => string;
+  createBaseDraft: (mediaItem: MediaItem) => TDraft;
+  isSameDraft: (a: TDraft, b: TDraft) => boolean;
+}): {
+  activeItem: MediaItem;
+  baseDraft: TDraft;
+  initialDraft: TDraft;
+  isDirty: boolean;
+} {
+  const baseDraft = options.createBaseDraft(options.mediaItem);
+  const draftKey = options.getDraftKey(options.mediaItem);
+  const sessionDraft = options.draftStore.get(draftKey) || null;
+  const initialDraft = sessionDraft || baseDraft;
+
+  return {
+    activeItem: options.mediaItem,
+    baseDraft,
+    initialDraft,
+    isDirty: !options.isSameDraft(initialDraft, baseDraft),
+  };
+}
+
+export function discardMediaEditDraft(options: {
+  activeItem: MediaItem | null;
+  getDraftKey: (mediaItem: MediaItem) => string;
+  deleteDraftByKey: (key: string) => void;
+  setDirtyState: (isDirty: boolean) => void;
+}): void {
+  if (options.activeItem) {
+    options.deleteDraftByKey(options.getDraftKey(options.activeItem));
+  }
+  options.setDirtyState(false);
+}
