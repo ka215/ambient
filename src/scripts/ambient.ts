@@ -182,6 +182,10 @@ import {
   updateMediaCaptionDisplay,
 } from './ui/player/player-display';
 import {
+  playMediaSelection,
+  updatePlaybackStatus,
+} from './ui/player/player-actions';
+import {
   bindManagedHtmlPlaybackOrchestration,
   cleanupManagedYouTubeTransition,
   createManagedYouTubePlaybackOrchestration,
@@ -199,8 +203,6 @@ import {
 import {
   findMediaById,
   resolvePlaybackCandidateIds,
-  resolvePlaybackInvocation,
-  resolvePlaybackStatusUpdate,
   runPlaybackTransition,
   resolveRequestedPlayId,
   resolveSeekRange,
@@ -4211,17 +4213,19 @@ const init = function (): void {
    * Updates the user's media playback state.
    */
   function updatePlayStatus(currentAmId: number): void {
-    const playbackStatus = resolvePlaybackStatusUpdate({
+    updatePlaybackStatus({
       mediaItems: AMP_STATUS.media || [],
       categoryId: AMP_STATUS.ctg,
       shuffleEnabled: Boolean(getOption('shuffle')),
       shuffleItems: AMP_STATUS.shuffle || [],
       currentId: currentAmId,
       order: AMP_STATUS.order,
+      applyPlaybackStatus: (playbackStatus) => {
+        AMP_STATUS.current = playbackStatus.currentId;
+        AMP_STATUS.prev = playbackStatus.prevId;
+        AMP_STATUS.next = playbackStatus.nextId;
+      },
     });
-    AMP_STATUS.current = playbackStatus.currentId;
-    AMP_STATUS.prev = playbackStatus.prevId;
-    AMP_STATUS.next = playbackStatus.nextId;
     updateCarousel();
   }
 
@@ -4247,34 +4251,27 @@ const init = function (): void {
   }
 
   function playItem(object: HTMLElement | null = null, id: number | null = null): void {
-    const thisElm = isElement(object) ? (object as HTMLElement) : null;
-    const playbackInvocation = resolvePlaybackInvocation({
+    playMediaSelection({
       mediaItems: AMP_STATUS.media || [],
-      triggerElement: thisElm,
+      triggerElement: isElement(object) ? (object as HTMLElement) : null,
       targetId: id,
       getExtension: getExt,
+      logger,
+      updatePlayStatus,
+      closeResponsiveDrawers: () => {
+        closeResponsiveDrawers({
+          playlistCloseButton: document.getElementById('btn-close-playlist') as HTMLButtonElement | null,
+          settingsCloseButton: document.getElementById('btn-close-settings') as HTMLButtonElement | null,
+        }, currentWindowSize.width, currentWindowSize.minFullUIWidth);
+      },
+      reportMissingSource: (mediaData) => {
+        reportMediaPlaybackIssue(mediaData, 'media_source_missing', {
+          currentPlaylist: AMP_STATUS.playlist || '',
+          currentCategory: AMP_STATUS.ctg,
+        });
+      },
+      setupPlayer,
     });
-    if (!playbackInvocation) return;
-
-    const { targetId, mediaData, playbackPlan } = playbackInvocation;
-
-    logger('playItem:', targetId, playbackPlan.src, playbackPlan.kind);
-    updatePlayStatus(targetId);
-
-    closeResponsiveDrawers({
-      playlistCloseButton: document.getElementById('btn-close-playlist') as HTMLButtonElement | null,
-      settingsCloseButton: document.getElementById('btn-close-settings') as HTMLButtonElement | null,
-    }, currentWindowSize.width, currentWindowSize.minFullUIWidth);
-
-    if (playbackPlan.kind === 'missing') {
-      reportMediaPlaybackIssue(mediaData, 'media_source_missing', {
-        currentPlaylist: AMP_STATUS.playlist || '',
-        currentCategory: AMP_STATUS.ctg,
-      });
-      return;
-    }
-
-    setupPlayer(playbackPlan.kind, playbackPlan.src, mediaData, playbackPlan.extension);
   }
 
   /**
