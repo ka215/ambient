@@ -191,10 +191,13 @@ import {
   createManagedYouTubePlaybackOrchestration,
 } from './ui/player/player-orchestration';
 import {
-  fadePlaybackIn,
-  fadePlaybackOut,
   reportPlaybackIssue,
 } from './ui/player/player-effects';
+import {
+  runPlayerFadeIn,
+  runPlayerFadeOut,
+  runPlayerSetup,
+} from './ui/player/player-controller';
 import {
   getBottomMenuHeight as getBottomMenuHeightView,
   getFullWindowPlayerSize as getFullWindowPlayerSizeView,
@@ -220,10 +223,7 @@ import {
   resolveMediaEditPreviewCurrentTime,
   showMediaEditPreviewErrorView,
 } from './ui/player/media-edit-preview';
-import {
-  type PlayableSetupKind,
-  runResolvedPlaybackSetup,
-} from './ui/player/player-setup';
+import { type PlayableSetupKind } from './ui/player/player-setup';
 import {
   destroyYouTubePreviewPlayer,
   resetYouTubePlayerView,
@@ -4283,13 +4283,13 @@ const init = function (): void {
     mediaData: MediaItem,
     extension: string | null = null
   ): void {
-    abortPlaybackTimers();
-    // update media caption.
-    updateMediaCaption(mediaData);
-    runResolvedPlaybackSetup({
+    runPlayerSetup({
       setupKind,
       src,
       extension,
+      mediaData,
+      abortPlaybackTimers,
+      updateMediaCaption,
       getExtension: getExt,
       onPlayerTypeResolved: (playerType) => {
         AMP_STATUS.playertype = playerType;
@@ -4297,14 +4297,14 @@ const init = function (): void {
       onYouTubeSignal: (phase, error) => {
         emitYouTubeSignal(phase, error || '');
       },
-      onIssue: (issue) => {
-        reportMediaPlaybackIssue(mediaData, issue.reason, issue.details);
+      onIssue: (reason, details) => {
+        reportMediaPlaybackIssue(mediaData, reason, details);
       },
-      onYouTube: () => {
+      onCreateYouTubePlayer: () => {
         AMP_STATUS.yt_error = '';
         createYTPlayer(mediaData);
       },
-      onHtml: (kind) => {
+      onCreateHtmlPlayer: (kind) => {
         createPlayerTag(kind, mediaData);
       },
     });
@@ -4471,7 +4471,7 @@ const init = function (): void {
    * Fade in the volume of the specified media.
    */
   function fadeIn(media: any, period: number, start: number): void {
-    fadePlaybackIn({
+    runPlayerFadeIn({
       media,
       period,
       start,
@@ -4487,7 +4487,7 @@ const init = function (): void {
    * Fade out the volume of the specified media.
    */
   function fadeOut(media: any, period: number, end: number): void {
-    fadePlaybackOut({
+    runPlayerFadeOut({
       media,
       period,
       end,
