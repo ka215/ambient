@@ -87,7 +87,11 @@ export interface ModalKeyboardBindings {
 
 export interface PlaylistDescModalBindings {
   closeButton: HTMLButtonElement | null;
+  backdrop: HTMLElement | null;
+  managementLink: HTMLAnchorElement | null;
   onClose(): void;
+  onBackdrop(): void;
+  onOpenPlaylistManagementCategory(): void;
 }
 
 function isElement(value: unknown): value is HTMLElement {
@@ -334,6 +338,16 @@ export function bindPlaylistDescModalControls(bindings: PlaylistDescModalBinding
   bindings.closeButton?.addEventListener('click', (evt: Event) => {
     evt.preventDefault();
     bindings.onClose();
+  });
+
+  bindings.backdrop?.addEventListener('click', (evt: Event) => {
+    evt.preventDefault();
+    bindings.onBackdrop();
+  });
+
+  bindings.managementLink?.addEventListener('click', (evt: Event) => {
+    evt.preventDefault();
+    bindings.onOpenPlaylistManagementCategory();
   });
 }
 

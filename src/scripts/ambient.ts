@@ -124,7 +124,10 @@ import {
 } from './ui/media-edit-modal-view';
 import {
   bindMediaEditCategoryControls,
+  bindMediaEditFieldControls,
+  bindMediaEditPreviewControls,
   bindMediaEditPrimaryControls,
+  bindMediaEditThumbnailControls,
 } from './ui/media-edit-controls';
 import {
   appendPlaylistQuickAddItem,
@@ -3635,12 +3638,6 @@ const init = function (): void {
     },
   });
 
-  (document.getElementById('link-open-playlist-management-category') as HTMLAnchorElement | null)
-    ?.addEventListener('click', (evt: Event) => {
-      evt.preventDefault();
-      openPlaylistManagementCategoryCreate();
-    });
-
   bindModalKeyboardControls({
     onEscapeMediaEditCategory: () => {
       closeMediaEditCategoryDropdown(true);
@@ -3668,8 +3665,16 @@ const init = function (): void {
 
   bindPlaylistDescModalControls({
     closeButton: $BUTTON_CLOSE_PLAYLIST_DESC,
+    backdrop: $MODAL_PLAYLIST_DESC_BACKDROP,
+    managementLink: document.getElementById('link-open-playlist-management-category') as HTMLAnchorElement | null,
     onClose: () => {
       playlistDescModal.close(true);
+    },
+    onBackdrop: () => {
+      playlistDescModal.close(false);
+    },
+    onOpenPlaylistManagementCategory: () => {
+      openPlaylistManagementCategoryCreate();
     },
   });
 
@@ -3701,23 +3706,23 @@ const init = function (): void {
     renderOptions: renderMediaEditCategoryOptions,
   });
 
-  [$MEDIA_EDIT_CATEGORY, $MEDIA_EDIT_TITLE, $MEDIA_EDIT_ARTIST, $MEDIA_EDIT_DESCRIPTION]
-    .forEach((field) => {
-      if (!field) {
+  bindMediaEditFieldControls({
+    draftFields: [$MEDIA_EDIT_CATEGORY, $MEDIA_EDIT_TITLE, $MEDIA_EDIT_ARTIST, $MEDIA_EDIT_DESCRIPTION],
+    volumeInput: $MEDIA_EDIT_VOLUME,
+    timingFields: [$MEDIA_EDIT_SEEK_START, $MEDIA_EDIT_SEEK_END, $MEDIA_EDIT_FADEIN_END, $MEDIA_EDIT_FADEOUT_START],
+    timingStepperButtons: document.querySelectorAll('.media-edit-timing-stepper-btn'),
+    onDraftFieldInput: () => {
+      syncMediaEditDraftStateFromForm();
+      validateAndRenderMediaEditDraftFromForm();
+    },
+    onDraftFieldChange: () => {
+      syncMediaEditDraftStateFromForm();
+      validateAndRenderMediaEditDraftFromForm();
+    },
+    onVolumeInput: () => {
+      if (!$MEDIA_EDIT_VOLUME) {
         return;
       }
-      field.addEventListener('input', () => {
-        syncMediaEditDraftStateFromForm();
-        validateAndRenderMediaEditDraftFromForm();
-      });
-      field.addEventListener('change', () => {
-        syncMediaEditDraftStateFromForm();
-        validateAndRenderMediaEditDraftFromForm();
-      });
-    });
-
-  if (isElement($MEDIA_EDIT_VOLUME)) {
-    $MEDIA_EDIT_VOLUME.addEventListener('input', () => {
       const normalized = readMediaEditDraftFromForm();
       syncVolumeSlider({
         input: $MEDIA_EDIT_VOLUME,
@@ -3727,8 +3732,11 @@ const init = function (): void {
       });
       syncMediaEditDraftStateFromForm();
       validateAndRenderMediaEditDraftFromForm();
-    });
-    $MEDIA_EDIT_VOLUME.addEventListener('blur', () => {
+    },
+    onVolumeBlur: () => {
+      if (!$MEDIA_EDIT_VOLUME) {
+        return;
+      }
       const normalized = readMediaEditDraftFromForm();
       syncVolumeSlider({
         input: $MEDIA_EDIT_VOLUME,
@@ -3738,95 +3746,70 @@ const init = function (): void {
       });
       syncMediaEditDraftStateFromForm();
       validateAndRenderMediaEditDraftFromForm();
-    });
-  }
-
-  [$MEDIA_EDIT_SEEK_START, $MEDIA_EDIT_SEEK_END, $MEDIA_EDIT_FADEIN_END, $MEDIA_EDIT_FADEOUT_START]
-    .forEach((field) => {
-      if (!field) {
-        return;
-      }
-      field.addEventListener('input', () => {
-        sanitizeMediaEditTimingInputField(field);
-        syncMediaEditTimingDisplay();
-        syncMediaEditDraftStateFromForm();
-        validateAndRenderMediaEditDraftFromForm();
-      });
-      field.addEventListener('change', () => {
-        sanitizeMediaEditTimingInputField(field);
-        syncMediaEditTimingDisplay();
-        syncMediaEditDraftStateFromForm();
-        validateAndRenderMediaEditDraftFromForm();
-      });
-      field.addEventListener('blur', () => {
-        field.value = toMediaEditTimingInputValue(parseMediaTimeToIntegerSeconds(field.value));
-        syncMediaEditTimingDisplay();
-        syncMediaEditDraftStateFromForm();
-        validateAndRenderMediaEditDraftFromForm();
-      });
-    });
-
-  document.querySelectorAll('.media-edit-timing-stepper-btn').forEach((elm) => {
-    if (!(elm instanceof HTMLButtonElement)) {
-      return;
-    }
-    elm.addEventListener('click', (evt: Event) => {
-      evt.preventDefault();
-      const targetId = elm.dataset['target'] || '';
-      if (targetId === '') {
-        return;
-      }
-      const targetField = document.getElementById(targetId);
-      if (!(targetField instanceof HTMLInputElement)) {
-        return;
-      }
-      const direction: 1 | -1 = elm.dataset['stepDir'] === 'down' ? -1 : 1;
-      stepMediaEditTimingField(targetField, direction);
-    });
+    },
+    onTimingInput: (field: HTMLInputElement) => {
+      sanitizeMediaEditTimingInputField(field);
+      syncMediaEditTimingDisplay();
+      syncMediaEditDraftStateFromForm();
+      validateAndRenderMediaEditDraftFromForm();
+    },
+    onTimingChange: (field: HTMLInputElement) => {
+      sanitizeMediaEditTimingInputField(field);
+      syncMediaEditTimingDisplay();
+      syncMediaEditDraftStateFromForm();
+      validateAndRenderMediaEditDraftFromForm();
+    },
+    onTimingBlur: (field: HTMLInputElement) => {
+      field.value = toMediaEditTimingInputValue(parseMediaTimeToIntegerSeconds(field.value));
+      syncMediaEditTimingDisplay();
+      syncMediaEditDraftStateFromForm();
+      validateAndRenderMediaEditDraftFromForm();
+    },
+    onTimingStep: (field: HTMLInputElement, direction: 1 | -1) => {
+      stepMediaEditTimingField(field, direction);
+    },
   });
 
-  if (isElement($BUTTON_MEDIA_EDIT_SYNC_SEEK_START)) {
-    $BUTTON_MEDIA_EDIT_SYNC_SEEK_START.addEventListener('click', () => {
+  bindMediaEditPreviewControls({
+    syncSeekStartButton: $BUTTON_MEDIA_EDIT_SYNC_SEEK_START,
+    syncSeekEndButton: $BUTTON_MEDIA_EDIT_SYNC_SEEK_END,
+    syncFadeinEndButton: $BUTTON_MEDIA_EDIT_SYNC_FADEIN_END,
+    syncFadeoutStartButton: $BUTTON_MEDIA_EDIT_SYNC_FADEOUT_START,
+    previewRetryButton: $BUTTON_MEDIA_EDIT_PREVIEW_RETRY,
+    onSyncSeekStart: () => {
       syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_SEEK_START, 'seek start');
-    });
-  }
-
-  if (isElement($BUTTON_MEDIA_EDIT_SYNC_SEEK_END)) {
-    $BUTTON_MEDIA_EDIT_SYNC_SEEK_END.addEventListener('click', () => {
+    },
+    onSyncSeekEnd: () => {
       syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_SEEK_END, 'seek end');
-    });
-  }
-
-  if (isElement($BUTTON_MEDIA_EDIT_SYNC_FADEIN_END)) {
-    $BUTTON_MEDIA_EDIT_SYNC_FADEIN_END.addEventListener('click', () => {
+    },
+    onSyncFadeinEnd: () => {
       syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_FADEIN_END, 'fade-in end');
-    });
-  }
-
-  if (isElement($BUTTON_MEDIA_EDIT_SYNC_FADEOUT_START)) {
-    $BUTTON_MEDIA_EDIT_SYNC_FADEOUT_START.addEventListener('click', () => {
+    },
+    onSyncFadeoutStart: () => {
       syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_FADEOUT_START, 'fade-out start');
-    });
-  }
-
-  if (isElement($BUTTON_MEDIA_EDIT_PREVIEW_RETRY)) {
-    $BUTTON_MEDIA_EDIT_PREVIEW_RETRY.addEventListener('click', () => {
+    },
+    onPreviewRetry: () => {
       if (!mediaEditPreviewSourceItem) {
         return;
       }
       createMediaEditPreview(mediaEditPreviewSourceItem);
-    });
-  }
+    },
+  });
 
-  if (isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_PICK) && isElement($MEDIA_EDIT_THUMBNAIL_INPUT)) {
-    $BUTTON_MEDIA_EDIT_THUMBNAIL_PICK.addEventListener('click', () => {
-      $MEDIA_EDIT_THUMBNAIL_INPUT.click();
-    });
-  }
-
-  if (isElement($MEDIA_EDIT_THUMBNAIL_INPUT)) {
-    $MEDIA_EDIT_THUMBNAIL_INPUT.addEventListener('change', () => {
-      const file = $MEDIA_EDIT_THUMBNAIL_INPUT.files?.[0] || null;
+  bindMediaEditThumbnailControls({
+    pickButton: $BUTTON_MEDIA_EDIT_THUMBNAIL_PICK,
+    input: $MEDIA_EDIT_THUMBNAIL_INPUT,
+    removeButton: $BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE,
+    clearButton: $BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR,
+    onPick: () => {
+      $MEDIA_EDIT_THUMBNAIL_INPUT?.click();
+    },
+    onInputChange: () => {
+      const thumbnailInput = $MEDIA_EDIT_THUMBNAIL_INPUT;
+      if (!thumbnailInput) {
+        return;
+      }
+      const file = thumbnailInput.files?.[0] || null;
       if (!file) {
         return;
       }
@@ -3837,7 +3820,7 @@ const init = function (): void {
           message: getLocalizedMessage('mediaEditThumbnailTypeError', 'Only PNG, JPEG, GIF, and WebP images are accepted.'),
           delay: 2500,
         });
-        $MEDIA_EDIT_THUMBNAIL_INPUT.value = '';
+        thumbnailInput.value = '';
         return;
       }
       const reader = new FileReader();
@@ -3857,12 +3840,9 @@ const init = function (): void {
         applyMediaEditDraftState(next);
       };
       reader.readAsDataURL(file);
-      $MEDIA_EDIT_THUMBNAIL_INPUT.value = '';
-    });
-  }
-
-  if (isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE) || isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR)) {
-    const removeHandler = (): void => {
+      thumbnailInput.value = '';
+    },
+    onRemove: () => {
       if (!mediaEditActiveItem) {
         return;
       }
@@ -3884,22 +3864,8 @@ const init = function (): void {
       }, current);
       applyMediaEditDraftToForm(next);
       applyMediaEditDraftState(next);
-    };
-
-    if (isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE)) {
-      $BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE.addEventListener('click', removeHandler);
-    }
-    if (isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR)) {
-      $BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR.addEventListener('click', removeHandler);
-    }
-  }
-
-  if (isElement($MODAL_PLAYLIST_DESC_BACKDROP)) {
-    $MODAL_PLAYLIST_DESC_BACKDROP.addEventListener('click', (evt: Event) => {
-      evt.preventDefault();
-      playlistDescModal.close(false);
-    });
-  }
+    },
+  });
 
   /**
    * Open the Options modal with the Media Management accordion expanded.

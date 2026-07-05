@@ -20,6 +20,44 @@ export interface MediaEditCategoryControlBindings {
   renderOptions(): void;
 }
 
+export interface MediaEditFieldBindings {
+  draftFields: Array<HTMLInputElement | HTMLTextAreaElement | null>;
+  volumeInput: HTMLInputElement | null;
+  timingFields: Array<HTMLInputElement | null>;
+  timingStepperButtons: NodeListOf<Element>;
+  onDraftFieldInput(): void;
+  onDraftFieldChange(): void;
+  onVolumeInput(): void;
+  onVolumeBlur(): void;
+  onTimingInput(field: HTMLInputElement): void;
+  onTimingChange(field: HTMLInputElement): void;
+  onTimingBlur(field: HTMLInputElement): void;
+  onTimingStep(field: HTMLInputElement, direction: 1 | -1): void;
+}
+
+export interface MediaEditPreviewControlBindings {
+  syncSeekStartButton: HTMLButtonElement | null;
+  syncSeekEndButton: HTMLButtonElement | null;
+  syncFadeinEndButton: HTMLButtonElement | null;
+  syncFadeoutStartButton: HTMLButtonElement | null;
+  previewRetryButton: HTMLButtonElement | null;
+  onSyncSeekStart(): void;
+  onSyncSeekEnd(): void;
+  onSyncFadeinEnd(): void;
+  onSyncFadeoutStart(): void;
+  onPreviewRetry(): void;
+}
+
+export interface MediaEditThumbnailControlBindings {
+  pickButton: HTMLButtonElement | null;
+  input: HTMLInputElement | null;
+  removeButton: HTMLButtonElement | null;
+  clearButton: HTMLButtonElement | null;
+  onPick(): void;
+  onInputChange(): void;
+  onRemove(): void;
+}
+
 export function bindMediaEditPrimaryControls(bindings: MediaEditPrimaryControlBindings): void {
   bindings.closeButton?.addEventListener('click', (evt: Event) => {
     evt.preventDefault();
@@ -88,5 +126,97 @@ export function bindMediaEditCategoryControls(bindings: MediaEditCategoryControl
     if (target instanceof Node && !bindings.categoryCombobox.contains(target)) {
       bindings.closeDropdown(false);
     }
+  });
+}
+
+export function bindMediaEditFieldControls(bindings: MediaEditFieldBindings): void {
+  bindings.draftFields.forEach((field) => {
+    if (!field) {
+      return;
+    }
+    field.addEventListener('input', () => {
+      bindings.onDraftFieldInput();
+    });
+    field.addEventListener('change', () => {
+      bindings.onDraftFieldChange();
+    });
+  });
+
+  bindings.volumeInput?.addEventListener('input', () => {
+    bindings.onVolumeInput();
+  });
+  bindings.volumeInput?.addEventListener('blur', () => {
+    bindings.onVolumeBlur();
+  });
+
+  bindings.timingFields.forEach((field) => {
+    if (!field) {
+      return;
+    }
+    field.addEventListener('input', () => {
+      bindings.onTimingInput(field);
+    });
+    field.addEventListener('change', () => {
+      bindings.onTimingChange(field);
+    });
+    field.addEventListener('blur', () => {
+      bindings.onTimingBlur(field);
+    });
+  });
+
+  bindings.timingStepperButtons.forEach((elm) => {
+    if (!(elm instanceof HTMLButtonElement)) {
+      return;
+    }
+    elm.addEventListener('click', (evt: Event) => {
+      evt.preventDefault();
+      const targetId = elm.dataset['target'] || '';
+      if (targetId === '') {
+        return;
+      }
+      const targetField = document.getElementById(targetId);
+      if (!(targetField instanceof HTMLInputElement)) {
+        return;
+      }
+      const direction: 1 | -1 = elm.dataset['stepDir'] === 'down' ? -1 : 1;
+      bindings.onTimingStep(targetField, direction);
+    });
+  });
+}
+
+export function bindMediaEditPreviewControls(bindings: MediaEditPreviewControlBindings): void {
+  bindings.syncSeekStartButton?.addEventListener('click', () => {
+    bindings.onSyncSeekStart();
+  });
+  bindings.syncSeekEndButton?.addEventListener('click', () => {
+    bindings.onSyncSeekEnd();
+  });
+  bindings.syncFadeinEndButton?.addEventListener('click', () => {
+    bindings.onSyncFadeinEnd();
+  });
+  bindings.syncFadeoutStartButton?.addEventListener('click', () => {
+    bindings.onSyncFadeoutStart();
+  });
+  bindings.previewRetryButton?.addEventListener('click', () => {
+    bindings.onPreviewRetry();
+  });
+}
+
+export function bindMediaEditThumbnailControls(bindings: MediaEditThumbnailControlBindings): void {
+  if (bindings.pickButton && bindings.input) {
+    bindings.pickButton.addEventListener('click', () => {
+      bindings.onPick();
+    });
+  }
+
+  bindings.input?.addEventListener('change', () => {
+    bindings.onInputChange();
+  });
+
+  bindings.removeButton?.addEventListener('click', () => {
+    bindings.onRemove();
+  });
+  bindings.clearButton?.addEventListener('click', () => {
+    bindings.onRemove();
   });
 }
