@@ -19,6 +19,10 @@ export interface PlaybackSelection {
   playbackPlan: PlaybackSetupPlan;
 }
 
+export interface PlaybackInvocation extends PlaybackSelection {
+  targetId: number;
+}
+
 export interface PlayableTransitionTarget extends PlaybackTarget {
   setupKind: PlayableSetupKind;
 }
@@ -175,6 +179,31 @@ export function resolvePlaybackSelectionById(options: {
       mediaData,
       getExtension: options.getExtension,
     }),
+  };
+}
+
+export function resolvePlaybackInvocation(options: {
+  mediaItems: MediaItem[];
+  triggerElement?: HTMLElement | null;
+  targetId?: number | null;
+  getExtension: (src: string) => string;
+}): PlaybackInvocation | null {
+  const resolvedTargetId = options.targetId !== undefined && options.targetId !== null
+    ? options.targetId
+    : Number(options.triggerElement?.dataset?.playlistItem || 0);
+
+  const selection = resolvePlaybackSelectionById({
+    mediaItems: options.mediaItems,
+    targetId: resolvedTargetId,
+    getExtension: options.getExtension,
+  });
+  if (!selection) {
+    return null;
+  }
+
+  return {
+    targetId: resolvedTargetId,
+    ...selection,
   };
 }
 

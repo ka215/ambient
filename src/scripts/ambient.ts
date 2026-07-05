@@ -195,7 +195,7 @@ import {
   applyYouTubeTransitionCleanup,
   findMediaById,
   resolvePlaybackCandidateIds,
-  resolvePlaybackSelectionById,
+  resolvePlaybackInvocation,
   resolvePlaybackStatusUpdate,
   resolveEndedPlaybackTarget as resolveEndedPlaybackTargetRuntime,
   runPlaybackTransition,
@@ -4571,18 +4571,18 @@ const init = function (): void {
 
   function playItem(object: HTMLElement | null = null, id: number | null = null): void {
     const thisElm = isElement(object) ? (object as HTMLElement) : null;
-    const amId = id !== null ? id : Number((thisElm as any)?.dataset?.playlistItem || 0);
-    const playbackSelection = resolvePlaybackSelectionById({
+    const playbackInvocation = resolvePlaybackInvocation({
       mediaItems: AMP_STATUS.media || [],
-      targetId: amId,
+      triggerElement: thisElm,
+      targetId: id,
       getExtension: getExt,
     });
-    if (!playbackSelection) return;
+    if (!playbackInvocation) return;
 
-    const { mediaData, playbackPlan } = playbackSelection;
+    const { targetId, mediaData, playbackPlan } = playbackInvocation;
 
-    logger('playItem:', amId, playbackPlan.src, playbackPlan.kind);
-    updatePlayStatus(amId);
+    logger('playItem:', targetId, playbackPlan.src, playbackPlan.kind);
+    updatePlayStatus(targetId);
 
     closeResponsiveDrawers({
       playlistCloseButton: document.getElementById('btn-close-playlist') as HTMLButtonElement | null,
