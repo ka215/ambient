@@ -53,10 +53,12 @@ import {
   setPlaylistOption,
 } from './state/playlist-options';
 import {
+  canUseAnyPlaylistMode,
   canUsePlaylistEditMode,
   canUsePlaylistReorderMode,
   getPlaylistItemsForView,
   resolvePlaylistModeTransition,
+  shouldResetPlaylistOperationMode,
 } from './state/playlist-mode-state';
 import {
   deleteSessionDraftByKey,
@@ -2978,10 +2980,14 @@ const init = function (): void {
 
   function syncPlaylistModeAvailability(visibleItemCount: number): void {
     if (!$BUTTON_PLAYLIST_MODE) return;
-    const canUsePlaylistModes = visibleItemCount > 0 && (canUseEditMode() || canMutateCurrentPlaylist());
+    const canUsePlaylistModes = canUseAnyPlaylistMode({
+      visibleItemCount,
+      canUseEditMode: canUseEditMode(),
+      canMutatePlaylist: canMutateCurrentPlaylist(),
+    });
     if (!canUsePlaylistModes) {
       closePlaylistModeMenu();
-      if (playlistMode !== 'normal') {
+      if (shouldResetPlaylistOperationMode(playlistMode, canUsePlaylistModes)) {
         resetPlaylistOperationMode();
       }
     }

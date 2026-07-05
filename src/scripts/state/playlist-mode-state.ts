@@ -95,3 +95,15 @@ export function resolvePlaylistModeTransition(options: {
     captureReorderOnEnter: options.nextMode === 'reorder',
   };
 }
+
+export function canUseAnyPlaylistMode(options: {
+  visibleItemCount: number;
+  canUseEditMode: boolean;
+  canMutatePlaylist: boolean;
+}): boolean {
+  return options.visibleItemCount > 0 && (options.canUseEditMode || options.canMutatePlaylist);
+}
+
+export function shouldResetPlaylistOperationMode(currentMode: PlaylistMode, canUsePlaylistModes: boolean): boolean {
+  return !canUsePlaylistModes && currentMode !== 'normal';
+}
