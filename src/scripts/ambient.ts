@@ -57,9 +57,7 @@ import {
   canUseAnyPlaylistMode,
   canUsePlaylistEditMode,
   canUsePlaylistReorderMode,
-  createPlaylistReorderSnapshot,
   getPlaylistItemsForView,
-  isPlaylistReorderDirty,
   resolvePlaylistModeButtonAction,
   resolvePlaylistModeTransition,
   shouldResetPlaylistOperationMode,
@@ -135,7 +133,6 @@ import {
   filterPlaylistItemsByCategory,
   getPlaylistDescriptionPayload,
   PlaylistMode,
-  readPlaylistItemIdsFromDom,
   renderPlaylistItems,
   resolvePlaylistModeForRendering,
   scrollPlaylistToCurrentFocus,
@@ -150,6 +147,7 @@ import {
   bindPlaylistConfirmModalControls,
   bindPlaylistModeControls,
 } from './ui/playlist-mode-controls';
+import { createPlaylistReorderRuntimeController } from './ui/playlist-reorder-runtime';
 import {
   bindAddMediaTrigger,
   bindPlayerControls,
@@ -2849,7 +2847,7 @@ const init = function (): void {
         void commitDeleteSelections();
       }, () => {
         if (playlistMode === 'reorder') {
-          reorderWorkingIds = [...reorderInitialIds];
+          playlistReorderRuntime.restoreInitialOrder();
           updatePlaylist();
         }
       });
@@ -2866,7 +2864,7 @@ const init = function (): void {
         updatePlaylist();
       }, () => {
         if (playlistMode === 'reorder') {
-          reorderWorkingIds = [...reorderInitialIds];
+          playlistReorderRuntime.restoreInitialOrder();
           updatePlaylist();
         }
       });
@@ -2903,14 +2901,23 @@ const init = function (): void {
   const $BTN_PLAYLIST_CONFIRM_CANCEL = document.getElementById('btn-playlist-confirm-cancel') as HTMLButtonElement | null;
 
   let deleteSelectedIds = new Set<number>();
-  let reorderInitialIds: number[] = [];
-  let reorderWorkingIds: number[] = [];
-  let reorderCategoryId: number | null = null;
-  let playlistSortable: { destroy(): void } | null = null;
   const playlistConfirmModal = createPlaylistConfirmModalController({
     modal: $MODAL_PLAYLIST_CONFIRM,
     title: $MODAL_PLAYLIST_CONFIRM_TITLE,
     body: $MODAL_PLAYLIST_CONFIRM_BODY,
+  });
+  const playlistReorderRuntime = createPlaylistReorderRuntimeController({
+    listElement: $LIST_PLAYLIST,
+    getCategoryId: () => AMP_STATUS.ctg,
+    getVisibleItems: getPlaylistItemsForCurrentView,
+    getMediaItems: () => AMP_STATUS.media,
+    setMediaItems: (mediaItems) => {
+      AMP_STATUS.media = mediaItems;
+    },
+    canMutatePlaylist: canMutateCurrentPlaylist,
+    canUseReorderMode,
+    sortableLibrary: Sortable,
+    onPersist: persistMyPlaylistIfNeeded,
   });
   async function persistCurrentPlaylistMutation(): Promise<{ ok: boolean; message: string }> {
     return persistMediaEditForCurrentPlaylist(AMP_STATUS.media || []);
@@ -2964,88 +2971,35 @@ const init = function (): void {
   }
 
   function destroyPlaylistSortable(): void {
-    if (playlistSortable) {
-      playlistSortable.destroy();
-      playlistSortable = null;
-    }
+    playlistReorderRuntime.reset();
   }
 
   function resetReorderState(): void {
-    destroyPlaylistSortable();
-    reorderInitialIds = [];
-    reorderWorkingIds = [];
-    reorderCategoryId = null;
+    playlistReorderRuntime.reset();
   }
 
   function isReorderDirty(): boolean {
-    return isPlaylistReorderDirty(reorderInitialIds, reorderWorkingIds);
+    return playlistReorderRuntime.isDirty();
   }
 
   function captureReorderSnapshot(): void {
-    const snapshot = createPlaylistReorderSnapshot({
-      categoryId: AMP_STATUS.ctg,
-      visibleItems: getPlaylistItemsForCurrentView(),
-    });
-    reorderCategoryId = snapshot.reorderCategoryId;
-    reorderInitialIds = snapshot.reorderInitialIds;
-    reorderWorkingIds = snapshot.reorderWorkingIds;
+    playlistReorderRuntime.captureSnapshot();
   }
 
   function syncReorderWorkingIdsFromDom(): void {
-    reorderWorkingIds = readPlaylistItemIdsFromDom($LIST_PLAYLIST);
+    playlistReorderRuntime.syncWorkingIdsFromDom();
   }
 
   function applyReorderChanges(): void {
-    if (!canMutateCurrentPlaylist()) {
-      resetReorderState();
-      return;
-    }
-    if (!AMP_STATUS.media || reorderCategoryId === null || reorderWorkingIds.length === 0) {
-      resetReorderState();
-      return;
-    }
-
-    const mediaById = new Map((AMP_STATUS.media || []).map((item: MediaItem) => [item.amId, item]));
-    const reorderedItems = reorderWorkingIds
-      .map((amId) => mediaById.get(amId))
-      .filter((item): item is MediaItem => !!item);
-    let reorderIndex = 0;
-    AMP_STATUS.media = (AMP_STATUS.media || []).map((item: MediaItem) => {
-      if (item.catId !== reorderCategoryId) {
-        return item;
-      }
-      const nextItem = reorderedItems[reorderIndex];
-      reorderIndex++;
-      return nextItem || item;
-    });
-    persistMyPlaylistIfNeeded();
-    resetReorderState();
+    playlistReorderRuntime.applyChanges();
   }
 
   function ensurePlaylistSortable(): void {
-    if (playlistMode !== 'reorder' || !canUseReorderMode()) {
-      destroyPlaylistSortable();
+    if (playlistMode !== 'reorder') {
+      playlistReorderRuntime.reset();
       return;
     }
-    if (playlistSortable) {
-      return;
-    }
-    const sortableLibrary = Sortable;
-    if (!sortableLibrary) {
-      return;
-    }
-    playlistSortable = sortableLibrary.create($LIST_PLAYLIST, {
-      animation: 150,
-      draggable: 'a[data-playlist-item]',
-      forceFallback: true,
-      fallbackOnBody: true,
-      ghostClass: 'playlist-reorder-ghost',
-      chosenClass: 'playlist-reorder-chosen',
-      dragClass: 'playlist-reorder-drag',
-      onEnd: () => {
-        syncReorderWorkingIdsFromDom();
-      },
-    });
+    playlistReorderRuntime.ensureSortable();
   }
 
   bindPlaylistConfirmModalControls({
