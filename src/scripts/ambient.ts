@@ -194,10 +194,12 @@ import {
 import {
   applyYouTubeTransitionCleanup,
   findMediaById,
+  resolvePlaybackCandidateIds,
   resolvePlaybackSelectionById,
-  resolvePlaybackNeighborIds,
+  resolvePlaybackStatusUpdate,
   resolveEndedPlaybackTarget as resolveEndedPlaybackTargetRuntime,
   runPlaybackTransition,
+  resolveRequestedPlayId,
   resolveSeekRange,
   resolveNextPlaybackTarget,
   resolveYouTubeTransitionCleanupMode,
@@ -4359,24 +4361,17 @@ const init = function (): void {
       setMenuMinimized(!$MENU.classList.contains('menu-minimized'));
     },
     onPlay: () => {
-      let playableIds = (AMP_STATUS.media || []).map((item: MediaItem) => item.amId);
-      if (AMP_STATUS.ctg > -1) {
-        playableIds = (AMP_STATUS.media || [])
-          .filter((item: MediaItem) => item.catId === AMP_STATUS.ctg)
-          .map((item: MediaItem) => item.amId);
-      }
-      const isShuffle = getOption('shuffle') || false;
-      if (isShuffle && AMP_STATUS.hasOwnProperty('shuffle') && (AMP_STATUS.shuffle || []).length > 0) {
-        playableIds = (AMP_STATUS.shuffle || []).map((item: MediaItem) => item.amId);
-      }
-      let playId: number;
-      if (AMP_STATUS.current !== null) {
-        playId = AMP_STATUS.current;
-      } else if (AMP_STATUS.order === 'random') {
-        playId = playableIds[Math.floor(Math.random() * playableIds.length)] ?? 0;
-      } else {
-        playId = playableIds.shift() || 0;
-      }
+      const playableIds = resolvePlaybackCandidateIds({
+        mediaItems: AMP_STATUS.media || [],
+        categoryId: AMP_STATUS.ctg,
+        shuffleEnabled: Boolean(getOption('shuffle')),
+        shuffleItems: AMP_STATUS.shuffle || [],
+      });
+      const playId = resolveRequestedPlayId({
+        currentId: AMP_STATUS.current,
+        candidateIds: playableIds,
+        order: AMP_STATUS.order,
+      });
 
       if (AMP_STATUS.playertype === 'youtube' && player) {
         const YTPstate = player.getPlayerState();
@@ -4531,28 +4526,17 @@ const init = function (): void {
    * Updates the user's media playback state.
    */
   function updatePlayStatus(currentAmId: number): void {
-    // Set looking ahead to the next index.
-    const targetData =
-      AMP_STATUS.ctg !== null && AMP_STATUS.ctg !== -1
-        ? (AMP_STATUS.media || []).filter((item: MediaItem) => item.catId === AMP_STATUS.ctg)
-        : AMP_STATUS.media || [];
-
-    const isShuffle = getOption('shuffle') || false;
-    let idCandidates: number[] = [];
-    if (isShuffle && AMP_STATUS.hasOwnProperty('shuffle') && (AMP_STATUS.shuffle || []).length > 0) {
-      idCandidates = (AMP_STATUS.shuffle || []).map((item: MediaItem) => item.amId);
-    } else {
-      idCandidates = targetData.map((item: MediaItem) => item.amId);
-    }
-
-    AMP_STATUS.current = currentAmId;
-    const { prevId, nextId } = resolvePlaybackNeighborIds({
+    const playbackStatus = resolvePlaybackStatusUpdate({
+      mediaItems: AMP_STATUS.media || [],
+      categoryId: AMP_STATUS.ctg,
+      shuffleEnabled: Boolean(getOption('shuffle')),
+      shuffleItems: AMP_STATUS.shuffle || [],
       currentId: currentAmId,
-      candidateIds: idCandidates,
       order: AMP_STATUS.order,
     });
-    AMP_STATUS.prev = prevId;
-    AMP_STATUS.next = nextId;
+    AMP_STATUS.current = playbackStatus.currentId;
+    AMP_STATUS.prev = playbackStatus.prevId;
+    AMP_STATUS.next = playbackStatus.nextId;
     updateCarousel();
   }
 

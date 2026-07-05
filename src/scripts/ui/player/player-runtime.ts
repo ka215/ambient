@@ -223,3 +223,67 @@ export function resolvePlaybackNeighborIds(options: {
 
   return { prevId, nextId };
 }
+
+export function resolvePlaybackCandidateIds(options: {
+  mediaItems: MediaItem[];
+  categoryId: number | null;
+  shuffleEnabled: boolean;
+  shuffleItems?: MediaItem[] | null;
+}): number[] {
+  if (options.shuffleEnabled && (options.shuffleItems || []).length > 0) {
+    return (options.shuffleItems || []).map((item) => item.amId);
+  }
+
+  const scopedItems = options.categoryId !== null && options.categoryId !== -1
+    ? options.mediaItems.filter((item) => item.catId === options.categoryId)
+    : options.mediaItems;
+
+  return scopedItems.map((item) => item.amId);
+}
+
+export function resolvePlaybackStatusUpdate(options: {
+  mediaItems: MediaItem[];
+  categoryId: number | null;
+  shuffleEnabled: boolean;
+  shuffleItems?: MediaItem[] | null;
+  currentId: number;
+  order: 'normal' | 'random';
+}): {
+  currentId: number;
+  prevId: number | null;
+  nextId: number | null;
+} {
+  const candidateIds = resolvePlaybackCandidateIds({
+    mediaItems: options.mediaItems,
+    categoryId: options.categoryId,
+    shuffleEnabled: options.shuffleEnabled,
+    shuffleItems: options.shuffleItems,
+  });
+  const { prevId, nextId } = resolvePlaybackNeighborIds({
+    currentId: options.currentId,
+    candidateIds,
+    order: options.order,
+  });
+
+  return {
+    currentId: options.currentId,
+    prevId,
+    nextId,
+  };
+}
+
+export function resolveRequestedPlayId(options: {
+  currentId: number | null;
+  candidateIds: number[];
+  order: 'normal' | 'random';
+}): number {
+  if (options.currentId !== null) {
+    return options.currentId;
+  }
+
+  if (options.order === 'random') {
+    return options.candidateIds[Math.floor(Math.random() * options.candidateIds.length)] ?? 0;
+  }
+
+  return options.candidateIds[0] ?? 0;
+}
