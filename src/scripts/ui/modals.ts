@@ -73,6 +73,23 @@ export interface OptionsModalBindings {
   onBackdropClick(evt: Event): void;
 }
 
+export interface ModalKeyboardBindings {
+  onEscapeMediaEditCategory(): void;
+  onEscapeMediaEdit(): void;
+  onTabMediaEdit(evt: KeyboardEvent): void;
+  onEscapeOptions(): void;
+  onEscapePlaylistDesc(): void;
+  isMediaEditModalVisible(): boolean;
+  isMediaEditCategoryDropdownVisible(): boolean;
+  isOptionsModalVisible(): boolean;
+  isPlaylistDescOpen(): boolean;
+}
+
+export interface PlaylistDescModalBindings {
+  closeButton: HTMLButtonElement | null;
+  onClose(): void;
+}
+
 function isElement(value: unknown): value is HTMLElement {
   return value instanceof HTMLElement;
 }
@@ -286,6 +303,37 @@ export function bindOptionsModalControls(bindings: OptionsModalBindings): void {
 
   bindings.modal?.addEventListener('click', (evt: Event) => {
     bindings.onBackdropClick(evt);
+  });
+}
+
+export function bindModalKeyboardControls(bindings: ModalKeyboardBindings): void {
+  document.addEventListener('keydown', (evt: KeyboardEvent) => {
+    if (evt.key === 'Escape' && bindings.isMediaEditModalVisible() && bindings.isMediaEditCategoryDropdownVisible()) {
+      evt.preventDefault();
+      bindings.onEscapeMediaEditCategory();
+      return;
+    }
+    if (evt.key === 'Escape' && bindings.isMediaEditModalVisible()) {
+      evt.preventDefault();
+      bindings.onEscapeMediaEdit();
+      return;
+    }
+    if (evt.key === 'Tab' && bindings.isMediaEditModalVisible()) {
+      bindings.onTabMediaEdit(evt);
+      return;
+    }
+    if (evt.key === 'Escape' && bindings.isOptionsModalVisible()) {
+      bindings.onEscapeOptions();
+    } else if (evt.key === 'Escape' && bindings.isPlaylistDescOpen()) {
+      bindings.onEscapePlaylistDesc();
+    }
+  });
+}
+
+export function bindPlaylistDescModalControls(bindings: PlaylistDescModalBindings): void {
+  bindings.closeButton?.addEventListener('click', (evt: Event) => {
+    evt.preventDefault();
+    bindings.onClose();
   });
 }
 

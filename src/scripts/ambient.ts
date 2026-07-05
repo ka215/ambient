@@ -103,7 +103,9 @@ import {
   updateViewportLayoutWorkflow,
 } from './ui/viewport';
 import {
+  bindModalKeyboardControls,
   bindOptionsModalControls,
+  bindPlaylistDescModalControls,
   createOptionsModalController,
   createPlaylistConfirmModalController,
   createPlaylistDescModalController,
@@ -3631,35 +3633,37 @@ const init = function (): void {
       openPlaylistManagementCategoryCreate();
     });
 
-  document.addEventListener('keydown', (evt: KeyboardEvent) => {
-    if (evt.key === 'Escape' && isMediaEditModalVisible() && isMediaEditCategoryDropdownVisible()) {
-      evt.preventDefault();
+  bindModalKeyboardControls({
+    onEscapeMediaEditCategory: () => {
       closeMediaEditCategoryDropdown(true);
-      return;
-    }
-    if (evt.key === 'Escape' && isMediaEditModalVisible()) {
-      evt.preventDefault();
+    },
+    onEscapeMediaEdit: () => {
       closeMediaEditModal(true);
-      return;
-    }
-    if (evt.key === 'Tab' && isMediaEditModalVisible()) {
+    },
+    onTabMediaEdit: (evt: KeyboardEvent) => {
       trapMediaEditModalFocus(evt);
-      return;
-    }
-    if (evt.key === 'Escape' && isOptionsModalVisible()) {
+    },
+    onEscapeOptions: () => {
       hideOptionsModal();
       restoreOptionsTriggerFocus();
-    } else if (evt.key === 'Escape' && playlistDescModal.isOpen()) {
+    },
+    onEscapePlaylistDesc: () => {
       playlistDescModal.close(true);
-    }
+    },
+    isMediaEditModalVisible,
+    isMediaEditCategoryDropdownVisible,
+    isOptionsModalVisible,
+    isPlaylistDescOpen: () => {
+      return playlistDescModal.isOpen();
+    },
   });
 
-  if (isElement($BUTTON_CLOSE_PLAYLIST_DESC)) {
-    $BUTTON_CLOSE_PLAYLIST_DESC.addEventListener('click', (evt: Event) => {
-      evt.preventDefault();
+  bindPlaylistDescModalControls({
+    closeButton: $BUTTON_CLOSE_PLAYLIST_DESC,
+    onClose: () => {
       playlistDescModal.close(true);
-    });
-  }
+    },
+  });
 
   bindMediaEditPrimaryControls({
     closeButton: $BUTTON_CLOSE_MEDIA_EDIT,
