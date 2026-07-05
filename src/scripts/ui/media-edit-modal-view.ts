@@ -144,3 +144,36 @@ export function showMediaEditModalView(options: {
     (options.closeButton || modalElement).focus();
   });
 }
+
+export function focusPlaylistItemById(options: {
+  listElement: HTMLElement | null;
+  amId: number | null;
+}): boolean {
+  if (!options.listElement || options.amId === null) {
+    return false;
+  }
+
+  const targetElement = options.listElement.querySelector(`a[data-playlist-item="${options.amId}"]`) as HTMLElement | null;
+  if (!targetElement) {
+    return false;
+  }
+
+  targetElement.focus();
+  targetElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  return true;
+}
+
+export function restoreMediaEditModalFocus(options: {
+  restoreFocus: boolean;
+  preferredFocusId: number | null;
+  restoreTarget: HTMLElement | null;
+  focusPlaylistItemById: (amId: number | null) => boolean;
+}): void {
+  if (!options.restoreFocus) {
+    return;
+  }
+
+  if (!options.focusPlaylistItemById(options.preferredFocusId)) {
+    options.restoreTarget?.focus();
+  }
+}

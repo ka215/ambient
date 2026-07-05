@@ -60,6 +60,7 @@ import {
 import {
   applyMediaEditDirtyState,
   bindMediaEditDraftState,
+  clearMediaEditStateContext,
   discardMediaEditDraft,
   hasActiveUnsavedMediaEditDraft,
 } from './state/media-edit-state';
@@ -94,9 +95,11 @@ import {
   openPlaylistManagementCategoryCreate as openPlaylistManagementCategoryCreateView,
 } from './ui/modals';
 import {
+  focusPlaylistItemById as focusPlaylistItemByIdView,
   isMediaEditModalVisible as isMediaEditModalVisibleView,
   renderMediaEditSourceBadges as renderMediaEditSourceBadgesView,
   resetMediaEditModalView,
+  restoreMediaEditModalFocus,
   showMediaEditModalView,
   trapMediaEditModalFocus as trapMediaEditModalFocusView,
 } from './ui/media-edit-modal-view';
@@ -2621,10 +2624,18 @@ const init = function (): void {
   }
 
   function clearMediaEditContext(): void {
-    mediaEditActiveItem = null;
-    mediaEditBaseDraft = null;
-    mediaEditPreviewSourceItem = null;
-    setMediaEditDirtyState(false);
+    clearMediaEditStateContext({
+      setActiveItem: (mediaItem) => {
+        mediaEditActiveItem = mediaItem;
+      },
+      setBaseDraft: (draft) => {
+        mediaEditBaseDraft = draft as MediaEditDraft | null;
+      },
+      setPreviewSourceItem: (mediaItem) => {
+        mediaEditPreviewSourceItem = mediaItem;
+      },
+      setDirtyState: setMediaEditDirtyState,
+    });
   }
 
   function confirmDiscardActiveMediaEditIfNeeded(
@@ -2712,12 +2723,12 @@ const init = function (): void {
     closeMediaEditCategoryDropdown(false);
     const restoreTarget = activeMediaEditTrigger;
     activeMediaEditTrigger = null;
-    if (restoreFocus) {
-      const preferredFocusId = isMediaPlaybackActive() ? AMP_STATUS.current : editedMediaId;
-      if (!focusPlaylistItemById(preferredFocusId)) {
-        restoreTarget?.focus();
-      }
-    }
+    restoreMediaEditModalFocus({
+      restoreFocus,
+      preferredFocusId: isMediaPlaybackActive() ? AMP_STATUS.current : editedMediaId,
+      restoreTarget,
+      focusPlaylistItemById,
+    });
   }
 
   function closeMediaEditModal(restoreFocus = false): void {
@@ -2750,16 +2761,10 @@ const init = function (): void {
   }
 
   function focusPlaylistItemById(amId: number | null): boolean {
-    if (amId === null) {
-      return false;
-    }
-    const targetElm = $LIST_PLAYLIST.querySelector(`a[data-playlist-item="${amId}"]`) as HTMLElement | null;
-    if (!targetElm) {
-      return false;
-    }
-    targetElm.focus();
-    targetElm.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    return true;
+    return focusPlaylistItemByIdView({
+      listElement: $LIST_PLAYLIST,
+      amId,
+    });
   }
 
   function openMediaEditModal(mediaItem: MediaItem, trigger: HTMLElement): void {

@@ -57,3 +57,15 @@ export function discardMediaEditDraft(options: {
   }
   options.setDirtyState(false);
 }
+
+export function clearMediaEditStateContext(options: {
+  setActiveItem: (mediaItem: MediaItem | null) => void;
+  setBaseDraft: (draft: unknown | null) => void;
+  setPreviewSourceItem: (mediaItem: MediaItem | null) => void;
+  setDirtyState: (isDirty: boolean) => void;
+}): void {
+  options.setActiveItem(null);
+  options.setBaseDraft(null);
+  options.setPreviewSourceItem(null);
+  options.setDirtyState(false);
+}
