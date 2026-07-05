@@ -56,6 +56,7 @@ import {
   canUsePlaylistEditMode,
   canUsePlaylistReorderMode,
   getPlaylistItemsForView,
+  resolvePlaylistModeTransition,
 } from './state/playlist-mode-state';
 import {
   deleteSessionDraftByKey,
@@ -2989,30 +2990,29 @@ const init = function (): void {
   }
 
   function setPlaylistMode(nextMode: PlaylistMode): void {
-    if (nextMode === 'edit' && !canUseEditMode()) {
+    const transition = resolvePlaylistModeTransition({
+      currentMode: playlistMode,
+      nextMode,
+      canUseEditMode: canUseEditMode(),
+      canMutatePlaylist: canMutateCurrentPlaylist(),
+      canUseReorderMode: canUseReorderMode(),
+    });
+
+    if (transition.kind === 'reject_edit' || transition.kind === 'reject_reorder') {
       closePlaylistModeMenu();
       updatePlaylistModeUI();
       return;
     }
-    if (nextMode !== 'normal' && nextMode !== 'edit' && !canMutateCurrentPlaylist()) {
+    if (transition.kind === 'reject_mutation') {
       closePlaylistModeMenu();
       syncPlaylistModeAvailability(getPlaylistItemsForCurrentView().length);
       return;
     }
-    if (playlistMode === nextMode) {
+    if (transition.kind === 'same_mode') {
       closePlaylistModeMenu();
       return;
     }
-    if (nextMode === 'reorder' && !canUseReorderMode()) {
-      closePlaylistModeMenu();
-      updatePlaylistModeUI();
-      return;
-    }
-    // If leaving delete mode without selections, clear just in case
-    if (playlistMode === 'delete') {
-      deleteSelectedIds.clear();
-    }
-    if (playlistMode === 'edit' && nextMode !== 'edit') {
+    if (transition.kind === 'confirm_edit_leave') {
       if (!confirmDiscardActiveMediaEditIfNeeded()) {
         closePlaylistModeMenu();
         updatePlaylistModeUI();
@@ -3021,12 +3021,18 @@ const init = function (): void {
       hideMediaEditModal(false);
       clearMediaEditContext();
     }
-    if (playlistMode === 'reorder' && nextMode !== 'reorder') {
-      resetReorderState();
+    if (transition.kind === 'apply') {
+      if (transition.clearDeleteSelections) {
+        deleteSelectedIds.clear();
+      }
+      if (transition.resetReorderOnLeave) {
+        resetReorderState();
+      }
+      if (transition.captureReorderOnEnter) {
+        captureReorderSnapshot();
+      }
     }
-    if (nextMode === 'reorder') {
-      captureReorderSnapshot();
-    }
+
     playlistMode = nextMode;
     closePlaylistModeMenu();
     updatePlaylistModeUI();

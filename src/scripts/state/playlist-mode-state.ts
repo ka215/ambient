@@ -1,4 +1,5 @@
 import type { MediaItem } from '../types/ambient';
+import type { PlaylistMode } from '../ui/playlist-view';
 
 export function getPlaylistItemsForView(
   mediaItems: MediaItem[] | null | undefined,
@@ -50,4 +51,47 @@ export function canUsePlaylistReorderMode(options: {
   }
 
   return options.visibleItems.length > 1;
+}
+
+export type PlaylistModeTransitionDecision =
+  | { kind: 'reject_edit' }
+  | { kind: 'reject_mutation' }
+  | { kind: 'same_mode' }
+  | { kind: 'reject_reorder' }
+  | { kind: 'confirm_edit_leave' }
+  | { kind: 'apply'; clearDeleteSelections: boolean; resetReorderOnLeave: boolean; captureReorderOnEnter: boolean };
+
+export function resolvePlaylistModeTransition(options: {
+  currentMode: PlaylistMode;
+  nextMode: PlaylistMode;
+  canUseEditMode: boolean;
+  canMutatePlaylist: boolean;
+  canUseReorderMode: boolean;
+}): PlaylistModeTransitionDecision {
+  if (options.nextMode === 'edit' && !options.canUseEditMode) {
+    return { kind: 'reject_edit' };
+  }
+
+  if (options.nextMode !== 'normal' && options.nextMode !== 'edit' && !options.canMutatePlaylist) {
+    return { kind: 'reject_mutation' };
+  }
+
+  if (options.currentMode === options.nextMode) {
+    return { kind: 'same_mode' };
+  }
+
+  if (options.nextMode === 'reorder' && !options.canUseReorderMode) {
+    return { kind: 'reject_reorder' };
+  }
+
+  if (options.currentMode === 'edit' && options.nextMode !== 'edit') {
+    return { kind: 'confirm_edit_leave' };
+  }
+
+  return {
+    kind: 'apply',
+    clearDeleteSelections: options.currentMode === 'delete',
+    resetReorderOnLeave: options.currentMode === 'reorder' && options.nextMode !== 'reorder',
+    captureReorderOnEnter: options.nextMode === 'reorder',
+  };
 }
