@@ -53,6 +53,11 @@ import {
   setPlaylistOption,
 } from './state/playlist-options';
 import {
+  deleteSessionDraftByKey,
+  hydrateSessionDraftStore,
+  syncSessionDraftState,
+} from './state/session-draft-store';
+import {
   closeResponsiveDrawers,
   cleanupDrawerBackdrops,
   syncDrawerAndModalBackdrops,
@@ -2109,30 +2114,16 @@ const init = function (): void {
     return `${playlistKey}::${getMediaEditItemIdentity(mediaItem)}`;
   }
 
-  function serializeMediaEditDraftStore(): void {
-    try {
-      const serialized = JSON.stringify(Object.fromEntries(mediaEditDraftStore));
-      window.sessionStorage.setItem(MEDIA_EDIT_DRAFT_STORAGE_KEY, serialized);
-    } catch (_error) {
-      // Ignore storage failures and keep in-memory drafts only.
-    }
-  }
-
   function hydrateMediaEditDraftStore(): void {
-    try {
-      const raw = window.sessionStorage.getItem(MEDIA_EDIT_DRAFT_STORAGE_KEY);
-      if (!raw) {
-        return;
-      }
-      const parsed = JSON.parse(raw);
-      if (!isObject(parsed) || Array.isArray(parsed)) {
-        return;
-      }
-      Object.entries(parsed).forEach(([key, value]) => {
+    mediaEditDraftStore.clear();
+    hydrateSessionDraftStore<MediaEditDraft>({
+      storageKey: MEDIA_EDIT_DRAFT_STORAGE_KEY,
+      clearOnError: true,
+      parseEntry: (value) => {
         if (!isObject(value) || Array.isArray(value)) {
-          return;
+          return null;
         }
-        const normalized = sanitizeMediaEditDraft({
+        return sanitizeMediaEditDraft({
           category: value['category'],
           title: value['title'],
           artist: value['artist'],
@@ -2143,21 +2134,18 @@ const init = function (): void {
           fadeInEnd: value['fadeInEnd'],
           fadeOutStart: value['fadeOutStart'],
         });
-        mediaEditDraftStore.set(key, normalized);
-      });
-    } catch (_error) {
-      mediaEditDraftStore.clear();
-    }
-  }
-
-  function setMediaEditDraftByKey(key: string, draft: MediaEditDraft): void {
-    mediaEditDraftStore.set(key, cloneMediaEditDraft(draft));
-    serializeMediaEditDraftStore();
+      },
+    }).forEach((draft, key) => {
+      mediaEditDraftStore.set(key, draft);
+    });
   }
 
   function deleteMediaEditDraftByKey(key: string): void {
-    mediaEditDraftStore.delete(key);
-    serializeMediaEditDraftStore();
+    deleteSessionDraftByKey({
+      storageKey: MEDIA_EDIT_DRAFT_STORAGE_KEY,
+      draftStore: mediaEditDraftStore,
+      key,
+    });
   }
 
   function createMediaEditBaseDraft(mediaItem: MediaItem): MediaEditDraft {
@@ -2584,12 +2572,15 @@ const init = function (): void {
     }
     const currentDraft = readMediaEditDraftFromForm();
     const currentKey = getMediaEditDraftKey(mediaEditActiveItem);
-    const isDirty = !isSameMediaEditDraft(currentDraft, mediaEditBaseDraft);
-    if (isDirty) {
-      setMediaEditDraftByKey(currentKey, currentDraft);
-    } else {
-      deleteMediaEditDraftByKey(currentKey);
-    }
+    const isDirty = syncSessionDraftState({
+      storageKey: MEDIA_EDIT_DRAFT_STORAGE_KEY,
+      draftStore: mediaEditDraftStore,
+      key: currentKey,
+      baseDraft: mediaEditBaseDraft,
+      nextDraft: currentDraft,
+      isSameDraft: isSameMediaEditDraft,
+      cloneDraft: cloneMediaEditDraft,
+    });
     setMediaEditDirtyState(isDirty);
   }
 
@@ -2598,12 +2589,15 @@ const init = function (): void {
       return;
     }
     const currentKey = getMediaEditDraftKey(mediaEditActiveItem);
-    const isDirty = !isSameMediaEditDraft(nextDraft, mediaEditBaseDraft);
-    if (isDirty) {
-      setMediaEditDraftByKey(currentKey, nextDraft);
-    } else {
-      deleteMediaEditDraftByKey(currentKey);
-    }
+    const isDirty = syncSessionDraftState({
+      storageKey: MEDIA_EDIT_DRAFT_STORAGE_KEY,
+      draftStore: mediaEditDraftStore,
+      key: currentKey,
+      baseDraft: mediaEditBaseDraft,
+      nextDraft,
+      isSameDraft: isSameMediaEditDraft,
+      cloneDraft: cloneMediaEditDraft,
+    });
     setMediaEditDirtyState(isDirty);
   }
 
