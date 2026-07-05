@@ -121,6 +121,10 @@ import {
   trapMediaEditModalFocus as trapMediaEditModalFocusView,
 } from './ui/media-edit-modal-view';
 import {
+  bindMediaEditCategoryControls,
+  bindMediaEditPrimaryControls,
+} from './ui/media-edit-controls';
+import {
   appendPlaylistQuickAddItem,
   createShuffledPlaylist,
   closePlaylistModeMenu as closePlaylistModeMenuView,
@@ -3657,82 +3661,32 @@ const init = function (): void {
     });
   }
 
-  if (isElement($BUTTON_CLOSE_MEDIA_EDIT)) {
-    $BUTTON_CLOSE_MEDIA_EDIT.addEventListener('click', (evt: Event) => {
-      evt.preventDefault();
+  bindMediaEditPrimaryControls({
+    closeButton: $BUTTON_CLOSE_MEDIA_EDIT,
+    cancelButton: $BUTTON_CANCEL_MEDIA_EDIT,
+    saveButton: $BUTTON_SAVE_MEDIA_EDIT,
+    form: $FORM_MEDIA_EDIT,
+    onClose: () => {
       closeMediaEditModal(true);
-    });
-  }
-
-  if (isElement($BUTTON_CANCEL_MEDIA_EDIT)) {
-    $BUTTON_CANCEL_MEDIA_EDIT.addEventListener('click', (evt: Event) => {
-      evt.preventDefault();
+    },
+    onCancel: () => {
       cancelMediaEditModal(true);
-    });
-  }
-
-  if (isElement($BUTTON_SAVE_MEDIA_EDIT)) {
-    $BUTTON_SAVE_MEDIA_EDIT.addEventListener('click', async (evt: Event) => {
-      evt.preventDefault();
+    },
+    onSave: async () => {
       await saveMediaEdit();
-    });
-  }
+    },
+  });
 
-  if (isElement($FORM_MEDIA_EDIT)) {
-    $FORM_MEDIA_EDIT.addEventListener('submit', (evt: Event) => {
-      evt.preventDefault();
-    });
-  }
-
-  if (isElement($BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE)) {
-    $BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE.addEventListener('click', (evt: Event) => {
-      evt.preventDefault();
-      if (isMediaEditCategoryDropdownVisible()) {
-        closeMediaEditCategoryDropdown(true);
-      } else {
-        openMediaEditCategoryDropdown();
-        $MEDIA_EDIT_CATEGORY?.focus();
-      }
-    });
-  }
-
-  if (isElement($BUTTON_MEDIA_EDIT_CATEGORY_CLEAR) && isElement($MEDIA_EDIT_CATEGORY)) {
-    $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR.addEventListener('click', (evt: Event) => {
-      evt.preventDefault();
-      $MEDIA_EDIT_CATEGORY.value = '';
-      syncMediaEditCategoryClearButton();
-      if (isMediaEditCategoryDropdownVisible()) {
-        renderMediaEditCategoryOptions();
-      }
-      $MEDIA_EDIT_CATEGORY.dispatchEvent(new Event('input', { bubbles: true }));
-      $MEDIA_EDIT_CATEGORY.dispatchEvent(new Event('change', { bubbles: true }));
-      $MEDIA_EDIT_CATEGORY.focus();
-    });
-  }
-
-  if (isElement($MEDIA_EDIT_CATEGORY)) {
-    $MEDIA_EDIT_CATEGORY.addEventListener('keydown', (evt: KeyboardEvent) => {
-      if (evt.key === 'ArrowDown') {
-        evt.preventDefault();
-        openMediaEditCategoryDropdown();
-      }
-    });
-    $MEDIA_EDIT_CATEGORY.addEventListener('input', () => {
-      syncMediaEditCategoryClearButton();
-      if (isMediaEditCategoryDropdownVisible()) {
-        renderMediaEditCategoryOptions();
-      }
-    });
-  }
-
-  document.addEventListener('pointerdown', (evt: PointerEvent) => {
-    if (!isMediaEditCategoryDropdownVisible() || !isElement($MEDIA_EDIT_CATEGORY_COMBOBOX)) {
-      return;
-    }
-    const target = evt.target;
-    if (target instanceof Node && !$MEDIA_EDIT_CATEGORY_COMBOBOX.contains(target)) {
-      closeMediaEditCategoryDropdown(false);
-    }
+  bindMediaEditCategoryControls({
+    toggleButton: $BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE,
+    clearButton: $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR,
+    categoryInput: $MEDIA_EDIT_CATEGORY,
+    categoryCombobox: $MEDIA_EDIT_CATEGORY_COMBOBOX,
+    isDropdownVisible: isMediaEditCategoryDropdownVisible,
+    openDropdown: openMediaEditCategoryDropdown,
+    closeDropdown: closeMediaEditCategoryDropdown,
+    syncClearButton: syncMediaEditCategoryClearButton,
+    renderOptions: renderMediaEditCategoryOptions,
   });
 
   [$MEDIA_EDIT_CATEGORY, $MEDIA_EDIT_TITLE, $MEDIA_EDIT_ARTIST, $MEDIA_EDIT_DESCRIPTION]
