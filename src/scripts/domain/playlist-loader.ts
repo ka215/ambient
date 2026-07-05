@@ -82,3 +82,30 @@ export function assignSequentialMediaIds(media: MediaItem[]): MediaItem[] {
       amId: amid++,
     }));
 }
+
+export interface NormalizedPlaylistData {
+  categories: string[];
+  media: MediaItem[];
+  options: unknown;
+}
+
+export function normalizePlaylistData(data: {
+  options?: unknown;
+  media?: Record<string, MediaItem[]>;
+} | null | undefined): NormalizedPlaylistData {
+  const options = data?.options || null;
+  let media: MediaItem[] = [];
+  let categories: string[] = [];
+
+  if (data?.media && Object.keys(data.media).length > 0) {
+    const materialized = materializeCategorizedMedia(data.media);
+    categories = materialized.categories;
+    media = assignSequentialMediaIds(materialized.media);
+  }
+
+  return {
+    categories,
+    media,
+    options,
+  };
+}

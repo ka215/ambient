@@ -243,6 +243,7 @@ import {
   syncRangeProgress as syncRangeProgressView,
   updateCategoryView,
 } from './ui/forms/management-forms';
+import { applyCloudEditRestrictionsView as applyCloudEditRestrictionsFormView } from './ui/forms/cloud-edit-restrictions';
 import { createManagedHtmlPlayback, createManagedYouTubePlayback } from './ui/player/managed-player-factory';
 import { bindMediaManagementForm } from './ui/forms/media-management';
 import { bindPlaylistManagementForm } from './ui/forms/playlist-management';
@@ -254,6 +255,7 @@ import {
   assignSequentialMediaIds,
   createPlaylistLoadGuard,
   materializeCategorizedMedia,
+  normalizePlaylistData,
   resetPlaylistRuntimeStatus,
 } from './domain/playlist-loader';
 import {
@@ -986,30 +988,19 @@ const init = function (): void {
       }
       if (response && typeof response === 'object' && 'data' in response) {
         const data = (response as any).data as PlaylistData;
-        if (data && data.hasOwnProperty('options')) {
-          AMP_STATUS.options = data.options || null;
-        }
-        if (data && data.hasOwnProperty('media')) {
-          let media: MediaItem[] = [];
-          if (data.media && Object.keys(data.media).length > 0) {
-            const materialized = materializeCategorizedMedia(data.media);
-            media = materialized.media;
-            AMP_STATUS.category = materialized.categories;
-          }
-          applyPendingCategoryResume();
-          if (media.length > 0) {
-            media = assignSequentialMediaIds(media);
-          }
-          AMP_STATUS.media = media;
-          AMP_STATUS.playlist = playlist;
-          updatePlaylist();
-          if (applyPendingMediaResume()) {
-            // The saved media item has been restored without autoplay.
-          } else if (AMP_STATUS.current !== null) {
-            updatePlayStatus(AMP_STATUS.current);
-          } else if (media.length > 0) {
-            updatePlayStatus(getDefaultMediaItemForCurrentView()?.amId ?? 0);
-          }
+        const normalized = normalizePlaylistData(data);
+        AMP_STATUS.options = normalized.options as PlaylistOptions | null;
+        AMP_STATUS.category = normalized.categories;
+        AMP_STATUS.media = normalized.media;
+        AMP_STATUS.playlist = playlist;
+        applyPendingCategoryResume();
+        updatePlaylist();
+        if (applyPendingMediaResume()) {
+          // The saved media item has been restored without autoplay.
+        } else if (AMP_STATUS.current !== null) {
+          updatePlayStatus(AMP_STATUS.current);
+        } else if (normalized.media.length > 0) {
+          updatePlayStatus(getDefaultMediaItemForCurrentView()?.amId ?? 0);
         }
       }
       applyCloudEditRestrictions();
@@ -1027,61 +1018,12 @@ const init = function (): void {
   function applyCloudEditRestrictions(): void {
     const ambientData = getAmbientData();
     if (!ambientData?.isCloud) return;
-    const canMutatePlaylist = canMutateCurrentPlaylist();
-    const $MEDIA_MANAGE_FORM_EL = document.querySelector('form[name="mediaManagement"]') as HTMLFormElement | null;
-    const $PLAYLIST_MANAGE_FORM_EL = document.querySelector('form[name="playlistManagement"]') as HTMLFormElement | null;
-    const $PLAYLIST_MANAGE_NOTICE = document.getElementById('cloud-readonly-notice');
-    const readonlyTitle = 'Editing existing playlists is not available in cloud mode.';
-    const mediaControlIds = [
-      'media-type-youtube',
-      'youtube-url',
-      'media-category',
-      'media-category-new',
-      'media-title',
-      'media-artist',
-      'media-desc',
-      'media-volume',
-      'seek-start',
-      'seek-end',
-      'btn-add-media',
-    ];
-    const categoryControlIds = [
-      'category-name',
-      'btn-create-category',
-    ];
-    const setReadonlyState = (ids: string[]): void => {
-      ids.forEach((id) => {
-        const elm = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | HTMLButtonElement | null;
-        if (!elm) return;
-        elm.disabled = !canMutatePlaylist;
-        elm.setAttribute('aria-disabled', String(!canMutatePlaylist));
-        if (!canMutatePlaylist) {
-          elm.setAttribute('title', readonlyTitle);
-        } else {
-          elm.removeAttribute('title');
-        }
-      });
-    };
-
-    setReadonlyState(mediaControlIds);
-    setReadonlyState(categoryControlIds);
-
-    if (!canMutatePlaylist) {
-      if ($MEDIA_MANAGE_FORM_EL) {
-        $MEDIA_MANAGE_FORM_EL.classList.add('opacity-50');
-      }
-      if ($PLAYLIST_MANAGE_FORM_EL) {
-        $PLAYLIST_MANAGE_FORM_EL.querySelector('#playlist-management-field-category')?.classList.add('opacity-50');
-      }
-    } else {
-      if ($MEDIA_MANAGE_FORM_EL) {
-        $MEDIA_MANAGE_FORM_EL.classList.remove('opacity-50');
-      }
-      if ($PLAYLIST_MANAGE_FORM_EL) {
-        $PLAYLIST_MANAGE_FORM_EL.querySelector('#playlist-management-field-category')?.classList.remove('opacity-50');
-      }
-    }
-    void $PLAYLIST_MANAGE_NOTICE;
+    applyCloudEditRestrictionsFormView({
+      canMutatePlaylist: canMutateCurrentPlaylist(),
+      mediaForm: document.querySelector('form[name="mediaManagement"]') as HTMLFormElement | null,
+      playlistForm: document.querySelector('form[name="playlistManagement"]') as HTMLFormElement | null,
+      readonlyTitle: 'Editing existing playlists is not available in cloud mode.',
+    });
   }
 
   // DOM Elements
