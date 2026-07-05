@@ -178,6 +178,11 @@ import {
   syncWindowFullButtonState,
 } from './ui/player/player-shell';
 import {
+  bindManagedHtmlPlaybackOrchestration,
+  cleanupManagedYouTubeTransition,
+  createManagedYouTubePlaybackOrchestration,
+} from './ui/player/player-orchestration';
+import {
   runPlaybackFadeIn,
   runPlaybackFadeOut,
 } from './ui/player/player-fader';
@@ -192,17 +197,13 @@ import {
   renderEmptyCarousel,
 } from './ui/player/carousel-view';
 import {
-  applyYouTubeTransitionCleanup,
   findMediaById,
   resolvePlaybackCandidateIds,
   resolvePlaybackInvocation,
   resolvePlaybackStatusUpdate,
-  resolveEndedPlaybackTarget as resolveEndedPlaybackTargetRuntime,
   runPlaybackTransition,
   resolveRequestedPlayId,
   resolveSeekRange,
-  resolveNextPlaybackTarget,
-  resolveYouTubeTransitionCleanupMode,
 } from './ui/player/player-runtime';
 import {
   cleanupHtmlPlayerWrapper,
@@ -218,9 +219,6 @@ import {
   showMediaEditPreviewErrorView,
 } from './ui/player/media-edit-preview';
 import {
-  bindManagedHtmlPlaybackEvents,
-} from './ui/player/html-player-events';
-import {
   type PlayableSetupKind,
   runResolvedPlaybackSetup,
 } from './ui/player/player-setup';
@@ -231,7 +229,6 @@ import {
   showYouTubePlayerWrapper,
 } from './ui/player/youtube-player-view';
 import {
-  createManagedYouTubePlayerEventHandlers,
   syncYouTubePreviewDuration,
 } from './ui/player/youtube-player-events';
 import {
@@ -4661,7 +4658,7 @@ const init = function (): void {
         getPlaybackVolume,
         normalizeVolume,
       },
-      events: createManagedYouTubePlayerEventHandlers({
+      events: createManagedYouTubePlaybackOrchestration({
         emitSignal: emitYouTubeSignal,
         showPlayerWrapper: () => {
           showYouTubePlayerWrapper($EMBED_WRAPPER);
@@ -4691,17 +4688,10 @@ const init = function (): void {
           syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
         },
         logger,
-        resolveEndedPlaybackTarget: () => resolveEndedPlaybackTargetRuntime(
-          AMP_STATUS.media || [],
-          AMP_STATUS.current,
-          AMP_STATUS.next,
-          Boolean(AMP_STATUS.loop)
-        ),
-        resolveErrorPlaybackTarget: () => resolveNextPlaybackTarget(AMP_STATUS.media || [], AMP_STATUS.next),
         cleanupTransition: (eventTarget, playbackTarget) => {
-          applyYouTubeTransitionCleanup(
+          cleanupManagedYouTubeTransition(
             eventTarget as { destroy?: () => void; g?: { remove?: () => void } },
-            resolveYouTubeTransitionCleanupMode(playbackTarget)
+            playbackTarget
           );
         },
         transitionToTarget: (playbackTarget) => {
@@ -4758,7 +4748,7 @@ const init = function (): void {
         normalizeVolume,
       },
     });
-    bindManagedHtmlPlaybackEvents({
+    bindManagedHtmlPlaybackOrchestration({
       playerElement: playerElm,
       sourceElement: sourceElm,
       mediaData,
@@ -4788,27 +4778,14 @@ const init = function (): void {
         abortPlaybackTimers();
         cleanupHtmlPlayerWrapper($EMBED_WRAPPER);
       },
-      resolvePlaybackTarget: () => {
-        const playbackTarget = resolveEndedPlaybackTargetRuntime(
-          AMP_STATUS.media || [],
-          AMP_STATUS.current,
-          AMP_STATUS.next,
-          Boolean(AMP_STATUS.loop)
-        );
-        logger('ended:', AMP_STATUS, playbackTarget?.nextId ?? null);
-        return playbackTarget;
-      },
-      onTransition: (playbackTarget) => {
-        if (playbackTarget.playerType === 'youtube') {
-          playerElm.remove();
-        }
-        runPlaybackTransition({
-          playbackTarget,
-          getExtension: getExt,
-          updatePlayStatus,
-          setupPlayer,
-        });
-      },
+      mediaItems: () => AMP_STATUS.media || [],
+      currentId: () => AMP_STATUS.current,
+      nextId: () => AMP_STATUS.next,
+      loopEnabled: () => Boolean(AMP_STATUS.loop),
+      logger,
+      getExtension: getExt,
+      updatePlayStatus,
+      setupPlayer,
     });
   }
 
