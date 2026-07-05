@@ -69,3 +69,25 @@ export function clearMediaEditStateContext(options: {
   options.setPreviewSourceItem(null);
   options.setDirtyState(false);
 }
+
+export function canOpenMediaEditModal(options: {
+  mediaItem: MediaItem;
+  activeItem: MediaItem | null;
+  getDraftKey: (mediaItem: MediaItem) => string;
+  confirmDiscard: (fallbackMessage: string) => boolean;
+  getLocalizedMessage: (key: string, fallback: string) => string;
+}): boolean {
+  const nextDraftKey = options.getDraftKey(options.mediaItem);
+  const activeDraftKey = options.activeItem ? options.getDraftKey(options.activeItem) : null;
+
+  if (activeDraftKey === null || activeDraftKey === nextDraftKey) {
+    return true;
+  }
+
+  return options.confirmDiscard(
+    options.getLocalizedMessage(
+      'mediaEditDiscardAndOpenAnother',
+      'Discard unsaved edits and open another item?'
+    )
+  );
+}

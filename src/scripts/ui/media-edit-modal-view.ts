@@ -177,3 +177,47 @@ export function restoreMediaEditModalFocus(options: {
     options.restoreTarget?.focus();
   }
 }
+
+export function openManagedMediaEditModal(options: {
+  mediaItem: MediaItem;
+  trigger: HTMLElement;
+  playlistMode: string;
+  setActiveTrigger: (trigger: HTMLElement) => void;
+  closePlaylistModeMenu: () => void;
+  buildItemTitle: (mediaItem: MediaItem) => string;
+  renderSourceBadges: (mediaItem: MediaItem) => void;
+  bindForm: (mediaItem: MediaItem) => void;
+  updatePlaylist: () => void;
+  createPreview: (mediaItem: MediaItem) => void;
+  startDurationSyncWait: () => void;
+  modalElement: HTMLElement | null;
+  titleElement: HTMLElement | null;
+  itemTitleElement: HTMLElement | null;
+  closeButton: HTMLElement | null;
+  defaultTitle: string;
+}): void {
+  if (!options.modalElement || !options.titleElement) {
+    return;
+  }
+
+  options.setActiveTrigger(options.trigger);
+  options.closePlaylistModeMenu();
+  const itemTitle = options.buildItemTitle(options.mediaItem);
+  options.renderSourceBadges(options.mediaItem);
+  options.bindForm(options.mediaItem);
+
+  if (options.playlistMode === 'edit') {
+    options.updatePlaylist();
+  }
+
+  options.createPreview(options.mediaItem);
+  options.startDurationSyncWait();
+  showMediaEditModalView({
+    modalElement: options.modalElement,
+    titleElement: options.titleElement,
+    itemTitleElement: options.itemTitleElement,
+    closeButton: options.closeButton,
+    defaultTitle: options.defaultTitle,
+    itemTitle,
+  });
+}

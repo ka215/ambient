@@ -60,6 +60,7 @@ import {
 import {
   applyMediaEditDirtyState,
   bindMediaEditDraftState,
+  canOpenMediaEditModal,
   clearMediaEditStateContext,
   discardMediaEditDraft,
   hasActiveUnsavedMediaEditDraft,
@@ -97,10 +98,10 @@ import {
 import {
   focusPlaylistItemById as focusPlaylistItemByIdView,
   isMediaEditModalVisible as isMediaEditModalVisibleView,
+  openManagedMediaEditModal,
   renderMediaEditSourceBadges as renderMediaEditSourceBadgesView,
   resetMediaEditModalView,
   restoreMediaEditModalFocus,
-  showMediaEditModalView,
   trapMediaEditModalFocus as trapMediaEditModalFocusView,
 } from './ui/media-edit-modal-view';
 import {
@@ -2768,37 +2769,35 @@ const init = function (): void {
   }
 
   function openMediaEditModal(mediaItem: MediaItem, trigger: HTMLElement): void {
-    if (!isElement($MODAL_MEDIA_EDIT) || !isElement($MODAL_MEDIA_EDIT_TITLE)) {
+    if (!canOpenMediaEditModal({
+      mediaItem,
+      activeItem: mediaEditActiveItem,
+      getDraftKey: getMediaEditDraftKey,
+      confirmDiscard: confirmDiscardActiveMediaEditIfNeeded,
+      getLocalizedMessage,
+    })) {
       return;
     }
-    const nextDraftKey = getMediaEditDraftKey(mediaItem);
-    const activeDraftKey = mediaEditActiveItem ? getMediaEditDraftKey(mediaEditActiveItem) : null;
-    if (activeDraftKey !== null && activeDraftKey !== nextDraftKey) {
-      const canSwitch = confirmDiscardActiveMediaEditIfNeeded(
-        getLocalizedMessage('mediaEditDiscardAndOpenAnother', 'Discard unsaved edits and open another item?')
-      );
-      if (!canSwitch) {
-        return;
-      }
-    }
-    activeMediaEditTrigger = trigger;
-    closePlaylistModeMenu();
-    const modalItemTitle = sanitizeMediaText(mediaItem.title || '', MEDIA_TITLE_MAX_LENGTH)
-      || getLocalizedMessage('mediaEditUntitled', 'Untitled media');
-    renderMediaEditSourceBadges(mediaItem);
-    bindMediaEditForm(mediaItem);
-    if (playlistMode === 'edit') {
-      updatePlaylist();
-    }
-    createMediaEditPreview(mediaItem);
-    startMediaEditDurationSyncWaitIfNeeded();
-    showMediaEditModalView({
+    openManagedMediaEditModal({
+      mediaItem,
+      trigger,
+      playlistMode,
+      setActiveTrigger: (nextTrigger) => {
+        activeMediaEditTrigger = nextTrigger;
+      },
+      closePlaylistModeMenu,
+      buildItemTitle: (item) => sanitizeMediaText(item.title || '', MEDIA_TITLE_MAX_LENGTH)
+        || getLocalizedMessage('mediaEditUntitled', 'Untitled media'),
+      renderSourceBadges: renderMediaEditSourceBadges,
+      bindForm: bindMediaEditForm,
+      updatePlaylist,
+      createPreview: createMediaEditPreview,
+      startDurationSyncWait: startMediaEditDurationSyncWaitIfNeeded,
       modalElement: $MODAL_MEDIA_EDIT,
       titleElement: $MODAL_MEDIA_EDIT_TITLE,
       itemTitleElement: isElement($MODAL_MEDIA_EDIT_ITEM_TITLE) ? $MODAL_MEDIA_EDIT_ITEM_TITLE : null,
       closeButton: isElement($BUTTON_CLOSE_MEDIA_EDIT) ? $BUTTON_CLOSE_MEDIA_EDIT : null,
       defaultTitle: defaultMediaEditModalTitle,
-      itemTitle: modalItemTitle,
     });
   }
 
