@@ -258,18 +258,9 @@ import {
   resolveMediaEditPreviewCurrentTime,
   showMediaEditPreviewErrorView,
 } from './ui/player/media-edit-preview';
-import { type PlayableSetupKind } from './ui/player/player-setup';
 import {
-  playManagedMediaSelection,
-  reportManagedPlaybackIssue,
-  runManagedFadeIn,
-  runManagedFadeOut,
-  setupManagedPlayer,
-} from './ui/player/player-runtime-actions';
-import {
-  createAmbientHtmlRuntimePlayer,
-  createAmbientYouTubeRuntimePlayer,
-} from './ui/player/player-runtime-composition';
+  createAmbientPlayerBindings,
+} from './ui/player/player-runtime-bindings';
 import {
   destroyYouTubePreviewPlayer,
 } from './ui/player/youtube-player-view';
@@ -3670,86 +3661,55 @@ const init = function (): void {
     updateCarousel();
   }
 
-  /**
-   * Commit a media item to play.
-   */
-  function reportMediaPlaybackIssue(
-    mediaItem: MediaItem,
-    reason: string,
-    details: Record<string, unknown> = {}
-  ): void {
-    reportManagedPlaybackIssue({
-      mediaItem,
-      reason,
-      details,
-      logger,
-      getLocalizedMessage,
-      escapeHtml: escapeHTML,
-      updateNotice: ({ type, message, delay }) => {
-        updateNotice({ type, message, delay });
-      },
-    });
-  }
-
-  function playItem(object: HTMLElement | null = null, id: number | null = null): void {
-    playManagedMediaSelection({
-      mediaItems: AMP_STATUS.media || [],
-      triggerElement: isElement(object) ? (object as HTMLElement) : null,
-      targetId: id,
-      getExtension: getExt,
-      logger,
-      updatePlayStatus,
-      closeResponsiveDrawers: () => {
-        closeResponsiveDrawers({
-          playlistCloseButton: document.getElementById('btn-close-playlist') as HTMLButtonElement | null,
-          settingsCloseButton: document.getElementById('btn-close-settings') as HTMLButtonElement | null,
-        }, currentWindowSize.width, currentWindowSize.minFullUIWidth);
-      },
-      reportMissingSource: (mediaData) => {
-        reportMediaPlaybackIssue(mediaData, 'media_source_missing', {
-          currentPlaylist: AMP_STATUS.playlist || '',
-          currentCategory: AMP_STATUS.ctg,
-        });
-      },
-      setupPlayer,
-    });
-  }
-
-  /**
-   * Handle the player to prepare depending on the type of media to play.
-   */
-  function setupPlayer(
-    setupKind: PlayableSetupKind,
-    src: string | null,
-    mediaData: MediaItem,
-    extension: string | null = null
-  ): void {
-    setupManagedPlayer({
-      setupKind,
-      src,
-      extension,
-      mediaData,
-      abortPlaybackTimers,
-      updateMediaCaption,
-      getExtension: getExt,
-      onPlayerTypeResolved: (playerType) => {
-        AMP_STATUS.playertype = playerType;
-      },
-      onYouTubeSignal: (phase, error) => {
-        emitYouTubeSignal(phase, error || '');
-      },
-      onIssue: (reason, details) => {
-        reportMediaPlaybackIssue(mediaData, reason, details);
-      },
-      onCreateYouTubePlayer: () => {
-        AMP_STATUS.yt_error = '';
-        createYTPlayer(mediaData);
-      },
-      onCreateHtmlPlayer: (kind) => {
-        createPlayerTag(kind, mediaData);
-      },
-    });
-  }
+  const { playItem } = createAmbientPlayerBindings({
+    status: AMP_STATUS,
+    embedWrapper: $EMBED_WRAPPER,
+    watchButton: $BUTTON_WATCH_TY,
+    optionalContainer: $OPTIONAL_CONTAINER,
+    playButton: $BUTTON_PLAY,
+    pauseButton: $BUTTON_PAUSE,
+    currentWindowSize,
+    isElement,
+    getOption,
+    getExtension: getExt,
+    getDefaultVolume,
+    getPlaybackVolume,
+    getPlayerSizeForCurrentMode,
+    getFullWindowPlayerSize,
+    getViewportWidth: () => currentWindowSize.width,
+    getPlaceholderPath: () => getNoMediaImagePath('placeholder'),
+    isFullWindowMode,
+    normalizeVolume,
+    inRange,
+    findMediaById,
+    resolveSeekRange,
+    logger,
+    getLocalizedMessage,
+    escapeHtml: escapeHTML,
+    updateNotice,
+    closeResponsiveDrawers,
+    updatePlayStatus,
+    updateMediaCaption,
+    emitYouTubeSignal,
+    syncPlaybackButtonState,
+    abortPlaybackTimers,
+    abortSeeking,
+    abortFader,
+    setPlayer: (nextPlayer) => {
+      player = nextPlayer;
+    },
+    isSeekActive: () => playbackTimers.isSeekActive(),
+    startSeek: (callback, intervalMs) => playbackTimers.startSeek(callback, intervalMs),
+    startFader: (type, callback, intervalMs) => playbackTimers.startFader(type, callback, intervalMs),
+    reportPlaybackAutoplayTimeout: () => {
+      (document.getElementById('btn-play') as HTMLButtonElement).dispatchEvent(new Event('click'));
+    },
+    reportMissingSourceContext: () => ({
+      currentPlaylist: AMP_STATUS.playlist || '',
+      currentCategory: AMP_STATUS.ctg,
+    }),
+    resolvePlayingState: () => (window as any).YT.PlayerState.PLAYING,
+  });
 
   async function activateImportedPlaylist(playlistName: string): Promise<void> {
     ensurePlaylistOption(playlistName);
@@ -3757,113 +3717,6 @@ const init = function (): void {
     requestCategoryResume(null);
     requestMediaResume(null);
     await getPlaylistData(playlistName, true);
-  }
-
-  /**
-   * Create a YouTube player.
-   */
-  function createYTPlayer(mediaData: MediaItem): void {
-    player = createAmbientYouTubeRuntimePlayer({
-      mediaData,
-      embedWrapper: $EMBED_WRAPPER,
-      watchButton: $BUTTON_WATCH_TY,
-      optionalContainer: $OPTIONAL_CONTAINER,
-      playButton: $BUTTON_PLAY,
-      pauseButton: $BUTTON_PAUSE,
-      getPlayerSizeForCurrentMode,
-      getOption,
-      status: AMP_STATUS as any,
-      getDefaultVolume,
-      getPlaybackVolume,
-      normalizeVolume,
-      inRange,
-      emitYouTubeSignal,
-      findMediaById,
-      logger,
-      onAutoplayTimeout: () => {
-        (document.getElementById('btn-play') as HTMLButtonElement).dispatchEvent(new Event('click'));
-      },
-      syncPlaybackButtonState,
-      updatePlayStatus,
-      getExtension: getExt,
-      setupPlayer,
-      abortPlaybackTimers,
-      resolveSeekRange,
-      fadeIn: (eventTarget, period, start) => fadeIn(eventTarget, period, start),
-      fadeOut: (eventTarget, period, end) => fadeOut(eventTarget, period, end),
-      playingState: (window as any).YT.PlayerState.PLAYING,
-    });
-  }
-
-  /**
-   * Create a media playback player using HTML.
-   */
-  function createPlayerTag(tagname: 'audio' | 'video', mediaData: MediaItem): void {
-    createAmbientHtmlRuntimePlayer({
-      tagName: tagname,
-      mediaData,
-      embedWrapper: $EMBED_WRAPPER,
-      watchButton: $BUTTON_WATCH_TY,
-      optionalContainer: $OPTIONAL_CONTAINER,
-      playButton: $BUTTON_PLAY,
-      pauseButton: $BUTTON_PAUSE,
-      getPlaceholderPath: () => getNoMediaImagePath('placeholder'),
-      isFullWindowMode,
-      getFullWindowPlayerSize,
-      getViewportWidth: () => currentWindowSize.width,
-      getOption,
-      status: AMP_STATUS as any,
-      getDefaultVolume,
-      getPlaybackVolume,
-      normalizeVolume,
-      inRange,
-      reportMediaPlaybackIssue,
-      isSeekActive: () => playbackTimers.isSeekActive(),
-      startSeek: (callback, intervalMs) => playbackTimers.startSeek(callback, intervalMs),
-      abortSeeking,
-      abortFadeOut: () => abortFader('fadeout'),
-      syncPlaybackButtonState,
-      logger,
-      resolveSeekRange,
-      fadeOut,
-      fadeIn,
-      abortPlaybackTimers,
-      getExtension: getExt,
-      updatePlayStatus,
-      setupPlayer,
-    });
-  }
-
-  /**
-   * Fade in the volume of the specified media.
-   */
-  function fadeIn(media: any, period: number, start: number): void {
-    runManagedFadeIn({
-      media,
-      period,
-      start,
-      readTargetVolume: () => normalizeVolume(AMP_STATUS.volume, getDefaultVolume()),
-      startFader: (callback, intervalMs) => playbackTimers.startFader('fadein', callback, intervalMs),
-      abortFader: () => abortFader('fadein'),
-      inRange,
-      logger,
-    });
-  }
-
-  /**
-   * Fade out the volume of the specified media.
-   */
-  function fadeOut(media: any, period: number, end: number): void {
-    runManagedFadeOut({
-      media,
-      period,
-      end,
-      readTargetVolume: () => normalizeVolume(AMP_STATUS.volume, getDefaultVolume()),
-      startFader: (callback, intervalMs) => playbackTimers.startFader('fadeout', callback, intervalMs),
-      abortFader: () => abortFader('fadeout'),
-      inRange,
-      logger,
-    });
   }
 
   // ============================================================================
