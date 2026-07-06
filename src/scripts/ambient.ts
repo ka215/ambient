@@ -60,12 +60,6 @@ import {
   getPlaylistItemsForView,
 } from './state/playlist-mode-state';
 import {
-  getMediaEditComputedFadeDurations as getMediaEditComputedFadeDurationsDomain,
-  getMediaEditTimingFromStoredDurations as getMediaEditTimingFromStoredDurationsDomain,
-  resolveMediaEditEffectiveEnd as resolveMediaEditEffectiveEndDomain,
-  resolveMediaEditKnownDuration as resolveMediaEditKnownDurationDomain,
-} from './domain/media-edit-timing';
-import {
   syncSessionDraftState,
 } from './state/session-draft-store';
 import {
@@ -82,9 +76,7 @@ import {
   discardMediaEditDraft,
   hasActiveUnsavedMediaEditDraft,
 } from './state/media-edit-state';
-import {
-  createMediaEditDurationSyncController,
-} from './state/media-edit-duration-sync';
+import { createMediaEditTimingBindings } from './state/media-edit-timing-bindings';
 import {
   deleteMediaEditThumbnailIfNeeded as deleteMediaEditThumbnailIfNeededState,
   executeMediaEditSavePipeline,
@@ -148,10 +140,6 @@ import {
   resetMediaEditModalView,
   trapMediaEditModalFocus as trapMediaEditModalFocusView,
 } from './ui/media-edit-modal-view';
-import {
-  setMediaEditSeekTimelineLoadingView,
-  syncMediaEditSeekTimelineView,
-} from './ui/media-edit-timing-view';
 import {
   clearMediaEditValidationView as clearMediaEditValidationViewState,
   renderMediaEditValidationView,
@@ -1209,118 +1197,43 @@ const init = function (): void {
     return sharedFormatSecondsToTimelineLabel(value);
   }
 
-  function syncMediaEditSeekTimeline(
-    seekStart: number | null,
-    seekEnd: number | null,
-    fadeInEnd: number | null,
-    fadeOutStart: number | null
-  ): void {
-    const knownDuration = resolveMediaEditKnownDuration(mediaEditActiveItem);
-    syncMediaEditSeekTimelineView({
-      timeline: isElement($MEDIA_EDIT_SEEK_TIMELINE) ? $MEDIA_EDIT_SEEK_TIMELINE : null,
-      timelineLoading: isElement($MEDIA_EDIT_SEEK_TIMELINE_LOADING) ? $MEDIA_EDIT_SEEK_TIMELINE_LOADING : null,
-      fixedStartTime: isElement($MEDIA_EDIT_SEEK_FIXED_START_TIME) ? $MEDIA_EDIT_SEEK_FIXED_START_TIME : null,
-      fixedEndTime: isElement($MEDIA_EDIT_SEEK_FIXED_END_TIME) ? $MEDIA_EDIT_SEEK_FIXED_END_TIME : null,
-      startMarker: isElement($MEDIA_EDIT_SEEK_MARKER_START) ? $MEDIA_EDIT_SEEK_MARKER_START : null,
-      startLabel: isElement($MEDIA_EDIT_SEEK_MARKER_START_TIME) ? $MEDIA_EDIT_SEEK_MARKER_START_TIME : null,
-      fadeInMarker: isElement($MEDIA_EDIT_SEEK_MARKER_FADEIN_END) ? $MEDIA_EDIT_SEEK_MARKER_FADEIN_END : null,
-      fadeInLabel: isElement($MEDIA_EDIT_SEEK_MARKER_FADEIN_END_TIME) ? $MEDIA_EDIT_SEEK_MARKER_FADEIN_END_TIME : null,
-      fadeOutMarker: isElement($MEDIA_EDIT_SEEK_MARKER_FADEOUT_START) ? $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START : null,
-      fadeOutLabel: isElement($MEDIA_EDIT_SEEK_MARKER_FADEOUT_START_TIME) ? $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START_TIME : null,
-      endMarker: isElement($MEDIA_EDIT_SEEK_MARKER_END) ? $MEDIA_EDIT_SEEK_MARKER_END : null,
-      endLabel: isElement($MEDIA_EDIT_SEEK_MARKER_END_TIME) ? $MEDIA_EDIT_SEEK_MARKER_END_TIME : null,
-      seekStart,
-      seekEnd,
-      fadeInEnd,
-      fadeOutStart,
-      knownDuration,
-      formatSecondsToTimelineLabel,
-    });
-  }
-
-  function setMediaEditSeekTimelineLoading(isLoading: boolean): void {
-    setMediaEditSeekTimelineLoadingView(
-      isElement($MEDIA_EDIT_SEEK_TIMELINE) ? $MEDIA_EDIT_SEEK_TIMELINE : null,
-      isElement($MEDIA_EDIT_SEEK_TIMELINE_LOADING) ? $MEDIA_EDIT_SEEK_TIMELINE_LOADING : null,
-      isLoading
-    );
-  }
-
-  function resolveMediaEditEffectiveEnd(
-    seekEnd: number | null,
-    duration: number | null,
-    seekStart: number | null,
-    fallbackFadeoutDuration: number | null = null
-  ): number | null {
-    return resolveMediaEditEffectiveEndDomain(seekEnd, duration, seekStart, fallbackFadeoutDuration);
-  }
-
-  function resolveMediaEditKnownDuration(mediaItem: MediaItem | null): number | null {
-    return resolveMediaEditKnownDurationDomain({
-      mediaItem,
-      activeItem: mediaEditActiveItem,
-      previewDurationSeconds: mediaEditPreviewDurationSeconds,
-      getItemIdentity: getMediaEditItemIdentity,
-      normalizeTimingValue: normalizeMediaEditTimingValue,
-    });
-  }
-
-  function getMediaEditTimingFromStoredDurations(mediaItem: MediaItem): {
-    seekStart: number | null;
-    seekEnd: number | null;
-    fadeInEnd: number | null;
-    fadeOutStart: number | null;
-  } {
-    return getMediaEditTimingFromStoredDurationsDomain({
-      mediaItem,
-      activeItem: mediaEditActiveItem,
-      previewDurationSeconds: mediaEditPreviewDurationSeconds,
-      getItemIdentity: getMediaEditItemIdentity,
-      normalizeTimingValue: normalizeMediaEditTimingValue,
-    });
-  }
-
-  function getMediaEditComputedFadeDurations(item: MediaItem, draft: MediaEditDraft): {
-    fadein: number | '';
-    fadeout: number | '';
-  } {
-    return getMediaEditComputedFadeDurationsDomain({
-      item,
-      draft,
-      activeItem: mediaEditActiveItem,
-      previewDurationSeconds: mediaEditPreviewDurationSeconds,
-      getItemIdentity: getMediaEditItemIdentity,
-      normalizeTimingValue: normalizeMediaEditTimingValue,
-    });
-  }
-
-  function syncMediaEditTimingDisplay(): void {
-    const seekStart = parseMediaTimeToIntegerSeconds($MEDIA_EDIT_SEEK_START?.value || '');
-    const seekEnd = parseMediaTimeToIntegerSeconds($MEDIA_EDIT_SEEK_END?.value || '');
-    const fadeInEnd = parseMediaTimeToIntegerSeconds($MEDIA_EDIT_FADEIN_END?.value || '');
-    const fadeOutStart = parseMediaTimeToIntegerSeconds($MEDIA_EDIT_FADEOUT_START?.value || '');
-    if (isElement($MEDIA_EDIT_SEEK_START_HMS)) {
-      $MEDIA_EDIT_SEEK_START_HMS.textContent = formatSecondsToHHMMSS(seekStart);
-    }
-    if (isElement($MEDIA_EDIT_SEEK_END_HMS)) {
-      $MEDIA_EDIT_SEEK_END_HMS.textContent = formatSecondsToHHMMSS(seekEnd);
-    }
-    if (isElement($MEDIA_EDIT_FADEIN_END_HMS)) {
-      $MEDIA_EDIT_FADEIN_END_HMS.textContent = formatSecondsToHHMMSS(fadeInEnd);
-    }
-    if (isElement($MEDIA_EDIT_FADEOUT_START_HMS)) {
-      $MEDIA_EDIT_FADEOUT_START_HMS.textContent = formatSecondsToHHMMSS(fadeOutStart);
-    }
-    syncMediaEditSeekTimeline(seekStart, seekEnd, fadeInEnd, fadeOutStart);
-  }
-
-  const mediaEditDurationSync = createMediaEditDurationSyncController({
+  const {
+    resolveMediaEditEffectiveEnd,
+    resolveMediaEditKnownDuration,
+    getMediaEditTimingFromStoredDurations,
+    getMediaEditComputedFadeDurations,
+    syncMediaEditTimingDisplay,
+    mediaEditDurationSync,
+  } = createMediaEditTimingBindings({
+    timeline: isElement($MEDIA_EDIT_SEEK_TIMELINE) ? $MEDIA_EDIT_SEEK_TIMELINE : null,
+    timelineLoading: isElement($MEDIA_EDIT_SEEK_TIMELINE_LOADING) ? $MEDIA_EDIT_SEEK_TIMELINE_LOADING : null,
+    fixedStartTime: isElement($MEDIA_EDIT_SEEK_FIXED_START_TIME) ? $MEDIA_EDIT_SEEK_FIXED_START_TIME : null,
+    fixedEndTime: isElement($MEDIA_EDIT_SEEK_FIXED_END_TIME) ? $MEDIA_EDIT_SEEK_FIXED_END_TIME : null,
+    startMarker: isElement($MEDIA_EDIT_SEEK_MARKER_START) ? $MEDIA_EDIT_SEEK_MARKER_START : null,
+    startLabel: isElement($MEDIA_EDIT_SEEK_MARKER_START_TIME) ? $MEDIA_EDIT_SEEK_MARKER_START_TIME : null,
+    fadeInMarker: isElement($MEDIA_EDIT_SEEK_MARKER_FADEIN_END) ? $MEDIA_EDIT_SEEK_MARKER_FADEIN_END : null,
+    fadeInLabel: isElement($MEDIA_EDIT_SEEK_MARKER_FADEIN_END_TIME) ? $MEDIA_EDIT_SEEK_MARKER_FADEIN_END_TIME : null,
+    fadeOutMarker: isElement($MEDIA_EDIT_SEEK_MARKER_FADEOUT_START) ? $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START : null,
+    fadeOutLabel: isElement($MEDIA_EDIT_SEEK_MARKER_FADEOUT_START_TIME) ? $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START_TIME : null,
+    endMarker: isElement($MEDIA_EDIT_SEEK_MARKER_END) ? $MEDIA_EDIT_SEEK_MARKER_END : null,
+    endLabel: isElement($MEDIA_EDIT_SEEK_MARKER_END_TIME) ? $MEDIA_EDIT_SEEK_MARKER_END_TIME : null,
+    seekStartHms: isElement($MEDIA_EDIT_SEEK_START_HMS) ? $MEDIA_EDIT_SEEK_START_HMS : null,
+    seekEndHms: isElement($MEDIA_EDIT_SEEK_END_HMS) ? $MEDIA_EDIT_SEEK_END_HMS : null,
+    fadeInEndHms: isElement($MEDIA_EDIT_FADEIN_END_HMS) ? $MEDIA_EDIT_FADEIN_END_HMS : null,
+    fadeOutStartHms: isElement($MEDIA_EDIT_FADEOUT_START_HMS) ? $MEDIA_EDIT_FADEOUT_START_HMS : null,
+    seekStartField: $MEDIA_EDIT_SEEK_START,
+    seekEndField: $MEDIA_EDIT_SEEK_END,
+    fadeInEndField: $MEDIA_EDIT_FADEIN_END,
+    fadeOutStartField: $MEDIA_EDIT_FADEOUT_START,
     timeoutMs: MEDIA_EDIT_DURATION_SYNC_TIMEOUT_MS,
     pollMs: MEDIA_EDIT_DURATION_SYNC_POLL_MS,
-    onSetLoading: setMediaEditSeekTimelineLoading,
-    getActiveItemKey: () => (mediaEditActiveItem ? getMediaEditItemIdentity(mediaEditActiveItem) : null),
-    hasKnownDuration: () => resolveMediaEditKnownDuration(mediaEditActiveItem) !== null,
-    onSyncReady: syncMediaEditTimingDisplay,
+    getActiveItem: () => mediaEditActiveItem,
+    getPreviewDurationSeconds: () => mediaEditPreviewDurationSeconds,
+    getItemIdentity: getMediaEditItemIdentity,
+    normalizeTimingValue: normalizeMediaEditTimingValue,
+    parseMediaTimeToIntegerSeconds,
+    formatSecondsToHHMMSS,
+    formatSecondsToTimelineLabel,
   });
 
   function getMediaEditCategoryOptions(): string[] {
