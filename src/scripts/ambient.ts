@@ -233,20 +233,11 @@ import {
   updateMediaCaptionDisplay,
 } from './ui/player/player-display';
 import {
-  playMediaSelection,
   updatePlaybackStatus,
 } from './ui/player/player-actions';
 import {
   cleanupManagedYouTubeTransition,
 } from './ui/player/player-orchestration';
-import {
-  reportPlaybackIssue,
-} from './ui/player/player-effects';
-import {
-  runPlayerFadeIn,
-  runPlayerFadeOut,
-  runPlayerSetup,
-} from './ui/player/player-controller';
 import {
   getBottomMenuHeight as getBottomMenuHeightView,
   getFullWindowPlayerSize as getFullWindowPlayerSizeView,
@@ -276,6 +267,13 @@ import {
   createManagedHtmlRuntimePlayer,
   createManagedYouTubeRuntimePlayer,
 } from './ui/player/player-runtime-factory';
+import {
+  playManagedMediaSelection,
+  reportManagedPlaybackIssue,
+  runManagedFadeIn,
+  runManagedFadeOut,
+  setupManagedPlayer,
+} from './ui/player/player-runtime-actions';
 import {
   destroyYouTubePreviewPlayer,
   resetYouTubePlayerView,
@@ -3687,7 +3685,7 @@ const init = function (): void {
     reason: string,
     details: Record<string, unknown> = {}
   ): void {
-    reportPlaybackIssue({
+    reportManagedPlaybackIssue({
       mediaItem,
       reason,
       details,
@@ -3701,7 +3699,7 @@ const init = function (): void {
   }
 
   function playItem(object: HTMLElement | null = null, id: number | null = null): void {
-    playMediaSelection({
+    playManagedMediaSelection({
       mediaItems: AMP_STATUS.media || [],
       triggerElement: isElement(object) ? (object as HTMLElement) : null,
       targetId: id,
@@ -3733,7 +3731,7 @@ const init = function (): void {
     mediaData: MediaItem,
     extension: string | null = null
   ): void {
-    runPlayerSetup({
+    setupManagedPlayer({
       setupKind,
       src,
       extension,
@@ -3867,7 +3865,7 @@ const init = function (): void {
    * Fade in the volume of the specified media.
    */
   function fadeIn(media: any, period: number, start: number): void {
-    runPlayerFadeIn({
+    runManagedFadeIn({
       media,
       period,
       start,
@@ -3883,7 +3881,7 @@ const init = function (): void {
    * Fade out the volume of the specified media.
    */
   function fadeOut(media: any, period: number, end: number): void {
-    runPlayerFadeOut({
+    runManagedFadeOut({
       media,
       period,
       end,
