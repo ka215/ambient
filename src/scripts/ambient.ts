@@ -1988,6 +1988,33 @@ const init = function (): void {
     updateNotice({ type: 'error', message, delay });
   }
 
+  function finalizeMediaEditSave(options: {
+    activeItem: MediaItem;
+    updatedItem: MediaItem;
+    persistMessage: string;
+  }): void {
+    const draftKey = getMediaEditDraftKey(options.activeItem);
+    deleteMediaEditDraftByKey(draftKey);
+    mediaEditBaseDraft = createMediaEditBaseDraft(options.updatedItem);
+    setMediaEditDirtyState(false);
+    clearCategory();
+    updateCategory();
+    syncMediaCategoryField();
+    syncMediaEditCategoryClearButton();
+    renderMediaEditCategoryOptions();
+    updatePlaylist();
+    if (AMP_STATUS.current === options.updatedItem.amId) {
+      updatePlayStatus(options.updatedItem.amId);
+    }
+    setMediaEditSaveBusyState(false);
+    updateNotice({
+      type: 'success',
+      message: options.persistMessage || getLocalizedMessage('mediaEditSaveSuccess', 'Media changes were saved successfully.'),
+      delay: 2200,
+    });
+    hideMediaEditModal(true);
+  }
+
   async function saveMediaEdit(): Promise<void> {
     if (!mediaEditActiveItem || !mediaEditBaseDraft || !Array.isArray(AMP_STATUS.media)) {
       return;
@@ -2040,27 +2067,11 @@ const init = function (): void {
       failMediaEditSave(persistResult.message);
       return;
     }
-
-    const draftKey = getMediaEditDraftKey(mediaEditActiveItem);
-    deleteMediaEditDraftByKey(draftKey);
-    mediaEditBaseDraft = createMediaEditBaseDraft(updatedItem);
-    setMediaEditDirtyState(false);
-    clearCategory();
-    updateCategory();
-    syncMediaCategoryField();
-    syncMediaEditCategoryClearButton();
-    renderMediaEditCategoryOptions();
-    updatePlaylist();
-    if (AMP_STATUS.current === updatedItem.amId) {
-      updatePlayStatus(updatedItem.amId);
-    }
-    setMediaEditSaveBusyState(false);
-    updateNotice({
-      type: 'success',
-      message: persistResult.message || getLocalizedMessage('mediaEditSaveSuccess', 'Media changes were saved successfully.'),
-      delay: 2200,
+    finalizeMediaEditSave({
+      activeItem: mediaEditActiveItem,
+      updatedItem,
+      persistMessage: persistResult.message,
     });
-    hideMediaEditModal(true);
   }
 
   function readMediaEditDraftFromForm(): MediaEditDraft {
