@@ -141,13 +141,7 @@ import {
   trapMediaEditModalFocus as trapMediaEditModalFocusView,
 } from './ui/media-edit-modal-view';
 import {
-  clearMediaEditValidationView as clearMediaEditValidationViewState,
-  renderMediaEditValidationView,
-  setMediaEditSaveButtonDisabled as setMediaEditSaveButtonDisabledView,
-} from './ui/media-edit-validation-view';
-import {
   bindMediaEditCategoryControls,
-  createMediaEditCategoryOptionButton,
   bindMediaEditFieldControls,
   bindMediaEditPreviewControls,
   bindMediaEditPrimaryControls,
@@ -157,13 +151,7 @@ import {
   applyMediaEditDraftToFormView,
   resolveMediaEditThumbnailSrc,
 } from './ui/media-edit-form-view';
-import {
-  getMediaEditCategoryOptions as getMediaEditCategoryOptionsView,
-  isMediaEditCategoryDropdownVisible as isMediaEditCategoryDropdownVisibleView,
-  renderMediaEditCategoryOptionsView,
-  setMediaEditCategoryDropdownExpandedView,
-  syncMediaEditCategoryClearButtonView,
-} from './ui/media-edit-category-view';
+import { createMediaEditUiBindings } from './state/media-edit-ui-bindings';
 import {
   appendPlaylistQuickAddItem,
   createShuffledPlaylist,
@@ -1155,12 +1143,6 @@ const init = function (): void {
   let mediaEditPreviewSourceItem: MediaItem | null = null;
   let mediaEditPreviewType: 'youtube' | 'audio' | 'video' | null = null;
   let mediaEditPreviewDurationSeconds: number | null = null;
-  interface MediaEditValidationResult {
-    valid: boolean;
-    messages: string[];
-    invalidFieldIds: string[];
-    fieldMessages: Record<string, string[]>;
-  }
 
   // [MODULE-BOUNDARY][v2.5.3-P0][EXTRACT-BL-002]: shared time adapters for media-edit timing
   function parseMediaTimeToIntegerSeconds(value: unknown): number | null {
@@ -1236,61 +1218,6 @@ const init = function (): void {
     formatSecondsToTimelineLabel,
   });
 
-  function getMediaEditCategoryOptions(): string[] {
-    return getMediaEditCategoryOptionsView(AMP_STATUS.category);
-  }
-
-  function isMediaEditCategoryDropdownVisible(): boolean {
-    return isMediaEditCategoryDropdownVisibleView(
-      isElement($MEDIA_EDIT_CATEGORY_DROPDOWN) ? $MEDIA_EDIT_CATEGORY_DROPDOWN : null
-    );
-  }
-
-  function renderMediaEditCategoryOptions(): void {
-    const selected = isElement($MEDIA_EDIT_CATEGORY) ? $MEDIA_EDIT_CATEGORY.value.trim() : '';
-    const options = getMediaEditCategoryOptions();
-    renderMediaEditCategoryOptionsView({
-      optionsContainer: isElement($MEDIA_EDIT_CATEGORY_OPTIONS) ? $MEDIA_EDIT_CATEGORY_OPTIONS : null,
-      selectedCategory: selected,
-      categories: options,
-      getLocalizedMessage,
-      createOptionButton: (categoryName, isSelected) => createMediaEditCategoryOptionButton({
-        categoryInput: $MEDIA_EDIT_CATEGORY,
-        categoryName,
-        isSelected,
-        onCloseDropdown: closeMediaEditCategoryDropdown,
-      }),
-    });
-  }
-
-  function syncMediaEditCategoryClearButton(): void {
-    syncMediaEditCategoryClearButtonView({
-      clearButton: isElement($BUTTON_MEDIA_EDIT_CATEGORY_CLEAR) ? $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR : null,
-      categoryValue: isElement($MEDIA_EDIT_CATEGORY) ? $MEDIA_EDIT_CATEGORY.value : '',
-    });
-  }
-
-  function setMediaEditCategoryDropdownExpanded(expanded: boolean): void {
-    setMediaEditCategoryDropdownExpandedView({
-      dropdownElement: isElement($MEDIA_EDIT_CATEGORY_DROPDOWN) ? $MEDIA_EDIT_CATEGORY_DROPDOWN : null,
-      comboboxElement: isElement($MEDIA_EDIT_CATEGORY_COMBOBOX) ? $MEDIA_EDIT_CATEGORY_COMBOBOX : null,
-      toggleButton: isElement($BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE) ? $BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE : null,
-      expanded,
-    });
-  }
-
-  function closeMediaEditCategoryDropdown(restoreFocus: boolean = false): void {
-    setMediaEditCategoryDropdownExpanded(false);
-    if (restoreFocus && isElement($MEDIA_EDIT_CATEGORY)) {
-      $MEDIA_EDIT_CATEGORY.focus();
-    }
-  }
-
-  function openMediaEditCategoryDropdown(): void {
-    renderMediaEditCategoryOptions();
-    setMediaEditCategoryDropdownExpanded(true);
-  }
-
   function stepMediaEditTimingField(field: HTMLInputElement, direction: 1 | -1): void {
     const stepValue = Number(field.step);
     const step = Number.isFinite(stepValue) && stepValue > 0 ? stepValue : 1;
@@ -1335,153 +1262,37 @@ const init = function (): void {
     return isSameMediaEditDraftState(a, b);
   }
 
-  function setMediaEditSaveButtonDisabled(disabled: boolean): void {
-    setMediaEditSaveButtonDisabledView(
-      $BUTTON_SAVE_MEDIA_EDIT instanceof HTMLButtonElement ? $BUTTON_SAVE_MEDIA_EDIT : null,
-      disabled
-    );
-  }
+  const {
+    isMediaEditCategoryDropdownVisible,
+    renderMediaEditCategoryOptions,
+    syncMediaEditCategoryClearButton,
+    closeMediaEditCategoryDropdown,
+    openMediaEditCategoryDropdown,
+    setMediaEditSaveButtonDisabled,
+    clearMediaEditValidationView,
+    validateAndRenderMediaEditDraftFromForm,
+  } = createMediaEditUiBindings({
+    categoryField: $MEDIA_EDIT_CATEGORY,
+    titleField: $MEDIA_EDIT_TITLE,
+    seekStartField: $MEDIA_EDIT_SEEK_START,
+    seekEndField: $MEDIA_EDIT_SEEK_END,
+    fadeInEndField: $MEDIA_EDIT_FADEIN_END,
+    fadeOutStartField: $MEDIA_EDIT_FADEOUT_START,
+    saveButton: $BUTTON_SAVE_MEDIA_EDIT instanceof HTMLButtonElement ? $BUTTON_SAVE_MEDIA_EDIT : null,
+    categoryDropdown: isElement($MEDIA_EDIT_CATEGORY_DROPDOWN) ? $MEDIA_EDIT_CATEGORY_DROPDOWN : null,
+    categoryCombobox: isElement($MEDIA_EDIT_CATEGORY_COMBOBOX) ? $MEDIA_EDIT_CATEGORY_COMBOBOX : null,
+    categoryToggleButton: isElement($BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE) ? $BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE : null,
+    categoryOptionsContainer: isElement($MEDIA_EDIT_CATEGORY_OPTIONS) ? $MEDIA_EDIT_CATEGORY_OPTIONS : null,
+    categoryClearButton: isElement($BUTTON_MEDIA_EDIT_CATEGORY_CLEAR) ? $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR : null,
+    getCategories: () => AMP_STATUS.category,
+    getLocalizedMessage,
+    createValidationDraft: readMediaEditDraftFromForm,
+    getActiveItem: () => mediaEditActiveItem,
+    resolveKnownDuration: resolveMediaEditKnownDuration,
+    resolveEffectiveEnd: resolveMediaEditEffectiveEnd,
+    normalizeTimingValue: normalizeMediaEditTimingValue,
+  });
 
-  function clearMediaEditValidationView(): void {
-    clearMediaEditValidationViewState({
-      categoryField: $MEDIA_EDIT_CATEGORY,
-      titleField: $MEDIA_EDIT_TITLE,
-      seekStartField: $MEDIA_EDIT_SEEK_START,
-      seekEndField: $MEDIA_EDIT_SEEK_END,
-      fadeInEndField: $MEDIA_EDIT_FADEIN_END,
-      fadeOutStartField: $MEDIA_EDIT_FADEOUT_START,
-      saveButton: $BUTTON_SAVE_MEDIA_EDIT instanceof HTMLButtonElement ? $BUTTON_SAVE_MEDIA_EDIT : null,
-    });
-  }
-
-  function renderMediaEditValidation(result: MediaEditValidationResult): void {
-    renderMediaEditValidationView({
-      categoryField: $MEDIA_EDIT_CATEGORY,
-      titleField: $MEDIA_EDIT_TITLE,
-      seekStartField: $MEDIA_EDIT_SEEK_START,
-      seekEndField: $MEDIA_EDIT_SEEK_END,
-      fadeInEndField: $MEDIA_EDIT_FADEIN_END,
-      fadeOutStartField: $MEDIA_EDIT_FADEOUT_START,
-      saveButton: $BUTTON_SAVE_MEDIA_EDIT instanceof HTMLButtonElement ? $BUTTON_SAVE_MEDIA_EDIT : null,
-    }, result);
-  }
-
-  function validateMediaEditDraft(draft: MediaEditDraft): MediaEditValidationResult {
-    const messages: string[] = [];
-    const invalidFieldIds = new Set<string>();
-    const fieldMessages: Record<string, string[]> = {};
-    const addFieldMessage = (fieldId: string, message: string): void => {
-      if (!fieldMessages[fieldId]) {
-        fieldMessages[fieldId] = [];
-      }
-      fieldMessages[fieldId].push(message);
-    };
-    const knownDuration = resolveMediaEditKnownDuration(mediaEditActiveItem);
-    const effectiveEnd = resolveMediaEditEffectiveEnd(
-      draft.seekEnd,
-      knownDuration,
-      draft.seekStart,
-      mediaEditActiveItem ? normalizeMediaEditTimingValue(mediaEditActiveItem.fadeout, null) : null
-    );
-
-    if (draft.category.trim() === '') {
-      const message = getLocalizedMessage('Category is required.');
-      messages.push(message);
-      addFieldMessage('modal-media-edit-category', message);
-      invalidFieldIds.add('modal-media-edit-category');
-    }
-
-    if (draft.title.trim() === '') {
-      const message = getLocalizedMessage('Title is required.');
-      messages.push(message);
-      addFieldMessage('modal-media-edit-title-input', message);
-      invalidFieldIds.add('modal-media-edit-title-input');
-    }
-
-    if (draft.seekStart !== null && draft.seekEnd !== null && draft.seekStart > draft.seekEnd) {
-      const message = getLocalizedMessage('Seek start must be less than or equal to seek end.');
-      messages.push(message);
-      addFieldMessage('modal-media-edit-seek-start', message);
-      addFieldMessage('modal-media-edit-seek-end', message);
-      invalidFieldIds.add('modal-media-edit-seek-start');
-      invalidFieldIds.add('modal-media-edit-seek-end');
-    }
-
-    if (draft.seekStart !== null && draft.fadeInEnd !== null && draft.seekStart > draft.fadeInEnd) {
-      const message = getLocalizedMessage('Seek start must be less than or equal to fade-in end.');
-      messages.push(message);
-      addFieldMessage('modal-media-edit-seek-start', message);
-      addFieldMessage('modal-media-edit-fadein-end', message);
-      invalidFieldIds.add('modal-media-edit-seek-start');
-      invalidFieldIds.add('modal-media-edit-fadein-end');
-    }
-
-    if (draft.seekStart !== null && draft.fadeOutStart !== null && draft.seekStart > draft.fadeOutStart) {
-      const message = getLocalizedMessage('Seek start must be less than or equal to fade-out start.');
-      messages.push(message);
-      addFieldMessage('modal-media-edit-seek-start', message);
-      addFieldMessage('modal-media-edit-fadeout-start', message);
-      invalidFieldIds.add('modal-media-edit-seek-start');
-      invalidFieldIds.add('modal-media-edit-fadeout-start');
-    }
-
-    if (draft.fadeInEnd !== null && draft.seekEnd !== null && draft.fadeInEnd > draft.seekEnd) {
-      const message = getLocalizedMessage('Fade-in end must be less than or equal to seek end.');
-      messages.push(message);
-      addFieldMessage('modal-media-edit-fadein-end', message);
-      addFieldMessage('modal-media-edit-seek-end', message);
-      invalidFieldIds.add('modal-media-edit-fadein-end');
-      invalidFieldIds.add('modal-media-edit-seek-end');
-    }
-
-    if (draft.fadeOutStart !== null && draft.seekEnd !== null && draft.fadeOutStart >= draft.seekEnd) {
-      const message = getLocalizedMessage('Fade-out start must be less than seek end.');
-      messages.push(message);
-      addFieldMessage('modal-media-edit-fadeout-start', message);
-      addFieldMessage('modal-media-edit-seek-end', message);
-      invalidFieldIds.add('modal-media-edit-fadeout-start');
-      invalidFieldIds.add('modal-media-edit-seek-end');
-    }
-
-    if (draft.fadeInEnd !== null && draft.fadeOutStart !== null && draft.fadeInEnd > draft.fadeOutStart) {
-      const message = getLocalizedMessage('Fade-in end must be less than or equal to fade-out start.');
-      messages.push(message);
-      addFieldMessage('modal-media-edit-fadein-end', message);
-      addFieldMessage('modal-media-edit-fadeout-start', message);
-      invalidFieldIds.add('modal-media-edit-fadein-end');
-      invalidFieldIds.add('modal-media-edit-fadeout-start');
-    }
-
-    if (draft.seekEnd !== null && knownDuration !== null && draft.seekEnd > knownDuration) {
-      const message = getLocalizedMessage('Seek end must be less than or equal to media duration.');
-      messages.push(message);
-      addFieldMessage('modal-media-edit-seek-end', message);
-      invalidFieldIds.add('modal-media-edit-seek-end');
-    }
-
-    if (draft.seekEnd === null && draft.fadeOutStart !== null && effectiveEnd !== null && draft.fadeOutStart > effectiveEnd) {
-      const message = getLocalizedMessage('Fade-out start must be less than or equal to seek end.');
-      messages.push(message);
-      addFieldMessage('modal-media-edit-fadeout-start', message);
-      addFieldMessage('modal-media-edit-seek-end', message);
-      invalidFieldIds.add('modal-media-edit-fadeout-start');
-      invalidFieldIds.add('modal-media-edit-seek-end');
-    }
-
-    return {
-      valid: messages.length === 0,
-      messages,
-      invalidFieldIds: Array.from(invalidFieldIds),
-      fieldMessages,
-    };
-  }
-
-  function validateAndRenderMediaEditDraftFromForm(): MediaEditValidationResult {
-    const draft = readMediaEditDraftFromForm();
-    const result = validateMediaEditDraft(draft);
-    renderMediaEditValidation(result);
-    return result;
-  }
 
   function hideMediaEditPreviewError(): void {
     hideMediaEditPreviewErrorView({
