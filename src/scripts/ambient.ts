@@ -86,6 +86,8 @@ import {
 } from './state/media-edit-duration-sync';
 import {
   executeMediaEditSavePipeline,
+  prepareMediaEditSaveExecution,
+  resolveMediaEditValidationGate,
 } from './state/media-edit-save';
 import {
   applyMediaEditDraftToItem,
@@ -98,7 +100,6 @@ import {
   sanitizeMediaEditDraft as sanitizeMediaEditDraftState,
   type MediaEditDraft,
   type MediaEditDraftInput,
-  updateMediaEditWorkingCopy,
 } from './state/media-edit-draft';
 import {
   closeResponsiveDrawers,
@@ -2023,13 +2024,16 @@ const init = function (): void {
       return;
     }
 
-    const validation = validateAndRenderMediaEditDraftFromForm();
-    if (!validation.valid) {
+    const validationGate = resolveMediaEditValidationGate({
+      valid: validateAndRenderMediaEditDraftFromForm().valid,
+      invalidMessage: getLocalizedMessage('Please fix the validation errors before saving.'),
+    });
+    if (!validationGate.ok) {
       setMediaEditSaveButtonDisabled(true);
       updateNotice({
         type: 'error',
-        message: getLocalizedMessage('Please fix the validation errors before saving.'),
-        delay: 2400,
+        message: validationGate.message,
+        delay: validationGate.delay,
       });
       return;
     }
@@ -2039,10 +2043,10 @@ const init = function (): void {
 
     setMediaEditSaveBusyState(true);
 
-    const saveTarget = updateMediaEditWorkingCopy({
+    const saveTarget = prepareMediaEditSaveExecution({
       mediaItems: AMP_STATUS.media,
       activeMediaId: mediaEditActiveItem.amId,
-      applyUpdate: (item) => applyDraftToMediaItem(item, draft),
+      updatedItemFactory: (item) => applyDraftToMediaItem(item, draft),
     });
     if (!saveTarget) {
       setMediaEditSaveBusyState(false);

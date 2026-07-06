@@ -155,39 +155,6 @@ export function cloneMediaItemsForEdit(mediaItems: MediaItem[] | null | undefine
   return mediaItems.map((item) => ({ ...item }));
 }
 
-export function updateMediaEditWorkingCopy(options: {
-  mediaItems: MediaItem[] | null | undefined;
-  activeMediaId: number | null | undefined;
-  applyUpdate: (item: MediaItem) => MediaItem;
-}): {
-  workingMedia: MediaItem[];
-  targetIndex: number;
-  updatedItem: MediaItem;
-} | null {
-  if (!Array.isArray(options.mediaItems) || !Number.isInteger(options.activeMediaId)) {
-    return null;
-  }
-  const workingMedia = cloneMediaItemsForEdit(options.mediaItems);
-  if (!workingMedia) {
-    return null;
-  }
-  const targetIndex = workingMedia.findIndex((item) => item.amId === options.activeMediaId);
-  if (targetIndex < 0) {
-    return null;
-  }
-  const targetItem = workingMedia[targetIndex];
-  if (!targetItem) {
-    return null;
-  }
-  const updatedItem = options.applyUpdate(targetItem);
-  workingMedia[targetIndex] = updatedItem;
-  return {
-    workingMedia,
-    targetIndex,
-    updatedItem,
-  };
-}
-
 export function applyMediaEditDraftToItem(options: {
   item: MediaItem;
   draft: MediaEditDraft;
