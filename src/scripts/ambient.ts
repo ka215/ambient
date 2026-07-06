@@ -35,7 +35,6 @@ import {
   isLocalMode as platformIsLocalMode,
 } from './platform/ambient-data';
 import {
-  getLocalItem,
   MYPLAYLIST_KEY,
   saveUserData,
   USER_DATA_APP_KEY,
@@ -48,11 +47,9 @@ import {
 } from './platform/media-edit-persistence';
 import {
   createPlaylistResumeController,
-  getSavedPlaylistResumeContext,
-  PlaylistResumeContext,
   PlaylistResumeMediaContext,
-  savePlaylistResumeContext,
 } from './state/playlist-context';
+import { createPlaylistResumeBindings } from './state/playlist-resume-bindings';
 import {
   readPlaylistOption,
   resolvePlaylistOptionState,
@@ -638,14 +635,6 @@ const init = function (): void {
     return platformGetLocalizedMessage(key, fallback);
   }
 
-  function getCurrentCategoryName(): string {
-    const catId = Number(AMP_STATUS.ctg);
-    if (Number.isInteger(catId) && catId >= 0 && Array.isArray(AMP_STATUS.category)) {
-      return AMP_STATUS.category[catId] || '';
-    }
-    return '';
-  }
-
   function getMediaCategoryName(mediaItem: MediaItem | null | undefined): string {
     if (!mediaItem || !Array.isArray(AMP_STATUS.category)) {
       return '';
@@ -653,79 +642,8 @@ const init = function (): void {
     return AMP_STATUS.category[mediaItem.catId] || '';
   }
 
-  function getCurrentMediaItem(): MediaItem | null {
-    if (AMP_STATUS.current === null || !Array.isArray(AMP_STATUS.media)) {
-      return null;
-    }
-    return AMP_STATUS.media.find((item: MediaItem) => item.amId === AMP_STATUS.current) || null;
-  }
-
-  function createResumeMediaContext(mediaItem: MediaItem | null): PlaylistResumeMediaContext | null {
-    return playlistResume.createResumeMediaContext(
-      mediaItem,
-      getCurrentCategoryName(),
-      getMediaCategoryName(mediaItem as MediaItem),
-      (value) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
-      (value) => sanitizeMediaText(value, MEDIA_ARTIST_MAX_LENGTH)
-    );
-  }
-
-  function savePlaylistContext(): void {
-    if (!AMP_STATUS.playlist) {
-      return;
-    }
-    savePlaylistResumeContext({
-      playlist: AMP_STATUS.playlist,
-      category: getCurrentCategoryName(),
-      media: createResumeMediaContext(getCurrentMediaItem()),
-    });
-  }
-
-  function getSavedPlaylistContext(): PlaylistResumeContext | null {
-    return getSavedPlaylistResumeContext(
-      sanitizeMediaText,
-      MEDIA_TITLE_MAX_LENGTH,
-      MEDIA_ARTIST_MAX_LENGTH
-    );
-  }
-
-  function isPlaylistAvailableForResume(playlist: string): boolean {
-    const ambientData = getAmbientData();
-    if (playlist === MYPLAYLIST_NAME) {
-      return ambientData?.isCloud === true && getLocalItem(MYPLAYLIST_KEY) !== null;
-    }
-    return platformHasPlaylist(playlist);
-  }
-
   function selectPlaylistOption(playlist: string): void {
     selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, playlist);
-  }
-
-  function requestCategoryResume(categoryName: string | null | undefined): void {
-    playlistResume.requestCategoryResume(categoryName);
-  }
-
-  function requestMediaResume(mediaContext: PlaylistResumeMediaContext | null | undefined): void {
-    playlistResume.requestMediaResume(mediaContext);
-  }
-
-  function applyPendingCategoryResume(): void {
-    AMP_STATUS.ctg = playlistResume.applyPendingCategoryResume(AMP_STATUS.category);
-    syncTargetCategorySelection();
-  }
-
-  function applyPendingMediaResume(): boolean {
-    const resumeAmId = playlistResume.applyPendingMediaResume(
-      AMP_STATUS.media || [],
-      (item) => (AMP_STATUS.category || [])[item.catId] || '',
-      (value) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
-      (value) => sanitizeMediaText(value, MEDIA_ARTIST_MAX_LENGTH)
-    );
-    if (resumeAmId === null) {
-      return false;
-    }
-    updatePlayStatus(resumeAmId);
-    return true;
   }
 
   function getDefaultMediaItemForCurrentView(): MediaItem | null {
@@ -788,6 +706,33 @@ const init = function (): void {
       .trim();
     return clampStringLength(normalized, maxLength);
   }
+
+  const {
+    getSavedPlaylistContext,
+    savePlaylistContext,
+    isPlaylistAvailableForResume,
+    requestCategoryResume,
+    requestMediaResume,
+    applyPendingCategoryResume,
+    applyPendingMediaResume,
+  } = createPlaylistResumeBindings({
+    status: AMP_STATUS,
+    playlistResume,
+    sanitizeMediaText,
+    titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+    artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+    hasStoredMyPlaylist: () => localStorage.getItem(MYPLAYLIST_KEY) !== null,
+    isCloudMode: () => getAmbientData()?.isCloud === true,
+    myPlaylistName: MYPLAYLIST_NAME,
+    hasPlaylist: platformHasPlaylist,
+    onCategoryResumeApplied: (nextCategoryId) => {
+      AMP_STATUS.ctg = nextCategoryId;
+      syncTargetCategorySelection();
+    },
+    onMediaResumeApplied: (resumeAmId) => {
+      updatePlayStatus(resumeAmId);
+    },
+  });
 
   function sanitizeMediaEditDescInput(value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string {
     const normalized = stripHtmlTags(String(value || ''))
