@@ -79,12 +79,10 @@ import {
 import { createMediaEditTimingBindings } from './state/media-edit-timing-bindings';
 import {
   deleteMediaEditThumbnailIfNeeded as deleteMediaEditThumbnailIfNeededState,
-  executeMediaEditSavePipeline,
-  prepareMediaEditSaveExecution,
-  resolveMediaEditValidationGate,
   persistMediaEditForCurrentPlaylist as persistMediaEditForCurrentPlaylistState,
   uploadMediaEditThumbnailIfNeeded as uploadMediaEditThumbnailIfNeededState,
 } from './state/media-edit-save';
+import { createMediaEditSaveBindings } from './state/media-edit-save-bindings';
 import {
   applyMediaEditDraftToItem,
   cloneMediaEditDraft as cloneMediaEditDraftState,
@@ -1510,62 +1508,24 @@ const init = function (): void {
     });
     hideMediaEditModal(true);
   }
-
-  async function saveMediaEdit(): Promise<void> {
-    if (!mediaEditActiveItem || !mediaEditBaseDraft || !Array.isArray(AMP_STATUS.media)) {
-      return;
-    }
-
-    const validationGate = resolveMediaEditValidationGate({
-      valid: validateAndRenderMediaEditDraftFromForm().valid,
-      invalidMessage: getLocalizedMessage('Please fix the validation errors before saving.'),
-    });
-    if (!validationGate.ok) {
-      setMediaEditSaveButtonDisabled(true);
-      updateNotice({
-        type: 'error',
-        message: validationGate.message,
-        delay: validationGate.delay,
-      });
-      return;
-    }
-
-    const draft = readMediaEditDraftFromForm();
-    AMP_STATUS.category = ensureMediaEditCategory(AMP_STATUS.category, draft.category);
-
-    setMediaEditSaveBusyState(true);
-
-    const saveTarget = prepareMediaEditSaveExecution({
-      mediaItems: AMP_STATUS.media,
-      activeMediaId: mediaEditActiveItem.amId,
-      updatedItemFactory: (item) => applyDraftToMediaItem(item, draft),
-    });
-    if (!saveTarget) {
-      setMediaEditSaveBusyState(false);
-      return;
-    }
-    const { workingMedia, updatedItem } = saveTarget;
-
-    const previousMedia = AMP_STATUS.media;
-    AMP_STATUS.media = workingMedia;
-    const persistResult = await executeMediaEditSavePipeline({
-      workingMedia,
-      updatedItem,
-      uploadThumbnail: () => uploadMediaEditThumbnailIfNeeded(draft),
-      deleteThumbnail: () => deleteMediaEditThumbnailIfNeeded(draft),
-      persistWorkingMedia: (nextWorkingMedia) => persistMediaEditForCurrentPlaylist(nextWorkingMedia),
-    });
-    if (!persistResult.ok) {
-      AMP_STATUS.media = previousMedia;
-      failMediaEditSave(persistResult.message);
-      return;
-    }
-    finalizeMediaEditSave({
-      activeItem: mediaEditActiveItem,
-      updatedItem: persistResult.updatedItem,
-      persistMessage: persistResult.persistMessage,
-    });
-  }
+  const { saveMediaEdit } = createMediaEditSaveBindings({
+    status: AMP_STATUS,
+    getActiveItem: () => mediaEditActiveItem,
+    getBaseDraft: () => mediaEditBaseDraft,
+    getLocalizedMessage,
+    ensureCategory: ensureMediaEditCategory,
+    readDraftFromForm: readMediaEditDraftFromForm,
+    validateDraft: validateAndRenderMediaEditDraftFromForm,
+    setSaveButtonDisabled: setMediaEditSaveButtonDisabled,
+    setSaveBusyState: setMediaEditSaveBusyState,
+    updateNotice,
+    applyDraftToMediaItem,
+    uploadThumbnail: uploadMediaEditThumbnailIfNeeded,
+    deleteThumbnail: deleteMediaEditThumbnailIfNeeded,
+    persistWorkingMedia: persistMediaEditForCurrentPlaylist,
+    finalizeSave: finalizeMediaEditSave,
+    failSave: failMediaEditSave,
+  });
 
   function readMediaEditDraftFromForm(): MediaEditDraft {
     const fallback = mediaEditBaseDraft || createEmptyMediaEditDraft(getDefaultVolume());
