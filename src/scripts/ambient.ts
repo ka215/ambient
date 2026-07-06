@@ -94,11 +94,13 @@ import {
 import {
   applyMediaEditDraftToItem,
   cloneMediaEditDraft as cloneMediaEditDraftState,
+  createMediaEditBaseDraft as createMediaEditBaseDraftState,
   createEmptyMediaEditDraft,
   createMediaEditDraftKey as createMediaEditDraftKeyState,
   ensureMediaEditCategory,
   findMediaEditCategoryIndex,
   isSameMediaEditDraft as isSameMediaEditDraftState,
+  readMediaEditDraftFromForm as readMediaEditDraftFromFormState,
   sanitizeMediaEditDraft as sanitizeMediaEditDraftState,
   type MediaEditDraft,
   type MediaEditDraftInput,
@@ -1804,21 +1806,14 @@ const init = function (): void {
 
   function createMediaEditBaseDraft(mediaItem: MediaItem): MediaEditDraft {
     const timing = getMediaEditTimingFromStoredDurations(mediaItem);
-    return sanitizeMediaEditDraft({
-      category: getMediaCategoryName(mediaItem),
-      title: mediaItem.title || '',
-      artist: mediaItem.artist || '',
+    return createMediaEditBaseDraftState({
+      mediaItem,
+      categoryName: getMediaCategoryName(mediaItem),
       description: sanitizeMediaEditDescInput(String(mediaItem.desc || ''), MEDIA_DESC_MAX_LENGTH),
-      volume: mediaItem.volume,
-      seekStart: timing.seekStart,
-      seekEnd: timing.seekEnd,
-      fadeInEnd: timing.fadeInEnd,
-      fadeOutStart: timing.fadeOutStart,
-      thumbnailMode: 'keep',
-      thumbnailName: mediaItem.image || mediaItem.thumb || '',
-      thumbnailMime: '',
-      thumbnailDataUrl: '',
-    }, createEmptyMediaEditDraft(getDefaultVolume()));
+      timing,
+      defaultVolume: getDefaultVolume(),
+      sanitizeDraft: sanitizeMediaEditDraft,
+    });
   }
 
   function applyMediaEditDraftToForm(draft: MediaEditDraft): void {
@@ -2048,7 +2043,9 @@ const init = function (): void {
     const activeDraft = mediaEditActiveItem
       ? mediaEditDraftStore.get(getMediaEditDraftKey(mediaEditActiveItem)) || null
       : null;
-    return sanitizeMediaEditDraft({
+    return readMediaEditDraftFromFormState({
+      fallback,
+      activeDraft,
       category: $MEDIA_EDIT_CATEGORY?.value,
       title: $MEDIA_EDIT_TITLE?.value,
       artist: $MEDIA_EDIT_ARTIST?.value,
@@ -2058,11 +2055,8 @@ const init = function (): void {
       seekEnd: $MEDIA_EDIT_SEEK_END?.value,
       fadeInEnd: $MEDIA_EDIT_FADEIN_END?.value,
       fadeOutStart: $MEDIA_EDIT_FADEOUT_START?.value,
-      thumbnailMode: activeDraft?.thumbnailMode,
-      thumbnailName: activeDraft?.thumbnailName,
-      thumbnailMime: activeDraft?.thumbnailMime,
-      thumbnailDataUrl: activeDraft?.thumbnailDataUrl,
-    }, fallback);
+      sanitizeDraft: sanitizeMediaEditDraft,
+    });
   }
 
   function isActiveMediaEditUnsaved(): boolean {

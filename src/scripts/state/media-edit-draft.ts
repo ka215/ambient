@@ -121,6 +121,67 @@ export function createEmptyMediaEditDraft(defaultVolume: number): MediaEditDraft
   };
 }
 
+export function createMediaEditBaseDraft(options: {
+  mediaItem: MediaItem;
+  categoryName: string;
+  description: string;
+  timing: {
+    seekStart: number | null;
+    seekEnd: number | null;
+    fadeInEnd: number | null;
+    fadeOutStart: number | null;
+  };
+  defaultVolume: number;
+  sanitizeDraft: (draft: MediaEditDraftInput, fallback: MediaEditDraft | null) => MediaEditDraft;
+}): MediaEditDraft {
+  return options.sanitizeDraft({
+    category: options.categoryName,
+    title: options.mediaItem.title || '',
+    artist: options.mediaItem.artist || '',
+    description: options.description,
+    volume: options.mediaItem.volume,
+    seekStart: options.timing.seekStart,
+    seekEnd: options.timing.seekEnd,
+    fadeInEnd: options.timing.fadeInEnd,
+    fadeOutStart: options.timing.fadeOutStart,
+    thumbnailMode: 'keep',
+    thumbnailName: options.mediaItem.image || options.mediaItem.thumb || '',
+    thumbnailMime: '',
+    thumbnailDataUrl: '',
+  }, createEmptyMediaEditDraft(options.defaultVolume));
+}
+
+export function readMediaEditDraftFromForm(options: {
+  fallback: MediaEditDraft;
+  activeDraft: MediaEditDraft | null;
+  category?: string | null;
+  title?: string | null;
+  artist?: string | null;
+  description?: string | null;
+  volume?: number | undefined;
+  seekStart?: string | null;
+  seekEnd?: string | null;
+  fadeInEnd?: string | null;
+  fadeOutStart?: string | null;
+  sanitizeDraft: (draft: MediaEditDraftInput, fallback: MediaEditDraft | null) => MediaEditDraft;
+}): MediaEditDraft {
+  return options.sanitizeDraft({
+    category: options.category,
+    title: options.title,
+    artist: options.artist,
+    description: options.description,
+    volume: options.volume,
+    seekStart: options.seekStart,
+    seekEnd: options.seekEnd,
+    fadeInEnd: options.fadeInEnd,
+    fadeOutStart: options.fadeOutStart,
+    thumbnailMode: options.activeDraft?.thumbnailMode,
+    thumbnailName: options.activeDraft?.thumbnailName,
+    thumbnailMime: options.activeDraft?.thumbnailMime,
+    thumbnailDataUrl: options.activeDraft?.thumbnailDataUrl,
+  }, options.fallback);
+}
+
 export function createMediaEditDraftKey(playlistKey: string, itemIdentity: string): string {
   return `${playlistKey}::${itemIdentity}`;
 }
