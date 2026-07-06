@@ -54,13 +54,8 @@ import {
   setPlaylistOption,
 } from './state/playlist-options';
 import {
-  canUseAnyPlaylistMode,
-  canUsePlaylistEditMode,
   canUsePlaylistReorderMode,
   getPlaylistItemsForView,
-  resolvePlaylistModeButtonAction,
-  resolvePlaylistModeTransition,
-  shouldResetPlaylistOperationMode,
 } from './state/playlist-mode-state';
 import {
   deleteSessionDraftByKey,
@@ -127,7 +122,6 @@ import {
 import {
   appendPlaylistQuickAddItem,
   createShuffledPlaylist,
-  closePlaylistModeMenu as closePlaylistModeMenuView,
   enablePlaylistDownloadButton,
   finalizePlaylistRender,
   filterPlaylistItemsByCategory,
@@ -137,16 +131,14 @@ import {
   resolvePlaylistModeForRendering,
   scrollPlaylistToCurrentFocus,
   syncPlaylistCurrentFocus,
-  syncPlaylistModeAvailabilityButton,
   syncPlaylistModeButton as syncPlaylistModeButtonView,
   syncDeleteSelectionIndicator as syncDeleteSelectionIndicatorView,
-  togglePlaylistModeMenu as togglePlaylistModeMenuView,
-  updatePlaylistModeMenuState,
 } from './ui/playlist-view';
 import {
   bindPlaylistConfirmModalControls,
   bindPlaylistModeControls,
 } from './ui/playlist-mode-controls';
+import { createPlaylistModeRuntimeController } from './ui/playlist-mode-runtime';
 import { createPlaylistReorderRuntimeController } from './ui/playlist-reorder-runtime';
 import {
   bindAddMediaTrigger,
@@ -2695,19 +2687,10 @@ const init = function (): void {
     );
   }
 
-  function isPlaylistInteractionLocked(): boolean {
-    return playlistMode !== 'normal';
-  }
+  let playlistModeRuntime: ReturnType<typeof createPlaylistModeRuntimeController> | null = null;
 
-  function canUseEditMode(): boolean {
-    const ambientData = getAmbientData();
-    return canUsePlaylistEditMode({
-      playlist: AMP_STATUS.playlist,
-      visibleItems: getPlaylistItemsForCurrentView(),
-      isCloud: ambientData?.isCloud === true,
-      myPlaylistName: MYPLAYLIST_NAME,
-      hasStoredMyPlaylist: localStorage.getItem(MYPLAYLIST_KEY) !== null,
-    });
+  function isPlaylistInteractionLocked(): boolean {
+    return playlistModeRuntime?.isInteractionLocked() ?? playlistMode !== 'normal';
   }
 
   function getPlaylistItemsForCurrentView(): MediaItem[] {
@@ -2727,160 +2710,25 @@ const init = function (): void {
     });
   }
 
-  function closePlaylistModeMenu(): void {
-    closePlaylistModeMenuView(playlistModeUi);
-  }
+  const closePlaylistModeMenu = (): void => {
+    playlistModeRuntime?.closeMenu();
+  };
 
-  function togglePlaylistModeMenu(forceOpen = false): void {
-    togglePlaylistModeMenuView(playlistModeUi, forceOpen);
-  }
+  const updatePlaylistModeUI = (): void => {
+    playlistModeRuntime?.updateUi();
+  };
 
-  function updatePlaylistModeUI(): void {
-    syncPlaylistModeButton(playlistMode);
-    updatePlaylistModeMenuState(
-      playlistModeUi,
-      playlistMode,
-      canUseEditMode(),
-      canUseReorderMode()
-    );
-  }
+  const syncPlaylistModeAvailability = (visibleItemCount: number): void => {
+    playlistModeRuntime?.onViewItemCountChanged(visibleItemCount);
+  };
 
-  function resetPlaylistOperationMode(): void {
-    deleteSelectedIds.clear();
-    resetReorderState();
-    discardActiveMediaEditDraft();
-    hideMediaEditModal(false);
-    clearMediaEditContext();
-    playlistMode = 'normal';
-    updatePlaylistModeUI();
-  }
+  const setPlaylistMode = (nextMode: PlaylistMode): void => {
+    playlistModeRuntime?.setMode(nextMode);
+  };
 
-  function syncPlaylistModeAvailability(visibleItemCount: number): void {
-    if (!$BUTTON_PLAYLIST_MODE) return;
-    const canUsePlaylistModes = canUseAnyPlaylistMode({
-      visibleItemCount,
-      canUseEditMode: canUseEditMode(),
-      canMutatePlaylist: canMutateCurrentPlaylist(),
-    });
-    if (!canUsePlaylistModes) {
-      closePlaylistModeMenu();
-      if (shouldResetPlaylistOperationMode(playlistMode, canUsePlaylistModes)) {
-        resetPlaylistOperationMode();
-      }
-    }
-    syncPlaylistModeAvailabilityButton($BUTTON_PLAYLIST_MODE, canUsePlaylistModes);
-    updatePlaylistModeUI();
-  }
-
-  function setPlaylistMode(nextMode: PlaylistMode): void {
-    const transition = resolvePlaylistModeTransition({
-      currentMode: playlistMode,
-      nextMode,
-      canUseEditMode: canUseEditMode(),
-      canMutatePlaylist: canMutateCurrentPlaylist(),
-      canUseReorderMode: canUseReorderMode(),
-    });
-
-    if (transition.kind === 'reject_edit' || transition.kind === 'reject_reorder') {
-      closePlaylistModeMenu();
-      updatePlaylistModeUI();
-      return;
-    }
-    if (transition.kind === 'reject_mutation') {
-      closePlaylistModeMenu();
-      syncPlaylistModeAvailability(getPlaylistItemsForCurrentView().length);
-      return;
-    }
-    if (transition.kind === 'same_mode') {
-      closePlaylistModeMenu();
-      return;
-    }
-    if (transition.kind === 'confirm_edit_leave') {
-      if (!confirmDiscardActiveMediaEditIfNeeded()) {
-        closePlaylistModeMenu();
-        updatePlaylistModeUI();
-        return;
-      }
-      hideMediaEditModal(false);
-      clearMediaEditContext();
-    }
-    if (transition.kind === 'apply') {
-      if (transition.clearDeleteSelections) {
-        deleteSelectedIds.clear();
-      }
-      if (transition.resetReorderOnLeave) {
-        resetReorderState();
-      }
-      if (transition.captureReorderOnEnter) {
-        captureReorderSnapshot();
-      }
-    }
-
-    playlistMode = nextMode;
-    closePlaylistModeMenu();
-    updatePlaylistModeUI();
-    updatePlaylist();
-  }
-
-  function handlePlaylistModeButtonClick(): void {
-    if (playlistMode === 'reorder') {
-      syncReorderWorkingIdsFromDom();
-    }
-
-    const action = resolvePlaylistModeButtonAction({
-      currentMode: playlistMode,
-      deleteSelectionCount: deleteSelectedIds.size,
-      reorderDirty: isReorderDirty(),
-    });
-
-    if (action.kind === 'toggle_menu') {
-      togglePlaylistModeMenu();
-      return;
-    }
-
-    closePlaylistModeMenu();
-
-    if (action.kind === 'confirm_delete') {
-      const title = $BUTTON_PLAYLIST_MODE?.dataset['confirmDeleteTitle'] || 'Delete selected items?';
-      const body = $BUTTON_PLAYLIST_MODE?.dataset['confirmDeleteBody'] || 'Selected items will be removed from your playlist.';
-      playlistConfirmModal.open(title, body, () => {
-        void commitDeleteSelections();
-      }, () => {
-        if (playlistMode === 'reorder') {
-          playlistReorderRuntime.restoreInitialOrder();
-          updatePlaylist();
-        }
-      });
-      return;
-    }
-
-    if (action.kind === 'confirm_reorder') {
-      const title = $BUTTON_PLAYLIST_MODE?.dataset['confirmReorderTitle'] || 'Apply reordered sequence?';
-      const body = $BUTTON_PLAYLIST_MODE?.dataset['confirmReorderBody'] || 'Apply the current item order to your playlist.';
-      playlistConfirmModal.open(title, body, () => {
-        applyReorderChanges();
-        playlistMode = 'normal';
-        updatePlaylistModeUI();
-        updatePlaylist();
-      }, () => {
-        if (playlistMode === 'reorder') {
-          playlistReorderRuntime.restoreInitialOrder();
-          updatePlaylist();
-        }
-      });
-      return;
-    }
-
-    if (action.kind === 'exit_delete') {
-      deleteSelectedIds.clear();
-    } else if (action.kind === 'exit_reorder') {
-      resetReorderState();
-    }
-
-    playlistMode = 'normal';
-    updatePlaylistModeUI();
-    updatePlaylist();
-  }
+  const handlePlaylistModeButtonClick = (): void => {
+    playlistModeRuntime?.handleModeButtonClick();
+  };
 
   if ($BUTTON_PLAYLIST_MODE && $PLAYLIST_MODE_MENU) {
     bindPlaylistModeControls({
@@ -2918,6 +2766,69 @@ const init = function (): void {
     canUseReorderMode,
     sortableLibrary: Sortable,
     onPersist: persistMyPlaylistIfNeeded,
+  });
+  playlistModeRuntime = createPlaylistModeRuntimeController({
+    playlistModeUi,
+    getMode: () => playlistMode,
+    setModeState: (mode) => {
+      playlistMode = mode;
+    },
+    syncModeButton: syncPlaylistModeButton,
+    getStatus: () => ({
+      ctg: AMP_STATUS.ctg,
+      media: AMP_STATUS.media,
+      playlist: AMP_STATUS.playlist,
+    }),
+    canMutatePlaylist: canMutateCurrentPlaylist,
+    sortableAvailable: isSortableAvailable,
+    isCloud: () => getAmbientData()?.isCloud === true,
+    myPlaylistName: MYPLAYLIST_NAME,
+    hasStoredMyPlaylist: () => localStorage.getItem(MYPLAYLIST_KEY) !== null,
+    getDeleteSelectionCount: () => deleteSelectedIds.size,
+    clearDeleteSelections: () => {
+      deleteSelectedIds.clear();
+    },
+    resetReorderState,
+    captureReorderSnapshot,
+    syncReorderWorkingIdsFromDom,
+    restoreReorderInitialOrder: () => {
+      playlistReorderRuntime.restoreInitialOrder();
+    },
+    isReorderDirty,
+    canDiscardEditLeave: confirmDiscardActiveMediaEditIfNeeded,
+    discardEditState: () => {
+      discardActiveMediaEditDraft();
+      hideMediaEditModal(false);
+      clearMediaEditContext();
+    },
+    updatePlaylist,
+    openDeleteConfirm: () => {
+      const title = $BUTTON_PLAYLIST_MODE?.dataset['confirmDeleteTitle'] || 'Delete selected items?';
+      const body = $BUTTON_PLAYLIST_MODE?.dataset['confirmDeleteBody'] || 'Selected items will be removed from your playlist.';
+      playlistConfirmModal.open(title, body, () => {
+        void commitDeleteSelections();
+      }, () => {
+        if (playlistMode === 'reorder') {
+          playlistReorderRuntime.restoreInitialOrder();
+          updatePlaylist();
+        }
+      });
+    },
+    openReorderConfirm: () => {
+      const title = $BUTTON_PLAYLIST_MODE?.dataset['confirmReorderTitle'] || 'Apply reordered sequence?';
+      const body = $BUTTON_PLAYLIST_MODE?.dataset['confirmReorderBody'] || 'Apply the current item order to your playlist.';
+      playlistConfirmModal.open(title, body, () => {
+        applyReorderChanges();
+        playlistMode = 'normal';
+        updatePlaylistModeUI();
+        updatePlaylist();
+      }, () => {
+        if (playlistMode === 'reorder') {
+          playlistReorderRuntime.restoreInitialOrder();
+          updatePlaylist();
+        }
+      });
+    },
   });
   async function persistCurrentPlaylistMutation(): Promise<{ ok: boolean; message: string }> {
     return persistMediaEditForCurrentPlaylist(AMP_STATUS.media || []);
