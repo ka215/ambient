@@ -77,6 +77,9 @@ import {
   hasActiveUnsavedMediaEditDraft,
 } from './state/media-edit-state';
 import {
+  createMediaEditDurationSyncController,
+} from './state/media-edit-duration-sync';
+import {
   closeResponsiveDrawers,
   cleanupDrawerBackdrops,
   isResponsiveDrawerOpen,
@@ -1191,10 +1194,6 @@ const init = function (): void {
   let mediaEditPreviewSourceItem: MediaItem | null = null;
   let mediaEditPreviewType: 'youtube' | 'audio' | 'video' | null = null;
   let mediaEditPreviewDurationSeconds: number | null = null;
-  let mediaEditDurationSyncTimerId: number | null = null;
-  let mediaEditDurationSyncTimeoutId: number | null = null;
-  let mediaEditDurationSyncItemKey: string | null = null;
-
   interface MediaEditDraft {
     category: string;
     title: string;
@@ -1306,60 +1305,6 @@ const init = function (): void {
     );
   }
 
-  function clearMediaEditDurationSyncWait(): void {
-    if (mediaEditDurationSyncTimerId !== null) {
-      window.clearInterval(mediaEditDurationSyncTimerId);
-      mediaEditDurationSyncTimerId = null;
-    }
-    if (mediaEditDurationSyncTimeoutId !== null) {
-      window.clearTimeout(mediaEditDurationSyncTimeoutId);
-      mediaEditDurationSyncTimeoutId = null;
-    }
-    mediaEditDurationSyncItemKey = null;
-    setMediaEditSeekTimelineLoading(false);
-  }
-
-  function maybeCompleteMediaEditDurationSyncWait(): boolean {
-    if (!mediaEditActiveItem || !mediaEditDurationSyncItemKey) {
-      return false;
-    }
-    if (mediaEditDurationSyncItemKey !== getMediaEditItemIdentity(mediaEditActiveItem)) {
-      clearMediaEditDurationSyncWait();
-      return false;
-    }
-    if (resolveMediaEditKnownDuration(mediaEditActiveItem) === null) {
-      return false;
-    }
-    clearMediaEditDurationSyncWait();
-    syncMediaEditTimingDisplay();
-    return true;
-  }
-
-  function startMediaEditDurationSyncWaitIfNeeded(): void {
-    if (!mediaEditActiveItem || !isElement($MEDIA_EDIT_SEEK_TIMELINE)) {
-      clearMediaEditDurationSyncWait();
-      return;
-    }
-    const itemKey = getMediaEditItemIdentity(mediaEditActiveItem);
-    if (resolveMediaEditKnownDuration(mediaEditActiveItem) !== null) {
-      clearMediaEditDurationSyncWait();
-      return;
-    }
-
-    clearMediaEditDurationSyncWait();
-    mediaEditDurationSyncItemKey = itemKey;
-    setMediaEditSeekTimelineLoading(true);
-
-    mediaEditDurationSyncTimerId = window.setInterval(() => {
-      maybeCompleteMediaEditDurationSyncWait();
-    }, MEDIA_EDIT_DURATION_SYNC_POLL_MS);
-
-    mediaEditDurationSyncTimeoutId = window.setTimeout(() => {
-      clearMediaEditDurationSyncWait();
-      syncMediaEditTimingDisplay();
-    }, MEDIA_EDIT_DURATION_SYNC_TIMEOUT_MS);
-  }
-
   function resolveMediaEditEffectiveEnd(
     seekEnd: number | null,
     duration: number | null,
@@ -1427,6 +1372,15 @@ const init = function (): void {
     }
     syncMediaEditSeekTimeline(seekStart, seekEnd, fadeInEnd, fadeOutStart);
   }
+
+  const mediaEditDurationSync = createMediaEditDurationSyncController({
+    timeoutMs: MEDIA_EDIT_DURATION_SYNC_TIMEOUT_MS,
+    pollMs: MEDIA_EDIT_DURATION_SYNC_POLL_MS,
+    onSetLoading: setMediaEditSeekTimelineLoading,
+    getActiveItemKey: () => (mediaEditActiveItem ? getMediaEditItemIdentity(mediaEditActiveItem) : null),
+    hasKnownDuration: () => resolveMediaEditKnownDuration(mediaEditActiveItem) !== null,
+    onSyncReady: syncMediaEditTimingDisplay,
+  });
 
   function getMediaEditCategoryOptions(): string[] {
     if (!Array.isArray(AMP_STATUS.category)) {
@@ -1765,7 +1719,7 @@ const init = function (): void {
   }
 
   function resetMediaEditPreviewState(): void {
-    clearMediaEditDurationSyncWait();
+    mediaEditDurationSync.clear();
     destroyMediaEditPreviewPlayer();
     clearMediaEditPreviewContainer();
     mediaEditPreviewSourceItem = null;
@@ -1813,7 +1767,7 @@ const init = function (): void {
         validateAndRenderMediaEditDraftFromForm();
       },
       onDurationAvailable: () => {
-        maybeCompleteMediaEditDurationSyncWait();
+        mediaEditDurationSync.maybeComplete();
       },
       hidePreviewError: hideMediaEditPreviewError,
       showPreviewError: showMediaEditPreviewError,
@@ -2517,7 +2471,7 @@ const init = function (): void {
       bindForm: bindMediaEditForm,
       updatePlaylist,
       createPreview: createMediaEditPreview,
-      startDurationSyncWait: startMediaEditDurationSyncWaitIfNeeded,
+      startDurationSyncWait: mediaEditDurationSync.startIfNeeded,
       modalElement: $MODAL_MEDIA_EDIT,
       titleElement: $MODAL_MEDIA_EDIT_TITLE,
       itemTitleElement: isElement($MODAL_MEDIA_EDIT_ITEM_TITLE) ? $MODAL_MEDIA_EDIT_ITEM_TITLE : null,
