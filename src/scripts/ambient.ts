@@ -76,10 +76,12 @@ import {
   hydrateMediaEditDraftMap,
 } from './state/media-edit-draft-store';
 import {
+  applyBoundMediaEditDraftState,
   applyMediaEditDirtyState,
   bindMediaEditDraftState,
   canOpenMediaEditModal,
   clearMediaEditStateContext,
+  confirmDiscardMediaEditDraft,
   discardMediaEditDraft,
   hasActiveUnsavedMediaEditDraft,
 } from './state/media-edit-state';
@@ -2130,16 +2132,14 @@ const init = function (): void {
   function confirmDiscardActiveMediaEditIfNeeded(
     fallbackMessage: string = getLocalizedMessage('mediaEditDiscardUnsaved', 'Discard unsaved edits?')
   ): boolean {
-    if (!isActiveMediaEditUnsaved() && !mediaEditIsDirty) {
-      return true;
-    }
-    const message = getLocalizedMessage('Discard unsaved media edits?', fallbackMessage);
-    const shouldDiscard = window.confirm(message);
-    if (!shouldDiscard) {
-      return false;
-    }
-    discardActiveMediaEditDraft();
-    return true;
+    return confirmDiscardMediaEditDraft({
+      hasUnsavedDraft: isActiveMediaEditUnsaved(),
+      isDirty: mediaEditIsDirty,
+      fallbackMessage,
+      getLocalizedMessage,
+      confirm: (message) => window.confirm(message),
+      discardDraft: discardActiveMediaEditDraft,
+    });
   }
 
   function bindMediaEditForm(mediaItem: MediaItem): void {
@@ -2150,12 +2150,20 @@ const init = function (): void {
       createBaseDraft: createMediaEditBaseDraft,
       isSameDraft: isSameMediaEditDraft,
     });
-    mediaEditActiveItem = binding.activeItem;
-    mediaEditBaseDraft = binding.baseDraft;
-    const initialDraft = binding.initialDraft;
-    applyMediaEditDraftToForm(initialDraft);
-    setMediaEditDirtyState(binding.isDirty);
-    validateAndRenderMediaEditDraftFromForm();
+    applyBoundMediaEditDraftState({
+      binding,
+      setActiveItem: (nextItem) => {
+        mediaEditActiveItem = nextItem;
+      },
+      setBaseDraft: (draft) => {
+        mediaEditBaseDraft = draft as MediaEditDraft;
+      },
+      applyDraftToForm: applyMediaEditDraftToForm,
+      setDirtyState: setMediaEditDirtyState,
+      validateDraft: () => {
+        validateAndRenderMediaEditDraftFromForm();
+      },
+    });
   }
 
   hydrateMediaEditDraftStore();

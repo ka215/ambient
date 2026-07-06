@@ -91,3 +91,48 @@ export function canOpenMediaEditModal(options: {
     )
   );
 }
+
+export function confirmDiscardMediaEditDraft(options: {
+  hasUnsavedDraft: boolean;
+  isDirty: boolean;
+  fallbackMessage: string;
+  getLocalizedMessage: (key: string, fallback: string) => string;
+  confirm: (message: string) => boolean;
+  discardDraft: () => void;
+}): boolean {
+  if (!options.hasUnsavedDraft && !options.isDirty) {
+    return true;
+  }
+
+  const message = options.getLocalizedMessage(
+    'Discard unsaved media edits?',
+    options.fallbackMessage
+  );
+  const shouldDiscard = options.confirm(message);
+  if (!shouldDiscard) {
+    return false;
+  }
+
+  options.discardDraft();
+  return true;
+}
+
+export function applyBoundMediaEditDraftState<TDraft>(options: {
+  binding: {
+    activeItem: MediaItem;
+    baseDraft: TDraft;
+    initialDraft: TDraft;
+    isDirty: boolean;
+  };
+  setActiveItem: (mediaItem: MediaItem) => void;
+  setBaseDraft: (draft: TDraft) => void;
+  applyDraftToForm: (draft: TDraft) => void;
+  setDirtyState: (isDirty: boolean) => void;
+  validateDraft: () => void;
+}): void {
+  options.setActiveItem(options.binding.activeItem);
+  options.setBaseDraft(options.binding.baseDraft);
+  options.applyDraftToForm(options.binding.initialDraft);
+  options.setDirtyState(options.binding.isDirty);
+  options.validateDraft();
+}
