@@ -112,6 +112,10 @@ import {
   trapMediaEditModalFocus as trapMediaEditModalFocusView,
 } from './ui/media-edit-modal-view';
 import {
+  setMediaEditSeekTimelineLoadingView,
+  syncMediaEditSeekTimelineView,
+} from './ui/media-edit-timing-view';
+import {
   bindMediaEditCategoryControls,
   createMediaEditCategoryOptionButton,
   bindMediaEditFieldControls,
@@ -1254,65 +1258,41 @@ const init = function (): void {
     return sharedFormatSecondsToTimelineLabel(value);
   }
 
-  function setMediaEditSeekTimelineMarker(
-    markerElm: HTMLElement | null,
-    markerTimeElm: HTMLElement | null,
-    value: number | null,
-    rangeMax: number
-  ): void {
-    if (!isElement(markerElm) || !isElement(markerTimeElm)) {
-      return;
-    }
-    if (!Number.isInteger(value) || value === null || value < 0) {
-      markerElm.classList.add('hidden');
-      markerTimeElm.textContent = '';
-      return;
-    }
-    const positionPercent = Math.min(99, Math.max(1, (value / rangeMax) * 100));
-    markerElm.style.setProperty('--media-edit-seek-pos', `${positionPercent}`);
-    markerTimeElm.textContent = formatSecondsToTimelineLabel(value);
-    markerElm.classList.remove('hidden');
-  }
-
   function syncMediaEditSeekTimeline(
     seekStart: number | null,
     seekEnd: number | null,
     fadeInEnd: number | null,
     fadeOutStart: number | null
   ): void {
-    if (!isElement($MEDIA_EDIT_SEEK_TIMELINE)) {
-      return;
-    }
     const knownDuration = resolveMediaEditKnownDuration(mediaEditActiveItem);
-    const rangeMax = Math.max(
-      1,
-      knownDuration ?? 0,
-      seekStart ?? 0,
-      seekEnd ?? 0,
-      fadeInEnd ?? 0,
-      fadeOutStart ?? 0
-    );
-    if (isElement($MEDIA_EDIT_SEEK_FIXED_START_TIME)) {
-      $MEDIA_EDIT_SEEK_FIXED_START_TIME.textContent = formatSecondsToTimelineLabel(0);
-    }
-    if (isElement($MEDIA_EDIT_SEEK_FIXED_END_TIME)) {
-      $MEDIA_EDIT_SEEK_FIXED_END_TIME.textContent = formatSecondsToTimelineLabel(knownDuration ?? rangeMax);
-    }
-    setMediaEditSeekTimelineMarker($MEDIA_EDIT_SEEK_MARKER_START, $MEDIA_EDIT_SEEK_MARKER_START_TIME, seekStart, rangeMax);
-    setMediaEditSeekTimelineMarker($MEDIA_EDIT_SEEK_MARKER_FADEIN_END, $MEDIA_EDIT_SEEK_MARKER_FADEIN_END_TIME, fadeInEnd, rangeMax);
-    setMediaEditSeekTimelineMarker($MEDIA_EDIT_SEEK_MARKER_FADEOUT_START, $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START_TIME, fadeOutStart, rangeMax);
-    setMediaEditSeekTimelineMarker($MEDIA_EDIT_SEEK_MARKER_END, $MEDIA_EDIT_SEEK_MARKER_END_TIME, seekEnd, rangeMax);
+    syncMediaEditSeekTimelineView({
+      timeline: isElement($MEDIA_EDIT_SEEK_TIMELINE) ? $MEDIA_EDIT_SEEK_TIMELINE : null,
+      timelineLoading: isElement($MEDIA_EDIT_SEEK_TIMELINE_LOADING) ? $MEDIA_EDIT_SEEK_TIMELINE_LOADING : null,
+      fixedStartTime: isElement($MEDIA_EDIT_SEEK_FIXED_START_TIME) ? $MEDIA_EDIT_SEEK_FIXED_START_TIME : null,
+      fixedEndTime: isElement($MEDIA_EDIT_SEEK_FIXED_END_TIME) ? $MEDIA_EDIT_SEEK_FIXED_END_TIME : null,
+      startMarker: isElement($MEDIA_EDIT_SEEK_MARKER_START) ? $MEDIA_EDIT_SEEK_MARKER_START : null,
+      startLabel: isElement($MEDIA_EDIT_SEEK_MARKER_START_TIME) ? $MEDIA_EDIT_SEEK_MARKER_START_TIME : null,
+      fadeInMarker: isElement($MEDIA_EDIT_SEEK_MARKER_FADEIN_END) ? $MEDIA_EDIT_SEEK_MARKER_FADEIN_END : null,
+      fadeInLabel: isElement($MEDIA_EDIT_SEEK_MARKER_FADEIN_END_TIME) ? $MEDIA_EDIT_SEEK_MARKER_FADEIN_END_TIME : null,
+      fadeOutMarker: isElement($MEDIA_EDIT_SEEK_MARKER_FADEOUT_START) ? $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START : null,
+      fadeOutLabel: isElement($MEDIA_EDIT_SEEK_MARKER_FADEOUT_START_TIME) ? $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START_TIME : null,
+      endMarker: isElement($MEDIA_EDIT_SEEK_MARKER_END) ? $MEDIA_EDIT_SEEK_MARKER_END : null,
+      endLabel: isElement($MEDIA_EDIT_SEEK_MARKER_END_TIME) ? $MEDIA_EDIT_SEEK_MARKER_END_TIME : null,
+      seekStart,
+      seekEnd,
+      fadeInEnd,
+      fadeOutStart,
+      knownDuration,
+      formatSecondsToTimelineLabel,
+    });
   }
 
   function setMediaEditSeekTimelineLoading(isLoading: boolean): void {
-    if (isElement($MEDIA_EDIT_SEEK_TIMELINE)) {
-      $MEDIA_EDIT_SEEK_TIMELINE.classList.toggle('is-loading', isLoading);
-      $MEDIA_EDIT_SEEK_TIMELINE.setAttribute('aria-busy', isLoading ? 'true' : 'false');
-    }
-    if (isElement($MEDIA_EDIT_SEEK_TIMELINE_LOADING)) {
-      $MEDIA_EDIT_SEEK_TIMELINE_LOADING.classList.toggle('hidden', !isLoading);
-      $MEDIA_EDIT_SEEK_TIMELINE_LOADING.setAttribute('aria-hidden', isLoading ? 'false' : 'true');
-    }
+    setMediaEditSeekTimelineLoadingView(
+      isElement($MEDIA_EDIT_SEEK_TIMELINE) ? $MEDIA_EDIT_SEEK_TIMELINE : null,
+      isElement($MEDIA_EDIT_SEEK_TIMELINE_LOADING) ? $MEDIA_EDIT_SEEK_TIMELINE_LOADING : null,
+      isLoading
+    );
   }
 
   function clearMediaEditDurationSyncWait(): void {
