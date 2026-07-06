@@ -255,7 +255,6 @@ import {
 import {
   findMediaById,
   resolvePlaybackCandidateIds,
-  runPlaybackTransition,
   resolveRequestedPlayId,
   resolveSeekRange,
 } from './ui/player/player-runtime';
@@ -273,6 +272,10 @@ import {
   showMediaEditPreviewErrorView,
 } from './ui/player/media-edit-preview';
 import { type PlayableSetupKind } from './ui/player/player-setup';
+import {
+  createManagedHtmlRuntimePlayer,
+  createManagedYouTubeRuntimePlayer,
+} from './ui/player/player-runtime-factory';
 import {
   destroyYouTubePreviewPlayer,
   resetYouTubePlayerView,
@@ -294,10 +297,6 @@ import {
   updateCategoryView,
 } from './ui/forms/management-forms';
 import { applyCloudEditRestrictionsView as applyCloudEditRestrictionsFormView } from './ui/forms/cloud-edit-restrictions';
-import {
-  createHtmlPlayerInstance,
-  createYouTubePlayerInstance,
-} from './ui/player/player-instantiation';
 import { bindMediaManagementForm } from './ui/forms/media-management';
 import { bindPlaylistManagementForm } from './ui/forms/playlist-management';
 import {
@@ -3773,11 +3772,12 @@ const init = function (): void {
    * Create a YouTube player.
    */
   function createYTPlayer(mediaData: MediaItem): void {
-    player = createYouTubePlayerInstance({
+    player = createManagedYouTubeRuntimePlayer({
       mediaData,
       embedWrapper: $EMBED_WRAPPER,
-      playerId: 'ytplayer',
-      size: getPlayerSizeForCurrentMode(),
+      watchButton: $BUTTON_WATCH_TY,
+      optionalContainer: $OPTIONAL_CONTAINER,
+      getPlayerSizeForCurrentMode,
       getOption,
       status: AMP_STATUS as any,
       getDefaultVolume,
@@ -3785,37 +3785,27 @@ const init = function (): void {
       normalizeVolume,
       inRange,
       emitYouTubeSignal,
-      showPlayerWrapper: () => {
-        showYouTubePlayerWrapper($EMBED_WRAPPER);
-      },
+      showYouTubePlayerWrapper: () => showYouTubePlayerWrapper($EMBED_WRAPPER),
       findMediaById,
       logger,
       onAutoplayTimeout: () => {
         (document.getElementById('btn-play') as HTMLButtonElement).dispatchEvent(new Event('click'));
       },
-      setWatchOrigin: (watchUrl: string) => {
+      setWatchOriginState: (watchUrl: string) => {
         setWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER, watchUrl);
       },
-      showPausedState: () => {
-        syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'paused');
-      },
-      showPlayingState: () => {
-        syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
+      syncPlaybackButtonState: (state) => {
+        syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, state);
       },
       cleanupTransition: (eventTarget, playbackTarget) => {
         cleanupManagedYouTubeTransition(
           eventTarget as { destroy?: () => void; g?: { remove?: () => void } },
-          playbackTarget
+          playbackTarget as any
         );
       },
-      transitionToTarget: (playbackTarget) => {
-        runPlaybackTransition({
-          playbackTarget,
-          getExtension: getExt,
-          updatePlayStatus,
-          setupPlayer,
-        });
-      },
+      updatePlayStatus,
+      getExtension: getExt,
+      setupPlayer,
       abortPlaybackTimers,
       resetPlayerView: () => {
         resetYouTubePlayerView({
@@ -3835,7 +3825,7 @@ const init = function (): void {
    * Create a media playback player using HTML.
    */
   function createPlayerTag(tagname: 'audio' | 'video', mediaData: MediaItem): void {
-    createHtmlPlayerInstance({
+    createManagedHtmlRuntimePlayer({
       tagName: tagname,
       mediaData,
       embedWrapper: $EMBED_WRAPPER,
@@ -3856,11 +3846,8 @@ const init = function (): void {
       startSeek: (callback, intervalMs) => playbackTimers.startSeek(callback, intervalMs),
       abortSeeking,
       abortFadeOut: () => abortFader('fadeout'),
-      showPlayingState: () => {
-        syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
-      },
-      showPausedState: () => {
-        syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'paused');
+      syncPlaybackButtonState: (state) => {
+        syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, state);
       },
       logger,
       resolveSeekRange,
