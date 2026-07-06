@@ -85,6 +85,9 @@ import {
   createMediaEditDurationSyncController,
 } from './state/media-edit-duration-sync';
 import {
+  executeMediaEditSavePipeline,
+} from './state/media-edit-save';
+import {
   applyMediaEditDraftToItem,
   cloneMediaEditDraft as cloneMediaEditDraftState,
   createEmptyMediaEditDraft,
@@ -2047,21 +2050,15 @@ const init = function (): void {
     }
     const { workingMedia, updatedItem } = saveTarget;
 
-    const uploadResult = await uploadMediaEditThumbnailIfNeeded(draft);
-    if (!uploadResult.ok) {
-      failMediaEditSave(uploadResult.message);
-      return;
-    }
-
-    const deleteResult = await deleteMediaEditThumbnailIfNeeded(draft);
-    if (!deleteResult.ok) {
-      failMediaEditSave(deleteResult.message);
-      return;
-    }
-
     const previousMedia = AMP_STATUS.media;
     AMP_STATUS.media = workingMedia;
-    const persistResult = await persistMediaEditForCurrentPlaylist(workingMedia);
+    const persistResult = await executeMediaEditSavePipeline({
+      workingMedia,
+      updatedItem,
+      uploadThumbnail: () => uploadMediaEditThumbnailIfNeeded(draft),
+      deleteThumbnail: () => deleteMediaEditThumbnailIfNeeded(draft),
+      persistWorkingMedia: (nextWorkingMedia) => persistMediaEditForCurrentPlaylist(nextWorkingMedia),
+    });
     if (!persistResult.ok) {
       AMP_STATUS.media = previousMedia;
       failMediaEditSave(persistResult.message);
@@ -2069,8 +2066,8 @@ const init = function (): void {
     }
     finalizeMediaEditSave({
       activeItem: mediaEditActiveItem,
-      updatedItem,
-      persistMessage: persistResult.message,
+      updatedItem: persistResult.updatedItem,
+      persistMessage: persistResult.persistMessage,
     });
   }
 
