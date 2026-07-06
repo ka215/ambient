@@ -42,6 +42,11 @@ import {
   useAppStorage,
 } from './platform/storage';
 import {
+  deleteMediaEditThumbnail as deleteMediaEditThumbnailPlatform,
+  persistPlaylistMediaEdit,
+  uploadMediaEditThumbnail as uploadMediaEditThumbnailPlatform,
+} from './platform/media-edit-persistence';
+import {
   createPlaylistResumeController,
   getSavedPlaylistResumeContext,
   PlaylistResumeContext,
@@ -1908,34 +1913,13 @@ const init = function (): void {
       return { ok: false, message: getLocalizedMessage('mediaEditThumbnailCloudOnly', 'Thumbnail upload is available only in local mode.') };
     }
 
-    const base64Body = draft.thumbnailDataUrl.includes(',')
-      ? draft.thumbnailDataUrl.split(',')[1] || ''
-      : draft.thumbnailDataUrl;
-    if (base64Body.trim() === '') {
-      return { ok: false, message: getLocalizedMessage('mediaEditThumbnailInvalidData', 'Invalid image data.') };
-    }
-
-    try {
-      const rawResponse = await fetch(`${BASE_URL}${MEDIA_EDIT_THUMBNAIL_ENDPOINT}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          filename: draft.thumbnailName,
-          content: base64Body,
-        }),
-        credentials: 'same-origin',
-      });
-      const payload = await rawResponse.json().catch(() => null) as ApiResponse<{ message?: string }> | null;
-      if (!payload || payload.state !== 'ok') {
-        const message = payload?.data?.message || getLocalizedMessage('mediaEditThumbnailUploadFailed', 'Failed to save thumbnail image.');
-        return { ok: false, message };
-      }
-      return { ok: true, message: payload.data?.message || '' };
-    } catch (_error) {
-      return { ok: false, message: getLocalizedMessage('mediaEditThumbnailUploadFailed', 'Failed to save thumbnail image.') };
-    }
+    return uploadMediaEditThumbnailPlatform({
+      baseUrl: BASE_URL,
+      endpoint: MEDIA_EDIT_THUMBNAIL_ENDPOINT,
+      filename: draft.thumbnailName,
+      dataUrl: draft.thumbnailDataUrl,
+      getLocalizedMessage,
+    });
   }
 
   async function deleteMediaEditThumbnailIfNeeded(draft: MediaEditDraft): Promise<{ ok: boolean; message: string }> {
@@ -1952,24 +1936,12 @@ const init = function (): void {
       return { ok: false, message: getLocalizedMessage('mediaEditThumbnailCloudOnly', 'Thumbnail removal is available only in local mode.') };
     }
 
-    try {
-      const rawResponse = await fetch(`${BASE_URL}${MEDIA_EDIT_THUMBNAIL_ENDPOINT}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ filename }),
-        credentials: 'same-origin',
-      });
-      const payload = await rawResponse.json().catch(() => null) as ApiResponse<{ message?: string }> | null;
-      if (!payload || payload.state !== 'ok') {
-        const message = payload?.data?.message || getLocalizedMessage('mediaEditThumbnailDeleteFailed', 'Failed to delete thumbnail image.');
-        return { ok: false, message };
-      }
-      return { ok: true, message: payload.data?.message || '' };
-    } catch (_error) {
-      return { ok: false, message: getLocalizedMessage('mediaEditThumbnailDeleteFailed', 'Failed to delete thumbnail image.') };
-    }
+    return deleteMediaEditThumbnailPlatform({
+      baseUrl: BASE_URL,
+      endpoint: MEDIA_EDIT_THUMBNAIL_ENDPOINT,
+      filename,
+      getLocalizedMessage,
+    });
   }
 
   async function persistMediaEditForCurrentPlaylist(workingMedia: MediaItem[]): Promise<{ ok: boolean; message: string }> {
@@ -1992,24 +1964,18 @@ const init = function (): void {
     try {
       const payloadText = generatePlaylistJson(false);
       const payloadObject = parseJsonWithBom(payloadText);
-      const rawResponse = await fetch(`${BASE_URL}${MEDIA_EDIT_SAVE_ENDPOINT}/${encodeURIComponent(playlistName)}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payloadObject),
-        credentials: 'same-origin',
+      const payload = await persistPlaylistMediaEdit({
+        baseUrl: BASE_URL,
+        endpoint: MEDIA_EDIT_SAVE_ENDPOINT,
+        playlistName,
+        payloadObject,
+        getLocalizedMessage,
       });
-      const payload = await rawResponse.json().catch(() => null) as ApiResponse<{ message?: string }> | null;
-      if (!payload || payload.state !== 'ok') {
-        const message = payload?.data?.message || getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.');
-        return { ok: false, message };
+      if (!payload.ok) {
+        return payload;
       }
       void workingMedia;
-      return {
-        ok: true,
-        message: payload.data?.message || getLocalizedMessage('mediaEditSaveSuccess', 'Media changes were saved successfully.'),
-      };
+      return payload;
     } catch (_error) {
       return { ok: false, message: getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.') };
     }
