@@ -116,6 +116,11 @@ import {
   syncMediaEditSeekTimelineView,
 } from './ui/media-edit-timing-view';
 import {
+  clearMediaEditValidationView as clearMediaEditValidationViewState,
+  renderMediaEditValidationView,
+  setMediaEditSaveButtonDisabled as setMediaEditSaveButtonDisabledView,
+} from './ui/media-edit-validation-view';
+import {
   bindMediaEditCategoryControls,
   createMediaEditCategoryOptionButton,
   bindMediaEditFieldControls,
@@ -1610,85 +1615,35 @@ const init = function (): void {
       && a.thumbnailDataUrl === b.thumbnailDataUrl;
   }
 
-  function setMediaEditFieldValidationState(field: HTMLElement | null, validState: boolean | null): void {
-    if (!isElement(field)) {
-      return;
-    }
-    const invalid = validState === false;
-    field.setAttribute('aria-invalid', invalid ? 'true' : 'false');
-    field.classList.toggle('border-red-500', invalid);
-    field.classList.toggle('focus:border-red-500', invalid);
-    field.classList.toggle('focus:ring-red-200', invalid);
-    field.classList.toggle('dark:focus:ring-red-900', invalid);
-    const group = field.closest<HTMLElement>('[data-media-edit-validation-group]');
-    if (group) {
-      group.classList.toggle('border-red-500', invalid);
-      group.classList.toggle('focus-within:border-red-500', invalid);
-      group.classList.toggle('focus-within:ring-2', invalid);
-      group.classList.toggle('focus-within:ring-red-200', invalid);
-      group.classList.toggle('dark:focus-within:border-red-400', invalid);
-      group.classList.toggle('dark:focus-within:ring-red-900', invalid);
-    }
-  }
-
-  function setMediaEditFieldValidationMessage(fieldId: string, message: string | null): void {
-    const messageElm = document.getElementById(`${fieldId}-error`) as HTMLElement | null;
-    if (!messageElm) {
-      return;
-    }
-    if (message === null || message.trim() === '') {
-      messageElm.textContent = '';
-      messageElm.classList.add('hidden');
-      return;
-    }
-    messageElm.textContent = message;
-    messageElm.classList.remove('hidden');
-  }
-
   function setMediaEditSaveButtonDisabled(disabled: boolean): void {
-    if (!isElement($BUTTON_SAVE_MEDIA_EDIT)) {
-      return;
-    }
-    $BUTTON_SAVE_MEDIA_EDIT.disabled = disabled;
-    $BUTTON_SAVE_MEDIA_EDIT.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+    setMediaEditSaveButtonDisabledView(
+      $BUTTON_SAVE_MEDIA_EDIT instanceof HTMLButtonElement ? $BUTTON_SAVE_MEDIA_EDIT : null,
+      disabled
+    );
   }
 
   function clearMediaEditValidationView(): void {
-    setMediaEditFieldValidationMessage('modal-media-edit-category', null);
-    setMediaEditFieldValidationMessage('modal-media-edit-title-input', null);
-    setMediaEditFieldValidationMessage('modal-media-edit-seek-start', null);
-    setMediaEditFieldValidationMessage('modal-media-edit-seek-end', null);
-    setMediaEditFieldValidationMessage('modal-media-edit-fadein-end', null);
-    setMediaEditFieldValidationMessage('modal-media-edit-fadeout-start', null);
-    [
-      $MEDIA_EDIT_CATEGORY,
-      $MEDIA_EDIT_TITLE,
-      $MEDIA_EDIT_SEEK_START,
-      $MEDIA_EDIT_SEEK_END,
-      $MEDIA_EDIT_FADEIN_END,
-      $MEDIA_EDIT_FADEOUT_START,
-    ].forEach((field) => {
-      setMediaEditFieldValidationState(field, null);
+    clearMediaEditValidationViewState({
+      categoryField: $MEDIA_EDIT_CATEGORY,
+      titleField: $MEDIA_EDIT_TITLE,
+      seekStartField: $MEDIA_EDIT_SEEK_START,
+      seekEndField: $MEDIA_EDIT_SEEK_END,
+      fadeInEndField: $MEDIA_EDIT_FADEIN_END,
+      fadeOutStartField: $MEDIA_EDIT_FADEOUT_START,
+      saveButton: $BUTTON_SAVE_MEDIA_EDIT instanceof HTMLButtonElement ? $BUTTON_SAVE_MEDIA_EDIT : null,
     });
-    setMediaEditSaveButtonDisabled(false);
   }
 
   function renderMediaEditValidation(result: MediaEditValidationResult): void {
-    const invalidIds = new Set(result.invalidFieldIds);
-    const fieldMessages = result.fieldMessages || {};
-    setMediaEditFieldValidationState($MEDIA_EDIT_CATEGORY, !invalidIds.has('modal-media-edit-category'));
-    setMediaEditFieldValidationState($MEDIA_EDIT_TITLE, !invalidIds.has('modal-media-edit-title-input'));
-    setMediaEditFieldValidationState($MEDIA_EDIT_SEEK_START, !invalidIds.has('modal-media-edit-seek-start'));
-    setMediaEditFieldValidationState($MEDIA_EDIT_SEEK_END, !invalidIds.has('modal-media-edit-seek-end'));
-    setMediaEditFieldValidationState($MEDIA_EDIT_FADEIN_END, !invalidIds.has('modal-media-edit-fadein-end'));
-    setMediaEditFieldValidationState($MEDIA_EDIT_FADEOUT_START, !invalidIds.has('modal-media-edit-fadeout-start'));
-    setMediaEditFieldValidationMessage('modal-media-edit-category', fieldMessages['modal-media-edit-category']?.[0] || null);
-    setMediaEditFieldValidationMessage('modal-media-edit-title-input', fieldMessages['modal-media-edit-title-input']?.[0] || null);
-    setMediaEditFieldValidationMessage('modal-media-edit-seek-start', fieldMessages['modal-media-edit-seek-start']?.[0] || null);
-    setMediaEditFieldValidationMessage('modal-media-edit-seek-end', fieldMessages['modal-media-edit-seek-end']?.[0] || null);
-    setMediaEditFieldValidationMessage('modal-media-edit-fadein-end', fieldMessages['modal-media-edit-fadein-end']?.[0] || null);
-    setMediaEditFieldValidationMessage('modal-media-edit-fadeout-start', fieldMessages['modal-media-edit-fadeout-start']?.[0] || null);
-    setMediaEditSaveButtonDisabled(!result.valid);
+    renderMediaEditValidationView({
+      categoryField: $MEDIA_EDIT_CATEGORY,
+      titleField: $MEDIA_EDIT_TITLE,
+      seekStartField: $MEDIA_EDIT_SEEK_START,
+      seekEndField: $MEDIA_EDIT_SEEK_END,
+      fadeInEndField: $MEDIA_EDIT_FADEIN_END,
+      fadeOutStartField: $MEDIA_EDIT_FADEOUT_START,
+      saveButton: $BUTTON_SAVE_MEDIA_EDIT instanceof HTMLButtonElement ? $BUTTON_SAVE_MEDIA_EDIT : null,
+    }, result);
   }
 
   function validateMediaEditDraft(draft: MediaEditDraft): MediaEditValidationResult {
