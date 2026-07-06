@@ -236,9 +236,6 @@ import {
   updatePlaybackStatus,
 } from './ui/player/player-actions';
 import {
-  cleanupManagedYouTubeTransition,
-} from './ui/player/player-orchestration';
-import {
   getBottomMenuHeight as getBottomMenuHeightView,
   getFullWindowPlayerSize as getFullWindowPlayerSizeView,
   getPlayerSizeForCurrentMode as getPlayerSizeForCurrentModeView,
@@ -250,7 +247,6 @@ import {
   resolveSeekRange,
 } from './ui/player/player-runtime';
 import {
-  cleanupHtmlPlayerWrapper,
   destroyHtmlPreviewPlayer,
 } from './ui/player/html-player-view';
 import {
@@ -264,10 +260,6 @@ import {
 } from './ui/player/media-edit-preview';
 import { type PlayableSetupKind } from './ui/player/player-setup';
 import {
-  createManagedHtmlRuntimePlayer,
-  createManagedYouTubeRuntimePlayer,
-} from './ui/player/player-runtime-factory';
-import {
   playManagedMediaSelection,
   reportManagedPlaybackIssue,
   runManagedFadeIn,
@@ -275,10 +267,11 @@ import {
   setupManagedPlayer,
 } from './ui/player/player-runtime-actions';
 import {
+  createAmbientHtmlRuntimePlayer,
+  createAmbientYouTubeRuntimePlayer,
+} from './ui/player/player-runtime-composition';
+import {
   destroyYouTubePreviewPlayer,
-  resetYouTubePlayerView,
-  setWatchOriginState,
-  showYouTubePlayerWrapper,
 } from './ui/player/youtube-player-view';
 import {
   syncYouTubePreviewDuration,
@@ -3770,11 +3763,13 @@ const init = function (): void {
    * Create a YouTube player.
    */
   function createYTPlayer(mediaData: MediaItem): void {
-    player = createManagedYouTubeRuntimePlayer({
+    player = createAmbientYouTubeRuntimePlayer({
       mediaData,
       embedWrapper: $EMBED_WRAPPER,
       watchButton: $BUTTON_WATCH_TY,
       optionalContainer: $OPTIONAL_CONTAINER,
+      playButton: $BUTTON_PLAY,
+      pauseButton: $BUTTON_PAUSE,
       getPlayerSizeForCurrentMode,
       getOption,
       status: AMP_STATUS as any,
@@ -3783,35 +3778,16 @@ const init = function (): void {
       normalizeVolume,
       inRange,
       emitYouTubeSignal,
-      showYouTubePlayerWrapper: () => showYouTubePlayerWrapper($EMBED_WRAPPER),
       findMediaById,
       logger,
       onAutoplayTimeout: () => {
         (document.getElementById('btn-play') as HTMLButtonElement).dispatchEvent(new Event('click'));
       },
-      setWatchOriginState: (watchUrl: string) => {
-        setWatchOriginState($BUTTON_WATCH_TY, $OPTIONAL_CONTAINER, watchUrl);
-      },
-      syncPlaybackButtonState: (state) => {
-        syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, state);
-      },
-      cleanupTransition: (eventTarget, playbackTarget) => {
-        cleanupManagedYouTubeTransition(
-          eventTarget as { destroy?: () => void; g?: { remove?: () => void } },
-          playbackTarget as any
-        );
-      },
+      syncPlaybackButtonState,
       updatePlayStatus,
       getExtension: getExt,
       setupPlayer,
       abortPlaybackTimers,
-      resetPlayerView: () => {
-        resetYouTubePlayerView({
-          embedWrapper: $EMBED_WRAPPER,
-          watchButton: $BUTTON_WATCH_TY,
-          optionalContainer: $OPTIONAL_CONTAINER,
-        });
-      },
       resolveSeekRange,
       fadeIn: (eventTarget, period, start) => fadeIn(eventTarget, period, start),
       fadeOut: (eventTarget, period, end) => fadeOut(eventTarget, period, end),
@@ -3823,12 +3799,14 @@ const init = function (): void {
    * Create a media playback player using HTML.
    */
   function createPlayerTag(tagname: 'audio' | 'video', mediaData: MediaItem): void {
-    createManagedHtmlRuntimePlayer({
+    createAmbientHtmlRuntimePlayer({
       tagName: tagname,
       mediaData,
       embedWrapper: $EMBED_WRAPPER,
       watchButton: $BUTTON_WATCH_TY,
       optionalContainer: $OPTIONAL_CONTAINER,
+      playButton: $BUTTON_PLAY,
+      pauseButton: $BUTTON_PAUSE,
       getPlaceholderPath: () => getNoMediaImagePath('placeholder'),
       isFullWindowMode,
       getFullWindowPlayerSize,
@@ -3844,17 +3822,12 @@ const init = function (): void {
       startSeek: (callback, intervalMs) => playbackTimers.startSeek(callback, intervalMs),
       abortSeeking,
       abortFadeOut: () => abortFader('fadeout'),
-      syncPlaybackButtonState: (state) => {
-        syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, state);
-      },
+      syncPlaybackButtonState,
       logger,
       resolveSeekRange,
       fadeOut,
       fadeIn,
-      onBeforeTransition: () => {
-        abortPlaybackTimers();
-        cleanupHtmlPlayerWrapper($EMBED_WRAPPER);
-      },
+      abortPlaybackTimers,
       getExtension: getExt,
       updatePlayStatus,
       setupPlayer,
