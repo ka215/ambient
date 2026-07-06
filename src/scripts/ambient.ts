@@ -139,11 +139,11 @@ import {
 } from './ui/modals';
 import {
   focusPlaylistItemById as focusPlaylistItemByIdView,
+  finalizeMediaEditModalClose,
   isMediaEditModalVisible as isMediaEditModalVisibleView,
   openManagedMediaEditModal,
   renderMediaEditSourceBadges as renderMediaEditSourceBadgesView,
   resetMediaEditModalView,
-  restoreMediaEditModalFocus,
   trapMediaEditModalFocus as trapMediaEditModalFocusView,
 } from './ui/media-edit-modal-view';
 import {
@@ -165,6 +165,7 @@ import {
 } from './ui/media-edit-controls';
 import {
   applyMediaEditDraftToFormView,
+  resolveMediaEditThumbnailSrc,
 } from './ui/media-edit-form-view';
 import {
   appendPlaylistQuickAddItem,
@@ -2180,18 +2181,12 @@ const init = function (): void {
   }
 
   function getMediaEditThumbnailSrc(mediaItem: MediaItem | null, draft: MediaEditDraft | null = null): string {
-    if (draft?.thumbnailMode === 'upload' && draft.thumbnailDataUrl !== '') {
-      return draft.thumbnailDataUrl;
-    }
-    const ambientData = getAmbientData();
-    if (draft?.thumbnailMode === 'remove') {
-      return getNoMediaImagePath('thumb');
-    }
-    const thumbnailName = draft?.thumbnailName || mediaItem?.image || mediaItem?.thumb || '';
-    if (thumbnailName !== '' && ambientData?.imageDir) {
-      return ambientData.imageDir + thumbnailName;
-    }
-    return getNoMediaImagePath('thumb');
+    return resolveMediaEditThumbnailSrc({
+      mediaItem,
+      draft,
+      imageDir: getAmbientData()?.imageDir,
+      getFallbackThumbnailSrc: () => getNoMediaImagePath('thumb'),
+    });
   }
 
   function hideMediaEditModal(restoreFocus = false): void {
@@ -2201,20 +2196,22 @@ const init = function (): void {
     const editedMediaId = mediaEditActiveItem?.amId ?? null;
     resetMediaEditPreviewState();
     clearMediaEditValidationView();
-    resetMediaEditModalView({
-      modalElement: $MODAL_MEDIA_EDIT,
-      titleElement: isElement($MODAL_MEDIA_EDIT_TITLE) ? $MODAL_MEDIA_EDIT_TITLE : null,
-      itemTitleElement: isElement($MODAL_MEDIA_EDIT_ITEM_TITLE) ? $MODAL_MEDIA_EDIT_ITEM_TITLE : null,
-      itemSourceElement: isElement($MODAL_MEDIA_EDIT_ITEM_SOURCE) ? $MODAL_MEDIA_EDIT_ITEM_SOURCE : null,
-      defaultTitle: defaultMediaEditModalTitle,
-    });
-    closeMediaEditCategoryDropdown(false);
     const restoreTarget = activeMediaEditTrigger;
     activeMediaEditTrigger = null;
-    restoreMediaEditModalFocus({
+    finalizeMediaEditModalClose({
       restoreFocus,
       preferredFocusId: isMediaPlaybackActive() ? AMP_STATUS.current : editedMediaId,
       restoreTarget,
+      resetModalView: () => {
+        resetMediaEditModalView({
+          modalElement: $MODAL_MEDIA_EDIT,
+          titleElement: isElement($MODAL_MEDIA_EDIT_TITLE) ? $MODAL_MEDIA_EDIT_TITLE : null,
+          itemTitleElement: isElement($MODAL_MEDIA_EDIT_ITEM_TITLE) ? $MODAL_MEDIA_EDIT_ITEM_TITLE : null,
+          itemSourceElement: isElement($MODAL_MEDIA_EDIT_ITEM_SOURCE) ? $MODAL_MEDIA_EDIT_ITEM_SOURCE : null,
+          defaultTitle: defaultMediaEditModalTitle,
+        });
+      },
+      closeCategoryDropdown: () => closeMediaEditCategoryDropdown(false),
       focusPlaylistItemById,
     });
   }

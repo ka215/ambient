@@ -178,6 +178,24 @@ export function restoreMediaEditModalFocus(options: {
   }
 }
 
+export function finalizeMediaEditModalClose(options: {
+  restoreFocus: boolean;
+  preferredFocusId: number | null;
+  restoreTarget: HTMLElement | null;
+  resetModalView: () => void;
+  closeCategoryDropdown: () => void;
+  focusPlaylistItemById: (amId: number | null) => boolean;
+}): void {
+  options.resetModalView();
+  options.closeCategoryDropdown();
+  restoreMediaEditModalFocus({
+    restoreFocus: options.restoreFocus,
+    preferredFocusId: options.preferredFocusId,
+    restoreTarget: options.restoreTarget,
+    focusPlaylistItemById: options.focusPlaylistItemById,
+  });
+}
+
 export function openManagedMediaEditModal(options: {
   mediaItem: MediaItem;
   trigger: HTMLElement;

@@ -1,5 +1,24 @@
 import type { MediaEditDraft } from '../state/media-edit-draft';
 
+export function resolveMediaEditThumbnailSrc(options: {
+  mediaItem: MediaItem | null;
+  draft: MediaEditDraft | null;
+  imageDir: string | null | undefined;
+  getFallbackThumbnailSrc: () => string;
+}): string {
+  if (options.draft?.thumbnailMode === 'upload' && options.draft.thumbnailDataUrl !== '') {
+    return options.draft.thumbnailDataUrl;
+  }
+  if (options.draft?.thumbnailMode === 'remove') {
+    return options.getFallbackThumbnailSrc();
+  }
+  const thumbnailName = options.draft?.thumbnailName || options.mediaItem?.image || options.mediaItem?.thumb || '';
+  if (thumbnailName !== '' && options.imageDir) {
+    return options.imageDir + thumbnailName;
+  }
+  return options.getFallbackThumbnailSrc();
+}
+
 export function applyMediaEditDraftToFormView(options: {
   draft: MediaEditDraft;
   activeItem: MediaItem | null;
