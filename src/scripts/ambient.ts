@@ -80,6 +80,17 @@ import {
   createMediaEditDurationSyncController,
 } from './state/media-edit-duration-sync';
 import {
+  applyMediaEditDraftToItem,
+  cloneMediaEditDraft as cloneMediaEditDraftState,
+  cloneMediaItemsForEdit,
+  createEmptyMediaEditDraft,
+  createMediaEditDraftKey as createMediaEditDraftKeyState,
+  isSameMediaEditDraft as isSameMediaEditDraftState,
+  sanitizeMediaEditDraft as sanitizeMediaEditDraftState,
+  type MediaEditDraft,
+  type MediaEditDraftInput,
+} from './state/media-edit-draft';
+import {
   closeResponsiveDrawers,
   cleanupDrawerBackdrops,
   isResponsiveDrawerOpen,
@@ -1194,38 +1205,6 @@ const init = function (): void {
   let mediaEditPreviewSourceItem: MediaItem | null = null;
   let mediaEditPreviewType: 'youtube' | 'audio' | 'video' | null = null;
   let mediaEditPreviewDurationSeconds: number | null = null;
-  interface MediaEditDraft {
-    category: string;
-    title: string;
-    artist: string;
-    description: string;
-    volume: number;
-    seekStart: number | null;
-    seekEnd: number | null;
-    fadeInEnd: number | null;
-    fadeOutStart: number | null;
-    thumbnailMode: 'keep' | 'upload' | 'remove';
-    thumbnailName: string;
-    thumbnailMime: string;
-    thumbnailDataUrl: string;
-  }
-
-  interface MediaEditDraftInput {
-    category?: unknown;
-    title?: unknown;
-    artist?: unknown;
-    description?: unknown;
-    volume?: unknown;
-    seekStart?: unknown;
-    seekEnd?: unknown;
-    fadeInEnd?: unknown;
-    fadeOutStart?: unknown;
-    thumbnailMode?: unknown;
-    thumbnailName?: unknown;
-    thumbnailMime?: unknown;
-    thumbnailDataUrl?: unknown;
-  }
-
   interface MediaEditValidationResult {
     valid: boolean;
     messages: string[];
@@ -1487,56 +1466,26 @@ const init = function (): void {
     draft: MediaEditDraftInput,
     fallback: MediaEditDraft | null = null
   ): MediaEditDraft {
-    const fallbackVolume = fallback?.volume ?? getDefaultVolume();
-    return {
-      category: sanitizeMediaText(String(draft.category ?? fallback?.category ?? ''), MEDIA_TITLE_MAX_LENGTH),
-      title: sanitizeMediaText(String(draft.title ?? fallback?.title ?? ''), MEDIA_TITLE_MAX_LENGTH),
-      artist: sanitizeMediaText(String(draft.artist ?? fallback?.artist ?? ''), MEDIA_ARTIST_MAX_LENGTH),
-      description: sanitizeMediaEditDescInput(String(draft.description ?? fallback?.description ?? ''), MEDIA_DESC_MAX_LENGTH),
-      volume: normalizeVolume(draft.volume ?? fallbackVolume, fallbackVolume),
-      seekStart: normalizeMediaEditTimingValue(draft.seekStart, fallback?.seekStart ?? null),
-      seekEnd: normalizeMediaEditTimingValue(draft.seekEnd, fallback?.seekEnd ?? null),
-      fadeInEnd: normalizeMediaEditTimingValue(draft.fadeInEnd, fallback?.fadeInEnd ?? null),
-      fadeOutStart: normalizeMediaEditTimingValue(draft.fadeOutStart, fallback?.fadeOutStart ?? null),
-      thumbnailMode: (draft.thumbnailMode as MediaEditDraft['thumbnailMode'] | undefined) ?? fallback?.thumbnailMode ?? 'keep',
-      thumbnailName: sanitizeMediaText(String(draft.thumbnailName ?? fallback?.thumbnailName ?? ''), 255),
-      thumbnailMime: sanitizeMediaText(String(draft.thumbnailMime ?? fallback?.thumbnailMime ?? ''), 100),
-      thumbnailDataUrl: String(draft.thumbnailDataUrl ?? fallback?.thumbnailDataUrl ?? ''),
-    };
+    return sanitizeMediaEditDraftState({
+      draft,
+      fallback,
+      defaultVolume: getDefaultVolume(),
+      titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+      artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+      descriptionMaxLength: MEDIA_DESC_MAX_LENGTH,
+      sanitizeText: sanitizeMediaText,
+      sanitizeDescription: sanitizeMediaEditDescInput,
+      normalizeVolume,
+      normalizeTimingValue: normalizeMediaEditTimingValue,
+    });
   }
 
   function cloneMediaEditDraft(draft: MediaEditDraft): MediaEditDraft {
-    return {
-      category: draft.category,
-      title: draft.title,
-      artist: draft.artist,
-      description: draft.description,
-      volume: draft.volume,
-      seekStart: draft.seekStart,
-      seekEnd: draft.seekEnd,
-      fadeInEnd: draft.fadeInEnd,
-      fadeOutStart: draft.fadeOutStart,
-      thumbnailMode: draft.thumbnailMode,
-      thumbnailName: draft.thumbnailName,
-      thumbnailMime: draft.thumbnailMime,
-      thumbnailDataUrl: draft.thumbnailDataUrl,
-    };
+    return cloneMediaEditDraftState(draft);
   }
 
   function isSameMediaEditDraft(a: MediaEditDraft, b: MediaEditDraft): boolean {
-    return a.category === b.category
-      && a.title === b.title
-      && a.artist === b.artist
-      && a.description === b.description
-      && a.volume === b.volume
-      && a.seekStart === b.seekStart
-      && a.seekEnd === b.seekEnd
-      && a.fadeInEnd === b.fadeInEnd
-      && a.fadeOutStart === b.fadeOutStart
-      && a.thumbnailMode === b.thumbnailMode
-      && a.thumbnailName === b.thumbnailName
-      && a.thumbnailMime === b.thumbnailMime
-      && a.thumbnailDataUrl === b.thumbnailDataUrl;
+    return isSameMediaEditDraftState(a, b);
   }
 
   function setMediaEditSaveButtonDisabled(disabled: boolean): void {
@@ -1803,7 +1752,7 @@ const init = function (): void {
 
   function getMediaEditDraftKey(mediaItem: MediaItem): string {
     const playlistKey = (AMP_STATUS.playlist || '').trim() || '__playlist__';
-    return `${playlistKey}::${getMediaEditItemIdentity(mediaItem)}`;
+    return createMediaEditDraftKeyState(playlistKey, getMediaEditItemIdentity(mediaItem));
   }
 
   function hydrateMediaEditDraftStore(): void {
@@ -1856,21 +1805,7 @@ const init = function (): void {
       thumbnailName: mediaItem.image || mediaItem.thumb || '',
       thumbnailMime: '',
       thumbnailDataUrl: '',
-    }, {
-      category: '',
-      title: '',
-      artist: '',
-      description: '',
-      volume: getDefaultVolume(),
-      seekStart: null,
-      seekEnd: null,
-      fadeInEnd: null,
-      fadeOutStart: null,
-      thumbnailMode: 'keep',
-      thumbnailName: '',
-      thumbnailMime: '',
-      thumbnailDataUrl: '',
-    });
+    }, createEmptyMediaEditDraft(getDefaultVolume()));
   }
 
   function applyMediaEditDraftToForm(draft: MediaEditDraft): void {
@@ -1948,37 +1883,20 @@ const init = function (): void {
   }
 
   function getMediaEditWorkingCopyForSave(): MediaItem[] | null {
-    if (!Array.isArray(AMP_STATUS.media) || !mediaEditActiveItem) {
+    if (!mediaEditActiveItem) {
       return null;
     }
-    return AMP_STATUS.media.map((item: MediaItem) => ({ ...item }));
+    return cloneMediaItemsForEdit(AMP_STATUS.media);
   }
 
   function applyDraftToMediaItem(item: MediaItem, draft: MediaEditDraft): MediaItem {
-    const nextItem: MediaItem = { ...item };
-    const fadeDurations = getMediaEditComputedFadeDurations(item, draft);
-    const categoryIndex = findCategoryIndexByName(draft.category);
-    if (categoryIndex !== null) {
-      nextItem.catId = categoryIndex;
-    }
-    nextItem.title = draft.title;
-    nextItem.artist = draft.artist || '';
-    nextItem.desc = sanitizeMediaEditDescForStorage(draft.description || '', MEDIA_DESC_MAX_LENGTH);
-    nextItem.volume = draft.volume;
-    nextItem.start = draft.seekStart ?? '';
-    nextItem.end = draft.seekEnd ?? '';
-    nextItem.fadein = fadeDurations.fadein;
-    nextItem.fadeout = fadeDurations.fadeout;
-
-    if (draft.thumbnailMode === 'remove') {
-      nextItem.image = '';
-      nextItem.thumb = '';
-    } else if (draft.thumbnailMode === 'upload' && draft.thumbnailName !== '') {
-      nextItem.image = draft.thumbnailName;
-      nextItem.thumb = '';
-    }
-
-    return nextItem;
+    return applyMediaEditDraftToItem({
+      item,
+      draft,
+      findCategoryIndexByName,
+      sanitizeDescriptionForStorage: (value) => sanitizeMediaEditDescForStorage(value, MEDIA_DESC_MAX_LENGTH),
+      getComputedFadeDurations: getMediaEditComputedFadeDurations,
+    });
   }
 
   async function uploadMediaEditThumbnailIfNeeded(draft: MediaEditDraft): Promise<{ ok: boolean; message: string }> {
@@ -2216,21 +2134,7 @@ const init = function (): void {
   }
 
   function readMediaEditDraftFromForm(): MediaEditDraft {
-    const fallback = mediaEditBaseDraft || {
-      category: '',
-      title: '',
-      artist: '',
-      description: '',
-      volume: getDefaultVolume(),
-      seekStart: null,
-      seekEnd: null,
-      fadeInEnd: null,
-      fadeOutStart: null,
-      thumbnailMode: 'keep',
-      thumbnailName: '',
-      thumbnailMime: '',
-      thumbnailDataUrl: '',
-    };
+    const fallback = mediaEditBaseDraft || createEmptyMediaEditDraft(getDefaultVolume());
     const activeDraft = mediaEditActiveItem
       ? mediaEditDraftStore.get(getMediaEditDraftKey(mediaEditActiveItem)) || null
       : null;
