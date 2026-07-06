@@ -125,11 +125,67 @@ export function createMediaEditDraftKey(playlistKey: string, itemIdentity: strin
   return `${playlistKey}::${itemIdentity}`;
 }
 
+export function findMediaEditCategoryIndex(
+  categories: string[] | null | undefined,
+  categoryName: string
+): number | null {
+  const target = categoryName.trim();
+  if (target === '' || !Array.isArray(categories)) {
+    return null;
+  }
+  const index = categories.findIndex((name) => String(name).trim() === target);
+  return index >= 0 ? index : null;
+}
+
+export function ensureMediaEditCategory(
+  categories: string[] | null | undefined,
+  categoryName: string
+): string[] {
+  const nextCategories = Array.isArray(categories) ? [...categories] : [];
+  if (findMediaEditCategoryIndex(nextCategories, categoryName) === null) {
+    nextCategories.push(categoryName.trim());
+  }
+  return nextCategories;
+}
+
 export function cloneMediaItemsForEdit(mediaItems: MediaItem[] | null | undefined): MediaItem[] | null {
   if (!Array.isArray(mediaItems)) {
     return null;
   }
   return mediaItems.map((item) => ({ ...item }));
+}
+
+export function updateMediaEditWorkingCopy(options: {
+  mediaItems: MediaItem[] | null | undefined;
+  activeMediaId: number | null | undefined;
+  applyUpdate: (item: MediaItem) => MediaItem;
+}): {
+  workingMedia: MediaItem[];
+  targetIndex: number;
+  updatedItem: MediaItem;
+} | null {
+  if (!Array.isArray(options.mediaItems) || !Number.isInteger(options.activeMediaId)) {
+    return null;
+  }
+  const workingMedia = cloneMediaItemsForEdit(options.mediaItems);
+  if (!workingMedia) {
+    return null;
+  }
+  const targetIndex = workingMedia.findIndex((item) => item.amId === options.activeMediaId);
+  if (targetIndex < 0) {
+    return null;
+  }
+  const targetItem = workingMedia[targetIndex];
+  if (!targetItem) {
+    return null;
+  }
+  const updatedItem = options.applyUpdate(targetItem);
+  workingMedia[targetIndex] = updatedItem;
+  return {
+    workingMedia,
+    targetIndex,
+    updatedItem,
+  };
 }
 
 export function applyMediaEditDraftToItem(options: {

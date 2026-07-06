@@ -87,13 +87,15 @@ import {
 import {
   applyMediaEditDraftToItem,
   cloneMediaEditDraft as cloneMediaEditDraftState,
-  cloneMediaItemsForEdit,
   createEmptyMediaEditDraft,
   createMediaEditDraftKey as createMediaEditDraftKeyState,
+  ensureMediaEditCategory,
+  findMediaEditCategoryIndex,
   isSameMediaEditDraft as isSameMediaEditDraftState,
   sanitizeMediaEditDraft as sanitizeMediaEditDraftState,
   type MediaEditDraft,
   type MediaEditDraftInput,
+  updateMediaEditWorkingCopy,
 } from './state/media-edit-draft';
 import {
   closeResponsiveDrawers,
@@ -1879,19 +1881,7 @@ const init = function (): void {
   }
 
   function findCategoryIndexByName(categoryName: string): number | null {
-    const target = categoryName.trim();
-    if (target === '' || !Array.isArray(AMP_STATUS.category)) {
-      return null;
-    }
-    const index = AMP_STATUS.category.findIndex((name) => String(name).trim() === target);
-    return index >= 0 ? index : null;
-  }
-
-  function getMediaEditWorkingCopyForSave(): MediaItem[] | null {
-    if (!mediaEditActiveItem) {
-      return null;
-    }
-    return cloneMediaItemsForEdit(AMP_STATUS.media);
+    return findMediaEditCategoryIndex(AMP_STATUS.category, categoryName);
   }
 
   function applyDraftToMediaItem(item: MediaItem, draft: MediaEditDraft): MediaItem {
@@ -2015,28 +2005,20 @@ const init = function (): void {
     }
 
     const draft = readMediaEditDraftFromForm();
-    let categoryIndex = findCategoryIndexByName(draft.category);
-    if (categoryIndex === null) {
-      if (!Array.isArray(AMP_STATUS.category)) {
-        AMP_STATUS.category = [];
-      }
-      AMP_STATUS.category.push(draft.category.trim());
-      categoryIndex = AMP_STATUS.category.length - 1;
-    }
+    AMP_STATUS.category = ensureMediaEditCategory(AMP_STATUS.category, draft.category);
 
     setMediaEditSaveBusyState(true);
 
-    const workingMedia = getMediaEditWorkingCopyForSave();
-    if (!workingMedia) {
+    const saveTarget = updateMediaEditWorkingCopy({
+      mediaItems: AMP_STATUS.media,
+      activeMediaId: mediaEditActiveItem.amId,
+      applyUpdate: (item) => applyDraftToMediaItem(item, draft),
+    });
+    if (!saveTarget) {
       setMediaEditSaveBusyState(false);
       return;
     }
-
-    const targetIndex = workingMedia.findIndex((item) => item.amId === mediaEditActiveItem!.amId);
-    if (targetIndex < 0) {
-      setMediaEditSaveBusyState(false);
-      return;
-    }
+    const { workingMedia, updatedItem } = saveTarget;
 
     const uploadResult = await uploadMediaEditThumbnailIfNeeded(draft);
     if (!uploadResult.ok) {
@@ -2050,14 +2032,6 @@ const init = function (): void {
       return;
     }
 
-    const targetMediaItem = workingMedia[targetIndex];
-    if (!targetMediaItem) {
-      setMediaEditSaveBusyState(false);
-      return;
-    }
-
-    workingMedia[targetIndex] = applyDraftToMediaItem(targetMediaItem, draft);
-
     const previousMedia = AMP_STATUS.media;
     AMP_STATUS.media = workingMedia;
     const persistResult = await persistMediaEditForCurrentPlaylist(workingMedia);
@@ -2069,7 +2043,7 @@ const init = function (): void {
 
     const draftKey = getMediaEditDraftKey(mediaEditActiveItem);
     deleteMediaEditDraftByKey(draftKey);
-    mediaEditBaseDraft = createMediaEditBaseDraft(workingMedia[targetIndex]);
+    mediaEditBaseDraft = createMediaEditBaseDraft(updatedItem);
     setMediaEditDirtyState(false);
     clearCategory();
     updateCategory();
@@ -2077,8 +2051,8 @@ const init = function (): void {
     syncMediaEditCategoryClearButton();
     renderMediaEditCategoryOptions();
     updatePlaylist();
-    if (AMP_STATUS.current === workingMedia[targetIndex].amId) {
-      updatePlayStatus(workingMedia[targetIndex].amId);
+    if (AMP_STATUS.current === updatedItem.amId) {
+      updatePlayStatus(updatedItem.amId);
     }
     setMediaEditSaveBusyState(false);
     updateNotice({
