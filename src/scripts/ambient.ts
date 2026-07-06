@@ -152,6 +152,7 @@ import {
   resolveMediaEditThumbnailSrc,
 } from './ui/media-edit-form-view';
 import { createMediaEditUiBindings } from './state/media-edit-ui-bindings';
+import { createMediaEditPreviewBindings } from './state/media-edit-preview-bindings';
 import {
   appendPlaylistQuickAddItem,
   createShuffledPlaylist,
@@ -220,22 +221,15 @@ import {
   resolveSeekRange,
 } from './ui/player/player-runtime';
 import {
-  destroyHtmlPreviewPlayer,
 } from './ui/player/html-player-view';
 import {
 } from './ui/player/html-player-source';
 import {
-  clearMediaEditPreviewContainerView,
-  createManagedMediaEditPreview,
-  hideMediaEditPreviewErrorView,
-  resolveMediaEditPreviewCurrentTime,
-  showMediaEditPreviewErrorView,
 } from './ui/player/media-edit-preview';
 import {
   createAmbientPlayerBindings,
 } from './ui/player/player-runtime-bindings';
 import {
-  destroyYouTubePreviewPlayer,
 } from './ui/player/youtube-player-view';
 import {
   syncYouTubePreviewDuration,
@@ -1138,11 +1132,6 @@ const init = function (): void {
   let mediaEditActiveItem: MediaItem | null = null;
   let mediaEditBaseDraft: MediaEditDraft | null = null;
   let mediaEditIsDirty = false;
-  let mediaEditPreviewYouTubePlayer: YTPlayer | null = null;
-  let mediaEditPreviewHtmlPlayer: HTMLMediaElement | null = null;
-  let mediaEditPreviewSourceItem: MediaItem | null = null;
-  let mediaEditPreviewType: 'youtube' | 'audio' | 'video' | null = null;
-  let mediaEditPreviewDurationSeconds: number | null = null;
 
   // [MODULE-BOUNDARY][v2.5.3-P0][EXTRACT-BL-002]: shared time adapters for media-edit timing
   function parseMediaTimeToIntegerSeconds(value: unknown): number | null {
@@ -1210,7 +1199,7 @@ const init = function (): void {
     timeoutMs: MEDIA_EDIT_DURATION_SYNC_TIMEOUT_MS,
     pollMs: MEDIA_EDIT_DURATION_SYNC_POLL_MS,
     getActiveItem: () => mediaEditActiveItem,
-    getPreviewDurationSeconds: () => mediaEditPreviewDurationSeconds,
+    getPreviewDurationSeconds: () => mediaEditPreview.getPreviewDurationSeconds(),
     getItemIdentity: getMediaEditItemIdentity,
     normalizeTimingValue: normalizeMediaEditTimingValue,
     parseMediaTimeToIntegerSeconds,
@@ -1292,98 +1281,24 @@ const init = function (): void {
     resolveEffectiveEnd: resolveMediaEditEffectiveEnd,
     normalizeTimingValue: normalizeMediaEditTimingValue,
   });
-
-
-  function hideMediaEditPreviewError(): void {
-    hideMediaEditPreviewErrorView({
-      errorElement: isElement($MEDIA_EDIT_PREVIEW_ERROR) ? $MEDIA_EDIT_PREVIEW_ERROR : null,
-      errorMessageElement: isElement($MEDIA_EDIT_PREVIEW_ERROR_MESSAGE) ? $MEDIA_EDIT_PREVIEW_ERROR_MESSAGE : null,
-    });
-  }
-
-  function showMediaEditPreviewError(message: string): void {
-    showMediaEditPreviewErrorView({
-      errorElement: isElement($MEDIA_EDIT_PREVIEW_ERROR) ? $MEDIA_EDIT_PREVIEW_ERROR : null,
-      errorMessageElement: isElement($MEDIA_EDIT_PREVIEW_ERROR_MESSAGE) ? $MEDIA_EDIT_PREVIEW_ERROR_MESSAGE : null,
-      message,
-    });
-  }
-
-  function destroyMediaEditPreviewPlayer(): void {
-    if (mediaEditPreviewYouTubePlayer) {
-      destroyYouTubePreviewPlayer(mediaEditPreviewYouTubePlayer);
-      mediaEditPreviewYouTubePlayer = null;
-    }
-    if (mediaEditPreviewHtmlPlayer) {
-      destroyHtmlPreviewPlayer(mediaEditPreviewHtmlPlayer);
-      mediaEditPreviewHtmlPlayer = null;
-    }
-    mediaEditPreviewType = null;
-  }
-
-  function clearMediaEditPreviewContainer(): void {
-    clearMediaEditPreviewContainerView(isElement($MEDIA_EDIT_PREVIEW) ? $MEDIA_EDIT_PREVIEW : null);
-  }
-
-  function resetMediaEditPreviewState(): void {
-    mediaEditDurationSync.clear();
-    destroyMediaEditPreviewPlayer();
-    clearMediaEditPreviewContainer();
-    mediaEditPreviewSourceItem = null;
-    mediaEditPreviewDurationSeconds = null;
-    hideMediaEditPreviewError();
-  }
-
-  function getMediaEditPreviewCurrentTime(): number | null {
-    return resolveMediaEditPreviewCurrentTime({
-      previewType: mediaEditPreviewType,
-      youtubePlayer: mediaEditPreviewYouTubePlayer,
-      htmlPlayer: mediaEditPreviewHtmlPlayer,
-    });
-  }
-
-  function syncMediaEditTimingFieldFromPreview(field: HTMLInputElement | null, label: string): void {
-    if (!isElement(field)) {
-      return;
-    }
-    const currentTime = getMediaEditPreviewCurrentTime();
-    if (currentTime === null) {
-      showMediaEditPreviewError(
-        getLocalizedMessage('mediaEditPreviewSyncFailed', `Unable to sync ${label}. Preview is not ready.`)
-      );
-      return;
-    }
-    hideMediaEditPreviewError();
-    field.value = String(currentTime);
-    syncMediaEditTimingDisplay();
-    syncMediaEditDraftStateFromForm();
-    validateAndRenderMediaEditDraftFromForm();
-  }
-
-  function createMediaEditPreview(mediaItem: MediaItem): void {
-    resetMediaEditPreviewState();
-    mediaEditPreviewSourceItem = mediaItem;
-    const previewState = createManagedMediaEditPreview({
-      mediaItem,
-      previewElement: isElement($MEDIA_EDIT_PREVIEW) ? $MEDIA_EDIT_PREVIEW : null,
-      previewPlayerId: MEDIA_EDIT_PREVIEW_YT_PLAYER_ID,
-      normalizeTimingValue: normalizeMediaEditTimingValue,
-      syncYouTubePreviewDuration,
-      onDurationResolved: (duration) => {
-        mediaEditPreviewDurationSeconds = duration;
-        validateAndRenderMediaEditDraftFromForm();
-      },
-      onDurationAvailable: () => {
-        mediaEditDurationSync.maybeComplete();
-      },
-      hidePreviewError: hideMediaEditPreviewError,
-      showPreviewError: showMediaEditPreviewError,
-      getLocalizedMessage,
-    });
-    mediaEditPreviewType = previewState.previewType;
-    mediaEditPreviewYouTubePlayer = previewState.youtubePlayer;
-    mediaEditPreviewHtmlPlayer = previewState.htmlPlayer;
-  }
+  const mediaEditPreview = createMediaEditPreviewBindings({
+    previewElement: isElement($MEDIA_EDIT_PREVIEW) ? $MEDIA_EDIT_PREVIEW : null,
+    errorElement: isElement($MEDIA_EDIT_PREVIEW_ERROR) ? $MEDIA_EDIT_PREVIEW_ERROR : null,
+    errorMessageElement: isElement($MEDIA_EDIT_PREVIEW_ERROR_MESSAGE) ? $MEDIA_EDIT_PREVIEW_ERROR_MESSAGE : null,
+    previewPlayerId: MEDIA_EDIT_PREVIEW_YT_PLAYER_ID,
+    normalizeTimingValue: normalizeMediaEditTimingValue,
+    syncYouTubePreviewDuration,
+    getLocalizedMessage,
+    mediaEditDurationSync,
+    syncMediaEditTimingDisplay,
+    syncMediaEditDraftStateFromForm,
+    validateAndRenderMediaEditDraftFromForm,
+  });
+  const {
+    resetMediaEditPreviewState,
+    syncMediaEditTimingFieldFromPreview,
+    createMediaEditPreview,
+  } = mediaEditPreview;
 
   function setMediaEditDirtyState(isDirty: boolean): void {
     applyMediaEditDirtyState({
@@ -1734,7 +1649,7 @@ const init = function (): void {
         mediaEditBaseDraft = draft as MediaEditDraft | null;
       },
       setPreviewSourceItem: (mediaItem) => {
-        mediaEditPreviewSourceItem = mediaItem;
+        mediaEditPreview.setPreviewSourceItem(mediaItem);
       },
       setDirtyState: setMediaEditDirtyState,
     });
@@ -2654,10 +2569,11 @@ const init = function (): void {
       syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_FADEOUT_START, 'fade-out start');
     },
     onPreviewRetry: () => {
-      if (!mediaEditPreviewSourceItem) {
+      const previewSourceItem = mediaEditPreview.getPreviewSourceItem();
+      if (!previewSourceItem) {
         return;
       }
-      createMediaEditPreview(mediaEditPreviewSourceItem);
+      createMediaEditPreview(previewSourceItem);
     },
   });
 
