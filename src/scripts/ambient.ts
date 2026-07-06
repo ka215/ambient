@@ -173,6 +173,13 @@ import {
   resolveMediaEditThumbnailSrc,
 } from './ui/media-edit-form-view';
 import {
+  getMediaEditCategoryOptions as getMediaEditCategoryOptionsView,
+  isMediaEditCategoryDropdownVisible as isMediaEditCategoryDropdownVisibleView,
+  renderMediaEditCategoryOptionsView,
+  setMediaEditCategoryDropdownExpandedView,
+  syncMediaEditCategoryClearButtonView,
+} from './ui/media-edit-category-view';
+import {
   appendPlaylistQuickAddItem,
   createShuffledPlaylist,
   enablePlaylistDownloadButton,
@@ -1386,74 +1393,46 @@ const init = function (): void {
   });
 
   function getMediaEditCategoryOptions(): string[] {
-    if (!Array.isArray(AMP_STATUS.category)) {
-      return [];
-    }
-    const unique = new Set<string>();
-    const options: string[] = [];
-    AMP_STATUS.category.forEach((catName: string) => {
-      const normalized = String(catName).trim();
-      if (normalized !== '' && !unique.has(normalized)) {
-        unique.add(normalized);
-        options.push(normalized);
-      }
-    });
-    return options;
+    return getMediaEditCategoryOptionsView(AMP_STATUS.category);
   }
 
   function isMediaEditCategoryDropdownVisible(): boolean {
-    return isElement($MEDIA_EDIT_CATEGORY_DROPDOWN)
-      && !$MEDIA_EDIT_CATEGORY_DROPDOWN.classList.contains('hidden');
+    return isMediaEditCategoryDropdownVisibleView(
+      isElement($MEDIA_EDIT_CATEGORY_DROPDOWN) ? $MEDIA_EDIT_CATEGORY_DROPDOWN : null
+    );
   }
 
   function renderMediaEditCategoryOptions(): void {
-    if (!isElement($MEDIA_EDIT_CATEGORY_OPTIONS)) {
-      return;
-    }
     const selected = isElement($MEDIA_EDIT_CATEGORY) ? $MEDIA_EDIT_CATEGORY.value.trim() : '';
     const options = getMediaEditCategoryOptions();
-
-    $MEDIA_EDIT_CATEGORY_OPTIONS.innerHTML = '';
-    if (options.length === 0) {
-      const emptyElm = document.createElement('div');
-      emptyElm.className = 'media-edit-category-option-empty px-3 py-2 text-xs text-gray-500 dark:text-gray-300';
-      emptyElm.textContent = getLocalizedMessage('mediaEditCategoryNoMatches', 'No categories');
-      $MEDIA_EDIT_CATEGORY_OPTIONS.appendChild(emptyElm);
-      return;
-    }
-
-    options.forEach((catName: string) => {
-      const optionElm = createMediaEditCategoryOptionButton({
+    renderMediaEditCategoryOptionsView({
+      optionsContainer: isElement($MEDIA_EDIT_CATEGORY_OPTIONS) ? $MEDIA_EDIT_CATEGORY_OPTIONS : null,
+      selectedCategory: selected,
+      categories: options,
+      getLocalizedMessage,
+      createOptionButton: (categoryName, isSelected) => createMediaEditCategoryOptionButton({
         categoryInput: $MEDIA_EDIT_CATEGORY,
-        categoryName: catName,
-        isSelected: selected === catName,
+        categoryName,
+        isSelected,
         onCloseDropdown: closeMediaEditCategoryDropdown,
-      });
-      $MEDIA_EDIT_CATEGORY_OPTIONS.appendChild(optionElm);
+      }),
     });
   }
 
   function syncMediaEditCategoryClearButton(): void {
-    if (!isElement($BUTTON_MEDIA_EDIT_CATEGORY_CLEAR)) {
-      return;
-    }
-    const hasValue = isElement($MEDIA_EDIT_CATEGORY)
-      && $MEDIA_EDIT_CATEGORY.value.trim() !== '';
-    $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR.classList.toggle('hidden', !hasValue);
-    $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR.setAttribute('aria-hidden', hasValue ? 'false' : 'true');
+    syncMediaEditCategoryClearButtonView({
+      clearButton: isElement($BUTTON_MEDIA_EDIT_CATEGORY_CLEAR) ? $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR : null,
+      categoryValue: isElement($MEDIA_EDIT_CATEGORY) ? $MEDIA_EDIT_CATEGORY.value : '',
+    });
   }
 
   function setMediaEditCategoryDropdownExpanded(expanded: boolean): void {
-    if (!isElement($MEDIA_EDIT_CATEGORY_DROPDOWN)) {
-      return;
-    }
-    $MEDIA_EDIT_CATEGORY_DROPDOWN.classList.toggle('hidden', !expanded);
-    if (isElement($MEDIA_EDIT_CATEGORY_COMBOBOX)) {
-      $MEDIA_EDIT_CATEGORY_COMBOBOX.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-    }
-    if (isElement($BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE)) {
-      $BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-    }
+    setMediaEditCategoryDropdownExpandedView({
+      dropdownElement: isElement($MEDIA_EDIT_CATEGORY_DROPDOWN) ? $MEDIA_EDIT_CATEGORY_DROPDOWN : null,
+      comboboxElement: isElement($MEDIA_EDIT_CATEGORY_COMBOBOX) ? $MEDIA_EDIT_CATEGORY_COMBOBOX : null,
+      toggleButton: isElement($BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE) ? $BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE : null,
+      expanded,
+    });
   }
 
   function closeMediaEditCategoryDropdown(restoreFocus: boolean = false): void {
