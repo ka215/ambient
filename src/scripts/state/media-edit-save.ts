@@ -1,4 +1,5 @@
 import type { MediaItem } from '../types/ambient';
+import type { MediaEditDraft } from './media-edit-draft';
 
 export type MediaEditSaveResult =
   | {
@@ -101,4 +102,95 @@ export async function executeMediaEditSavePipeline(options: {
     updatedItem: options.updatedItem,
     persistMessage: persistResult.message,
   };
+}
+
+export async function uploadMediaEditThumbnailIfNeeded(options: {
+  draft: MediaEditDraft;
+  isLocalMode: boolean;
+  getLocalizedMessage: (key: string, fallback: string) => string;
+  upload: (draft: MediaEditDraft) => Promise<{ ok: boolean; message: string }>;
+}): Promise<{ ok: boolean; message: string }> {
+  if (
+    options.draft.thumbnailMode !== 'upload'
+    || options.draft.thumbnailDataUrl === ''
+    || options.draft.thumbnailName === ''
+  ) {
+    return { ok: true, message: '' };
+  }
+
+  if (!options.isLocalMode) {
+    return {
+      ok: false,
+      message: options.getLocalizedMessage(
+        'mediaEditThumbnailCloudOnly',
+        'Thumbnail upload is available only in local mode.'
+      ),
+    };
+  }
+
+  return options.upload(options.draft);
+}
+
+export async function deleteMediaEditThumbnailIfNeeded(options: {
+  draft: MediaEditDraft;
+  baseThumbnailName: string;
+  isLocalMode: boolean;
+  getLocalizedMessage: (key: string, fallback: string) => string;
+  remove: (filename: string) => Promise<{ ok: boolean; message: string }>;
+}): Promise<{ ok: boolean; message: string }> {
+  if (options.draft.thumbnailMode !== 'remove') {
+    return { ok: true, message: '' };
+  }
+
+  if (options.baseThumbnailName === '') {
+    return { ok: true, message: '' };
+  }
+
+  if (!options.isLocalMode) {
+    return {
+      ok: false,
+      message: options.getLocalizedMessage(
+        'mediaEditThumbnailCloudOnly',
+        'Thumbnail removal is available only in local mode.'
+      ),
+    };
+  }
+
+  return options.remove(options.baseThumbnailName);
+}
+
+export async function persistMediaEditForCurrentPlaylist(options: {
+  workingMedia: MediaItem[];
+  isCloud: boolean;
+  playlistName: string;
+  persistCloud: () => boolean;
+  persistRemote: () => Promise<{ ok: boolean; message: string }>;
+  getLocalizedMessage: (key: string, fallback: string) => string;
+}): Promise<{ ok: boolean; message: string }> {
+  if (options.isCloud) {
+    const persisted = options.persistCloud();
+    return {
+      ok: persisted,
+      message: persisted
+        ? options.getLocalizedMessage('mediaEditSaveSuccess', 'Media changes were saved successfully.')
+        : options.getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.'),
+    };
+  }
+
+  if (options.playlistName === '') {
+    return {
+      ok: false,
+      message: options.getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.'),
+    };
+  }
+
+  try {
+    void options.workingMedia;
+    return await options.persistRemote();
+  } catch (_error) {
+    return {
+      ok: false,
+      message: options.getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.'),
+    };
+  }
 }

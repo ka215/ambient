@@ -89,9 +89,12 @@ import {
   createMediaEditDurationSyncController,
 } from './state/media-edit-duration-sync';
 import {
+  deleteMediaEditThumbnailIfNeeded as deleteMediaEditThumbnailIfNeededState,
   executeMediaEditSavePipeline,
   prepareMediaEditSaveExecution,
   resolveMediaEditValidationGate,
+  persistMediaEditForCurrentPlaylist as persistMediaEditForCurrentPlaylistState,
+  uploadMediaEditThumbnailIfNeeded as uploadMediaEditThumbnailIfNeededState,
 } from './state/media-edit-save';
 import {
   applyMediaEditDraftToItem,
@@ -1865,80 +1868,54 @@ const init = function (): void {
   }
 
   async function uploadMediaEditThumbnailIfNeeded(draft: MediaEditDraft): Promise<{ ok: boolean; message: string }> {
-    if (draft.thumbnailMode !== 'upload' || draft.thumbnailDataUrl === '' || draft.thumbnailName === '') {
-      return { ok: true, message: '' };
-    }
-
-    if (!isLocalMode()) {
-      return { ok: false, message: getLocalizedMessage('mediaEditThumbnailCloudOnly', 'Thumbnail upload is available only in local mode.') };
-    }
-
-    return uploadMediaEditThumbnailPlatform({
-      baseUrl: BASE_URL,
-      endpoint: MEDIA_EDIT_THUMBNAIL_ENDPOINT,
-      filename: draft.thumbnailName,
-      dataUrl: draft.thumbnailDataUrl,
+    return uploadMediaEditThumbnailIfNeededState({
+      draft,
+      isLocalMode: isLocalMode(),
       getLocalizedMessage,
+      upload: async (nextDraft) => uploadMediaEditThumbnailPlatform({
+        baseUrl: BASE_URL,
+        endpoint: MEDIA_EDIT_THUMBNAIL_ENDPOINT,
+        filename: nextDraft.thumbnailName,
+        dataUrl: nextDraft.thumbnailDataUrl,
+        getLocalizedMessage,
+      }),
     });
   }
 
   async function deleteMediaEditThumbnailIfNeeded(draft: MediaEditDraft): Promise<{ ok: boolean; message: string }> {
-    if (draft.thumbnailMode !== 'remove') {
-      return { ok: true, message: '' };
-    }
-
-    const filename = mediaEditBaseDraft?.thumbnailName || '';
-    if (filename === '') {
-      return { ok: true, message: '' };
-    }
-
-    if (!isLocalMode()) {
-      return { ok: false, message: getLocalizedMessage('mediaEditThumbnailCloudOnly', 'Thumbnail removal is available only in local mode.') };
-    }
-
-    return deleteMediaEditThumbnailPlatform({
-      baseUrl: BASE_URL,
-      endpoint: MEDIA_EDIT_THUMBNAIL_ENDPOINT,
-      filename,
+    return deleteMediaEditThumbnailIfNeededState({
+      draft,
+      baseThumbnailName: mediaEditBaseDraft?.thumbnailName || '',
+      isLocalMode: isLocalMode(),
       getLocalizedMessage,
+      remove: async (filename) => deleteMediaEditThumbnailPlatform({
+        baseUrl: BASE_URL,
+        endpoint: MEDIA_EDIT_THUMBNAIL_ENDPOINT,
+        filename,
+        getLocalizedMessage,
+      }),
     });
   }
 
   async function persistMediaEditForCurrentPlaylist(workingMedia: MediaItem[]): Promise<{ ok: boolean; message: string }> {
-    const ambientData = getAmbientData();
-    if (ambientData?.isCloud) {
-      const persisted = persistMyPlaylistIfNeeded();
-      return {
-        ok: persisted,
-        message: persisted
-          ? getLocalizedMessage('mediaEditSaveSuccess', 'Media changes were saved successfully.')
-          : getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.'),
-      };
-    }
-
-    const playlistName = AMP_STATUS.playlist || '';
-    if (playlistName === '') {
-      return { ok: false, message: getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.') };
-    }
-
-    try {
+    return persistMediaEditForCurrentPlaylistState({
+      workingMedia,
+      isCloud: !!getAmbientData()?.isCloud,
+      playlistName: AMP_STATUS.playlist || '',
+      persistCloud: persistMyPlaylistIfNeeded,
+      persistRemote: async () => {
       const payloadText = generatePlaylistJson(false);
       const payloadObject = parseJsonWithBom(payloadText);
-      const payload = await persistPlaylistMediaEdit({
+      return persistPlaylistMediaEdit({
         baseUrl: BASE_URL,
         endpoint: MEDIA_EDIT_SAVE_ENDPOINT,
-        playlistName,
+        playlistName: AMP_STATUS.playlist || '',
         payloadObject,
         getLocalizedMessage,
       });
-      if (!payload.ok) {
-        return payload;
-      }
-      void workingMedia;
-      return payload;
-    } catch (_error) {
-      return { ok: false, message: getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.') };
-    }
+      },
+      getLocalizedMessage,
+    });
   }
 
   function setMediaEditSaveBusyState(isBusy: boolean): void {
