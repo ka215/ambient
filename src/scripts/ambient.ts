@@ -58,6 +58,12 @@ import {
   getPlaylistItemsForView,
 } from './state/playlist-mode-state';
 import {
+  getMediaEditComputedFadeDurations as getMediaEditComputedFadeDurationsDomain,
+  getMediaEditTimingFromStoredDurations as getMediaEditTimingFromStoredDurationsDomain,
+  resolveMediaEditEffectiveEnd as resolveMediaEditEffectiveEndDomain,
+  resolveMediaEditKnownDuration as resolveMediaEditKnownDurationDomain,
+} from './domain/media-edit-timing';
+import {
   deleteSessionDraftByKey,
   hydrateSessionDraftStore,
   syncSessionDraftState,
@@ -1354,41 +1360,23 @@ const init = function (): void {
     }, MEDIA_EDIT_DURATION_SYNC_TIMEOUT_MS);
   }
 
-  function parseMediaEditItemDurationSeconds(mediaItem: MediaItem | null): number | null {
-    if (!mediaItem) {
-      return null;
-    }
-    const durationCandidate = (mediaItem as unknown as Record<string, unknown>)['duration'];
-    return normalizeMediaEditTimingValue(durationCandidate, null);
-  }
-
   function resolveMediaEditEffectiveEnd(
     seekEnd: number | null,
     duration: number | null,
     seekStart: number | null,
     fallbackFadeoutDuration: number | null = null
   ): number | null {
-    if (seekEnd !== null) {
-      return seekEnd;
-    }
-    if (duration !== null) {
-      return duration;
-    }
-    if (fallbackFadeoutDuration !== null) {
-      return (seekStart ?? 0) + fallbackFadeoutDuration;
-    }
-    return null;
+    return resolveMediaEditEffectiveEndDomain(seekEnd, duration, seekStart, fallbackFadeoutDuration);
   }
 
   function resolveMediaEditKnownDuration(mediaItem: MediaItem | null): number | null {
-    const itemDuration = parseMediaEditItemDurationSeconds(mediaItem);
-    if (itemDuration !== null) {
-      return itemDuration;
-    }
-    if (mediaItem && mediaEditActiveItem && getMediaEditItemIdentity(mediaItem) === getMediaEditItemIdentity(mediaEditActiveItem)) {
-      return mediaEditPreviewDurationSeconds;
-    }
-    return null;
+    return resolveMediaEditKnownDurationDomain({
+      mediaItem,
+      activeItem: mediaEditActiveItem,
+      previewDurationSeconds: mediaEditPreviewDurationSeconds,
+      getItemIdentity: getMediaEditItemIdentity,
+      normalizeTimingValue: normalizeMediaEditTimingValue,
+    });
   }
 
   function getMediaEditTimingFromStoredDurations(mediaItem: MediaItem): {
@@ -1397,45 +1385,27 @@ const init = function (): void {
     fadeInEnd: number | null;
     fadeOutStart: number | null;
   } {
-    const seekStart = normalizeMediaEditTimingValue(mediaItem.start, null);
-    const seekEnd = normalizeMediaEditTimingValue(mediaItem.end, null);
-    const storedFadein = normalizeMediaEditTimingValue(mediaItem.fadein, null);
-    const storedFadeout = normalizeMediaEditTimingValue(mediaItem.fadeout, null);
-    const duration = resolveMediaEditKnownDuration(mediaItem);
-    const effectiveEnd = resolveMediaEditEffectiveEnd(seekEnd, duration, seekStart, storedFadeout);
-    return {
-      seekStart,
-      seekEnd,
-      fadeInEnd: storedFadein !== null ? (seekStart ?? 0) + storedFadein : null,
-      fadeOutStart: storedFadeout !== null && effectiveEnd !== null
-        ? Math.max(0, effectiveEnd - storedFadeout)
-        : null,
-    };
+    return getMediaEditTimingFromStoredDurationsDomain({
+      mediaItem,
+      activeItem: mediaEditActiveItem,
+      previewDurationSeconds: mediaEditPreviewDurationSeconds,
+      getItemIdentity: getMediaEditItemIdentity,
+      normalizeTimingValue: normalizeMediaEditTimingValue,
+    });
   }
 
   function getMediaEditComputedFadeDurations(item: MediaItem, draft: MediaEditDraft): {
     fadein: number | '';
     fadeout: number | '';
   } {
-    const seekStart = draft.seekStart ?? 0;
-    const fadein = draft.fadeInEnd !== null
-      ? Math.max(0, draft.fadeInEnd - seekStart)
-      : '';
-
-    const currentStoredFadeout = normalizeMediaEditTimingValue(item.fadeout, null);
-    const effectiveEnd = resolveMediaEditEffectiveEnd(
-      draft.seekEnd,
-      resolveMediaEditKnownDuration(item),
-      draft.seekStart,
-      currentStoredFadeout
-    );
-    const fadeout = draft.fadeOutStart !== null
-      ? (effectiveEnd !== null
-        ? Math.max(0, effectiveEnd - draft.fadeOutStart)
-        : (currentStoredFadeout ?? ''))
-      : '';
-
-    return { fadein, fadeout };
+    return getMediaEditComputedFadeDurationsDomain({
+      item,
+      draft,
+      activeItem: mediaEditActiveItem,
+      previewDurationSeconds: mediaEditPreviewDurationSeconds,
+      getItemIdentity: getMediaEditItemIdentity,
+      normalizeTimingValue: normalizeMediaEditTimingValue,
+    });
   }
 
   function syncMediaEditTimingDisplay(): void {
