@@ -69,10 +69,12 @@ import {
   resolveMediaEditKnownDuration as resolveMediaEditKnownDurationDomain,
 } from './domain/media-edit-timing';
 import {
-  deleteSessionDraftByKey,
-  hydrateSessionDraftStore,
   syncSessionDraftState,
 } from './state/session-draft-store';
+import {
+  deleteMediaEditDraftEntry,
+  hydrateMediaEditDraftMap,
+} from './state/media-edit-draft-store';
 import {
   applyMediaEditDirtyState,
   bindMediaEditDraftState,
@@ -159,6 +161,9 @@ import {
   bindMediaEditPrimaryControls,
   bindMediaEditThumbnailControls,
 } from './ui/media-edit-controls';
+import {
+  applyMediaEditDraftToFormView,
+} from './ui/media-edit-form-view';
 import {
   appendPlaylistQuickAddItem,
   createShuffledPlaylist,
@@ -1767,10 +1772,9 @@ const init = function (): void {
   }
 
   function hydrateMediaEditDraftStore(): void {
-    mediaEditDraftStore.clear();
-    hydrateSessionDraftStore<MediaEditDraft>({
+    hydrateMediaEditDraftMap({
       storageKey: MEDIA_EDIT_DRAFT_STORAGE_KEY,
-      clearOnError: true,
+      targetStore: mediaEditDraftStore,
       parseEntry: (value) => {
         if (!isObject(value) || Array.isArray(value)) {
           return null;
@@ -1787,13 +1791,11 @@ const init = function (): void {
           fadeOutStart: value['fadeOutStart'],
         });
       },
-    }).forEach((draft, key) => {
-      mediaEditDraftStore.set(key, draft);
     });
   }
 
   function deleteMediaEditDraftByKey(key: string): void {
-    deleteSessionDraftByKey({
+    deleteMediaEditDraftEntry({
       storageKey: MEDIA_EDIT_DRAFT_STORAGE_KEY,
       draftStore: mediaEditDraftStore,
       key,
@@ -1820,68 +1822,34 @@ const init = function (): void {
   }
 
   function applyMediaEditDraftToForm(draft: MediaEditDraft): void {
-    if (isElement($MEDIA_EDIT_CATEGORY)) {
-      $MEDIA_EDIT_CATEGORY.value = draft.category;
-    }
-    syncMediaEditCategoryClearButton();
-    renderMediaEditCategoryOptions();
-    if (isElement($MEDIA_EDIT_TITLE)) {
-      $MEDIA_EDIT_TITLE.value = draft.title;
-    }
-    if (isElement($MEDIA_EDIT_ARTIST)) {
-      $MEDIA_EDIT_ARTIST.value = draft.artist;
-    }
-    if (isElement($MEDIA_EDIT_DESCRIPTION)) {
-      $MEDIA_EDIT_DESCRIPTION.value = draft.description;
-    }
-    if (isElement($MEDIA_EDIT_VOLUME)) {
-      syncVolumeSlider({
-        input: $MEDIA_EDIT_VOLUME,
-        volume: draft.volume,
-        syncRangeProgress,
-        display: $MEDIA_EDIT_VOLUME_VALUE,
-      });
-    }
-    if (isElement($MEDIA_EDIT_THUMBNAIL_NAME)) {
-      $MEDIA_EDIT_THUMBNAIL_NAME.textContent = draft.thumbnailMode === 'upload'
-        ? draft.thumbnailName
-        : draft.thumbnailMode === 'remove'
-          ? getLocalizedMessage('mediaEditThumbnailRemovalPending', 'Thumbnail removal pending')
-          : draft.thumbnailName || '';
-    }
-    if (isElement($MEDIA_EDIT_THUMBNAIL_PREVIEW)) {
-      $MEDIA_EDIT_THUMBNAIL_PREVIEW.src = draft.thumbnailMode === 'upload' && draft.thumbnailDataUrl
-        ? draft.thumbnailDataUrl
-        : getMediaEditThumbnailSrc(mediaEditActiveItem, draft);
-    }
-    if (isElement($MEDIA_EDIT_THUMBNAIL_SECTION)) {
-      $MEDIA_EDIT_THUMBNAIL_SECTION.classList.toggle('hidden', !isLocalMode());
-    }
-    const hasThumbnail = draft.thumbnailMode === 'upload'
-      || (draft.thumbnailMode !== 'remove' && (
-        draft.thumbnailName !== ''
-        || !!mediaEditActiveItem?.image
-        || !!mediaEditActiveItem?.thumb
-      ));
-    if (isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR)) {
-      $BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR.classList.toggle('hidden', !hasThumbnail);
-    }
-    if (isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE)) {
-      $BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE.disabled = !hasThumbnail;
-    }
-    if (isElement($MEDIA_EDIT_SEEK_START)) {
-      $MEDIA_EDIT_SEEK_START.value = toMediaEditTimingInputValue(draft.seekStart);
-    }
-    if (isElement($MEDIA_EDIT_SEEK_END)) {
-      $MEDIA_EDIT_SEEK_END.value = toMediaEditTimingInputValue(draft.seekEnd);
-    }
-    if (isElement($MEDIA_EDIT_FADEIN_END)) {
-      $MEDIA_EDIT_FADEIN_END.value = toMediaEditTimingInputValue(draft.fadeInEnd);
-    }
-    if (isElement($MEDIA_EDIT_FADEOUT_START)) {
-      $MEDIA_EDIT_FADEOUT_START.value = toMediaEditTimingInputValue(draft.fadeOutStart);
-    }
-    syncMediaEditTimingDisplay();
+    applyMediaEditDraftToFormView({
+      draft,
+      activeItem: mediaEditActiveItem,
+      categoryInput: isElement($MEDIA_EDIT_CATEGORY) ? $MEDIA_EDIT_CATEGORY : null,
+      titleInput: isElement($MEDIA_EDIT_TITLE) ? $MEDIA_EDIT_TITLE : null,
+      artistInput: isElement($MEDIA_EDIT_ARTIST) ? $MEDIA_EDIT_ARTIST : null,
+      descriptionInput: isElement($MEDIA_EDIT_DESCRIPTION) ? $MEDIA_EDIT_DESCRIPTION : null,
+      volumeInput: isElement($MEDIA_EDIT_VOLUME) ? $MEDIA_EDIT_VOLUME : null,
+      volumeDisplay: isElement($MEDIA_EDIT_VOLUME_VALUE) ? $MEDIA_EDIT_VOLUME_VALUE : null,
+      thumbnailName: isElement($MEDIA_EDIT_THUMBNAIL_NAME) ? $MEDIA_EDIT_THUMBNAIL_NAME : null,
+      thumbnailPreview: isElement($MEDIA_EDIT_THUMBNAIL_PREVIEW) ? $MEDIA_EDIT_THUMBNAIL_PREVIEW : null,
+      thumbnailSection: isElement($MEDIA_EDIT_THUMBNAIL_SECTION) ? $MEDIA_EDIT_THUMBNAIL_SECTION : null,
+      thumbnailClearButton: isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR) ? $BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR : null,
+      thumbnailRemoveButton: isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE) ? $BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE : null,
+      seekStartInput: isElement($MEDIA_EDIT_SEEK_START) ? $MEDIA_EDIT_SEEK_START : null,
+      seekEndInput: isElement($MEDIA_EDIT_SEEK_END) ? $MEDIA_EDIT_SEEK_END : null,
+      fadeinEndInput: isElement($MEDIA_EDIT_FADEIN_END) ? $MEDIA_EDIT_FADEIN_END : null,
+      fadeoutStartInput: isElement($MEDIA_EDIT_FADEOUT_START) ? $MEDIA_EDIT_FADEOUT_START : null,
+      isLocalMode: isLocalMode(),
+      syncCategoryClearButton: syncMediaEditCategoryClearButton,
+      renderCategoryOptions: renderMediaEditCategoryOptions,
+      syncVolumeSlider,
+      syncRangeProgress,
+      getLocalizedMessage,
+      getThumbnailSrc: getMediaEditThumbnailSrc,
+      toTimingInputValue: toMediaEditTimingInputValue,
+      syncTimingDisplay: syncMediaEditTimingDisplay,
+    });
   }
 
   function findCategoryIndexByName(categoryName: string): number | null {
