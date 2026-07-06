@@ -1981,6 +1981,23 @@ const init = function (): void {
     }
   }
 
+  function setMediaEditSaveBusyState(isBusy: boolean): void {
+    if (!isElement($BUTTON_SAVE_MEDIA_EDIT)) {
+      return;
+    }
+    $BUTTON_SAVE_MEDIA_EDIT.disabled = isBusy;
+    if (isBusy) {
+      $BUTTON_SAVE_MEDIA_EDIT.setAttribute('aria-busy', 'true');
+      return;
+    }
+    $BUTTON_SAVE_MEDIA_EDIT.removeAttribute('aria-busy');
+  }
+
+  function failMediaEditSave(message: string, delay: number = 2600): void {
+    setMediaEditSaveBusyState(false);
+    updateNotice({ type: 'error', message, delay });
+  }
+
   async function saveMediaEdit(): Promise<void> {
     if (!mediaEditActiveItem || !mediaEditBaseDraft || !Array.isArray(AMP_STATUS.media)) {
       return;
@@ -2007,55 +2024,35 @@ const init = function (): void {
       categoryIndex = AMP_STATUS.category.length - 1;
     }
 
-    if (isElement($BUTTON_SAVE_MEDIA_EDIT)) {
-      $BUTTON_SAVE_MEDIA_EDIT.disabled = true;
-      $BUTTON_SAVE_MEDIA_EDIT.setAttribute('aria-busy', 'true');
-    }
+    setMediaEditSaveBusyState(true);
 
     const workingMedia = getMediaEditWorkingCopyForSave();
     if (!workingMedia) {
-      if (isElement($BUTTON_SAVE_MEDIA_EDIT)) {
-        $BUTTON_SAVE_MEDIA_EDIT.disabled = false;
-        $BUTTON_SAVE_MEDIA_EDIT.removeAttribute('aria-busy');
-      }
+      setMediaEditSaveBusyState(false);
       return;
     }
 
     const targetIndex = workingMedia.findIndex((item) => item.amId === mediaEditActiveItem!.amId);
     if (targetIndex < 0) {
-      if (isElement($BUTTON_SAVE_MEDIA_EDIT)) {
-        $BUTTON_SAVE_MEDIA_EDIT.disabled = false;
-        $BUTTON_SAVE_MEDIA_EDIT.removeAttribute('aria-busy');
-      }
+      setMediaEditSaveBusyState(false);
       return;
     }
 
     const uploadResult = await uploadMediaEditThumbnailIfNeeded(draft);
     if (!uploadResult.ok) {
-      if (isElement($BUTTON_SAVE_MEDIA_EDIT)) {
-        $BUTTON_SAVE_MEDIA_EDIT.disabled = false;
-        $BUTTON_SAVE_MEDIA_EDIT.removeAttribute('aria-busy');
-      }
-      updateNotice({ type: 'error', message: uploadResult.message, delay: 2600 });
+      failMediaEditSave(uploadResult.message);
       return;
     }
 
     const deleteResult = await deleteMediaEditThumbnailIfNeeded(draft);
     if (!deleteResult.ok) {
-      if (isElement($BUTTON_SAVE_MEDIA_EDIT)) {
-        $BUTTON_SAVE_MEDIA_EDIT.disabled = false;
-        $BUTTON_SAVE_MEDIA_EDIT.removeAttribute('aria-busy');
-      }
-      updateNotice({ type: 'error', message: deleteResult.message, delay: 2600 });
+      failMediaEditSave(deleteResult.message);
       return;
     }
 
     const targetMediaItem = workingMedia[targetIndex];
     if (!targetMediaItem) {
-      if (isElement($BUTTON_SAVE_MEDIA_EDIT)) {
-        $BUTTON_SAVE_MEDIA_EDIT.disabled = false;
-        $BUTTON_SAVE_MEDIA_EDIT.removeAttribute('aria-busy');
-      }
+      setMediaEditSaveBusyState(false);
       return;
     }
 
@@ -2066,11 +2063,7 @@ const init = function (): void {
     const persistResult = await persistMediaEditForCurrentPlaylist(workingMedia);
     if (!persistResult.ok) {
       AMP_STATUS.media = previousMedia;
-      if (isElement($BUTTON_SAVE_MEDIA_EDIT)) {
-        $BUTTON_SAVE_MEDIA_EDIT.disabled = false;
-        $BUTTON_SAVE_MEDIA_EDIT.removeAttribute('aria-busy');
-      }
-      updateNotice({ type: 'error', message: persistResult.message, delay: 2600 });
+      failMediaEditSave(persistResult.message);
       return;
     }
 
@@ -2087,10 +2080,7 @@ const init = function (): void {
     if (AMP_STATUS.current === workingMedia[targetIndex].amId) {
       updatePlayStatus(workingMedia[targetIndex].amId);
     }
-    if (isElement($BUTTON_SAVE_MEDIA_EDIT)) {
-      $BUTTON_SAVE_MEDIA_EDIT.disabled = false;
-      $BUTTON_SAVE_MEDIA_EDIT.removeAttribute('aria-busy');
-    }
+    setMediaEditSaveBusyState(false);
     updateNotice({
       type: 'success',
       message: persistResult.message || getLocalizedMessage('mediaEditSaveSuccess', 'Media changes were saved successfully.'),
