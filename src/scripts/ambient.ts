@@ -47,18 +47,21 @@ import {
   watcher,
 } from './shared/dom-utils';
 import {
-  getAmbientData as platformGetAmbientData,
-  getLocalizedMessage as platformGetLocalizedMessage,
   hasPlaylist as platformHasPlaylist,
-  isLocalMode as platformIsLocalMode,
 } from './platform/ambient-data';
 import { fetchData } from './platform/fetch-data';
 import {
   MYPLAYLIST_KEY,
-  saveUserData,
   USER_DATA_APP_KEY,
-  useAppStorage,
 } from './platform/storage';
+import {
+  getRuntimeAmbientData,
+  getRuntimeLocalizedMessage,
+  isRuntimeLocalMode,
+  runtimeLogger,
+  saveStorageAdapter,
+  useStorageAdapter,
+} from './platform/runtime-support';
 import {
   deleteMediaEditThumbnail as deleteMediaEditThumbnailPlatform,
   persistPlaylistMediaEdit,
@@ -289,8 +292,11 @@ const init = function (): void {
     (window as any).APP_KEY = USER_DATA_APP_KEY;
   }
 
-  useStge();
+  useStorageAdapter();
   const AMP_STATUS = initStatus();
+  const logger = runtimeLogger;
+  const getAmbientData = getRuntimeAmbientData;
+  const getLocalizedMessage = getRuntimeLocalizedMessage;
   const BOOT_SPLASH_MIN_VISIBLE_MS = isE2EMode ? 0 : 2400;
   const BOOT_SPLASH_FADE_MS = 220;
   const appBoot = createAppBootController({
@@ -433,7 +439,7 @@ const init = function (): void {
       onPropertyChange: (prop, _oldValue, newValue) => {
         switch (true) {
           case /^(prev|current|next|ctg|order|loop)$/i.test(prop):
-            saveStge(prop, newValue);
+            saveStorageAdapter(prop, newValue, runtimeLogger);
             if (/^ctg$/i.test(prop)) {
               savePlaylistContext();
             }
@@ -532,10 +538,10 @@ const init = function (): void {
     try {
       const jsonStr = generatePlaylistJson(false);
       writeMyPlaylistJson(jsonStr);
-      logger('saveMyPlaylistToStorage: saved', jsonStr.length, 'bytes');
+      runtimeLogger('saveMyPlaylistToStorage: saved', jsonStr.length, 'bytes');
       return true;
     } catch (e) {
-      logger('saveMyPlaylistToStorage: error', e);
+      runtimeLogger('saveMyPlaylistToStorage: error', e);
       return false;
     }
   }
@@ -548,27 +554,15 @@ const init = function (): void {
    * Persist MyPlaylist only when cloud mode + MyPlaylist is currently active.
    */
   function persistMyPlaylistIfNeeded(): boolean {
-    const ambientData = getAmbientData();
+    const ambientData = getRuntimeAmbientData();
     if (playlistLoadGuard.isLoading()) {
-      logger('persistMyPlaylistIfNeeded: skipped while playlist load is active');
+      runtimeLogger('persistMyPlaylistIfNeeded: skipped while playlist load is active');
       return false;
     }
     if (ambientData?.isCloud && AMP_STATUS.playlist === MYPLAYLIST_NAME) {
       return saveMyPlaylistToStorage();
     }
     return true;
-  }
-
-  function getAmbientData(): AmbientData | undefined {
-    return platformGetAmbientData();
-  }
-
-  function isLocalMode(): boolean {
-    return platformIsLocalMode();
-  }
-
-  function getLocalizedMessage(key: string, fallback: string = key): string {
-    return platformGetLocalizedMessage(key, fallback);
   }
 
   function getMediaCategoryName(mediaItem: MediaItem | null | undefined): string {
@@ -621,7 +615,7 @@ const init = function (): void {
     titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
     artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
     hasStoredMyPlaylist: () => localStorage.getItem(MYPLAYLIST_KEY) !== null,
-    isCloudMode: () => getAmbientData()?.isCloud === true,
+    isCloudMode: () => getRuntimeAmbientData()?.isCloud === true,
     myPlaylistName: MYPLAYLIST_NAME,
     hasPlaylist: platformHasPlaylist,
     onCategoryResumeApplied: (nextCategoryId) => {
@@ -787,7 +781,7 @@ const init = function (): void {
    * MyPlaylist (localStorage-only virtual playlist) is always editable.
    */
   function applyCloudEditRestrictions(): void {
-    const ambientData = getAmbientData();
+    const ambientData = getRuntimeAmbientData();
     if (!ambientData?.isCloud) return;
     applyCloudEditRestrictionsFormView({
       canMutatePlaylist: canMutateCurrentPlaylist(),
@@ -1272,7 +1266,7 @@ const init = function (): void {
       seekEndInput: isElement($MEDIA_EDIT_SEEK_END) ? $MEDIA_EDIT_SEEK_END : null,
       fadeinEndInput: isElement($MEDIA_EDIT_FADEIN_END) ? $MEDIA_EDIT_FADEIN_END : null,
       fadeoutStartInput: isElement($MEDIA_EDIT_FADEOUT_START) ? $MEDIA_EDIT_FADEOUT_START : null,
-      isLocalMode: isLocalMode(),
+      isLocalMode: isRuntimeLocalMode(),
       syncCategoryClearButton: syncMediaEditCategoryClearButton,
       renderCategoryOptions: renderMediaEditCategoryOptions,
       syncVolumeSlider,
@@ -1301,7 +1295,7 @@ const init = function (): void {
   async function uploadMediaEditThumbnailIfNeeded(draft: MediaEditDraft): Promise<{ ok: boolean; message: string }> {
     return uploadMediaEditThumbnailIfNeededState({
       draft,
-      isLocalMode: isLocalMode(),
+      isLocalMode: isRuntimeLocalMode(),
       getLocalizedMessage,
       upload: async (nextDraft) => uploadMediaEditThumbnailPlatform({
         baseUrl: BASE_URL,
@@ -1317,7 +1311,7 @@ const init = function (): void {
     return deleteMediaEditThumbnailIfNeededState({
       draft,
       baseThumbnailName: mediaEditBaseDraft?.thumbnailName || '',
-      isLocalMode: isLocalMode(),
+      isLocalMode: isRuntimeLocalMode(),
       getLocalizedMessage,
       remove: async (filename) => deleteMediaEditThumbnailPlatform({
         baseUrl: BASE_URL,
@@ -1331,7 +1325,7 @@ const init = function (): void {
   async function persistMediaEditForCurrentPlaylist(workingMedia: MediaItem[]): Promise<{ ok: boolean; message: string }> {
     return persistMediaEditForCurrentPlaylistState({
       workingMedia,
-      isCloud: !!getAmbientData()?.isCloud,
+      isCloud: !!getRuntimeAmbientData()?.isCloud,
       playlistName: AMP_STATUS.playlist || '',
       persistCloud: persistMyPlaylistIfNeeded,
       persistRemote: async () => {
@@ -1387,7 +1381,7 @@ const init = function (): void {
     setMediaEditSaveBusyState(false);
     updateNotice({
       type: 'success',
-      message: options.persistMessage || getLocalizedMessage('mediaEditSaveSuccess', 'Media changes were saved successfully.'),
+      message: options.persistMessage || getRuntimeLocalizedMessage('mediaEditSaveSuccess', 'Media changes were saved successfully.'),
       delay: 2200,
     });
     hideMediaEditModal(true);
@@ -1412,7 +1406,7 @@ const init = function (): void {
   });
 
   function confirmDiscardActiveMediaEditIfNeeded(
-    fallbackMessage: string = getLocalizedMessage('mediaEditDiscardUnsaved', 'Discard unsaved edits?')
+    fallbackMessage: string = getRuntimeLocalizedMessage('mediaEditDiscardUnsaved', 'Discard unsaved edits?')
   ): boolean {
     return confirmDiscardMediaEditDraft({
       hasUnsavedDraft: isActiveMediaEditUnsaved(),
@@ -1450,7 +1444,7 @@ const init = function (): void {
     return resolveMediaEditThumbnailSrc({
       mediaItem,
       draft,
-      imageDir: getAmbientData()?.imageDir,
+      imageDir: getRuntimeAmbientData()?.imageDir,
       getFallbackThumbnailSrc: () => getNoMediaImagePath('thumb'),
     });
   }
@@ -1537,7 +1531,7 @@ const init = function (): void {
       },
       closePlaylistModeMenu,
       buildItemTitle: (item) => sanitizeMediaText(item.title || '', MEDIA_TITLE_MAX_LENGTH)
-        || getLocalizedMessage('mediaEditUntitled', 'Untitled media'),
+        || getRuntimeLocalizedMessage('mediaEditUntitled', 'Untitled media'),
       renderSourceBadges: renderMediaEditSourceBadges,
       bindForm: bindMediaEditForm,
       updatePlaylist,
@@ -1682,7 +1676,7 @@ const init = function (): void {
     getVisibleItems: getPlaylistItemsForCurrentView,
     canMutatePlaylist: canMutateCurrentPlaylist,
     canUseReorderMode,
-    isCloud: () => getAmbientData()?.isCloud === true,
+    isCloud: () => getRuntimeAmbientData()?.isCloud === true,
     myPlaylistName: MYPLAYLIST_NAME,
     hasStoredMyPlaylist: () => localStorage.getItem(MYPLAYLIST_KEY) !== null,
     getDeleteSelectedIds: () => deleteSelectedIds,
@@ -2001,7 +1995,7 @@ const init = function (): void {
       if (!allowed.includes(file.type)) {
         updateNotice({
           type: 'error',
-          message: getLocalizedMessage('mediaEditThumbnailTypeError', 'Only PNG, JPEG, GIF, and WebP images are accepted.'),
+          message: getRuntimeLocalizedMessage('mediaEditThumbnailTypeError', 'Only PNG, JPEG, GIF, and WebP images are accepted.'),
           delay: 2500,
         });
         thumbnailInput.value = '';
@@ -2035,7 +2029,7 @@ const init = function (): void {
       if (currentName === '') {
         return;
       }
-      const confirmed = window.confirm(getLocalizedMessage('mediaEditThumbnailRemoveConfirm', 'Remove the current thumbnail image?'));
+      const confirmed = window.confirm(getRuntimeLocalizedMessage('mediaEditThumbnailRemoveConfirm', 'Remove the current thumbnail image?'));
       if (!confirmed) {
         return;
       }
@@ -2416,7 +2410,7 @@ const init = function (): void {
           .map((value: MediaItem) => ({ value, random: Math.random() }))
           .sort((a, b) => a.random - b.random)
           .map(({ value }) => value);
-        logger('shufflePlaylist:', shuffled);
+        runtimeLogger('shufflePlaylist:', shuffled);
         return shuffled;
       }
     }
@@ -2582,7 +2576,7 @@ const init = function (): void {
       if ($HIDDEN_FILEPATH) $HIDDEN_FILEPATH.value = '';
       if ($LABEL_MEDIA_FILE) $LABEL_MEDIA_FILE.textContent = response?.data || '';
     }
-    logger('getRelativeFilepath:', endpointURL, response);
+    runtimeLogger('getRelativeFilepath:', endpointURL, response);
     return response && response.code == 200;
   }
   const {
@@ -2648,15 +2642,15 @@ const init = function (): void {
   });
 
   async function importPlaylistFromFile(file: File): Promise<{ ok: boolean; message: string }> {
-    const ambientData = getAmbientData();
+    const ambientData = getRuntimeAmbientData();
     if (!isLikelyJsonFile(file)) {
-      return { ok: false, message: getLocalizedMessage('importUnsupportedFile', 'Only .json files are accepted.') };
+      return { ok: false, message: getRuntimeLocalizedMessage('importUnsupportedFile', 'Only .json files are accepted.') };
     }
 
     if (ambientData?.isCloud) {
       const maxBytes = getCloudImportSizeLimitBytes();
       if (file.size > maxBytes) {
-        return { ok: false, message: getLocalizedMessage('importCloudSizeError', 'File size exceeds the cloud import limit for this device.') };
+        return { ok: false, message: getRuntimeLocalizedMessage('importCloudSizeError', 'File size exceeds the cloud import limit for this device.') };
       }
     }
 
@@ -2665,11 +2659,11 @@ const init = function (): void {
       const text = await file.text();
       parsed = parseImportedPlaylistJson(text);
     } catch (_error) {
-      return { ok: false, message: getLocalizedMessage('importParseError', 'The selected file is not valid JSON.') };
+      return { ok: false, message: getRuntimeLocalizedMessage('importParseError', 'The selected file is not valid JSON.') };
     }
 
     if (!validatePlaylistSchemaContract(parsed)) {
-      return { ok: false, message: getLocalizedMessage('importSchemaError', 'The selected file does not match the playlist schema.') };
+      return { ok: false, message: getRuntimeLocalizedMessage('importSchemaError', 'The selected file does not match the playlist schema.') };
     }
 
     const sanitized = sanitizeAndNormalizeImportPlaylistDomain({
@@ -2682,20 +2676,20 @@ const init = function (): void {
       descMaxLength: MEDIA_DESC_MAX_LENGTH,
     });
     if (!sanitized) {
-      return { ok: false, message: getLocalizedMessage('importSanitizeError', 'Unsafe or invalid media entries exceeded the allowed limit.') };
+      return { ok: false, message: getRuntimeLocalizedMessage('importSanitizeError', 'Unsafe or invalid media entries exceeded the allowed limit.') };
     }
 
     if (!validatePlaylistSchemaContract(sanitized.playlist)) {
-      return { ok: false, message: getLocalizedMessage('importSchemaError', 'The selected file does not match the playlist schema.') };
+      return { ok: false, message: getRuntimeLocalizedMessage('importSchemaError', 'The selected file does not match the playlist schema.') };
     }
 
     if (ambientData?.isCloud) {
       if (!persistImportedCloudPlaylist(sanitized.playlist)) {
-        return { ok: false, message: getLocalizedMessage('importPersistError', 'Failed to save imported playlist data.') };
+        return { ok: false, message: getRuntimeLocalizedMessage('importPersistError', 'Failed to save imported playlist data.') };
       }
       ensureMyPlaylistOptionFromStorage();
       await activateImportedPlaylist(MYPLAYLIST_NAME);
-      return { ok: true, message: getLocalizedMessage('importCloudReplacedMyPlaylist', 'Import completed. MyPlaylist has been replaced.') };
+      return { ok: true, message: getRuntimeLocalizedMessage('importCloudReplacedMyPlaylist', 'Import completed. MyPlaylist has been replaced.') };
     }
 
     const response = await postImportedPlaylist({
@@ -2706,15 +2700,15 @@ const init = function (): void {
 
     const persistResult = resolveImportedPlaylistPersistResult(
       response,
-      getLocalizedMessage('importPersistError', 'Failed to save imported playlist data.'),
-      getLocalizedMessage('Playlist imported successfully.', 'Playlist imported successfully.')
+      getRuntimeLocalizedMessage('importPersistError', 'Failed to save imported playlist data.'),
+      getRuntimeLocalizedMessage('Playlist imported successfully.', 'Playlist imported successfully.')
     );
     if (!persistResult.ok) {
       return persistResult;
     }
 
     const importedPlaylistName = persistResult.filename;
-    const ambient = getAmbientData();
+    const ambient = getRuntimeAmbientData();
     if (ambient) {
       if (!isObject(ambient.playlists)) {
         ambient.playlists = {};
@@ -2766,7 +2760,7 @@ const init = function (): void {
       fileInput: document.getElementById('playlist-import-file') as HTMLInputElement | null,
       successMessage: selfElm?.dataset['messageSuccess'] || '',
       failureMessage: selfElm?.dataset['messageFailure'] || '',
-      noFileMessage: getLocalizedMessage('importNoFile', 'Please choose a playlist JSON file.'),
+      noFileMessage: getRuntimeLocalizedMessage('importNoFile', 'Please choose a playlist JSON file.'),
       importPlaylistFromFile,
       onImportSuccess: hideOptionsModal,
     });
@@ -2926,46 +2920,6 @@ function snakeToCapital(str: string): string {
   return sharedSnakeToCapital(str);
 }
 
-
-/**
- * Set the storage for saving user data on the client side to be used.
- */
-function useStge(stge: string = 'localStorage'): void {
-  useAppStorage(stge === 'sessionStorage' ? 'sessionStorage' : 'localStorage');
-}
-
-/**
- * Store user data in client-side storage.
- */
-function saveStge(key: string, data: any): boolean {
-  const saved = saveUserData(key, data);
-  if (!saved) {
-    logger('saveStge: failed to save user data', key);
-  }
-  return saved;
-}
-
-/**
- * Logger for frontend of Ambient Media Player.
- */
-function logger(...args: any[]): any {
-  const ambientData = platformGetAmbientData();
-  let isForce = ambientData?.debug || false;
-
-  if (args.length > 0 && typeof args[args.length - 1] === 'string' && args[args.length - 1] === 'force') {
-    isForce = args.pop() === 'force';
-  }
-
-  if (!isForce) {
-    return;
-  }
-
-  const now = new Date();
-  const dateStr = `[${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}]`;
-  const type = /^(error|warn|info|debug|log)$/i.test(args[0]) ? args.shift() : 'log';
-
-  return (console as any)[type](dateStr, ...args);
-}
 
 // Do dispatcher
 if ('complete' === document.readyState || 'loading' !== document.readyState) {
