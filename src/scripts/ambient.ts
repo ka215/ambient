@@ -168,16 +168,14 @@ import {
   bindPlaylistInteractionControls,
 } from './ui/app-controls';
 import {
-  handleCategorySelectionChange,
   handlePlayerPause,
   handlePlayerPlay,
   handlePlaylistItemActivation,
-  handlePlaylistSelectionChange,
 } from './ui/app-event-handlers';
 import {
-  bindSelectorControls,
   bindSettingsControls,
 } from './ui/settings-controls';
+import { bindAmbientSelectorControls } from './ui/selector-bindings';
 import {
   createNoticeController,
   dispatchInitialNotice,
@@ -2783,67 +2781,40 @@ const init = function (): void {
   // EVENT HANDLERS
   // ============================================================================
 
-  bindSelectorControls({
+  bindAmbientSelectorControls({
     playlistSelect: $SELECT_PLAYLIST,
     categorySelect: $SELECT_CATEGORY,
     languageSelect: $SELECT_LANGUAGE,
-    onPlaylistChange: (evt: Event) => {
-      handlePlaylistSelectionChange(evt, {
-        getCurrentPlaylist: () => AMP_STATUS.hasOwnProperty('playlist') ? AMP_STATUS.playlist : null,
-        getPlaylistMode: () => playlistMode,
-        canDiscardEditMode: () => confirmDiscardActiveMediaEditIfNeeded(),
-        clearDeleteSelections: () => {
-          deleteSelectedIds.clear();
-        },
-        resetReorderState,
-        hideMediaEditModal: () => {
-          hideMediaEditModal(false);
-        },
-        clearMediaEditContext,
-        resetPlaylistMode: () => {
-          playlistMode = 'normal';
-        },
-        updatePlaylistModeUi: updatePlaylistModeUI,
-        loadPlaylist: (playlist) => {
-          void getPlaylistData(playlist);
-        },
-      });
+    getCurrentPlaylist: () => AMP_STATUS.hasOwnProperty('playlist') ? AMP_STATUS.playlist : null,
+    getCurrentCategoryId: () => (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null ? AMP_STATUS.ctg : null),
+    getPlaylistMode: () => playlistMode,
+    canDiscardEditMode: () => confirmDiscardActiveMediaEditIfNeeded(),
+    clearDeleteSelections: () => {
+      deleteSelectedIds.clear();
     },
-    onCategoryChange: (evt: Event) => {
-      handleCategorySelectionChange(evt, {
-        getCurrentCategoryId: () => (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null ? AMP_STATUS.ctg : null),
-        getPlaylistMode: () => playlistMode,
-        canDiscardEditMode: () => confirmDiscardActiveMediaEditIfNeeded(),
-        clearDeleteSelections: () => {
-          deleteSelectedIds.clear();
-        },
-        resetReorderState,
-        hideMediaEditModal: () => {
-          hideMediaEditModal(false);
-        },
-        clearMediaEditContext,
-        resetPlaylistMode: () => {
-          playlistMode = 'normal';
-        },
-        updatePlaylistModeUi: updatePlaylistModeUI,
-        applyCategoryChange: (newCtgId) => {
-          AMP_STATUS.ctg = newCtgId;
-          AMP_STATUS.prev = null;
-          AMP_STATUS.current = null;
-          AMP_STATUS.next = null;
-        },
-        updatePlaylist,
-      });
+    resetReorderState,
+    hideMediaEditModal: () => {
+      hideMediaEditModal(false);
     },
-    onLanguageChange: (evt: Event) => {
-      const currentLanguage = getCookie('lang');
-      const newLanguage = (evt.target as HTMLSelectElement).value;
-      logger('changeLanguage::', currentLanguage, newLanguage);
-      if (currentLanguage !== newLanguage) {
-        updateCookie('lang', newLanguage);
-        reloadPage();
-      }
+    clearMediaEditContext,
+    resetPlaylistMode: () => {
+      playlistMode = 'normal';
     },
+    updatePlaylistModeUi: updatePlaylistModeUI,
+    loadPlaylist: (playlist) => {
+      void getPlaylistData(playlist);
+    },
+    applyCategoryChange: (newCtgId) => {
+      AMP_STATUS.ctg = newCtgId;
+      AMP_STATUS.prev = null;
+      AMP_STATUS.current = null;
+      AMP_STATUS.next = null;
+    },
+    updatePlaylist,
+    getCookie,
+    updateCookie,
+    logger,
+    reloadPage,
   });
 
   bindPlaylistInteractionControls({
