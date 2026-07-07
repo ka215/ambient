@@ -225,8 +225,6 @@ import {
 import {
   clearCategoryView,
   ensureSelectOption,
-  resetMediaManagementForm,
-  resetPlaylistManagementForm,
   selectExistingOption,
   syncMediaCategoryField as syncMediaCategoryFieldView,
   syncMediaVolumeField as syncMediaVolumeFieldView,
@@ -240,6 +238,7 @@ import {
   buildMediaManagementBindings as buildMediaManagementBindingsView,
   buildPlaylistManagementBindings as buildPlaylistManagementBindingsView,
 } from './ui/forms/management-binding-builders';
+import { createManagementFormBindings } from './ui/forms/management-form-bindings';
 import {
   assignSequentialMediaIds,
   createPlaylistLoadGuard,
@@ -263,7 +262,6 @@ import {
   removeMyPlaylistOption,
   resolveInitialPlaylistStartup,
 } from './bootstrap/playlist-startup';
-import { appendManagedMediaItem, buildManagedMediaItem } from './domain/media-management-data';
 import {
   createPlaylistCategoryAction,
   downloadPlaylistAction,
@@ -3231,70 +3229,67 @@ const init = function (): void {
     logger('getRelativeFilepath:', endpointURL, response);
     return response && response.code == 200;
   }
-
-  function resetMediaManageForm(): void {
-    resetMediaManagementForm({
-      form: $MEDIA_MANAGE_FORM,
-      elements: $MEDIA_MANAGE_ELMS,
-      addType: AMP_STATUS.addtype,
-      syncMediaVolumeField,
-      setValidated,
-    });
-  }
-
-  function addMediaData(payload: [string, string][]): boolean {
-    logger('addMediaData::before:', payload, AMP_STATUS.media?.length);
-
-    // --- Auto-playlist: if no playlist is currently selected, use/create MyPlaylist ---
-    if (!AMP_STATUS.playlist) {
-      AMP_STATUS.playlist = MYPLAYLIST_NAME;
-      // Add MyPlaylist option to the dropdown if not present
-      if ($SELECT_PLAYLIST) {
-        const alreadyExists = Array.from($SELECT_PLAYLIST.options).some(
-          (opt) => opt.value === MYPLAYLIST_NAME
-        );
-        if (!alreadyExists) {
-          const opt = document.createElement('option');
-          opt.value = MYPLAYLIST_NAME;
-          opt.textContent = MYPLAYLIST_NAME.replace('.json', '');
-          $SELECT_PLAYLIST.appendChild(opt);
-        }
-        // Switch the dropdown to MyPlaylist
-        for (let i = 0; i < $SELECT_PLAYLIST.options.length; i++) {
-          if ($SELECT_PLAYLIST.options[i]?.value === MYPLAYLIST_NAME) {
-            $SELECT_PLAYLIST.selectedIndex = i;
-            break;
+  const {
+    resetMediaManageForm,
+    addMediaData,
+    generatePlaylistJson,
+    resetPlaylistManageForm,
+  } = createManagementFormBindings({
+    mediaForm: $MEDIA_MANAGE_FORM,
+    mediaElements: $MEDIA_MANAGE_ELMS,
+    playlistForm: $PLAYLIST_MANAGE_FORM,
+    playlistElements: $PLAYLIST_MANAGE_ELMS,
+    getAddType: () => AMP_STATUS.addtype,
+    syncMediaVolumeField: () => syncMediaVolumeField(),
+    setValidated: (field, valid) => {
+      if (field instanceof HTMLElement) {
+        setValidated(field, valid);
+      }
+    },
+    logger,
+    ensureTargetPlaylist: () => {
+      if (!AMP_STATUS.playlist) {
+        AMP_STATUS.playlist = MYPLAYLIST_NAME;
+        if ($SELECT_PLAYLIST) {
+          const alreadyExists = Array.from($SELECT_PLAYLIST.options).some(
+            (opt) => opt.value === MYPLAYLIST_NAME
+          );
+          if (!alreadyExists) {
+            const opt = document.createElement('option');
+            opt.value = MYPLAYLIST_NAME;
+            opt.textContent = MYPLAYLIST_NAME.replace('.json', '');
+            $SELECT_PLAYLIST.appendChild(opt);
+          }
+          for (let i = 0; i < $SELECT_PLAYLIST.options.length; i++) {
+            if ($SELECT_PLAYLIST.options[i]?.value === MYPLAYLIST_NAME) {
+              $SELECT_PLAYLIST.selectedIndex = i;
+              break;
+            }
           }
         }
       }
-    }
-
-    const buildResult = buildManagedMediaItem({
-      payload,
-      categories: AMP_STATUS.category || [],
-      titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
-      artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
-      descMaxLength: MEDIA_DESC_MAX_LENGTH,
-      sanitizeMediaText,
-      sanitizeMediaDesc,
-      isVolumeInRange: (value) => inRange(value, 0, 100),
-    });
-    AMP_STATUS.category = buildResult.categories;
-    AMP_STATUS.media = appendManagedMediaItem(AMP_STATUS.media || [], buildResult.mediaItem);
-    logger('addMediaData::after:', AMP_STATUS.media.length);
-    return true;
-  }
-
-  function generatePlaylistJson(seekFormat: boolean): string {
-    const playlistJson = buildPlaylistJson({
+    },
+    getMediaItems: () => AMP_STATUS.media || [],
+    getCategories: () => AMP_STATUS.category || [],
+    setCategories: (categories) => {
+      AMP_STATUS.category = categories;
+    },
+    setMediaItems: (mediaItems) => {
+      AMP_STATUS.media = mediaItems;
+    },
+    titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+    artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+    descMaxLength: MEDIA_DESC_MAX_LENGTH,
+    sanitizeMediaText,
+    sanitizeMediaDesc,
+    isVolumeInRange: (value) => inRange(value, 0, 100),
+    generatePlaylistJson: (seekFormat) => buildPlaylistJson({
       mediaItems: AMP_STATUS.media || [],
       categories: AMP_STATUS.category || [],
       playlistOptions: AMP_STATUS.options,
       seekFormat,
-    });
-    logger('generatePlaylistJson::after:', playlistJson);
-    return playlistJson;
-  }
+    }),
+  });
 
   async function importPlaylistFromFile(file: File): Promise<{ ok: boolean; message: string }> {
     const ambientData = getAmbientData();
@@ -3376,15 +3371,6 @@ const init = function (): void {
       ok: true,
       message: persistResult.message,
     };
-  }
-
-  function resetPlaylistManageForm(): void {
-    resetPlaylistManagementForm({
-      form: $PLAYLIST_MANAGE_FORM,
-      elements: $PLAYLIST_MANAGE_ELMS,
-      setValidated,
-      logger,
-    });
   }
 
   function createPlaylistCategory(): { ok: boolean; message: string } {
