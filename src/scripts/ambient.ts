@@ -115,6 +115,9 @@ import {
   syncDrawerAndModalBackdrops,
 } from './ui/drawers';
 import {
+  bindAddMediaTrigger,
+} from './ui/app-controls';
+import {
   getToggleInput,
   resolveNoMediaImagePath,
   syncToggleRoot,
@@ -418,7 +421,8 @@ const init = function (): void {
               savePlaylistContext();
             }
             if ('current' === prop) {
-              changePlaylistFocus();
+              syncPlaylistCurrentFocus($LIST_PLAYLIST, AMP_STATUS.current);
+              scrollPlaylistToCurrentFocus($LIST_PLAYLIST);
               savePlaylistContext();
             }
             if ('order' === prop) {
@@ -1655,17 +1659,16 @@ const init = function (): void {
       // Re-attach click handler on the cloned "Register media" button
       const addBtn = clone.querySelector('#btn-add-media-from-drawer');
       if (addBtn) {
-        bindAddMediaFromDrawer(addBtn);
+        bindAddMediaTrigger({
+          trigger: addBtn,
+          onActivate: (evt: Event) => {
+            evt.preventDefault();
+            evt.stopPropagation();
+            openMediaManagement(getActiveCategoryId());
+          },
+        });
       }
     }
-  }
-
-  function bindAddMediaFromDrawer(addBtn: Element): void {
-    addBtn.addEventListener('click', (evt: Event) => {
-      evt.preventDefault();
-      evt.stopPropagation();
-      openMediaManagement(getActiveCategoryId());
-    });
   }
 
   function getActiveCategoryId(): number | null {
@@ -1717,14 +1720,6 @@ const init = function (): void {
     });
   }
 
-  function openPlaylistManagementCategoryCreate(): void {
-    openPlaylistManagementCategoryCreateView();
-  }
-
-  function ensureAccordionPanel(panelId: string): void {
-    ensureAccordionPanelView(panelId);
-  }
-
   const {
     hideOptionsModal,
     openMediaManagement,
@@ -1748,8 +1743,12 @@ const init = function (): void {
     updateCategory,
     syncMediaCategoryField,
     syncMediaVolumeField: () => syncMediaVolumeField(),
-    ensureAccordionPanel,
-    openPlaylistManagementCategoryCreate,
+    ensureAccordionPanel: (panelId) => {
+      ensureAccordionPanelView(panelId);
+    },
+    openPlaylistManagementCategoryCreate: () => {
+      openPlaylistManagementCategoryCreateView();
+    },
     closeMediaEditCategoryDropdown,
     closeMediaEditModal,
     trapMediaEditModalFocus: (evt) => {
@@ -1760,7 +1759,9 @@ const init = function (): void {
     },
     isMediaEditModalVisible: () => isMediaEditModalVisibleView(isElement($MODAL_MEDIA_EDIT) ? $MODAL_MEDIA_EDIT : null),
     isMediaEditCategoryDropdownVisible,
-    scrollToFocusItem,
+    scrollToFocusItem: () => {
+      scrollPlaylistToCurrentFocus($LIST_PLAYLIST);
+    },
     watcher,
   });
 
@@ -2252,21 +2253,6 @@ const init = function (): void {
     currentId: AMP_STATUS.current,
     order: AMP_STATUS.order,
   });
-
-  /**
-   * Toggle style to focus the active item in a playlist.
-   */
-  function changePlaylistFocus(): void {
-    syncPlaylistCurrentFocus($LIST_PLAYLIST, AMP_STATUS.current);
-    scrollToFocusItem();
-  }
-
-  /**
-   * Auto-scroll to active item in playlist.
-   */
-  function scrollToFocusItem(): void {
-    scrollPlaylistToCurrentFocus($LIST_PLAYLIST);
-  }
 
   const toggleLoopInput = getToggleInput($TOGGLE_LOOP);
   const toggleRandomlyInput = getToggleInput($TOGGLE_RANDOMLY);
