@@ -52,7 +52,6 @@ import {
 import { createPlaylistResumeBindings } from './state/playlist-resume-bindings';
 import {
   readPlaylistOption,
-  resolvePlaylistOptionState,
   setPlaylistOption,
 } from './state/playlist-options';
 import {
@@ -94,12 +93,10 @@ import {
   syncDrawerAndModalBackdrops,
 } from './ui/drawers';
 import {
-  applyResolvedPlaylistOptions,
   getToggleInput,
   resolveNoMediaImagePath,
   syncToggleRoot,
   syncVolumeSlider,
-  updateNoMediaImagesForTheme,
 } from './ui/settings-view';
 import {
   bindViewportSyncEvents,
@@ -136,15 +133,8 @@ import {
 import { createMediaEditUiBindings } from './state/media-edit-ui-bindings';
 import { createMediaEditPreviewBindings } from './state/media-edit-preview-bindings';
 import {
-  appendPlaylistQuickAddItem,
-  createShuffledPlaylist,
-  enablePlaylistDownloadButton,
-  finalizePlaylistRender,
-  filterPlaylistItemsByCategory,
   getPlaylistDescriptionPayload,
   PlaylistMode,
-  renderPlaylistItems,
-  resolvePlaylistModeForRendering,
   scrollPlaylistToCurrentFocus,
   syncPlaylistCurrentFocus,
   syncPlaylistModeButton as syncPlaylistModeButtonView,
@@ -162,6 +152,16 @@ import { bindAmbientSelectorControls } from './ui/selector-bindings';
 import { bindAmbientOptionsModal } from './ui/options-modal-bindings';
 import { bindAmbientPlaylistInteractionControls } from './ui/playlist-interaction-bindings';
 import {
+  applyAmbientPlaylistOptions,
+} from './ui/playlist-option-bindings';
+import {
+  syncAmbientShuffleIfNeeded,
+  toggleAmbientCaptionMarquee,
+  updateAmbientCarousel,
+  updateAmbientMediaCaption,
+  updateAmbientPlaylistDisplay,
+} from './ui/playlist-display-bindings';
+import {
   createNoticeController,
   dispatchInitialNotice,
   type NoticeController,
@@ -173,9 +173,6 @@ import {
   syncWindowFullButtonState,
 } from './ui/player/player-shell';
 import {
-  toggleCaptionMarqueeDisplay,
-  updateCarouselDisplay,
-  updateMediaCaptionDisplay,
 } from './ui/player/player-display';
 import {
   updatePlaybackStatus,
@@ -2319,90 +2316,61 @@ const init = function (): void {
    * Create a playlist from the data of the AMP_STATUS object.
    */
   function updatePlaylist(): void {
-    destroyPlaylistSortable();
-    playlistDescModal.close(false);
-    clearPlaylist();
-    const $LIST_NO_MEDIA = document.getElementById('no-media') as HTMLElement;
-    const items = filterPlaylistItemsByCategory(AMP_STATUS.media || [], AMP_STATUS.ctg);
-    const isNoMedia = items.length === 0;
-    syncPlaylistModeAvailability(items.length);
-
-    const $BUTTON_DOWNLOAD_PLAYLIST = document.getElementById('btn-download-playlist') as HTMLButtonElement;
-    enablePlaylistDownloadButton($BUTTON_DOWNLOAD_PLAYLIST);
-
     const ambientData = (window as any).AmbientData as AmbientData;
-    if (finalizePlaylistRender({
-      noMediaElement: $LIST_NO_MEDIA,
-      isEmpty: isNoMedia,
-      closePlaylistModeMenu,
-      setPlaylistReadyState,
-    })) {
-      return;
-    }
-
-    const playlistModeAdjustment = resolvePlaylistModeForRendering({
-      mode: playlistMode,
-      canUseReorderMode: canUseReorderMode(),
-    });
-    if (playlistModeAdjustment.changed) {
-      resetReorderState();
-      playlistMode = playlistModeAdjustment.nextMode;
-    }
-    updatePlaylistModeUI();
-
-    const isShuffle = getOption('shuffle') || false;
-    if (isShuffle) {
-      AMP_STATUS.shuffle = createShuffledPlaylist(items);
-      logger('updatePlaylist::createShufflePlaylist:', AMP_STATUS.shuffle);
-    }
-
-    renderPlaylistItems({
-      listElement: $LIST_PLAYLIST,
-      items,
-      currentId: AMP_STATUS.current,
-      mode: playlistMode,
-      deleteSelectedIds,
-      editSelectedId: mediaEditActiveItem?.amId ?? null,
-      format: getOption('playlist'),
-      imageDir: ambientData?.imageDir || null,
-      fallbackThumbPath: getNoMediaImagePath('thumb'),
-      resolveYoutubeThumbnailUrl: getYoutubeThumbnailURL,
-      trimTitle: (value: string) => mb_strimwidth(value, 0, 50, '...'),
-      formatLabel: filterText,
-    });
-
-    ensurePlaylistSortable();
-
-    // Append "[+] Add media" item at the bottom of the playlist
-    // Hidden in cloud mode for existing JSON playlists (read-only)
-    // and hidden when playlist operation mode is not normal.
-    const registerBtn = document.getElementById('btn-add-media-from-drawer');
-    const registerText = (registerBtn?.dataset['label'] || registerBtn?.innerText || 'Register media').trim();
-    appendPlaylistQuickAddItem({
-      listElement: $LIST_PLAYLIST,
-      canMutatePlaylist: canMutateCurrentPlaylist(),
-      playlistMode,
-      registerText,
-      onClick: (evt: Event) => {
-        evt.preventDefault();
-        const activeCatId = (AMP_STATUS.ctg !== undefined && AMP_STATUS.ctg !== null && Number(AMP_STATUS.ctg) >= 0)
-          ? Number(AMP_STATUS.ctg)
-          : null;
-        openMediaManagement(activeCatId);
+    syncAmbientShuffleIfNeeded({
+      enabled: Boolean(getOption('shuffle')),
+      mediaItems: AMP_STATUS.media || [],
+      categoryId: AMP_STATUS.ctg,
+      logger,
+      setShuffleItems: (items) => {
+        AMP_STATUS.shuffle = items;
       },
     });
-
-    if (ambientData.hasOwnProperty('debug') && ambientData.debug) {
-      execDebug();
-    }
-    setPlaylistReadyState(true);
-  }
-
-  /**
-   * Get the URL of the thumbnail image of YouTube media.
-   */
-  function getYoutubeThumbnailURL(videoid: string): string {
-    return 'https://img.youtube.com/vi/' + videoid + '/hqdefault.jpg';
+    updateAmbientPlaylistDisplay({
+      mediaItems: AMP_STATUS.media || [],
+      categoryId: AMP_STATUS.ctg,
+      currentId: AMP_STATUS.current,
+      playlistMode,
+      deleteSelectedIds,
+      editSelectedId: mediaEditActiveItem?.amId ?? null,
+      playlistFormat: getOption('playlist'),
+      listElement: $LIST_PLAYLIST,
+      noMediaElement: document.getElementById('no-media') as HTMLElement,
+      canUseReorderMode: canUseReorderMode(),
+      canMutatePlaylist: canMutateCurrentPlaylist(),
+      imageDir: ambientData?.imageDir || null,
+      fallbackThumbPath: getNoMediaImagePath('thumb'),
+      getRegisterText: () => {
+        const registerBtn = document.getElementById('btn-add-media-from-drawer');
+        return (registerBtn?.dataset['label'] || registerBtn?.innerText || 'Register media').trim();
+      },
+      onQuickAdd: (evt: Event) => {
+        evt.preventDefault();
+        openMediaManagement(getActiveCategoryId());
+      },
+      trimTitle: (value: string) => mb_strimwidth(value, 0, 50, '...'),
+      formatLabel: filterText,
+      destroyPlaylistSortable,
+      closePlaylistDescModal: () => {
+        playlistDescModal.close(false);
+      },
+      clearPlaylist,
+      syncPlaylistModeAvailability,
+      closePlaylistModeMenu,
+      setPlaylistReadyState,
+      resetReorderState,
+      updatePlaylistModeUi: updatePlaylistModeUI,
+      ensurePlaylistSortable,
+      execDebug,
+      debugEnabled: Boolean(ambientData?.hasOwnProperty('debug') && ambientData.debug),
+      logger,
+      setPlaylistMode: (mode) => {
+        playlistMode = mode;
+      },
+      setShuffleItems: (items) => {
+        AMP_STATUS.shuffle = items;
+      },
+    });
   }
 
   /**
@@ -2447,53 +2415,27 @@ const init = function (): void {
    * Causes the application to apply specific option contents of the AMP_STATUS object.
    */
   function applyOptions(): void {
-    const optionState = resolvePlaylistOptionState({
+    const ambientData = (window as any).AmbientData as AmbientData;
+    applyAmbientPlaylistOptions({
+      status: AMP_STATUS,
       getOption,
       defaultVolume: getDefaultVolume(),
-    });
-
-    const ambientData = (window as any).AmbientData as AmbientData;
-    applyResolvedPlaylistOptions({
-      optionState,
       body: $BODY,
       menu: $MENU,
       imageDir: ambientData?.imageDir,
-      syncRandomOrder: (enabled) => {
-        AMP_STATUS.order = enabled ? 'random' : 'normal';
-      },
-      syncShuffle: () => {
-        AMP_STATUS.shuffle = [];
-        syncToggleRoot($TOGGLE_SHUFFLE, !!(AMP_STATUS.options && AMP_STATUS.options.shuffle));
-        AMP_STATUS.shuffle = shufflePlaylist();
-      },
-      syncSeek: (enabled) => {
-        syncToggleRoot($TOGGLE_SEEKPLAY, enabled);
-      },
-      syncFader: (enabled) => {
-        syncToggleRoot($TOGGLE_FADER, enabled);
-      },
-      applyVolume: (volume) => {
-        AMP_STATUS.volume = volume;
-        syncVolumeSlider({
-          input: $RANGE_VOLUME,
-          volume: normalizeVolume(AMP_STATUS.volume, getDefaultVolume()),
-          syncRangeProgress,
-          display: document.getElementById('default-volume-value') as HTMLElement | null,
-        });
-        syncMediaVolumeField();
-      },
-      applyDarkModeFlag: (enabled) => {
-        if (AMP_STATUS.options) {
-          AMP_STATUS.options.dark = enabled;
-        }
-      },
-      darkModeEnabled: () => isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark ? !!AMP_STATUS.options.dark : false,
-      toggleInput: toggleDarkmodeInput,
-      updateNoMediaImagesForTheme: () => updateNoMediaImagesForTheme(isDarkModeEnabled()),
+      shuffleToggleRoot: $TOGGLE_SHUFFLE,
+      seekToggleRoot: $TOGGLE_SEEKPLAY,
+      faderToggleRoot: $TOGGLE_FADER,
+      darkModeToggleInput: toggleDarkmodeInput,
+      volumeRange: $RANGE_VOLUME,
+      defaultVolumeDisplay: document.getElementById('default-volume-value') as HTMLElement | null,
+      normalizeVolume,
+      syncRangeProgress,
+      syncMediaVolumeField,
+      shufflePlaylist,
+      isDarkModeEnabled,
       setStyles,
-      applyFullWindowMode: (enabled) => {
-        setFullWindowMode(enabled, false);
-      },
+      setFullWindowMode,
     });
   }
 
@@ -2501,20 +2443,17 @@ const init = function (): void {
    * Clear and initialize the carousel display.
    */
   function updateCarousel(): void {
-    updateCarouselDisplay({
+    const ambientData = (window as any).AmbientData as AmbientData;
+    updateAmbientCarousel({
       prevId: AMP_STATUS.hasOwnProperty('prev') ? AMP_STATUS.prev : null,
       currentId: AMP_STATUS.hasOwnProperty('current') ? AMP_STATUS.current : null,
       nextId: AMP_STATUS.hasOwnProperty('next') ? AMP_STATUS.next : null,
-      wrapper: $CAROUSEL_WRAPPER,
-      prevButton: $CAROUSEL_PREV,
-      nextButton: $CAROUSEL_NEXT,
+      wrapper: $CAROUSEL_WRAPPER as HTMLElement,
+      prevButton: $CAROUSEL_PREV as HTMLButtonElement,
+      nextButton: $CAROUSEL_NEXT as HTMLButtonElement,
       mediaItems: AMP_STATUS.media || [],
       placeholderImage: getNoMediaImagePath('placeholder'),
-      resolveYouTubeThumbnail: getYoutubeThumbnailURL,
-      resolveImagePath: (image) => {
-        const ambientData = (window as any).AmbientData as AmbientData;
-        return (ambientData.imageDir ?? '') + image;
-      },
+      imageDir: ambientData?.imageDir || null,
     });
   }
 
@@ -2522,7 +2461,7 @@ const init = function (): void {
    * Update the media caption display.
    */
   function updateMediaCaption(mediaData: MediaItem): void {
-    updateMediaCaptionDisplay({
+    updateAmbientMediaCaption({
       mediaData,
       bodyElement: $BODY,
       captionElement: $MEDIA_CAPTION,
@@ -2536,7 +2475,11 @@ const init = function (): void {
    * Toggle caption marqueeing depending on window size.
    */
   function toggleMarqueeCaption(): void {
-    toggleCaptionMarqueeDisplay($BODY, $MEDIA_CAPTION, currentWindowSize.width);
+    toggleAmbientCaptionMarquee({
+      bodyElement: $BODY,
+      captionElement: $MEDIA_CAPTION,
+      fallbackWidth: currentWindowSize.width,
+    });
   }
 
   /**
