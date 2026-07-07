@@ -39,6 +39,7 @@ import {
   inRange as sharedInRange,
   isObject as sharedIsObject,
 } from './shared/validation';
+import { formatAmbientPlaylistLabel } from './shared/playlist-label';
 import {
   getAtts,
   getCookie,
@@ -1992,7 +1993,7 @@ const init = function (): void {
         openMediaManagement(getActiveCategoryId());
       },
       trimTitle: (value: string) => mb_strimwidth(value, 0, 50, '...'),
-      formatLabel: filterText,
+      formatLabel: formatAmbientPlaylistLabel,
       destroyPlaylistSortable,
       closePlaylistDescModal: () => {
         playlistDescModal.close(false);
@@ -2126,28 +2127,6 @@ const init = function (): void {
       captionElement: $MEDIA_CAPTION,
       fallbackWidth: currentWindowSize.width,
     });
-  }
-
-  /**
-   * Filters text to the specified format.
-   */
-  function filterText(format: string, mediaData: MediaItem): string {
-    const patterns = format.match(/%(.+?)%/gi);
-    let text = format;
-    if (patterns && patterns.length > 0) {
-      patterns.forEach((pattern: string) => {
-        const property = pattern.replaceAll('%', '');
-        const replacer = (mediaData.hasOwnProperty(property) && (mediaData as any)[property])
-          ? (mediaData as any)[property]
-          : '';
-        text = text.replaceAll(`%${property}%`, replacer);
-      });
-      text = text
-        .trim()
-        .replace(/^[-_‐–−—ー]?(.*)[-_‐–−—ー]?$/, '$1')
-        .trim();
-    }
-    return text;
   }
 
   // ============================================================================
