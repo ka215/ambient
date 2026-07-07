@@ -60,21 +60,13 @@ import {
   getPlaylistItemsForView,
 } from './state/playlist-mode-state';
 import {
-  syncSessionDraftState,
 } from './state/session-draft-store';
 import {
-  deleteMediaEditDraftEntry,
-  hydrateMediaEditDraftMap,
 } from './state/media-edit-draft-store';
 import {
-  applyBoundMediaEditDraftState,
   applyMediaEditDirtyState,
-  bindMediaEditDraftState,
   canOpenMediaEditModal,
-  clearMediaEditStateContext,
   confirmDiscardMediaEditDraft,
-  discardMediaEditDraft,
-  hasActiveUnsavedMediaEditDraft,
 } from './state/media-edit-state';
 import { createMediaEditTimingBindings } from './state/media-edit-timing-bindings';
 import {
@@ -86,17 +78,15 @@ import { createMediaEditSaveBindings } from './state/media-edit-save-bindings';
 import {
   applyMediaEditDraftToItem,
   cloneMediaEditDraft as cloneMediaEditDraftState,
-  createMediaEditBaseDraft as createMediaEditBaseDraftState,
   createEmptyMediaEditDraft,
-  createMediaEditDraftKey as createMediaEditDraftKeyState,
   ensureMediaEditCategory,
   findMediaEditCategoryIndex,
   isSameMediaEditDraft as isSameMediaEditDraftState,
-  readMediaEditDraftFromForm as readMediaEditDraftFromFormState,
   sanitizeMediaEditDraft as sanitizeMediaEditDraftState,
   type MediaEditDraft,
   type MediaEditDraftInput,
 } from './state/media-edit-draft';
+import { createMediaEditDraftBindings } from './state/media-edit-draft-bindings';
 import {
   closeResponsiveDrawers,
   cleanupDrawerBackdrops,
@@ -1273,7 +1263,7 @@ const init = function (): void {
     categoryClearButton: isElement($BUTTON_MEDIA_EDIT_CATEGORY_CLEAR) ? $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR : null,
     getCategories: () => AMP_STATUS.category,
     getLocalizedMessage,
-    createValidationDraft: readMediaEditDraftFromForm,
+    createValidationDraft: () => readMediaEditDraftFromForm(),
     getActiveItem: () => mediaEditActiveItem,
     resolveKnownDuration: resolveMediaEditKnownDuration,
     resolveEffectiveEnd: resolveMediaEditEffectiveEnd,
@@ -1289,7 +1279,7 @@ const init = function (): void {
     getLocalizedMessage,
     mediaEditDurationSync,
     syncMediaEditTimingDisplay,
-    syncMediaEditDraftStateFromForm,
+    syncMediaEditDraftStateFromForm: () => syncMediaEditDraftStateFromForm(),
     validateAndRenderMediaEditDraftFromForm,
   });
   const {
@@ -1320,54 +1310,59 @@ const init = function (): void {
     }
     return `title:${sanitizeMediaText(mediaItem.title || '', MEDIA_TITLE_MAX_LENGTH)}`;
   }
-
-  function getMediaEditDraftKey(mediaItem: MediaItem): string {
-    const playlistKey = (AMP_STATUS.playlist || '').trim() || '__playlist__';
-    return createMediaEditDraftKeyState(playlistKey, getMediaEditItemIdentity(mediaItem));
-  }
-
-  function hydrateMediaEditDraftStore(): void {
-    hydrateMediaEditDraftMap({
-      storageKey: MEDIA_EDIT_DRAFT_STORAGE_KEY,
-      targetStore: mediaEditDraftStore,
-      parseEntry: (value) => {
-        if (!isObject(value) || Array.isArray(value)) {
-          return null;
-        }
-        return sanitizeMediaEditDraft({
-          category: value['category'],
-          title: value['title'],
-          artist: value['artist'],
-          description: value['description'],
-          volume: value['volume'],
-          seekStart: value['seekStart'],
-          seekEnd: value['seekEnd'],
-          fadeInEnd: value['fadeInEnd'],
-          fadeOutStart: value['fadeOutStart'],
-        });
-      },
-    });
-  }
-
-  function deleteMediaEditDraftByKey(key: string): void {
-    deleteMediaEditDraftEntry({
-      storageKey: MEDIA_EDIT_DRAFT_STORAGE_KEY,
-      draftStore: mediaEditDraftStore,
-      key,
-    });
-  }
-
-  function createMediaEditBaseDraft(mediaItem: MediaItem): MediaEditDraft {
-    const timing = getMediaEditTimingFromStoredDurations(mediaItem);
-    return createMediaEditBaseDraftState({
-      mediaItem,
-      categoryName: getMediaCategoryName(mediaItem),
-      description: sanitizeMediaEditDescInput(String(mediaItem.desc || ''), MEDIA_DESC_MAX_LENGTH),
-      timing,
-      defaultVolume: getDefaultVolume(),
-      sanitizeDraft: sanitizeMediaEditDraft,
-    });
-  }
+  const {
+    getMediaEditDraftKey,
+    hydrateMediaEditDraftStore,
+    deleteMediaEditDraftByKey,
+    createMediaEditBaseDraft,
+    readMediaEditDraftFromForm,
+    isActiveMediaEditUnsaved,
+    syncMediaEditDraftStateFromForm,
+    applyMediaEditDraftState,
+    discardActiveMediaEditDraft,
+    clearMediaEditContext,
+    bindMediaEditForm,
+  } = createMediaEditDraftBindings({
+    storageKey: MEDIA_EDIT_DRAFT_STORAGE_KEY,
+    status: AMP_STATUS,
+    draftStore: mediaEditDraftStore,
+    getActiveItem: () => mediaEditActiveItem,
+    setActiveItem: (mediaItem) => {
+      mediaEditActiveItem = mediaItem;
+    },
+    getBaseDraft: () => mediaEditBaseDraft,
+    setBaseDraft: (draft) => {
+      mediaEditBaseDraft = draft;
+    },
+    setPreviewSourceItem: (mediaItem) => {
+      mediaEditPreview.setPreviewSourceItem(mediaItem);
+    },
+    setDirtyState: setMediaEditDirtyState,
+    isSameDraft: isSameMediaEditDraft,
+    cloneDraft: cloneMediaEditDraft,
+    sanitizeDraft: sanitizeMediaEditDraft,
+    createEmptyDraft: () => createEmptyMediaEditDraft(getDefaultVolume()),
+    getItemIdentity: getMediaEditItemIdentity,
+    getMediaCategoryName,
+    sanitizeDescription: (value) => sanitizeMediaEditDescInput(value, MEDIA_DESC_MAX_LENGTH),
+    getTiming: getMediaEditTimingFromStoredDurations,
+    getDefaultVolume,
+    applyDraftToForm: applyMediaEditDraftToForm,
+    validateDraft: () => {
+      validateAndRenderMediaEditDraftFromForm();
+    },
+    readFormValues: () => ({
+      category: $MEDIA_EDIT_CATEGORY?.value,
+      title: $MEDIA_EDIT_TITLE?.value,
+      artist: $MEDIA_EDIT_ARTIST?.value,
+      description: $MEDIA_EDIT_DESCRIPTION?.value,
+      volume: $MEDIA_EDIT_VOLUME ? Number($MEDIA_EDIT_VOLUME.value) : undefined,
+      seekStart: $MEDIA_EDIT_SEEK_START?.value,
+      seekEnd: $MEDIA_EDIT_SEEK_END?.value,
+      fadeInEnd: $MEDIA_EDIT_FADEIN_END?.value,
+      fadeOutStart: $MEDIA_EDIT_FADEOUT_START?.value,
+    }),
+  });
 
   function applyMediaEditDraftToForm(draft: MediaEditDraft): void {
     applyMediaEditDraftToFormView({
@@ -1527,94 +1522,6 @@ const init = function (): void {
     failSave: failMediaEditSave,
   });
 
-  function readMediaEditDraftFromForm(): MediaEditDraft {
-    const fallback = mediaEditBaseDraft || createEmptyMediaEditDraft(getDefaultVolume());
-    const activeDraft = mediaEditActiveItem
-      ? mediaEditDraftStore.get(getMediaEditDraftKey(mediaEditActiveItem)) || null
-      : null;
-    return readMediaEditDraftFromFormState({
-      fallback,
-      activeDraft,
-      category: $MEDIA_EDIT_CATEGORY?.value,
-      title: $MEDIA_EDIT_TITLE?.value,
-      artist: $MEDIA_EDIT_ARTIST?.value,
-      description: $MEDIA_EDIT_DESCRIPTION?.value,
-      volume: $MEDIA_EDIT_VOLUME ? Number($MEDIA_EDIT_VOLUME.value) : undefined,
-      seekStart: $MEDIA_EDIT_SEEK_START?.value,
-      seekEnd: $MEDIA_EDIT_SEEK_END?.value,
-      fadeInEnd: $MEDIA_EDIT_FADEIN_END?.value,
-      fadeOutStart: $MEDIA_EDIT_FADEOUT_START?.value,
-      sanitizeDraft: sanitizeMediaEditDraft,
-    });
-  }
-
-  function isActiveMediaEditUnsaved(): boolean {
-    return hasActiveUnsavedMediaEditDraft({
-      activeItem: mediaEditActiveItem,
-      draftStore: mediaEditDraftStore,
-      getDraftKey: getMediaEditDraftKey,
-    });
-  }
-
-  function syncMediaEditDraftStateFromForm(): void {
-    if (!mediaEditActiveItem || !mediaEditBaseDraft) {
-      return;
-    }
-    const currentDraft = readMediaEditDraftFromForm();
-    const currentKey = getMediaEditDraftKey(mediaEditActiveItem);
-    const isDirty = syncSessionDraftState({
-      storageKey: MEDIA_EDIT_DRAFT_STORAGE_KEY,
-      draftStore: mediaEditDraftStore,
-      key: currentKey,
-      baseDraft: mediaEditBaseDraft,
-      nextDraft: currentDraft,
-      isSameDraft: isSameMediaEditDraft,
-      cloneDraft: cloneMediaEditDraft,
-    });
-    setMediaEditDirtyState(isDirty);
-  }
-
-  function applyMediaEditDraftState(nextDraft: MediaEditDraft): void {
-    if (!mediaEditActiveItem || !mediaEditBaseDraft) {
-      return;
-    }
-    const currentKey = getMediaEditDraftKey(mediaEditActiveItem);
-    const isDirty = syncSessionDraftState({
-      storageKey: MEDIA_EDIT_DRAFT_STORAGE_KEY,
-      draftStore: mediaEditDraftStore,
-      key: currentKey,
-      baseDraft: mediaEditBaseDraft,
-      nextDraft,
-      isSameDraft: isSameMediaEditDraft,
-      cloneDraft: cloneMediaEditDraft,
-    });
-    setMediaEditDirtyState(isDirty);
-  }
-
-  function discardActiveMediaEditDraft(): void {
-    discardMediaEditDraft({
-      activeItem: mediaEditActiveItem,
-      getDraftKey: getMediaEditDraftKey,
-      deleteDraftByKey: deleteMediaEditDraftByKey,
-      setDirtyState: setMediaEditDirtyState,
-    });
-  }
-
-  function clearMediaEditContext(): void {
-    clearMediaEditStateContext({
-      setActiveItem: (mediaItem) => {
-        mediaEditActiveItem = mediaItem;
-      },
-      setBaseDraft: (draft) => {
-        mediaEditBaseDraft = draft as MediaEditDraft | null;
-      },
-      setPreviewSourceItem: (mediaItem) => {
-        mediaEditPreview.setPreviewSourceItem(mediaItem);
-      },
-      setDirtyState: setMediaEditDirtyState,
-    });
-  }
-
   function confirmDiscardActiveMediaEditIfNeeded(
     fallbackMessage: string = getLocalizedMessage('mediaEditDiscardUnsaved', 'Discard unsaved edits?')
   ): boolean {
@@ -1625,30 +1532,6 @@ const init = function (): void {
       getLocalizedMessage,
       confirm: (message) => window.confirm(message),
       discardDraft: discardActiveMediaEditDraft,
-    });
-  }
-
-  function bindMediaEditForm(mediaItem: MediaItem): void {
-    const binding = bindMediaEditDraftState({
-      mediaItem,
-      draftStore: mediaEditDraftStore,
-      getDraftKey: getMediaEditDraftKey,
-      createBaseDraft: createMediaEditBaseDraft,
-      isSameDraft: isSameMediaEditDraft,
-    });
-    applyBoundMediaEditDraftState({
-      binding,
-      setActiveItem: (nextItem) => {
-        mediaEditActiveItem = nextItem;
-      },
-      setBaseDraft: (draft) => {
-        mediaEditBaseDraft = draft as MediaEditDraft;
-      },
-      applyDraftToForm: applyMediaEditDraftToForm,
-      setDirtyState: setMediaEditDirtyState,
-      validateDraft: () => {
-        validateAndRenderMediaEditDraftFromForm();
-      },
     });
   }
 
