@@ -296,32 +296,16 @@ const init = function (): void {
     fadeMs: BOOT_SPLASH_FADE_MS,
     onReady: () => {
       syncViewportMetrics();
-      updateWindowSize();
+      viewportRuntime.updateWindowSize();
     },
   });
 
-  function setPlaylistReadyState(isReady: boolean): void {
-    appBoot.setPlaylistReadyState(isReady);
-  }
-
-  function setBootState(state: 'pending' | 'transition' | 'ready'): void {
-    appBoot.setBootState(state);
-  }
-
-  function releaseAppBootGate(): void {
-    appBoot.release();
-  }
-
-  function forceReleaseAppBootGate(): void {
-    appBoot.forceRelease();
-  }
-
-  setBootState('pending');
-  setPlaylistReadyState(false);
+  appBoot.setBootState('pending');
+  appBoot.setPlaylistReadyState(false);
 
   // Fail-safe: never leave the UI hidden even if initialization errors occur.
   window.setTimeout(() => {
-    forceReleaseAppBootGate();
+    appBoot.forceRelease();
   }, 3500);
 
   /**
@@ -502,7 +486,7 @@ const init = function (): void {
   }
 
   function beginPlaylistLoad(playlist: string): number {
-    setPlaylistReadyState(false);
+    appBoot.setPlaylistReadyState(false);
     return playlistLoadGuard.begin(playlist, (nextPlaylist) => {
       AMP_STATUS.playlist = nextPlaylist;
       applyCloudEditRestrictions();
@@ -517,7 +501,7 @@ const init = function (): void {
     resetPlaylistRuntimeStatus(AMP_STATUS, preserveOptions);
     clearCategory();
     updatePlaylist();
-    setPlaylistReadyState(false);
+    appBoot.setPlaylistReadyState(false);
   }
 
   /**
@@ -562,12 +546,16 @@ const init = function (): void {
     return AMP_STATUS.category[mediaItem.catId] || '';
   }
 
-  function selectPlaylistOption(playlist: string): void {
-    selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, playlist);
-  }
-
   function getDefaultMediaItemForCurrentView(): MediaItem | null {
     return getPlaylistItemsForCurrentView()[0] || (AMP_STATUS.media || [])[0] || null;
+  }
+
+  function canMutateCurrentPlaylist(): boolean {
+    const ambientData = getAmbientData();
+    if (ambientData?.isCloud === true) {
+      return AMP_STATUS.playlist === MYPLAYLIST_NAME || !AMP_STATUS.playlist;
+    }
+    return true;
   }
 
   function sanitizeMediaText(value: string, maxLength: number): string {
@@ -658,25 +646,6 @@ const init = function (): void {
     return validatePlaylistSchemaContractDomain(value);
   }
 
-  function ensurePlaylistOption(playlistName: string): void {
-    ensureSelectOption(
-      isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null,
-      playlistName,
-      playlistName.replace(/\.json$/i, '')
-    );
-  }
-
-  function ensureCloudMyPlaylistSeed(): boolean {
-    return domainEnsureCloudMyPlaylistSeed(logger);
-  }
-
-  function canMutateCurrentPlaylist(): boolean {
-    const ambientData = getAmbientData();
-    if (ambientData?.isCloud === true) {
-      return AMP_STATUS.playlist === MYPLAYLIST_NAME || !AMP_STATUS.playlist;
-    }
-    return true;
-  }
 
   /**
    * Load MyPlaylist from localStorage and populate AMP_STATUS as if a
@@ -716,7 +685,9 @@ const init = function (): void {
         resetPlaylistRuntimeState();
       },
       loadMyPlaylistFromStorage,
-      selectPlaylistOption,
+      selectPlaylistOption: (playlist) => {
+        selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, playlist);
+      },
       myPlaylistName: MYPLAYLIST_NAME,
       applyCloudEditRestrictions,
       removePlaylistOption: () => {
@@ -728,7 +699,9 @@ const init = function (): void {
       clearCurrentPlaylist: () => {
         AMP_STATUS.playlist = null;
       },
-      setPlaylistReadyState,
+      setPlaylistReadyState: (isReady) => {
+        appBoot.setPlaylistReadyState(isReady);
+      },
     });
   }
 
@@ -761,7 +734,9 @@ const init = function (): void {
       updatePlayStatus,
       getDefaultMediaItemForCurrentView,
       finishPlaylistLoad,
-      releaseAppBootGate,
+      releaseAppBootGate: () => {
+        appBoot.release();
+      },
     });
   }
 
@@ -1597,7 +1572,13 @@ const init = function (): void {
       AMP_STATUS.media = mediaItems;
     },
     getVisibleItems: getPlaylistItemsForCurrentView,
-    canMutatePlaylist: canMutateCurrentPlaylist,
+    canMutatePlaylist: () => {
+      const ambientData = getAmbientData();
+      if (ambientData?.isCloud === true) {
+        return AMP_STATUS.playlist === MYPLAYLIST_NAME || !AMP_STATUS.playlist;
+      }
+      return true;
+    },
     canUseReorderMode,
     isCloud: () => getRuntimeAmbientData()?.isCloud === true,
     myPlaylistName: MYPLAYLIST_NAME,
@@ -1626,7 +1607,7 @@ const init = function (): void {
   // In cloud mode: load MyPlaylist from localStorage before processing server data.
   // (Placed here, AFTER DOM constants, to avoid const temporal dead zone issues.)
   const savedPlaylistContext = getSavedPlaylistContext();
-  ensureCloudMyPlaylistSeed();
+  domainEnsureCloudMyPlaylistSeed(logger);
   ensureMyPlaylistOptionFromStorage();
   const initialPlaylistStartup = resolveInitialPlaylistStartup<PlaylistResumeMediaContext>({
     ambientData: ((window as any).AmbientData as AmbientData | undefined) ?? null,
@@ -1639,19 +1620,19 @@ const init = function (): void {
     case 'resume':
       requestCategoryResume(initialPlaylistStartup.category);
       requestMediaResume(initialPlaylistStartup.media);
-      selectPlaylistOption(initialPlaylistStartup.playlist);
+      selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, initialPlaylistStartup.playlist);
       void getPlaylistData(initialPlaylistStartup.playlist);
       break;
     case 'autoload_myplaylist':
       initMyPlaylistFromStorage();
-      releaseAppBootGate();
+      appBoot.release();
       break;
     case 'autoload_current_playlist':
       void getPlaylistData(initialPlaylistStartup.playlist);
       break;
     case 'ready':
-      setPlaylistReadyState(true);
-      releaseAppBootGate();
+      appBoot.setPlaylistReadyState(true);
+      appBoot.release();
       break;
   }
 
@@ -2018,7 +1999,9 @@ const init = function (): void {
       clearPlaylist,
       syncPlaylistModeAvailability,
       closePlaylistModeMenu,
-      setPlaylistReadyState,
+      setPlaylistReadyState: (isReady) => {
+        appBoot.setPlaylistReadyState(isReady);
+      },
       resetReorderState,
       updatePlaylistModeUi: updatePlaylistModeUI,
       ensurePlaylistSortable,
@@ -2223,7 +2206,9 @@ const init = function (): void {
     getCookie,
     updateCookie,
     logger,
-    reloadPage,
+    reloadPage: () => {
+      window.location.reload();
+    },
   });
 
   bindAmbientPlaylistInteractionControls({
@@ -2267,7 +2252,9 @@ const init = function (): void {
     playItemById: (playId) => {
       playItem(null, playId);
     },
-    reloadPage,
+    reloadPage: () => {
+      window.location.reload();
+    },
     isFullWindowMode,
     setFullWindowMode,
     setMenuMinimized,
@@ -2416,8 +2403,12 @@ const init = function (): void {
   });
 
   async function activateImportedPlaylist(playlistName: string): Promise<void> {
-    ensurePlaylistOption(playlistName);
-    selectPlaylistOption(playlistName);
+    ensureSelectOption(
+      isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null,
+      playlistName,
+      playlistName.replace(/\.json$/i, '')
+    );
+    selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, playlistName);
     requestCategoryResume(null);
     requestMediaResume(null);
     await getPlaylistData(playlistName, true);
@@ -2426,13 +2417,6 @@ const init = function (): void {
   // ============================================================================
   // UTILITY FUNCTIONS
   // ============================================================================
-
-  /**
-   * Restart this application.
-   */
-  function reloadPage(): void {
-    window.location.reload();
-  }
 
   /**
    * Toggle the display of backdrop for drawer or modal.
@@ -2450,20 +2434,13 @@ const init = function (): void {
     cleanupDrawerBackdrops([$DRAWER_PLAYLIST, $DRAWER_SETTINGS]);
   });
 
-  /**
-   * Event handler when the window size is resized.
-   */
-  function updateWindowSize(): void {
-    viewportRuntime.updateWindowSize();
-  }
-
   setMenuMinimized(false);
 
   syncViewportMetrics();
   bindViewportSyncEvents({
     onResizeSettled: () => {
       syncViewportMetrics();
-      updateWindowSize();
+      viewportRuntime.updateWindowSize();
     },
     onOrientationChange: () => {
       refreshViewportMetricsAfter(80);
