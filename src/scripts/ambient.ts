@@ -105,7 +105,6 @@ import {
 import { createViewportRuntimeController } from './ui/viewport-runtime';
 import {
   createOptionsModalController,
-  createPlaylistConfirmModalController,
   createPlaylistDescModalController,
   ensureAccordionPanel as ensureAccordionPanelView,
   openPlaylistManagementCategoryCreate as openPlaylistManagementCategoryCreateView,
@@ -140,17 +139,12 @@ import {
   syncPlaylistModeButton as syncPlaylistModeButtonView,
   syncDeleteSelectionIndicator as syncDeleteSelectionIndicatorView,
 } from './ui/playlist-view';
-import {
-  bindPlaylistConfirmModalControls,
-  bindPlaylistModeControls,
-} from './ui/playlist-mode-controls';
-import { createPlaylistModeRuntimeController } from './ui/playlist-mode-runtime';
-import { createPlaylistReorderRuntimeController } from './ui/playlist-reorder-runtime';
 import { bindAmbientPlayerControls } from './ui/player-control-bindings';
 import { bindAmbientSettingsControls } from './ui/settings-bindings';
 import { bindAmbientSelectorControls } from './ui/selector-bindings';
 import { bindAmbientOptionsModal } from './ui/options-modal-bindings';
 import { bindAmbientPlaylistInteractionControls } from './ui/playlist-interaction-bindings';
+import { bindAmbientPlaylistMode } from './ui/playlist-mode-bindings';
 import {
   applyAmbientPlaylistOptions,
 } from './ui/playlist-option-bindings';
@@ -1720,12 +1714,6 @@ const init = function (): void {
     );
   }
 
-  let playlistModeRuntime: ReturnType<typeof createPlaylistModeRuntimeController> | null = null;
-
-  function isPlaylistInteractionLocked(): boolean {
-    return playlistModeRuntime?.isInteractionLocked() ?? playlistMode !== 'normal';
-  }
-
   function getPlaylistItemsForCurrentView(): MediaItem[] {
     return getPlaylistItemsForView(AMP_STATUS.media, AMP_STATUS.ctg);
   }
@@ -1743,37 +1731,6 @@ const init = function (): void {
     });
   }
 
-  const closePlaylistModeMenu = (): void => {
-    playlistModeRuntime?.closeMenu();
-  };
-
-  const updatePlaylistModeUI = (): void => {
-    playlistModeRuntime?.updateUi();
-  };
-
-  const syncPlaylistModeAvailability = (visibleItemCount: number): void => {
-    playlistModeRuntime?.onViewItemCountChanged(visibleItemCount);
-  };
-
-  const setPlaylistMode = (nextMode: PlaylistMode): void => {
-    playlistModeRuntime?.setMode(nextMode);
-  };
-
-  const handlePlaylistModeButtonClick = (): void => {
-    playlistModeRuntime?.handleModeButtonClick();
-  };
-
-  if ($BUTTON_PLAYLIST_MODE && $PLAYLIST_MODE_MENU) {
-    bindPlaylistModeControls({
-      button: $BUTTON_PLAYLIST_MODE,
-      menu: $PLAYLIST_MODE_MENU,
-      onModeButtonClick: handlePlaylistModeButtonClick,
-      onModeSelect: setPlaylistMode,
-      closeMenu: closePlaylistModeMenu,
-    });
-    updatePlaylistModeUI();
-  }
-
   // Playlist delete mode state (v2.2.0 Slice B)
   const $MODAL_PLAYLIST_CONFIRM = document.getElementById('modal-playlist-confirm') as HTMLElement | null;
   const $MODAL_PLAYLIST_CONFIRM_TITLE = document.getElementById('modal-playlist-confirm-title') as HTMLElement | null;
@@ -1782,52 +1739,53 @@ const init = function (): void {
   const $BTN_PLAYLIST_CONFIRM_CANCEL = document.getElementById('btn-playlist-confirm-cancel') as HTMLButtonElement | null;
 
   let deleteSelectedIds = new Set<number>();
-  const playlistConfirmModal = createPlaylistConfirmModalController({
-    modal: $MODAL_PLAYLIST_CONFIRM,
-    title: $MODAL_PLAYLIST_CONFIRM_TITLE,
-    body: $MODAL_PLAYLIST_CONFIRM_BODY,
-  });
-  const playlistReorderRuntime = createPlaylistReorderRuntimeController({
-    listElement: $LIST_PLAYLIST,
-    getCategoryId: () => AMP_STATUS.ctg,
-    getVisibleItems: getPlaylistItemsForCurrentView,
-    getMediaItems: () => AMP_STATUS.media,
-    setMediaItems: (mediaItems) => {
-      AMP_STATUS.media = mediaItems;
-    },
-    canMutatePlaylist: canMutateCurrentPlaylist,
-    canUseReorderMode,
-    sortableLibrary: Sortable,
-    onPersist: persistMyPlaylistIfNeeded,
-  });
-  playlistModeRuntime = createPlaylistModeRuntimeController({
+  async function persistCurrentPlaylistMutation(): Promise<{ ok: boolean; message: string }> {
+    return persistMediaEditForCurrentPlaylist(AMP_STATUS.media || []);
+  }
+
+  const {
+    closePlaylistModeMenu,
+    destroyPlaylistSortable,
+    ensurePlaylistSortable,
+    isPlaylistInteractionLocked,
+    resetReorderState,
+    syncDeleteSelectionIndicator,
+    syncPlaylistModeAvailability,
+    updatePlaylistModeUi: updatePlaylistModeUI,
+  } = bindAmbientPlaylistMode({
     playlistModeUi,
-    getMode: () => playlistMode,
-    setModeState: (mode) => {
+    defaultPlaylistModeButtonIcon,
+    defaultPlaylistModeButtonLabel,
+    listElement: $LIST_PLAYLIST,
+    confirmModal: {
+      modal: $MODAL_PLAYLIST_CONFIRM,
+      title: $MODAL_PLAYLIST_CONFIRM_TITLE,
+      body: $MODAL_PLAYLIST_CONFIRM_BODY,
+      applyButton: $BTN_PLAYLIST_CONFIRM_APPLY,
+      cancelButton: $BTN_PLAYLIST_CONFIRM_CANCEL,
+    },
+    getPlaylistMode: () => playlistMode,
+    setPlaylistModeState: (mode) => {
       playlistMode = mode;
     },
-    syncModeButton: syncPlaylistModeButton,
     getStatus: () => ({
       ctg: AMP_STATUS.ctg,
       media: AMP_STATUS.media,
       playlist: AMP_STATUS.playlist,
     }),
+    setMediaItems: (mediaItems) => {
+      AMP_STATUS.media = mediaItems;
+    },
+    getVisibleItems: getPlaylistItemsForCurrentView,
     canMutatePlaylist: canMutateCurrentPlaylist,
-    sortableAvailable: isSortableAvailable,
+    canUseReorderMode,
     isCloud: () => getAmbientData()?.isCloud === true,
     myPlaylistName: MYPLAYLIST_NAME,
     hasStoredMyPlaylist: () => localStorage.getItem(MYPLAYLIST_KEY) !== null,
-    getDeleteSelectionCount: () => deleteSelectedIds.size,
+    getDeleteSelectedIds: () => deleteSelectedIds,
     clearDeleteSelections: () => {
       deleteSelectedIds.clear();
     },
-    resetReorderState,
-    captureReorderSnapshot,
-    syncReorderWorkingIdsFromDom,
-    restoreReorderInitialOrder: () => {
-      playlistReorderRuntime.restoreInitialOrder();
-    },
-    isReorderDirty,
     canDiscardEditLeave: confirmDiscardActiveMediaEditIfNeeded,
     discardEditState: () => {
       discardActiveMediaEditDraft();
@@ -1835,127 +1793,13 @@ const init = function (): void {
       clearMediaEditContext();
     },
     updatePlaylist,
-    openDeleteConfirm: () => {
-      const title = $BUTTON_PLAYLIST_MODE?.dataset['confirmDeleteTitle'] || 'Delete selected items?';
-      const body = $BUTTON_PLAYLIST_MODE?.dataset['confirmDeleteBody'] || 'Selected items will be removed from your playlist.';
-      playlistConfirmModal.open(title, body, () => {
-        void commitDeleteSelections();
-      }, () => {
-        if (playlistMode === 'reorder') {
-          playlistReorderRuntime.restoreInitialOrder();
-          updatePlaylist();
-        }
-      });
+    syncModeButton: syncPlaylistModeButton,
+    syncDeleteSelectionIndicator: (itemElm, isSelected) => {
+      syncDeleteSelectionIndicatorView(itemElm, isSelected);
     },
-    openReorderConfirm: () => {
-      const title = $BUTTON_PLAYLIST_MODE?.dataset['confirmReorderTitle'] || 'Apply reordered sequence?';
-      const body = $BUTTON_PLAYLIST_MODE?.dataset['confirmReorderBody'] || 'Apply the current item order to your playlist.';
-      playlistConfirmModal.open(title, body, () => {
-        applyReorderChanges();
-        playlistMode = 'normal';
-        updatePlaylistModeUI();
-        updatePlaylist();
-      }, () => {
-        if (playlistMode === 'reorder') {
-          playlistReorderRuntime.restoreInitialOrder();
-          updatePlaylist();
-        }
-      });
-    },
-  });
-  async function persistCurrentPlaylistMutation(): Promise<{ ok: boolean; message: string }> {
-    return persistMediaEditForCurrentPlaylist(AMP_STATUS.media || []);
-  }
-
-  async function commitDeleteSelections(): Promise<void> {
-    if (!canMutateCurrentPlaylist()) {
-      deleteSelectedIds.clear();
-      updateNotice({
-        type: 'error',
-        message: getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.'),
-        delay: 2600,
-      });
-      return;
-    }
-
-    if (!AMP_STATUS.media || deleteSelectedIds.size === 0) {
-      return;
-    }
-
-    const previousMedia = AMP_STATUS.media;
-    AMP_STATUS.media = previousMedia.filter(
-      (item: MediaItem) => !deleteSelectedIds.has(item.amId)
-    );
-    deleteSelectedIds.clear();
-    playlistMode = 'normal';
-    updatePlaylistModeUI();
-    updatePlaylist();
-
-    const persistResult = await persistCurrentPlaylistMutation();
-    if (!persistResult.ok) {
-      AMP_STATUS.media = previousMedia;
-      updatePlaylist();
-      updateNotice({
-        type: 'error',
-        message: persistResult.message || getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.'),
-        delay: 2600,
-      });
-      return;
-    }
-
-    updateNotice({
-      type: 'success',
-      message: persistResult.message || getLocalizedMessage('Playlist saved successfully.', 'Playlist saved successfully.'),
-      delay: 2200,
-    });
-  }
-
-  function syncDeleteSelectionIndicator(itemElm: HTMLElement, isSelected: boolean): void {
-    syncDeleteSelectionIndicatorView(itemElm, isSelected);
-  }
-
-  function destroyPlaylistSortable(): void {
-    playlistReorderRuntime.reset();
-  }
-
-  function resetReorderState(): void {
-    playlistReorderRuntime.reset();
-  }
-
-  function isReorderDirty(): boolean {
-    return playlistReorderRuntime.isDirty();
-  }
-
-  function captureReorderSnapshot(): void {
-    playlistReorderRuntime.captureSnapshot();
-  }
-
-  function syncReorderWorkingIdsFromDom(): void {
-    playlistReorderRuntime.syncWorkingIdsFromDom();
-  }
-
-  function applyReorderChanges(): void {
-    playlistReorderRuntime.applyChanges();
-  }
-
-  function ensurePlaylistSortable(): void {
-    if (playlistMode !== 'reorder') {
-      playlistReorderRuntime.reset();
-      return;
-    }
-    playlistReorderRuntime.ensureSortable();
-  }
-
-  bindPlaylistConfirmModalControls({
-    modal: $MODAL_PLAYLIST_CONFIRM,
-    applyButton: $BTN_PLAYLIST_CONFIRM_APPLY,
-    cancelButton: $BTN_PLAYLIST_CONFIRM_CANCEL,
-    onApply: () => {
-      playlistConfirmModal.apply();
-    },
-    onCancel: () => {
-      playlistConfirmModal.cancel();
-    },
+    persistCurrentPlaylistMutation,
+    updateNotice,
+    getLocalizedMessage,
   });
 
   // Process global data passed by the system.
