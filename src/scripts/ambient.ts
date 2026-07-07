@@ -8,13 +8,23 @@ import Sortable from 'sortablejs';
 import '../styles/app.css';
 import {
   basename as sharedBasename,
-  clampStringLength as sharedClampStringLength,
   escapeHTML as sharedEscapeHTML,
   getExt as sharedGetExt,
-  isJsonFilename as sharedIsJsonFilename,
   parseJsonWithBom as sharedParseJsonWithBom,
   snakeToCapital as sharedSnakeToCapital,
 } from './shared/string';
+import {
+  isLikelyJsonFile as sharedIsLikelyJsonFile,
+  isLikelyMediaFile as sharedIsLikelyMediaFile,
+  sanitizeMediaDesc as sharedSanitizeMediaDesc,
+  sanitizeMediaDescInput as sharedSanitizeMediaDescInput,
+  sanitizeMediaDescInputLive as sharedSanitizeMediaDescInputLive,
+  sanitizeMediaEditDescForStorage as sharedSanitizeMediaEditDescForStorage,
+  sanitizeMediaEditDescInput as sharedSanitizeMediaEditDescInput,
+  sanitizeMediaItemTextFields as sharedSanitizeMediaItemTextFields,
+  sanitizeMediaText as sharedSanitizeMediaText,
+  sanitizeMediaTextInput as sharedSanitizeMediaTextInput,
+} from './shared/media-sanitize';
 import {
   formatSecondsToHHMMSS as sharedFormatSecondsToHHMMSS,
   formatSecondsToTimelineLabel as sharedFormatSecondsToTimelineLabel,
@@ -576,61 +586,24 @@ const init = function (): void {
     return getPlaylistItemsForCurrentView()[0] || (AMP_STATUS.media || [])[0] || null;
   }
 
-  function stripHtmlTags(value: string): string {
-    const parser = document.createElement('div');
-    parser.innerHTML = value;
-    return parser.textContent || parser.innerText || '';
-  }
-
-  // [MODULE-BOUNDARY][v2.5.3-P0][EXTRACT-BL-001]: shared pure string/time/validation adapters
-  function clampStringLength(value: string, maxLength: number): string {
-    return sharedClampStringLength(value, maxLength);
-  }
-
   function sanitizeMediaText(value: string, maxLength: number): string {
-    const normalized = stripHtmlTags(String(value || ''))
-      .replace(/\r\n?/g, ' ')
-      .replace(/\s+/g, ' ')
-      .replace(DISALLOWED_CONTROL_CHARS_RE, '')
-      .trim();
-    return clampStringLength(normalized, maxLength);
+    return sharedSanitizeMediaText(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
   }
 
-  // Keep spaces while user is typing; normalize strictly on change/save.
   function sanitizeMediaTextInput(value: string, maxLength: number): string {
-    const normalized = stripHtmlTags(String(value || ''))
-      .replace(/\r\n?/g, ' ')
-      .replace(DISALLOWED_CONTROL_CHARS_RE, '');
-    return clampStringLength(normalized, maxLength);
+    return sharedSanitizeMediaTextInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
   }
 
   function sanitizeMediaDescInput(value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string {
-    const normalized = stripHtmlTags(String(value || ''))
-      .replace(/\r\n?/g, ' ')
-      .replace(/\t/g, ' ')
-      .replace(DISALLOWED_CONTROL_CHARS_RE, '')
-      .replace(/ {2,}/g, ' ')
-      .trim();
-    return clampStringLength(normalized, maxLength);
+    return sharedSanitizeMediaDescInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
   }
 
   function sanitizeMediaDescInputLive(value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string {
-    const normalized = stripHtmlTags(String(value || ''))
-      .replace(/\r\n?/g, ' ')
-      .replace(/\t/g, ' ')
-      .replace(DISALLOWED_CONTROL_CHARS_RE, '');
-    return clampStringLength(normalized, maxLength);
+    return sharedSanitizeMediaDescInputLive(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
   }
 
   function sanitizeMediaDesc(value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string {
-    const normalized = sanitizeMediaDescInput(value, maxLength)
-      .replace(/\\n/g, '\n')
-      .split('\n')
-      .map((line) => line.replace(/[^\S\n]+/g, ' ').trim())
-      .join('\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
-    return clampStringLength(normalized, maxLength);
+    return sharedSanitizeMediaDesc(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
   }
 
   const {
@@ -661,48 +634,29 @@ const init = function (): void {
   });
 
   function sanitizeMediaEditDescInput(value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string {
-    const normalized = stripHtmlTags(String(value || ''))
-      .replace(/\\n/g, '\n')
-      .replace(/\r\n?/g, '\n')
-      .replace(/\t/g, ' ')
-      .replace(DISALLOWED_CONTROL_CHARS_RE, '');
-    return clampStringLength(normalized, maxLength);
+    return sharedSanitizeMediaEditDescInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
   }
 
   function sanitizeMediaEditDescForStorage(value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string {
-    return sanitizeMediaEditDescInput(value, maxLength)
-      .replace(/\n{3,}/g, '\n\n')
-      .trim()
-      .replace(/\n/g, '\\n');
+    return sharedSanitizeMediaEditDescForStorage(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
   }
 
   function sanitizeMediaItemTextFields<T extends Partial<MediaItem>>(item: T): T {
-    return {
-      ...item,
-      title: sanitizeMediaText(String(item.title || ''), MEDIA_TITLE_MAX_LENGTH),
-      artist: sanitizeMediaText(String(item.artist || ''), MEDIA_ARTIST_MAX_LENGTH),
-      desc: sanitizeMediaDesc(String(item.desc || ''), MEDIA_DESC_MAX_LENGTH),
-    };
-  }
-
-  function isJsonFilename(name: string): boolean {
-    return sharedIsJsonFilename(name);
+    return sharedSanitizeMediaItemTextFields({
+      item,
+      titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+      artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+      descMaxLength: MEDIA_DESC_MAX_LENGTH,
+      disallowedControlChars: DISALLOWED_CONTROL_CHARS_RE,
+    });
   }
 
   function isLikelyJsonFile(file: File): boolean {
-    if (isJsonFilename(file.name)) {
-      return true;
-    }
-    const type = (file.type || '').toLowerCase();
-    return type === 'application/json' || type === 'text/json';
+    return sharedIsLikelyJsonFile(file);
   }
 
   function isLikelyMediaFile(file: File): boolean {
-    const type = (file.type || '').toLowerCase();
-    if (/^(audio|video)\//.test(type)) {
-      return true;
-    }
-    return /(\.(aac|avi|flac|m4a|mid|midi|mp3|mp4|mpeg|mpg|ogg|ogv|opus|ts|wav|weba|webm|wma|3gp|3g2))$/i.test(file.name);
+    return sharedIsLikelyMediaFile(file);
   }
 
   function parseJsonWithBom(text: string): unknown {
