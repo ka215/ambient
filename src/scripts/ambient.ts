@@ -24,16 +24,25 @@ import {
 import {
   inArray as sharedInArray,
   inRange as sharedInRange,
-  isBooleanString as sharedIsBooleanString,
-  isNumberString as sharedIsNumberString,
   isObject as sharedIsObject,
 } from './shared/validation';
+import {
+  getAtts,
+  getCookie,
+  isElement,
+  mb_strimwidth,
+  setStyles,
+  setValidated,
+  updateCookie,
+  watcher,
+} from './shared/dom-utils';
 import {
   getAmbientData as platformGetAmbientData,
   getLocalizedMessage as platformGetLocalizedMessage,
   hasPlaylist as platformHasPlaylist,
   isLocalMode as platformIsLocalMode,
 } from './platform/ambient-data';
+import { fetchData } from './platform/fetch-data';
 import {
   MYPLAYLIST_KEY,
   saveUserData,
@@ -2614,7 +2623,7 @@ const init = function (): void {
     const response = await fetchData(endpointURL) as any;
     if (response && response.code == 200) {
       if ($HIDDEN_FILEPATH) $HIDDEN_FILEPATH.value = decodeURIComponent(response.data);
-      if ($LABEL_MEDIA_FILE) $LABEL_MEDIA_FILE.textContent = getAtts($LABEL_MEDIA_FILE as HTMLElement, 'data-default-message');
+      if ($LABEL_MEDIA_FILE) $LABEL_MEDIA_FILE.textContent = String(getAtts($LABEL_MEDIA_FILE as HTMLElement, 'data-default-message') ?? '');
     } else {
       if ($HIDDEN_FILEPATH) $HIDDEN_FILEPATH.value = '';
       if ($LABEL_MEDIA_FILE) $LABEL_MEDIA_FILE.textContent = response?.data || '';
@@ -2930,27 +2939,6 @@ function isObject(value: any): value is Record<string, any> {
 }
 
 /**
- * Finds whether the given variable is an element of HTML.
- */
-function isElement(node: any): node is HTMLElement {
-  return !(!node || !(node.nodeName || (node.prop && node.attr && node.find)));
-}
-
-/**
- * Determines if the given variable is a numeric string.
- */
-function isNumberString(numstr: any): numstr is string {
-  return sharedIsNumberString(numstr);
-}
-
-/**
- * Determines if the given variable is a boolean string.
- */
-function isBooleanString(boolstr: any): boolstr is string {
-  return sharedIsBooleanString(boolstr);
-}
-
-/**
  * Given a string containing the path to a file or directory,
  * this function will return the trailing name component.
  */
@@ -2984,311 +2972,6 @@ function snakeToCapital(str: string): string {
   return sharedSnakeToCapital(str);
 }
 
-function setValidated(targetElement: HTMLElement, result: boolean | null = null): void {
-  const elm = isElement(targetElement) ? targetElement : null;
-  if (!elm) return;
-  const baseId        = elm.id;
-  const $FIELD_LABEL  = document.getElementById(baseId + '-label');
-  const $FIELD_PREFIX = document.getElementById(baseId + '-prefix');
-  const $NOTE_ERROR   = document.getElementById('note-error-' + baseId);
-  const $NOTE_SUCCESS = document.getElementById('note-success-' + baseId);
-  if (result === null) {
-    toggleClass(elm, { 'normal-input': true, 'error-input': false, 'success-input': false });
-    if (isElement($FIELD_LABEL))  toggleClass($FIELD_LABEL  as HTMLElement, { 'normal-text':   true, 'error-text':   false, 'success-text':   false });
-    if (isElement($FIELD_PREFIX)) toggleClass($FIELD_PREFIX as HTMLElement, { 'normal-prefix': true, 'error-prefix': false, 'success-prefix': false });
-    if (isElement($NOTE_ERROR))   toggleClass($NOTE_ERROR   as HTMLElement, { hidden: true  });
-    if (isElement($NOTE_SUCCESS)) toggleClass($NOTE_SUCCESS as HTMLElement, { hidden: true  });
-    elm.setAttribute('data-validate', 'false');
-  } else {
-    toggleClass(elm, { 'normal-input': !result, 'error-input': !result, 'success-input': result });
-    if (isElement($FIELD_LABEL))  toggleClass($FIELD_LABEL  as HTMLElement, { 'normal-text':   !result, 'error-text':   !result, 'success-text':   result });
-    if (isElement($FIELD_PREFIX)) toggleClass($FIELD_PREFIX as HTMLElement, { 'normal-prefix': !result, 'error-prefix': !result, 'success-prefix': result });
-    if (isElement($NOTE_ERROR))   toggleClass($NOTE_ERROR   as HTMLElement, { hidden: result  });
-    if (isElement($NOTE_SUCCESS)) toggleClass($NOTE_SUCCESS as HTMLElement, { hidden: !result });
-    elm.setAttribute('data-validate', String(result));
-  }
-}
-
-/**
- * Get cookie with specified name.
- */
-function getCookie(name: string): string | null {
-  const getCookiePath = (cookie: string): string => {
-    const pathMatch = cookie.match(/(?:^|;\s*)path=([^;]*)/);
-    return pathMatch?.[1] ?? '/';
-  };
-
-  const cookies = document.cookie.split(';');
-  for (let i = 0; i < cookies.length; i++) {
-    const cookie = (cookies[i] ?? '').trim();
-    const keyValue = cookie.split('=');
-    const cookieName = keyValue[0];
-    const cookieValue = keyValue[1];
-
-    if (cookieName === name) {
-      const cookiePath = getCookiePath(cookie);
-      const currentPath = window.location.pathname;
-
-      if (currentPath.startsWith(cookiePath)) {
-        return cookieValue || null;
-      } else {
-        return null;
-      }
-    }
-  }
-  return null;
-}
-
-/**
- * Update the value of the cookie with the specified name.
- */
-function updateCookie(name: string, value: string, daysToExpire: number | null = null): void {
-  const expirationDate = new Date();
-  if (!daysToExpire) {
-    expirationDate.setFullYear(expirationDate.getFullYear() + 1);
-  } else {
-    expirationDate.setDate(expirationDate.getDate() + daysToExpire);
-  }
-
-  const secureAttribute = window.location.protocol === 'https:' ? 'Secure; ' : '';
-  const cookieString = `${name}=${value}; expires=${expirationDate.toUTCString()}; path=${window.location.pathname}; ${secureAttribute}SameSite=Lax`;
-  document.cookie = cookieString;
-}
-
-/**
- * Toggle classes on element.
- */
-function toggleClass(
-  targetElement: HTMLElement,
-  classes: Record<string, boolean> | string[] | string,
-  force?: boolean
-): boolean {
-  if (!isElement(targetElement)) return false;
-
-  const classArray = Array.isArray(classes) ? classes : [classes];
-  classArray.forEach((oneClass: string | Record<string, boolean>) => {
-    if (typeof oneClass === 'object') {
-      for (const property in oneClass) {
-        if (typeof oneClass[property] === 'boolean') {
-          targetElement.classList.toggle(property, oneClass[property]);
-        }
-      }
-    } else if (typeof oneClass === 'string') {
-      if (force === undefined) {
-        targetElement.classList.toggle(oneClass);
-      } else {
-        targetElement.classList.toggle(oneClass, force);
-      }
-    }
-  });
-
-  return false;
-}
-
-/**
- * Set styles on element.
- */
-function setStyles(targetElements: HTMLElement | HTMLElement[], styles: string | Record<string, string> = ''): void {
-  const _ELMS = targetElements instanceof Array ? targetElements : [targetElements];
-  _ELMS.forEach((elm: HTMLElement) => {
-    if (styles instanceof Object) {
-      for (const _prop in styles) {
-        (elm.style as any)[_prop] = styles[_prop];
-      }
-    } else {
-      elm.style.cssText = String(styles);
-    }
-  });
-}
-
-/**
- * Get attributes from element.
- */
-function getAtts(targetElement: HTMLElement, attribute: string = ''): any {
-  const _ATTS = targetElement.getAttributeNames();
-
-  if (_ATTS.length !== 0) {
-    if (attribute === '') {
-      const _obj: Record<string, any> = {};
-      _ATTS.forEach((item: string) => {
-        const _val = targetElement.getAttribute(item);
-        _obj[item] = isNumberString(_val) ? Number(_val) : isBooleanString(_val) ? /^true$/i.test(_val) : _val;
-      });
-      return _obj;
-    }
-
-    if (_ATTS.includes(attribute)) {
-      const _val = targetElement.getAttribute(attribute);
-      return isNumberString(_val) ? Number(_val) : isBooleanString(_val) ? /^true$/i.test(_val) : _val;
-    }
-  }
-}
-
-/**
- * Returns the width of string, where halfwidth characters count as 1,
- * and fullwidth characters count as 2.
- */
-function mb_strwidth(str: string): number {
-  let i = 0;
-  const l = str.length;
-  let length = 0;
-
-  for (; i < l; i++) {
-    const c = str.charCodeAt(i);
-    if (0x0000 <= c && c <= 0x0019) {
-      length += 0;
-    } else if (0x0020 <= c && c <= 0x1fff) {
-      length += 1;
-    } else if (0x2000 <= c && c <= 0xff60) {
-      length += 2;
-    } else if (0xff61 <= c && c <= 0xff9f) {
-      length += 1;
-    } else if (0xffa0 <= c) {
-      length += 2;
-    }
-  }
-  return length;
-}
-
-/**
- * Truncates string to specified width.
- */
-function mb_strimwidth(str: string, start: number, width: number, trimmarker: string = ''): string {
-  const trimmakerWidth = mb_strwidth(trimmarker);
-  let i = start;
-  const l = str.length;
-  let trimmedLength = 0;
-  let trimmedStr = '';
-
-  for (; i < l; i++) {
-    const c = str.charAt(i);
-    const charWidth = mb_strwidth(c);
-    const next = str.charAt(i + 1);
-    const nextWidth = mb_strwidth(next);
-
-    trimmedLength += charWidth;
-    trimmedStr += c;
-
-    if (trimmedLength + trimmakerWidth + nextWidth > width) {
-      trimmedStr += trimmarker;
-      break;
-    }
-  }
-  return trimmedStr;
-}
-
-/**
- * Watches the specified element.
- * This function as a wrapper for MutationObserver.
- */
-function watcher(
-  targetElements: HTMLElement | HTMLElement[],
-  callback: (mutation: MutationRecord) => void,
-  config: MutationObserverInit = {}
-): void {
-  const _ELMS = targetElements instanceof Array ? targetElements : [targetElements];
-
-  if (!callback || typeof callback !== 'function') {
-    return;
-  }
-
-  const _CONF: MutationObserverInit = Object.assign(
-    {
-      childList: true,
-      attributes: true,
-      characterData: true,
-      subtree: true,
-    },
-    config
-  );
-
-  _ELMS.forEach((elm: HTMLElement) => {
-    if (!isElement(elm)) {
-      logger('error', 'Watching target is not an HTML element.', 'force');
-      return;
-    }
-
-    new MutationObserver((mutations: MutationRecord[]) => {
-      mutations.forEach((mutation: MutationRecord) => {
-        callback(mutation);
-      });
-    }).observe(elm, _CONF);
-  });
-}
-
-/**
- * Fetch data using the specified URL and method.
- * This function as a wrapper for Fetch API.
- */
-async function fetchData(
-  url: string = '',
-  method: string = 'get',
-  data: Record<string, any> = {},
-  datatype: string = 'json',
-  timeout: number = 15000
-): Promise<any> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, timeout);
-
-  if (!url || !/^(get|post|put|delete|patch)$/i.test(method)) {
-    return Promise.reject({
-      type: 'bad_request',
-      status: 400,
-      message: 'Invalid argument(s) given.',
-    });
-  }
-
-  let params = new URLSearchParams();
-  const sendData: any = {
-    method: method.toUpperCase(),
-    mode: 'cors',
-    cache: 'no-cache',
-    credentials: 'omit',
-    redirect: 'follow',
-    referrerPolicy: 'no-referrer',
-    signal: controller.signal,
-  };
-
-  if (data) {
-    for (const key in data) {
-      if (Object.prototype.hasOwnProperty.call(data, key)) {
-        params.append(key, data[key]);
-      }
-    }
-  }
-
-  if ('GET' !== sendData.method) {
-    sendData.body = params;
-  } else {
-    if (params.size > 0) {
-      url += '?' + params;
-    }
-  }
-
-  try {
-    const response = await fetch(url, sendData);
-    logger('fetchData::after:', response);
-
-    if (response.ok) {
-      const retval = datatype === 'json' ? await response.json() : await response.text();
-      logger('fetchData::after:2:', retval);
-      return Promise.resolve(retval);
-    } else {
-      const errObj = await response.json();
-      return Promise.reject({
-        code: errObj.code,
-        status: errObj.data.status,
-        message: errObj.message,
-      });
-    }
-  } catch (err) {
-    logger('error', 'fetchData::error:', err, 'force');
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
 
 /**
  * Set the storage for saving user data on the client side to be used.
