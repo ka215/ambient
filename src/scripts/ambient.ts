@@ -201,13 +201,8 @@ import {
   syncYouTubePreviewDuration,
 } from './ui/player/youtube-player-events';
 import {
-  clearCategoryView,
   ensureSelectOption,
   selectExistingOption,
-  syncMediaCategoryField as syncMediaCategoryFieldView,
-  syncMediaVolumeField as syncMediaVolumeFieldView,
-  syncRangeProgress as syncRangeProgressView,
-  updateCategoryView,
 } from './ui/forms/management-forms';
 import { applyCloudEditRestrictionsView as applyCloudEditRestrictionsFormView } from './ui/forms/cloud-edit-restrictions';
 import { bindMediaManagementForm } from './ui/forms/media-management';
@@ -217,6 +212,17 @@ import {
   buildPlaylistManagementBindings as buildPlaylistManagementBindingsView,
 } from './ui/forms/management-binding-builders';
 import { createManagementFormBindings } from './ui/forms/management-form-bindings';
+import {
+  clearAmbientCategory,
+  getAmbientActiveCategoryId,
+  getAmbientPlaybackVolume,
+  normalizeAmbientVolume,
+  syncAmbientMediaCategoryField,
+  syncAmbientMediaVolumeField,
+  syncAmbientRangeProgress,
+  syncAmbientTargetCategorySelection,
+  updateAmbientCategory,
+} from './ui/forms/category-volume-bindings';
 import {
   assignSequentialMediaIds,
   createPlaylistLoadGuard,
@@ -2018,21 +2024,18 @@ const init = function (): void {
   }
 
   function getActiveCategoryId(): number | null {
-    return (AMP_STATUS.ctg !== undefined && AMP_STATUS.ctg !== null && Number(AMP_STATUS.ctg) >= 0)
-      ? Number(AMP_STATUS.ctg)
-      : null;
+    return getAmbientActiveCategoryId(AMP_STATUS.ctg);
   }
 
   function syncTargetCategorySelection(): void {
-    if (!isElement($SELECT_CATEGORY)) return;
-    const preferredValue = getActiveCategoryId();
-    const nextValue = preferredValue !== null ? String(preferredValue) : '-1';
-    const hasOption = Array.from($SELECT_CATEGORY.options).some((opt) => opt.value === nextValue);
-    $SELECT_CATEGORY.value = hasOption ? nextValue : '-1';
+    syncAmbientTargetCategorySelection({
+      select: isElement($SELECT_CATEGORY) ? $SELECT_CATEGORY : null,
+      activeCategoryId: getActiveCategoryId(),
+    });
   }
 
   function syncMediaCategoryField(preferredCategoryId: number | null = getActiveCategoryId()): void {
-    syncMediaCategoryFieldView({
+    syncAmbientMediaCategoryField({
       select: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
       categoryInput: document.getElementById('media-category-new') as HTMLInputElement | null,
       categories: AMP_STATUS.category,
@@ -2041,13 +2044,7 @@ const init = function (): void {
   }
 
   function normalizeVolume(value: any, fallback: number = DEFAULT_VOLUME): number {
-    if (value === null || value === undefined || value === '') {
-      return fallback;
-    }
-    const numericValue = Number(value);
-    return Number.isFinite(numericValue) && inRange(numericValue, 0, 100)
-      ? numericValue
-      : fallback;
+    return normalizeAmbientVolume(value, fallback);
   }
 
   function getDefaultVolume(): number {
@@ -2055,24 +2052,19 @@ const init = function (): void {
   }
 
   function getPlaybackVolume(mediaData: MediaItem | null = null): number {
-    const mediaVolume = mediaData?.volume;
-    if (
-      mediaData &&
-      mediaVolume !== undefined &&
-      inRange(Number(mediaVolume), 0, 100)
-    ) {
-      return Number(mediaVolume);
-    }
-    return getDefaultVolume();
+    return getAmbientPlaybackVolume({
+      mediaData,
+      defaultVolume: getDefaultVolume(),
+    });
   }
 
   function syncRangeProgress(range: HTMLInputElement | null): void {
-    syncRangeProgressView(range, DEFAULT_VOLUME);
+    syncAmbientRangeProgress(range, DEFAULT_VOLUME);
   }
 
   function syncMediaVolumeField(volume: number = getDefaultVolume()): void {
     const normalizedVolume = normalizeVolume(volume, getDefaultVolume());
-    syncMediaVolumeFieldView({
+    syncAmbientMediaVolumeField({
       input: $MEDIA_VOLUME,
       display: document.getElementById('default-media-volume'),
       volume: normalizedVolume,
@@ -2377,27 +2369,26 @@ const init = function (): void {
    * Clears items in the category selection field in the settings menu.
    */
   function clearCategory(): void {
-    clearCategoryView({
+    clearAmbientCategory({
       targetSelect: $SELECT_CATEGORY,
       mediaSelect: $MEDIA_CATEGORY_SELECT,
       mediaInput: document.getElementById('media-category-new') as HTMLInputElement | null,
       mediaLabel: document.getElementById('media-category-label') as HTMLLabelElement | null,
       mediaNote: document.getElementById('note-media-category-create-from-playlist-management') as HTMLElement | null,
-    }, applyCloudEditRestrictions);
+      applyCloudEditRestrictions,
+    });
   }
 
   /**
    * Update the items in the category selection field of the settings menu.
    */
   function updateCategory(): void {
-    updateCategoryView({
-      elements: {
-        targetSelect: $SELECT_CATEGORY,
-        mediaSelect: $MEDIA_CATEGORY_SELECT,
-        mediaInput: document.getElementById('media-category-new') as HTMLInputElement | null,
-        mediaLabel: document.getElementById('media-category-label') as HTMLLabelElement | null,
-        mediaNote: document.getElementById('note-media-category-create-from-playlist-management') as HTMLElement | null,
-      },
+    updateAmbientCategory({
+      targetSelect: $SELECT_CATEGORY,
+      mediaSelect: $MEDIA_CATEGORY_SELECT,
+      mediaInput: document.getElementById('media-category-new') as HTMLInputElement | null,
+      mediaLabel: document.getElementById('media-category-label') as HTMLLabelElement | null,
+      mediaNote: document.getElementById('note-media-category-create-from-playlist-management') as HTMLElement | null,
       categories: AMP_STATUS.category,
       syncTargetCategorySelection,
       syncMediaCategoryField,
