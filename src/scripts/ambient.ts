@@ -83,6 +83,8 @@ import {
 import { bindAmbientStatusWatchers } from './state/status-watchers';
 import {
   canUsePlaylistReorderMode,
+  getDefaultMediaItemForView,
+  getMediaCategoryName as getMediaCategoryNameState,
   getPlaylistItemsForView,
 } from './state/playlist-mode-state';
 import {
@@ -544,17 +546,6 @@ const init = function (): void {
     return true;
   }
 
-  function getMediaCategoryName(mediaItem: MediaItem | null | undefined): string {
-    if (!mediaItem || !Array.isArray(AMP_STATUS.category)) {
-      return '';
-    }
-    return AMP_STATUS.category[mediaItem.catId] || '';
-  }
-
-  function getDefaultMediaItemForCurrentView(): MediaItem | null {
-    return getPlaylistItemsForCurrentView()[0] || (AMP_STATUS.media || [])[0] || null;
-  }
-
   function canMutateCurrentPlaylist(): boolean {
     const ambientData = getAmbientData();
     if (ambientData?.isCloud === true) {
@@ -665,7 +656,10 @@ const init = function (): void {
       applyPendingMediaResume,
       updatePlaylist,
       updatePlayStatus,
-      getDefaultMediaItemForCurrentView,
+      getDefaultMediaItemForCurrentView: () => getDefaultMediaItemForView({
+        mediaItems: AMP_STATUS.media,
+        categoryId: AMP_STATUS.ctg,
+      }),
       logger,
     });
   }
@@ -737,7 +731,10 @@ const init = function (): void {
       applyPendingMediaResume,
       updatePlaylist,
       updatePlayStatus,
-      getDefaultMediaItemForCurrentView,
+      getDefaultMediaItemForCurrentView: () => getDefaultMediaItemForView({
+        mediaItems: AMP_STATUS.media,
+        categoryId: AMP_STATUS.ctg,
+      }),
       finishPlaylistLoad,
       releaseAppBootGate: () => {
         appBoot.release();
@@ -1162,12 +1159,12 @@ const init = function (): void {
     isSameDraft: isSameMediaEditDraftState,
     cloneDraft: cloneMediaEditDraftState,
     sanitizeDraft: sanitizeMediaEditDraft,
-    createEmptyDraft: () => createEmptyMediaEditDraft(getDefaultVolume()),
-    getItemIdentity: getMediaEditItemIdentity,
-    getMediaCategoryName,
-    sanitizeDescription: (value) => sanitizeMediaEditDescInput(value, MEDIA_DESC_MAX_LENGTH),
-    getTiming: getMediaEditTimingFromStoredDurations,
-    getDefaultVolume,
+      createEmptyDraft: () => createEmptyMediaEditDraft(getDefaultVolume()),
+      getItemIdentity: getMediaEditItemIdentity,
+      getMediaCategoryName: (mediaItem) => getMediaCategoryNameState(mediaItem, AMP_STATUS.category),
+      sanitizeDescription: (value) => sanitizeMediaEditDescInput(value, MEDIA_DESC_MAX_LENGTH),
+      getTiming: getMediaEditTimingFromStoredDurations,
+      getDefaultVolume,
     applyDraftToForm: applyMediaEditDraftToForm,
     validateDraft: () => {
       validateAndRenderMediaEditDraftFromForm();
@@ -1433,7 +1430,7 @@ const init = function (): void {
           container: isElement($MODAL_MEDIA_EDIT_ITEM_SOURCE) ? $MODAL_MEDIA_EDIT_ITEM_SOURCE : null,
           mediaItem: item,
           getLocalizedMessage,
-          getCategoryName: getMediaCategoryName,
+          getCategoryName: (mediaItem) => getMediaCategoryNameState(mediaItem, AMP_STATUS.category),
         });
       },
       bindForm: bindMediaEditForm,

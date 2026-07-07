@@ -1,6 +1,17 @@
 import type { MediaItem } from '../types/ambient';
 import type { PlaylistMode } from '../ui/playlist-view';
 
+export function getMediaCategoryName(
+  mediaItem: MediaItem | null | undefined,
+  categories: string[] | null | undefined
+): string {
+  if (!mediaItem || !Array.isArray(categories)) {
+    return '';
+  }
+
+  return categories[mediaItem.catId] || '';
+}
+
 export function getPlaylistItemsForView(
   mediaItems: MediaItem[] | null | undefined,
   categoryId: number | null | undefined
@@ -14,6 +25,13 @@ export function getPlaylistItemsForView(
   }
 
   return mediaItems.filter((item) => item.catId === Number(categoryId));
+}
+
+export function getDefaultMediaItemForView(options: {
+  mediaItems: MediaItem[] | null | undefined;
+  categoryId: number | null | undefined;
+}): MediaItem | null {
+  return getPlaylistItemsForView(options.mediaItems, options.categoryId)[0] || options.mediaItems?.[0] || null;
 }
 
 export function canUsePlaylistEditMode(options: {
