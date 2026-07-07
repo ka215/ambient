@@ -159,18 +159,17 @@ import { createPlaylistModeRuntimeController } from './ui/playlist-mode-runtime'
 import { createPlaylistReorderRuntimeController } from './ui/playlist-reorder-runtime';
 import {
   bindPlayerControls,
-  bindPlaylistInteractionControls,
 } from './ui/app-controls';
 import {
   handlePlayerPause,
   handlePlayerPlay,
-  handlePlaylistItemActivation,
 } from './ui/app-event-handlers';
 import {
   bindSettingsControls,
 } from './ui/settings-controls';
 import { bindAmbientSelectorControls } from './ui/selector-bindings';
 import { bindAmbientOptionsModal } from './ui/options-modal-bindings';
+import { bindAmbientPlaylistInteractionControls } from './ui/playlist-interaction-bindings';
 import {
   createNoticeController,
   dispatchInitialNotice,
@@ -2635,39 +2634,29 @@ const init = function (): void {
     reloadPage,
   });
 
-  bindPlaylistInteractionControls({
+  bindAmbientPlaylistInteractionControls({
     listElement: $LIST_PLAYLIST,
     getDescriptionPayload: getPlaylistDescriptionPayload,
-    onDescriptionActivate: (target: HTMLElement, event: Event) => {
-      const descPayload = getPlaylistDescriptionPayload(target);
-      if (!descPayload) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
+    openDescriptionModal: (payload) => {
       playlistDescModal.open(
-        descPayload.titleText,
-        descPayload.artistText,
-        descPayload.descText,
-        descPayload.trigger
+        payload.titleText,
+        payload.artistText,
+        payload.descText,
+        payload.trigger
       );
     },
-    onItemActivate: (itemElm: HTMLElement, event: Event) => {
-      handlePlaylistItemActivation(itemElm, event, {
-        getPlaylistMode: () => playlistMode,
-        deleteSelectedIds,
-        syncDeleteSelectionIndicator,
-        resolveMediaItem: (amId) => AMP_STATUS.media?.find((item: MediaItem) => item.amId === amId) || null,
-        openMediaEditModal,
-        isPlaylistInteractionLocked,
-        playItem: (target) => {
-          playItem(target);
-        },
-        showPlayingState: () => {
-          $BUTTON_PLAY.classList.add('hidden');
-          $BUTTON_PAUSE.classList.remove('hidden');
-        },
-      });
+    getPlaylistMode: () => playlistMode,
+    deleteSelectedIds,
+    syncDeleteSelectionIndicator,
+    resolveMediaItem: (amId) => AMP_STATUS.media?.find((item: MediaItem) => item.amId === amId) || null,
+    openMediaEditModal,
+    isPlaylistInteractionLocked,
+    playItem: (target) => {
+      playItem(target);
+    },
+    showPlayingState: () => {
+      $BUTTON_PLAY.classList.add('hidden');
+      $BUTTON_PAUSE.classList.remove('hidden');
     },
   });
 
