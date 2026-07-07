@@ -95,7 +95,6 @@ import {
 } from './ui/drawers';
 import {
   applyResolvedPlaylistOptions,
-  applyDarkModeAppearance,
   getToggleInput,
   resolveNoMediaImagePath,
   syncToggleRoot,
@@ -157,16 +156,8 @@ import {
 } from './ui/playlist-mode-controls';
 import { createPlaylistModeRuntimeController } from './ui/playlist-mode-runtime';
 import { createPlaylistReorderRuntimeController } from './ui/playlist-reorder-runtime';
-import {
-  bindPlayerControls,
-} from './ui/app-controls';
-import {
-  handlePlayerPause,
-  handlePlayerPlay,
-} from './ui/app-event-handlers';
-import {
-  bindSettingsControls,
-} from './ui/settings-controls';
+import { bindAmbientPlayerControls } from './ui/player-control-bindings';
+import { bindAmbientSettingsControls } from './ui/settings-bindings';
 import { bindAmbientSelectorControls } from './ui/selector-bindings';
 import { bindAmbientOptionsModal } from './ui/options-modal-bindings';
 import { bindAmbientPlaylistInteractionControls } from './ui/playlist-interaction-bindings';
@@ -196,8 +187,6 @@ import {
 } from './ui/player/player-layout';
 import {
   findMediaById,
-  resolvePlaybackCandidateIds,
-  resolveRequestedPlayId,
   resolveSeekRange,
 } from './ui/player/player-runtime';
 import {
@@ -2660,10 +2649,7 @@ const init = function (): void {
     },
   });
 
-  /**
-   * Event listener when the button of "previous" for carousel has been clicked.
-   */
-  bindPlayerControls({
+  bindAmbientPlayerControls({
     carouselPrevButton: $CAROUSEL_PREV,
     carouselNextButton: $CAROUSEL_NEXT,
     refreshButton: $BUTTON_REFRESH,
@@ -2672,66 +2658,25 @@ const init = function (): void {
     menuCollapseButton: $BUTTON_MENU_COLLAPSE,
     playButton: $BUTTON_PLAY,
     pauseButton: $BUTTON_PAUSE,
-    onCarouselPrev: () => {
-      if (AMP_STATUS.prev !== null) {
-        playItem(null, AMP_STATUS.prev);
-      }
+    menuElement: $MENU,
+    getPreviousId: () => AMP_STATUS.prev,
+    getNextId: () => AMP_STATUS.next,
+    playItemById: (playId) => {
+      playItem(null, playId);
     },
-    onCarouselNext: () => {
-      if (AMP_STATUS.next !== null) {
-        playItem(null, AMP_STATUS.next);
-      }
-    },
-    onRefresh: () => {
-      reloadPage();
-    },
-    onToggleWindowFull: () => {
-      setFullWindowMode(!isFullWindowMode(), true, true);
-    },
-    onWindowFullToggleChange: (checked: boolean) => {
-      setFullWindowMode(checked);
-    },
-    onToggleMenuCollapse: () => {
-      setMenuMinimized(!$MENU.classList.contains('menu-minimized'));
-    },
-    onPlay: () => {
-      handlePlayerPlay({
-        playertype: AMP_STATUS.playertype,
-        player,
-        logger,
-        resolvePlayId: () => {
-          const playableIds = resolvePlaybackCandidateIds({
-            mediaItems: AMP_STATUS.media || [],
-            categoryId: AMP_STATUS.ctg,
-            shuffleEnabled: Boolean(getOption('shuffle')),
-            shuffleItems: AMP_STATUS.shuffle || [],
-          });
-          return resolveRequestedPlayId({
-            currentId: AMP_STATUS.current,
-            candidateIds: playableIds,
-            order: AMP_STATUS.order,
-          });
-        },
-        playItem: (playId) => {
-          playItem(null, playId);
-        },
-        showPlayingState: () => {
-          syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'playing');
-        },
-      });
-    },
-    onPause: () => {
-      handlePlayerPause({
-        playertype: AMP_STATUS.playertype,
-        player,
-        showDisabledState: () => {
-          syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'disabled');
-        },
-        showPausedState: () => {
-          syncPlaybackButtonState($BUTTON_PLAY, $BUTTON_PAUSE, 'paused');
-        },
-      });
-    },
+    reloadPage,
+    isFullWindowMode,
+    setFullWindowMode,
+    setMenuMinimized,
+    playertype: AMP_STATUS.playertype,
+    player,
+    logger,
+    mediaItems: AMP_STATUS.media || [],
+    categoryId: AMP_STATUS.ctg,
+    shuffleEnabled: Boolean(getOption('shuffle')),
+    shuffleItems: AMP_STATUS.shuffle || [],
+    currentId: AMP_STATUS.current,
+    order: AMP_STATUS.order,
   });
 
   /**
@@ -2756,10 +2701,7 @@ const init = function (): void {
   const toggleFaderInput = getToggleInput($TOGGLE_FADER);
   const toggleDarkmodeInput = getToggleInput($TOGGLE_DARKMODE);
 
-  /**
-   * Event listener when changing the loop play of settings menu toggle button.
-   */
-  bindSettingsControls({
+  bindAmbientSettingsControls({
     loopToggle: toggleLoopInput,
     randomlyToggle: toggleRandomlyInput,
     shuffleToggle: toggleShuffleInput,
@@ -2767,59 +2709,14 @@ const init = function (): void {
     faderToggle: toggleFaderInput,
     darkmodeToggle: toggleDarkmodeInput,
     volumeRange: $RANGE_VOLUME,
-    onLoopChange: (evt: Event) => {
-      AMP_STATUS.loop = (evt.target as HTMLInputElement).checked;
-    },
-    onRandomlyChange: (evt: Event) => {
-      AMP_STATUS.order = (evt.target as HTMLInputElement).checked ? 'random' : 'normal';
-    },
-    onShuffleChange: (evt: Event) => {
-      setPlaylistOption(AMP_STATUS, 'shuffle', (evt.target as HTMLInputElement).checked);
-      AMP_STATUS.shuffle = shufflePlaylist();
-      persistMyPlaylistIfNeeded();
-    },
-    onSeekplayChange: (evt: Event) => {
-      setPlaylistOption(AMP_STATUS, 'seek', (evt.target as HTMLInputElement).checked);
-      persistMyPlaylistIfNeeded();
-    },
-    onFaderChange: (evt: Event) => {
-      setPlaylistOption(AMP_STATUS, 'fader', (evt.target as HTMLInputElement).checked);
-      persistMyPlaylistIfNeeded();
-    },
-    onDarkmodeChange: (evt: Event) => {
-      setPlaylistOption(AMP_STATUS, 'dark', (evt.target as HTMLInputElement).checked);
-      setTimeout(() => {
-        const isDarkmode = isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark ? !!AMP_STATUS.options.dark : false;
-        applyDarkModeAppearance({
-          enabled: isDarkmode,
-          toggleInput: toggleDarkmodeInput,
-          updateNoMediaImagesForTheme: () => updateNoMediaImagesForTheme(isDarkModeEnabled()),
-          setStyles,
-        });
-      }, 200);
-      persistMyPlaylistIfNeeded();
-    },
-    onVolumeInput: (evt: Event) => {
-      const currentVolume = normalizeVolume((evt.target as HTMLInputElement).value);
-      syncVolumeSlider({
-        input: evt.target as HTMLInputElement,
-        volume: currentVolume,
-        syncRangeProgress,
-        display: document.getElementById('default-volume-value') as HTMLElement | null,
-      });
-    },
-    onVolumeChange: (evt: Event) => {
-      const currentVolume = normalizeVolume((evt.target as HTMLInputElement).value);
-      syncVolumeSlider({
-        input: evt.target as HTMLInputElement,
-        volume: currentVolume,
-        syncRangeProgress,
-        display: document.getElementById('default-volume-value') as HTMLElement | null,
-      });
-      AMP_STATUS.volume = currentVolume;
-      setPlaylistOption(AMP_STATUS, 'volume', currentVolume);
-      persistMyPlaylistIfNeeded();
-    },
+    status: AMP_STATUS,
+    shufflePlaylist,
+    persistMyPlaylistIfNeeded,
+    normalizeVolume,
+    syncRangeProgress,
+    getDefaultVolumeDisplay: () => document.getElementById('default-volume-value') as HTMLElement | null,
+    isDarkModeEnabled,
+    setStyles,
   });
 
   /**
