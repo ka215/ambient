@@ -219,10 +219,7 @@ import {
   updateAmbientCategory,
 } from './ui/forms/category-volume-bindings';
 import {
-  assignSequentialMediaIds,
   createPlaylistLoadGuard,
-  materializeCategorizedMedia,
-  normalizePlaylistData,
   resetPlaylistRuntimeStatus,
 } from './domain/playlist-loader';
 import {
@@ -230,15 +227,18 @@ import {
   ensureCloudMyPlaylistSeed as domainEnsureCloudMyPlaylistSeed,
   hasStoredMyPlaylist,
   MYPLAYLIST_NAME,
-  parseStoredMyPlaylist,
-  readMyPlaylistJson,
   writeMyPlaylistJson,
 } from './domain/myplaylist-storage';
 import { createPlaybackTimerController } from './domain/media-playback';
 import { createAppBootController } from './bootstrap/app-boot';
 import {
+  fetchAmbientPlaylistData,
+  initAmbientMyPlaylistFromStorage,
+  loadAmbientMyPlaylistFromStorage,
+  removeAmbientMyPlaylistOption,
+} from './bootstrap/playlist-load-bindings';
+import {
   ensureMyPlaylistOptionFromStorage as ensureMyPlaylistOptionFromStorageBootstrap,
-  removeMyPlaylistOption,
   resolveInitialPlaylistStartup,
 } from './bootstrap/playlist-startup';
 import {
@@ -736,47 +736,17 @@ const init = function (): void {
    * normal JSON playlist was loaded from the server.
    */
   function loadMyPlaylistFromStorage(): boolean {
-    const raw = readMyPlaylistJson();
-    if (!raw) return false;
-    try {
-      const storedPlaylist = parseStoredMyPlaylist({
-        raw,
-        sanitizeMediaItem: sanitizeMediaItemTextFields,
-      });
-      if (!storedPlaylist) {
-        logger('loadMyPlaylistFromStorage: invalid schema');
-        return false;
-      }
-
-      const materialized = materializeCategorizedMedia(
-        storedPlaylist.mediaByCategory
-      );
-      const categories = materialized.categories;
-      let media = materialized.media;
-
-      if (media.length > 0) {
-        media = assignSequentialMediaIds(media);
-      }
-
-      AMP_STATUS.options = storedPlaylist.options as PlaylistOptions | null;
-      AMP_STATUS.category = categories;
-      AMP_STATUS.media = media;
-      AMP_STATUS.playlist = MYPLAYLIST_NAME;
-      applyPendingCategoryResume();
-      updatePlaylist();
-      if (applyPendingMediaResume()) {
-        // The saved media item has been restored without autoplay.
-      } else if (AMP_STATUS.current !== null) {
-        updatePlayStatus(AMP_STATUS.current);
-      } else if (media.length > 0) {
-        updatePlayStatus(getDefaultMediaItemForCurrentView()?.amId ?? 0);
-      }
-      logger('loadMyPlaylistFromStorage: loaded', media.length, 'items');
-      return true;
-    } catch (e) {
-      logger('loadMyPlaylistFromStorage: parse error', e);
-      return false;
-    }
+    return loadAmbientMyPlaylistFromStorage({
+      status: AMP_STATUS,
+      myPlaylistName: MYPLAYLIST_NAME,
+      sanitizeMediaItem: sanitizeMediaItemTextFields,
+      applyPendingCategoryResume,
+      applyPendingMediaResume,
+      updatePlaylist,
+      updatePlayStatus,
+      getDefaultMediaItemForCurrentView,
+      logger,
+    });
   }
 
   // In cloud mode: if MyPlaylist exists in localStorage, inject it into the
@@ -793,20 +763,26 @@ const init = function (): void {
   }
 
   function initMyPlaylistFromStorage(): void {
-    if (!ensureMyPlaylistOptionFromStorage()) return;
-    resetPlaylistRuntimeState();
-    if (loadMyPlaylistFromStorage()) {
-      selectPlaylistOption(MYPLAYLIST_NAME);
-      applyCloudEditRestrictions();
-      return;
-    }
-    removeMyPlaylistOption(
-      document.getElementById('current-playlist') as HTMLSelectElement | null,
-      MYPLAYLIST_NAME
-    );
-    AMP_STATUS.playlist = null;
-    applyCloudEditRestrictions();
-    setPlaylistReadyState(true);
+    initAmbientMyPlaylistFromStorage({
+      ensureMyPlaylistOptionFromStorage,
+      resetPlaylistRuntimeState: () => {
+        resetPlaylistRuntimeState();
+      },
+      loadMyPlaylistFromStorage,
+      selectPlaylistOption,
+      myPlaylistName: MYPLAYLIST_NAME,
+      applyCloudEditRestrictions,
+      removePlaylistOption: () => {
+        removeAmbientMyPlaylistOption(
+          document.getElementById('current-playlist') as HTMLSelectElement | null,
+          MYPLAYLIST_NAME
+        );
+      },
+      clearCurrentPlaylist: () => {
+        AMP_STATUS.playlist = null;
+      },
+      setPlaylistReadyState,
+    });
   }
 
   // Process global data passed by the system.
@@ -817,48 +793,29 @@ const init = function (): void {
    * Fetch data of specific playlist.
    */
   async function getPlaylistData(playlist: string, preserveOptionsDuringLoad: boolean = false): Promise<void> {
-    const loadSeq = beginPlaylistLoad(playlist);
-    resetPlaylistRuntimeState(preserveOptionsDuringLoad);
-    try {
-      if (playlist === MYPLAYLIST_NAME) {
-        const loaded = loadMyPlaylistFromStorage();
-        if (!isPlaylistLoadActive(loadSeq)) {
-          return;
-        }
-        if (!loaded) {
-          AMP_STATUS.playlist = null;
-        }
-        applyCloudEditRestrictions();
-        return;
-      }
-
-      const endpointURL = `${BASE_URL}playlist/${playlist}`;
-      const response = await fetchData(endpointURL);
-      if (!isPlaylistLoadActive(loadSeq)) {
-        return;
-      }
-      if (response && typeof response === 'object' && 'data' in response) {
-        const data = (response as any).data as PlaylistData;
-        const normalized = normalizePlaylistData(data);
-        AMP_STATUS.options = normalized.options as PlaylistOptions | null;
-        AMP_STATUS.category = normalized.categories;
-        AMP_STATUS.media = normalized.media;
-        AMP_STATUS.playlist = playlist;
-        applyPendingCategoryResume();
-        updatePlaylist();
-        if (applyPendingMediaResume()) {
-          // The saved media item has been restored without autoplay.
-        } else if (AMP_STATUS.current !== null) {
-          updatePlayStatus(AMP_STATUS.current);
-        } else if (normalized.media.length > 0) {
-          updatePlayStatus(getDefaultMediaItemForCurrentView()?.amId ?? 0);
-        }
-      }
-      applyCloudEditRestrictions();
-    } finally {
-      finishPlaylistLoad(loadSeq);
-      releaseAppBootGate();
-    }
+    await fetchAmbientPlaylistData({
+      playlist,
+      preserveOptionsDuringLoad,
+      myPlaylistName: MYPLAYLIST_NAME,
+      beginPlaylistLoad,
+      resetPlaylistRuntimeState,
+      loadMyPlaylistFromStorage,
+      isPlaylistLoadActive,
+      clearCurrentPlaylist: () => {
+        AMP_STATUS.playlist = null;
+      },
+      applyCloudEditRestrictions,
+      fetchData,
+      baseUrl: BASE_URL,
+      status: AMP_STATUS,
+      applyPendingCategoryResume,
+      applyPendingMediaResume,
+      updatePlaylist,
+      updatePlayStatus,
+      getDefaultMediaItemForCurrentView,
+      finishPlaylistLoad,
+      releaseAppBootGate,
+    });
   }
 
   /**
