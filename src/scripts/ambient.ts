@@ -54,6 +54,7 @@ import {
   readPlaylistOption,
   setPlaylistOption,
 } from './state/playlist-options';
+import { bindAmbientStatusWatchers } from './state/status-watchers';
 import {
   canUsePlaylistReorderMode,
   getPlaylistItemsForView,
@@ -408,75 +409,57 @@ const init = function (): void {
    * Watcher for AMP_STATUS object.
    */
   function watchState(): void {
-    const callback = function (
-      prop: string,
-      _oldValue: any,
-      newValue: any
-    ): void {
-      switch (true) {
-        case /^(prev|current|next|ctg|order|loop)$/i.test(prop):
-          // Synchronize to the saved data of web storage when specific properties of AMP_STATUS object are changed.
-          saveStge(prop, newValue);
-          if (/^ctg$/i.test(prop)) {
+    bindAmbientStatusWatchers({
+      status: AMP_STATUS as unknown as Record<string, unknown>,
+      onPropertyChange: (prop, _oldValue, newValue) => {
+        switch (true) {
+          case /^(prev|current|next|ctg|order|loop)$/i.test(prop):
+            saveStge(prop, newValue);
+            if (/^ctg$/i.test(prop)) {
+              savePlaylistContext();
+            }
+            if ('current' === prop) {
+              changePlaylistFocus();
+              savePlaylistContext();
+            }
+            if ('order' === prop) {
+              syncToggleRoot($TOGGLE_RANDOMLY, AMP_STATUS.order === 'random');
+            }
+            break;
+          case /^playlist$/i.test(prop):
             savePlaylistContext();
-          }
-          if ('current' === prop) {
-            changePlaylistFocus();
-            savePlaylistContext();
-          }
-          if ('order' === prop) {
-            syncToggleRoot($TOGGLE_RANDOMLY, AMP_STATUS.order === 'random');
-          }
-          break;
-        case /^playlist$/i.test(prop):
-          savePlaylistContext();
-          break;
-        case /^media$/i.test(prop):
-          syncPlaybackButtons($BUTTON_PLAY, $BUTTON_PAUSE, AMP_STATUS.media !== null && AMP_STATUS.media.length > 0);
-          break;
-        case /^category$/i.test(prop):
-          updateCategory();
-          break;
-        case /^shuffle$/i.test(prop):
-          syncToggleRoot($TOGGLE_SHUFFLE, !!(AMP_STATUS.options && AMP_STATUS.options.shuffle));
-          AMP_STATUS.shuffle = shufflePlaylist();
-          break;
-        case /^volume$/i.test(prop):
-          syncVolumeSlider({
-            input: $RANGE_VOLUME,
-            volume: normalizeVolume(AMP_STATUS.volume, getDefaultVolume()),
-            syncRangeProgress,
-            display: document.getElementById('default-volume-value') as HTMLElement | null,
-          });
-          break;
-        case /^notice$/i.test(prop):
-          if (newValue) {
-            updateNotice(newValue);
-          }
-          break;
-        case /^options$/i.test(prop):
-          applyOptions();
-          break;
-        case /^yt_(phase|seq|error)$/i.test(prop):
-          syncYouTubeSignalAttrs();
-          break;
-      }
-    };
-
-    Object.keys(AMP_STATUS).forEach((propName: string) => {
-      let value: any = (AMP_STATUS as any)[propName];
-      Object.defineProperty(AMP_STATUS, propName, {
-        get: () => value,
-        set: (newValue: any) => {
-          const oldValue = value;
-          value = newValue;
-          if (oldValue !== newValue) {
-            callback(propName, oldValue, value);
-          }
-        },
-        enumerable: true,
-        configurable: true,
-      });
+            break;
+          case /^media$/i.test(prop):
+            syncPlaybackButtons($BUTTON_PLAY, $BUTTON_PAUSE, AMP_STATUS.media !== null && AMP_STATUS.media.length > 0);
+            break;
+          case /^category$/i.test(prop):
+            updateCategory();
+            break;
+          case /^shuffle$/i.test(prop):
+            syncToggleRoot($TOGGLE_SHUFFLE, !!(AMP_STATUS.options && AMP_STATUS.options.shuffle));
+            AMP_STATUS.shuffle = shufflePlaylist();
+            break;
+          case /^volume$/i.test(prop):
+            syncVolumeSlider({
+              input: $RANGE_VOLUME,
+              volume: normalizeVolume(AMP_STATUS.volume, getDefaultVolume()),
+              syncRangeProgress,
+              display: document.getElementById('default-volume-value') as HTMLElement | null,
+            });
+            break;
+          case /^notice$/i.test(prop):
+            if (newValue) {
+              updateNotice(newValue as NotificationPayload);
+            }
+            break;
+          case /^options$/i.test(prop):
+            applyOptions();
+            break;
+          case /^yt_(phase|seq|error)$/i.test(prop):
+            syncYouTubeSignalAttrs();
+            break;
+        }
+      },
     });
   }
 
