@@ -91,7 +91,6 @@ import {
   closeResponsiveDrawers,
   cleanupDrawerBackdrops,
   isResponsiveDrawerOpen,
-  syncDrawerToggleButtonState as syncDrawerToggleButtonStateView,
   syncDrawerAndModalBackdrops,
 } from './ui/drawers';
 import {
@@ -109,14 +108,10 @@ import {
 } from './ui/viewport';
 import { createViewportRuntimeController } from './ui/viewport-runtime';
 import {
-  bindModalKeyboardControls,
-  bindOptionsModalControls,
-  bindPlaylistDescModalControls,
   createOptionsModalController,
   createPlaylistConfirmModalController,
   createPlaylistDescModalController,
   ensureAccordionPanel as ensureAccordionPanelView,
-  expandMediaManagementWhenOptionsModalVisible,
   openPlaylistManagementCategoryCreate as openPlaylistManagementCategoryCreateView,
 } from './ui/modals';
 import {
@@ -163,7 +158,6 @@ import {
 import { createPlaylistModeRuntimeController } from './ui/playlist-mode-runtime';
 import { createPlaylistReorderRuntimeController } from './ui/playlist-reorder-runtime';
 import {
-  bindAddMediaTrigger,
   bindPlayerControls,
   bindPlaylistInteractionControls,
 } from './ui/app-controls';
@@ -176,6 +170,7 @@ import {
   bindSettingsControls,
 } from './ui/settings-controls';
 import { bindAmbientSelectorControls } from './ui/selector-bindings';
+import { bindAmbientOptionsModal } from './ui/options-modal-bindings';
 import {
   createNoticeController,
   dispatchInitialNotice,
@@ -1096,8 +1091,18 @@ const init = function (): void {
       minFullUIWidth: currentWindowSize.minFullUIWidth,
     }),
     beforeShow: () => {
-      closePlaylistDrawerForModalIfNeeded();
-      closeSettingsDrawerForModalIfNeeded();
+      if (
+        currentWindowSize.width < currentWindowSize.minFullUIWidth &&
+        isResponsiveDrawerOpen($DRAWER_PLAYLIST, '-translate-x-full')
+      ) {
+        (document.getElementById('btn-close-playlist') as HTMLButtonElement | null)?.click();
+      }
+      if (
+        currentWindowSize.width < currentWindowSize.minFullUIWidth &&
+        isResponsiveDrawerOpen($DRAWER_SETTINGS, 'translate-x-full')
+      ) {
+        (document.getElementById('btn-close-settings') as HTMLButtonElement | null)?.click();
+      }
     },
   });
   let activeMediaEditTrigger: HTMLElement | null = null;
@@ -2000,99 +2005,6 @@ const init = function (): void {
   }
 
   /**
-   * Return focus to the options trigger when the modal is being hidden.
-   */
-  function restoreOptionsTriggerFocus(): void {
-    if (isElement($BUTTON_OPTIONS)) {
-      $BUTTON_OPTIONS.focus();
-    }
-  }
-
-  function isOptionsModalVisible(): boolean {
-    return optionsModal.isVisible();
-  }
-
-  /**
-   * Sync active styles of bottom menu drawer toggle buttons.
-   */
-  function syncDrawerToggleButtons(): void {
-    syncDrawerToggleButtonStateView({
-      button: $BUTTON_PLAYLIST,
-      active: isResponsiveDrawerOpen($DRAWER_PLAYLIST, '-translate-x-full'),
-    });
-    syncDrawerToggleButtonStateView({
-      button: $BUTTON_SETTINGS,
-      active: isResponsiveDrawerOpen($DRAWER_SETTINGS, 'translate-x-full'),
-    });
-  }
-
-  watcher($MODAL_OPTIONS, (mutation: MutationRecord) => {
-    if (mutation.type !== 'attributes') {
-      return;
-    }
-
-    const modalElm = mutation.target as HTMLElement;
-    const activeElm = document.activeElement;
-    const isModalHidden = modalElm.getAttribute('aria-hidden') === 'true' || modalElm.classList.contains('hidden');
-    const isFocusInsideModal = activeElm instanceof HTMLElement && modalElm.contains(activeElm);
-
-    if (isModalHidden && isFocusInsideModal) {
-      restoreOptionsTriggerFocus();
-    }
-
-    if (isModalHidden) {
-      cleanupOptionsModalBackdrops();
-    }
-  }, { attributes: true, childList: false, subtree: false, attributeFilter: ['aria-hidden', 'class'] });
-
-  /**
-   * Monitors the state of the playlist drawer component and fires
-   * an event when it is displayed.
-   */
-  watcher($DRAWER_PLAYLIST, (mutation: MutationRecord) => {
-    if (mutation.type !== 'attributes') {
-      return;
-    }
-    syncDrawerToggleButtons();
-    if (mutation.attributeName === 'aria-modal' && (mutation.target as HTMLElement).ariaModal === 'true') {
-      scrollToFocusItem();
-    }
-  }, { attributes: true, childList: false, subtree: true, attributeFilter: ['aria-modal', 'class'] });
-
-  watcher($DRAWER_SETTINGS, (_mutation: MutationRecord) => {
-    syncDrawerToggleButtons();
-  }, { attributes: true, childList: false, subtree: true, attributeFilter: ['aria-modal', 'class'] });
-
-  syncDrawerToggleButtons();
-
-  // Wire up "Register media" link in the no-media area of the left drawer
-  {
-    const $ADD_FROM_DRAWER = document.getElementById('btn-add-media-from-drawer');
-    if ($ADD_FROM_DRAWER) {
-      bindAddMediaFromDrawer($ADD_FROM_DRAWER);
-    }
-  }
-
-  /**
-   * Monitors the state of the collapse menu component and fires
-   * an event when it is opened.
-   */
-  watcher($COLLAPSE_MENU, (mutation: MutationRecord) => {
-    if (mutation.attributeName === 'aria-expanded' && (mutation.target as HTMLElement).ariaExpanded === 'true') {
-      const is_collapse_open = (mutation.target as HTMLElement).ariaExpanded === 'true';
-      const collapse_item_id = (mutation.target as HTMLElement).getAttribute('aria-controls');
-      if (is_collapse_open && collapse_item_id) {
-        const $COLLAPSE_ITEM = document.getElementById(collapse_item_id);
-        if ($COLLAPSE_ITEM?.firstElementChild) {
-          ($COLLAPSE_ITEM.firstElementChild as HTMLElement).setAttribute('style', 'max-height: calc(100vh - 420px)');
-          // Reset scroll position to top when any accordion panel opens
-          ($COLLAPSE_ITEM.firstElementChild as HTMLElement).scrollTop = 0;
-        }
-      }
-    }
-  }, { attributes: true, childList: false, subtree: true, attributeFilter: ['aria-expanded'] });
-
-  /**
    * Empty the playlist.
    */
   function clearPlaylist(): void {
@@ -2113,41 +2025,11 @@ const init = function (): void {
   }
 
   function bindAddMediaFromDrawer(addBtn: Element): void {
-    bindAddMediaTrigger({
-      trigger: addBtn,
-      onActivate: (evt: Event) => {
-        evt.preventDefault();
-        evt.stopPropagation();
-        const activeCatId = (AMP_STATUS.ctg !== undefined && AMP_STATUS.ctg !== null && Number(AMP_STATUS.ctg) >= 0)
-          ? Number(AMP_STATUS.ctg)
-          : null;
-        openMediaManagement(activeCatId);
-      },
+    addBtn.addEventListener('click', (evt: Event) => {
+      evt.preventDefault();
+      evt.stopPropagation();
+      openMediaManagement(getActiveCategoryId());
     });
-  }
-
-  function cleanupOptionsModalBackdrops(): void {
-    optionsModal.cleanupBackdrops();
-  }
-
-  function closePlaylistDrawerForModalIfNeeded(): void {
-    if (currentWindowSize.width >= currentWindowSize.minFullUIWidth) {
-      return;
-    }
-    if (!isResponsiveDrawerOpen($DRAWER_PLAYLIST, '-translate-x-full')) {
-      return;
-    }
-    (document.getElementById('btn-close-playlist') as HTMLButtonElement | null)?.click();
-  }
-
-  function closeSettingsDrawerForModalIfNeeded(): void {
-    if (currentWindowSize.width >= currentWindowSize.minFullUIWidth) {
-      return;
-    }
-    if (!isResponsiveDrawerOpen($DRAWER_SETTINGS, 'translate-x-full')) {
-      return;
-    }
-    (document.getElementById('btn-close-settings') as HTMLButtonElement | null)?.click();
   }
 
   function getActiveCategoryId(): number | null {
@@ -2221,80 +2103,38 @@ const init = function (): void {
     ensureAccordionPanelView(panelId);
   }
 
-  function showOptionsModal(): void {
-    optionsModal.show();
-  }
-
-  function hideOptionsModal(): void {
-    optionsModal.hide();
-  }
-
-  bindOptionsModalControls({
+  const {
+    hideOptionsModal,
+    openMediaManagement,
+  } = bindAmbientOptionsModal({
     triggerButton: $BUTTON_OPTIONS,
     closeButton: $BUTTON_CLOSE_OPTIONS,
+    optionsButton: $BUTTON_OPTIONS,
+    playlistButton: $BUTTON_PLAYLIST,
+    settingsButton: $BUTTON_SETTINGS,
     modal: $MODAL_OPTIONS,
-    onTrigger: () => {
-      if (isOptionsModalVisible()) {
-        hideOptionsModal();
-      } else {
-        clearCategory();
-        updateCategory();
-        syncMediaCategoryField();
-        showOptionsModal();
-      }
-    },
-    onClose: () => {
-      hideOptionsModal();
-    },
-    onCloseCapture: () => {
-      restoreOptionsTriggerFocus();
-    },
-    onBackdropPointerDown: (evt: PointerEvent) => {
-      optionsModal.handleBackdropPointerDown(evt);
-    },
-    onBackdropClick: (evt: Event) => {
-      optionsModal.handleBackdropClick(evt, restoreOptionsTriggerFocus);
-    },
-  });
-
-  bindModalKeyboardControls({
-    onEscapeMediaEditCategory: () => {
-      closeMediaEditCategoryDropdown(true);
-    },
-    onEscapeMediaEdit: () => {
-      closeMediaEditModal(true);
-    },
-    onTabMediaEdit: (evt: KeyboardEvent) => {
-      trapMediaEditModalFocus(evt);
-    },
-    onEscapeOptions: () => {
-      hideOptionsModal();
-      restoreOptionsTriggerFocus();
-    },
-    onEscapePlaylistDesc: () => {
-      playlistDescModal.close(true);
-    },
+    drawerPlaylist: $DRAWER_PLAYLIST,
+    drawerSettings: $DRAWER_SETTINGS,
+    collapseMenu: $COLLAPSE_MENU,
+    optionsModal,
+    playlistDescModal,
+    playlistDescCloseButton: $BUTTON_CLOSE_PLAYLIST_DESC,
+    playlistDescBackdrop: $MODAL_PLAYLIST_DESC_BACKDROP,
+    playlistDescManagementLink: document.getElementById('link-open-playlist-management-category') as HTMLAnchorElement | null,
+    getActiveCategoryId,
+    clearCategory,
+    updateCategory,
+    syncMediaCategoryField,
+    syncMediaVolumeField: () => syncMediaVolumeField(),
+    ensureAccordionPanel,
+    openPlaylistManagementCategoryCreate,
+    closeMediaEditCategoryDropdown,
+    closeMediaEditModal,
+    trapMediaEditModalFocus,
     isMediaEditModalVisible,
     isMediaEditCategoryDropdownVisible,
-    isOptionsModalVisible,
-    isPlaylistDescOpen: () => {
-      return playlistDescModal.isOpen();
-    },
-  });
-
-  bindPlaylistDescModalControls({
-    closeButton: $BUTTON_CLOSE_PLAYLIST_DESC,
-    backdrop: $MODAL_PLAYLIST_DESC_BACKDROP,
-    managementLink: document.getElementById('link-open-playlist-management-category') as HTMLAnchorElement | null,
-    onClose: () => {
-      playlistDescModal.close(true);
-    },
-    onBackdrop: () => {
-      playlistDescModal.close(false);
-    },
-    onOpenPlaylistManagementCategory: () => {
-      openPlaylistManagementCategoryCreate();
-    },
+    scrollToFocusItem,
+    watcher,
   });
 
   bindMediaEditPrimaryControls({
@@ -2486,28 +2326,6 @@ const init = function (): void {
       applyMediaEditDraftState(next);
     },
   });
-
-  /**
-   * Open the Options modal with the Media Management accordion expanded.
-   * Optionally pre-selects the category matching the current filter.
-   */
-  function openMediaManagement(presetCategoryId: number | null = null): void {
-    // Refresh category UI before opening modal so undefined-category playlists
-    // switch to text-input mode reliably.
-    clearCategory();
-    updateCategory();
-    syncMediaCategoryField(presetCategoryId);
-
-    showOptionsModal();
-
-    expandMediaManagementWhenOptionsModalVisible({
-      modal: document.getElementById('modal-options'),
-      presetCategoryId,
-      ensureAccordionPanel,
-      syncMediaCategoryField,
-      syncMediaVolumeField,
-    });
-  }
 
   /**
    * Create a playlist from the data of the AMP_STATUS object.
