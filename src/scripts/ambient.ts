@@ -895,7 +895,7 @@ const init = function (): void {
     getViewportHeight,
     getBottomMenuHeight,
     getPlayerSizeForCurrentMode,
-    isFullWindowMode,
+    isFullWindowMode: () => isFullWindowModeView($BODY),
     getPlayer: () => player,
     getHtmlPlayer: () => document.getElementById('html-player') as HTMLVideoElement | null,
     clearTimer: (timerId) => {
@@ -1473,7 +1473,7 @@ const init = function (): void {
 
   function getPlayerSizeForCurrentMode(): { width: number; height: number } {
     return getPlayerSizeForCurrentModeView({
-      fullWindow: isFullWindowMode(),
+      fullWindow: isFullWindowModeView($BODY),
       viewportWidth: currentWindowSize.width,
       viewportHeight: currentWindowSize.height,
       bottomMenuHeight: getBottomMenuHeight(),
@@ -2078,7 +2078,9 @@ const init = function (): void {
       shufflePlaylist,
       isDarkModeEnabled,
       setStyles,
-      setFullWindowMode,
+      setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
+        viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
+      },
     });
   }
 
@@ -2123,28 +2125,6 @@ const init = function (): void {
       captionElement: $MEDIA_CAPTION,
       fallbackWidth: currentWindowSize.width,
     });
-  }
-
-  /**
-   * Returns true when player is shown as full-window.
-   */
-  function isFullWindowMode(): boolean {
-    return isFullWindowModeView($BODY);
-  }
-
-  /**
-   * Toggle full-window mode and synchronize controls from drawer and bottom menu.
-   * @param closeDrawers When true, auto-close any open drawers (only for bottom-menu trigger).
-   */
-  function setFullWindowMode(enabled: boolean, syncOption = true, closeDrawers = false): void {
-    viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
-  }
-
-  /**
-   * Toggle bottom menu minimized state.
-   */
-  function setMenuMinimized(minimized: boolean): void {
-    viewportRuntime.setMenuMinimized(minimized);
   }
 
   /**
@@ -2255,9 +2235,13 @@ const init = function (): void {
     reloadPage: () => {
       window.location.reload();
     },
-    isFullWindowMode,
-    setFullWindowMode,
-    setMenuMinimized,
+    isFullWindowMode: () => isFullWindowModeView($BODY),
+    setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
+      viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
+    },
+    setMenuMinimized: (minimized) => {
+      viewportRuntime.setMenuMinimized(minimized);
+    },
     playertype: AMP_STATUS.playertype,
     player,
     logger,
@@ -2369,7 +2353,7 @@ const init = function (): void {
     getFullWindowPlayerSize,
     getViewportWidth: () => currentWindowSize.width,
     getPlaceholderPath: () => getNoMediaImagePath('placeholder'),
-    isFullWindowMode,
+    isFullWindowMode: () => isFullWindowModeView($BODY),
     normalizeVolume,
     inRange: sharedInRange,
     findMediaById,
@@ -2434,7 +2418,7 @@ const init = function (): void {
     cleanupDrawerBackdrops([$DRAWER_PLAYLIST, $DRAWER_SETTINGS]);
   });
 
-  setMenuMinimized(false);
+  viewportRuntime.setMenuMinimized(false);
 
   syncViewportMetrics();
   bindViewportSyncEvents({
