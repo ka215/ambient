@@ -1546,7 +1546,7 @@ const init = function (): void {
   }
 
   function isDarkModeEnabled(): boolean {
-    return isObject(AMP_STATUS.options) && AMP_STATUS.options?.dark ? !!AMP_STATUS.options.dark : false;
+    return sharedIsObject(AMP_STATUS.options) && AMP_STATUS.options?.dark ? !!AMP_STATUS.options.dark : false;
   }
 
   function getNoMediaImagePath(kind: 'placeholder' | 'thumb' = 'placeholder'): string {
@@ -2399,7 +2399,7 @@ const init = function (): void {
    */
   function shufflePlaylist(): MediaItem[] {
     const newList: MediaItem[] = [];
-    if (isObject(AMP_STATUS.options) && AMP_STATUS.options?.shuffle) {
+    if (sharedIsObject(AMP_STATUS.options) && AMP_STATUS.options?.shuffle) {
       let items = AMP_STATUS.media || [];
       if (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null && Number(AMP_STATUS.ctg) !== -1) {
         items = (AMP_STATUS.media || []).filter((item: MediaItem) => item.catId === AMP_STATUS.ctg);
@@ -2447,7 +2447,7 @@ const init = function (): void {
     currentWindowSize,
     isElement,
     getOption,
-    getExtension: getExt,
+    getExtension: sharedGetExt,
     getDefaultVolume,
     getPlaybackVolume,
     getPlayerSizeForCurrentMode,
@@ -2456,12 +2456,12 @@ const init = function (): void {
     getPlaceholderPath: () => getNoMediaImagePath('placeholder'),
     isFullWindowMode,
     normalizeVolume,
-    inRange,
+    inRange: sharedInRange,
     findMediaById,
     resolveSeekRange,
     logger,
     getLocalizedMessage,
-    escapeHtml: escapeHTML,
+    escapeHtml: sharedEscapeHTML,
     updateNotice,
     closeResponsiveDrawers,
     updatePlayStatus,
@@ -2632,7 +2632,7 @@ const init = function (): void {
     descMaxLength: MEDIA_DESC_MAX_LENGTH,
     sanitizeMediaText,
     sanitizeMediaDesc,
-    isVolumeInRange: (value) => inRange(value, 0, 100),
+    isVolumeInRange: (value) => sharedInRange(value, 0, 100),
     generatePlaylistJson: (seekFormat) => buildPlaylistJson({
       mediaItems: AMP_STATUS.media || [],
       categories: AMP_STATUS.category || [],
@@ -2710,7 +2710,7 @@ const init = function (): void {
     const importedPlaylistName = persistResult.filename;
     const ambient = getRuntimeAmbientData();
     if (ambient) {
-      if (!isObject(ambient.playlists)) {
+      if (!sharedIsObject(ambient.playlists)) {
         ambient.playlists = {};
       }
       ambient.playlists[importedPlaylistName] = `./assets/${importedPlaylistName}`;
@@ -2799,11 +2799,11 @@ const init = function (): void {
       sanitizeMediaTextInput,
       sanitizeMediaDescInput,
       sanitizeMediaDescInputLive,
-      basename,
+      basename: sharedBasename,
       isLikelyMediaFile,
       getRelativeFilepath,
       syncRangeProgress,
-      logger,
+      logger: runtimeLogger,
       getMediaItems: () => AMP_STATUS.media || [],
       getAddType: () => AMP_STATUS.addtype,
       setAddType: (nextType: string) => {
@@ -2822,13 +2822,13 @@ const init = function (): void {
       updateNotice,
       resetPlaylistManagementForm: resetPlaylistManageForm,
       fetchData: async (endpointURL: string, method?: string, payload?: Record<string, string>) => {
-        return fetchData(endpointURL, method, payload);
+        return fetchData(endpointURL, method, payload, 'json', 15000, runtimeLogger);
       },
       inArray: (contains: unknown | unknown[], targetArray: unknown[], atLeastOne = false) => {
-        return inArray(contains, targetArray as any[], atLeastOne);
+        return sharedInArray(contains, targetArray as any[], atLeastOne);
       },
-      snakeToCapital,
-      logger,
+      snakeToCapital: sharedSnakeToCapital,
+      logger: runtimeLogger,
       isLikelyJsonFile,
       getBaseUrl: () => BASE_URL,
       getPlaylistManageFormData: (oneData: string | null = null) => {
@@ -2878,48 +2878,6 @@ function execDebug(): void {
 // ============================================================================
 
 // [MODULE-BOUNDARY][v2.5.3-P0][EXTRACT-BL-003]: pure tail utility wrappers delegated to src/scripts/shared/*
-
-/**
- * Finds whether the given variable is an object.
- */
-function isObject(value: any): value is Record<string, any> {
-  return sharedIsObject(value);
-}
-
-/**
- * Given a string containing the path to a file or directory,
- * this function will return the trailing name component.
- */
-function basename(path: string): string {
-  return sharedBasename(path);
-}
-
-/**
- * Gets the extension from the given file path.
- */
-function getExt(path: string): string {
-  return sharedGetExt(path);
-}
-
-function escapeHTML(value: string): string {
-  return sharedEscapeHTML(value);
-}
-
-/**
- * Return true if a number is in range, otherwise false.
- */
-function inRange(num: any, min: number, max: number): boolean {
-  return sharedInRange(num, min, max);
-}
-
-function inArray(contains: any | any[], targetArray: any[], at_least_one: boolean = false): boolean {
-  return sharedInArray(contains, targetArray, at_least_one);
-}
-
-function snakeToCapital(str: string): string {
-  return sharedSnakeToCapital(str);
-}
-
 
 // Do dispatcher
 if ('complete' === document.readyState || 'loading' !== document.readyState) {
