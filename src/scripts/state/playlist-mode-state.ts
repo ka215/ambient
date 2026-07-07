@@ -34,6 +34,28 @@ export function getDefaultMediaItemForView(options: {
   return getPlaylistItemsForView(options.mediaItems, options.categoryId)[0] || options.mediaItems?.[0] || null;
 }
 
+export function createShuffledPlaylistItems(options: {
+  mediaItems: MediaItem[] | null | undefined;
+  categoryId: number | null | undefined;
+  shuffleEnabled: boolean;
+  random?: () => number;
+}): MediaItem[] {
+  if (!options.shuffleEnabled) {
+    return [];
+  }
+
+  const items = getPlaylistItemsForView(options.mediaItems, options.categoryId);
+  if (items.length === 0) {
+    return [];
+  }
+
+  const nextRandom = options.random || Math.random;
+  return items
+    .map((value: MediaItem) => ({ value, random: nextRandom() }))
+    .sort((a, b) => a.random - b.random)
+    .map(({ value }) => value);
+}
+
 export function canUsePlaylistEditMode(options: {
   playlist: string | null;
   visibleItems: MediaItem[];

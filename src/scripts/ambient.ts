@@ -83,6 +83,7 @@ import {
 import { bindAmbientStatusWatchers } from './state/status-watchers';
 import {
   canUsePlaylistReorderMode,
+  createShuffledPlaylistItems,
   getDefaultMediaItemForView,
   getMediaCategoryName as getMediaCategoryNameState,
   getPlaylistItemsForView,
@@ -443,7 +444,11 @@ const init = function (): void {
             break;
           case /^shuffle$/i.test(prop):
             syncToggleRoot($TOGGLE_SHUFFLE, !!(AMP_STATUS.options && AMP_STATUS.options.shuffle));
-            AMP_STATUS.shuffle = shufflePlaylist();
+            AMP_STATUS.shuffle = createShuffledPlaylistItems({
+              mediaItems: AMP_STATUS.media,
+              categoryId: AMP_STATUS.ctg,
+              shuffleEnabled: !!(AMP_STATUS.options && AMP_STATUS.options.shuffle),
+            });
             break;
           case /^volume$/i.test(prop):
             syncVolumeSlider({
@@ -2074,7 +2079,11 @@ const init = function (): void {
       normalizeVolume,
       syncRangeProgress,
       syncMediaVolumeField,
-      shufflePlaylist,
+      shufflePlaylist: () => createShuffledPlaylistItems({
+        mediaItems: AMP_STATUS.media,
+        categoryId: AMP_STATUS.ctg,
+        shuffleEnabled: true,
+      }),
       isDarkModeEnabled,
       setStyles,
       setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
@@ -2246,7 +2255,11 @@ const init = function (): void {
     darkmodeToggle: toggleDarkmodeInput,
     volumeRange: $RANGE_VOLUME,
     status: AMP_STATUS,
-    shufflePlaylist,
+    shufflePlaylist: () => createShuffledPlaylistItems({
+      mediaItems: AMP_STATUS.media,
+      categoryId: AMP_STATUS.ctg,
+      shuffleEnabled: true,
+    }),
     persistMyPlaylistIfNeeded,
     normalizeVolume,
     syncRangeProgress,
@@ -2254,29 +2267,6 @@ const init = function (): void {
     isDarkModeEnabled,
     setStyles,
   });
-
-  /**
-   * Shuffle playlist.
-   */
-  function shufflePlaylist(): MediaItem[] {
-    const newList: MediaItem[] = [];
-    if (sharedIsObject(AMP_STATUS.options) && AMP_STATUS.options?.shuffle) {
-      let items = AMP_STATUS.media || [];
-      if (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null && Number(AMP_STATUS.ctg) !== -1) {
-        items = (AMP_STATUS.media || []).filter((item: MediaItem) => item.catId === AMP_STATUS.ctg);
-      }
-      if (items.length > 0) {
-        // Shuffle (evenly mix) the items array
-        const shuffled = items
-          .map((value: MediaItem) => ({ value, random: Math.random() }))
-          .sort((a, b) => a.random - b.random)
-          .map(({ value }) => value);
-        runtimeLogger('shufflePlaylist:', shuffled);
-        return shuffled;
-      }
-    }
-    return newList;
-  }
 
   /**
    * Updates the user's media playback state.
