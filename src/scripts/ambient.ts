@@ -183,6 +183,7 @@ import {
   type NoticeController,
 } from './ui/notifications';
 import {
+  isPlaybackActive,
   syncPlaybackButtonState,
   syncMenuCollapseButtonState,
   syncPlaybackButtons,
@@ -1393,7 +1394,13 @@ const init = function (): void {
     activeMediaEditTrigger = null;
     finalizeMediaEditModalClose({
       restoreFocus,
-      preferredFocusId: isMediaPlaybackActive() ? AMP_STATUS.current : editedMediaId,
+      preferredFocusId: isPlaybackActive({
+        currentMediaId: AMP_STATUS.current,
+        playerType: AMP_STATUS.playertype,
+        youtubePlayer: player || null,
+        playButton: $BUTTON_PLAY,
+        pauseButton: $BUTTON_PAUSE,
+      }) ? AMP_STATUS.current : editedMediaId,
       restoreTarget,
       resetModalView: () => {
         resetMediaEditModalView({
@@ -1419,26 +1426,6 @@ const init = function (): void {
   function cancelMediaEditModal(restoreFocus = false): void {
     discardActiveMediaEditDraft();
     hideMediaEditModal(restoreFocus);
-  }
-
-  function isMediaPlaybackActive(): boolean {
-    if (AMP_STATUS.current === null) {
-      return false;
-    }
-    if (AMP_STATUS.playertype === 'youtube' && player && typeof player.getPlayerState === 'function') {
-      try {
-        return player.getPlayerState() === 1;
-      } catch (_error) {
-        return $BUTTON_PLAY.classList.contains('hidden') && !$BUTTON_PAUSE.classList.contains('hidden');
-      }
-    }
-    if (/^(audio|video)$/i.test(String(AMP_STATUS.playertype || ''))) {
-      const mediaElm = document.querySelector(String(AMP_STATUS.playertype)) as HTMLMediaElement | null;
-      if (mediaElm) {
-        return !mediaElm.paused && !mediaElm.ended;
-      }
-    }
-    return $BUTTON_PLAY.classList.contains('hidden') && !$BUTTON_PAUSE.classList.contains('hidden');
   }
 
   function openMediaEditModal(mediaItem: MediaItem, trigger: HTMLElement): void {

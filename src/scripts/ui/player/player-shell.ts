@@ -218,6 +218,39 @@ export function syncPlaybackButtonState(
   showPlaybackPlayState(playButton, pauseButton);
 }
 
+export function isPlaybackActive(options: {
+  currentMediaId: number | null;
+  playerType: string | null | undefined;
+  youtubePlayer: { getPlayerState?: () => number } | null;
+  playButton: HTMLButtonElement;
+  pauseButton: HTMLButtonElement;
+}): boolean {
+  if (options.currentMediaId === null) {
+    return false;
+  }
+
+  if (
+    options.playerType === 'youtube'
+    && options.youtubePlayer
+    && typeof options.youtubePlayer.getPlayerState === 'function'
+  ) {
+    try {
+      return options.youtubePlayer.getPlayerState() === 1;
+    } catch (_error) {
+      return options.playButton.classList.contains('hidden') && !options.pauseButton.classList.contains('hidden');
+    }
+  }
+
+  if (/^(audio|video)$/i.test(String(options.playerType || ''))) {
+    const mediaElement = document.querySelector(String(options.playerType)) as HTMLMediaElement | null;
+    if (mediaElement) {
+      return !mediaElement.paused && !mediaElement.ended;
+    }
+  }
+
+  return options.playButton.classList.contains('hidden') && !options.pauseButton.classList.contains('hidden');
+}
+
 export function showPlaybackPauseState(playButton: HTMLButtonElement, pauseButton: HTMLButtonElement): void {
   playButton.classList.add('hidden');
   pauseButton.classList.remove('hidden');
