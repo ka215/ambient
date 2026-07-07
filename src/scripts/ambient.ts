@@ -85,10 +85,6 @@ import {
   getPlaylistItemsForView,
 } from './state/playlist-mode-state';
 import {
-} from './state/session-draft-store';
-import {
-} from './state/media-edit-draft-store';
-import {
   applyMediaEditDirtyState,
   canOpenMediaEditModal,
   confirmDiscardMediaEditDraft,
@@ -193,8 +189,6 @@ import {
   syncWindowFullButtonState,
 } from './ui/player/player-shell';
 import {
-} from './ui/player/player-display';
-import {
   updatePlaybackStatus,
 } from './ui/player/player-actions';
 import {
@@ -207,16 +201,8 @@ import {
   resolveSeekRange,
 } from './ui/player/player-runtime';
 import {
-} from './ui/player/html-player-view';
-import {
-} from './ui/player/html-player-source';
-import {
-} from './ui/player/media-edit-preview';
-import {
   createAmbientPlayerBindings,
 } from './ui/player/player-runtime-bindings';
-import {
-} from './ui/player/youtube-player-view';
 import {
   syncYouTubePreviewDuration,
 } from './ui/player/youtube-player-events';
@@ -1093,14 +1079,6 @@ const init = function (): void {
     });
   }
 
-  function cloneMediaEditDraft(draft: MediaEditDraft): MediaEditDraft {
-    return cloneMediaEditDraftState(draft);
-  }
-
-  function isSameMediaEditDraft(a: MediaEditDraft, b: MediaEditDraft): boolean {
-    return isSameMediaEditDraftState(a, b);
-  }
-
   const {
     isMediaEditCategoryDropdownVisible,
     renderMediaEditCategoryOptions,
@@ -1200,8 +1178,8 @@ const init = function (): void {
       mediaEditPreview.setPreviewSourceItem(mediaItem);
     },
     setDirtyState: setMediaEditDirtyState,
-    isSameDraft: isSameMediaEditDraft,
-    cloneDraft: cloneMediaEditDraft,
+    isSameDraft: isSameMediaEditDraftState,
+    cloneDraft: cloneMediaEditDraftState,
     sanitizeDraft: sanitizeMediaEditDraft,
     createEmptyDraft: () => createEmptyMediaEditDraft(getDefaultVolume()),
     getItemIdentity: getMediaEditItemIdentity,
@@ -1257,15 +1235,11 @@ const init = function (): void {
     });
   }
 
-  function findCategoryIndexByName(categoryName: string): number | null {
-    return findMediaEditCategoryIndex(AMP_STATUS.category, categoryName);
-  }
-
   function applyDraftToMediaItem(item: MediaItem, draft: MediaEditDraft): MediaItem {
     return applyMediaEditDraftToItem({
       item,
       draft,
-      findCategoryIndexByName,
+      findCategoryIndexByName: (categoryName) => findMediaEditCategoryIndex(AMP_STATUS.category, categoryName),
       sanitizeDescriptionForStorage: (value) => sanitizeMediaEditDescForStorage(value, MEDIA_DESC_MAX_LENGTH),
       getComputedFadeDurations: getMediaEditComputedFadeDurations,
     });
@@ -1399,26 +1373,6 @@ const init = function (): void {
 
   hydrateMediaEditDraftStore();
 
-  function isMediaEditModalVisible(): boolean {
-    return isMediaEditModalVisibleView(isElement($MODAL_MEDIA_EDIT) ? $MODAL_MEDIA_EDIT : null);
-  }
-
-  function trapMediaEditModalFocus(evt: KeyboardEvent): void {
-    trapMediaEditModalFocusView({
-      modalElement: isElement($MODAL_MEDIA_EDIT) ? $MODAL_MEDIA_EDIT : null,
-      event: evt,
-    });
-  }
-
-  function renderMediaEditSourceBadges(mediaItem: MediaItem): void {
-    renderMediaEditSourceBadgesView({
-      container: isElement($MODAL_MEDIA_EDIT_ITEM_SOURCE) ? $MODAL_MEDIA_EDIT_ITEM_SOURCE : null,
-      mediaItem,
-      getLocalizedMessage,
-      getCategoryName: getMediaCategoryName,
-    });
-  }
-
   function getMediaEditThumbnailSrc(mediaItem: MediaItem | null, draft: MediaEditDraft | null = null): string {
     return resolveMediaEditThumbnailSrc({
       mediaItem,
@@ -1451,7 +1405,10 @@ const init = function (): void {
         });
       },
       closeCategoryDropdown: () => closeMediaEditCategoryDropdown(false),
-      focusPlaylistItemById,
+      focusPlaylistItemById: (amId) => focusPlaylistItemByIdView({
+        listElement: $LIST_PLAYLIST,
+        amId,
+      }),
     });
   }
 
@@ -1484,13 +1441,6 @@ const init = function (): void {
     return $BUTTON_PLAY.classList.contains('hidden') && !$BUTTON_PAUSE.classList.contains('hidden');
   }
 
-  function focusPlaylistItemById(amId: number | null): boolean {
-    return focusPlaylistItemByIdView({
-      listElement: $LIST_PLAYLIST,
-      amId,
-    });
-  }
-
   function openMediaEditModal(mediaItem: MediaItem, trigger: HTMLElement): void {
     if (!canOpenMediaEditModal({
       mediaItem,
@@ -1511,7 +1461,14 @@ const init = function (): void {
       closePlaylistModeMenu,
       buildItemTitle: (item) => sanitizeMediaText(item.title || '', MEDIA_TITLE_MAX_LENGTH)
         || getRuntimeLocalizedMessage('mediaEditUntitled', 'Untitled media'),
-      renderSourceBadges: renderMediaEditSourceBadges,
+      renderSourceBadges: (item) => {
+        renderMediaEditSourceBadgesView({
+          container: isElement($MODAL_MEDIA_EDIT_ITEM_SOURCE) ? $MODAL_MEDIA_EDIT_ITEM_SOURCE : null,
+          mediaItem: item,
+          getLocalizedMessage,
+          getCategoryName: getMediaCategoryName,
+        });
+      },
       bindForm: bindMediaEditForm,
       updatePlaylist,
       createPreview: createMediaEditPreview,
@@ -1827,8 +1784,13 @@ const init = function (): void {
     openPlaylistManagementCategoryCreate,
     closeMediaEditCategoryDropdown,
     closeMediaEditModal,
-    trapMediaEditModalFocus,
-    isMediaEditModalVisible,
+    trapMediaEditModalFocus: (evt) => {
+      trapMediaEditModalFocusView({
+        modalElement: isElement($MODAL_MEDIA_EDIT) ? $MODAL_MEDIA_EDIT : null,
+        event: evt,
+      });
+    },
+    isMediaEditModalVisible: () => isMediaEditModalVisibleView(isElement($MODAL_MEDIA_EDIT) ? $MODAL_MEDIA_EDIT : null),
     isMediaEditCategoryDropdownVisible,
     scrollToFocusItem,
     watcher,
