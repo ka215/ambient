@@ -234,6 +234,10 @@ import {
   createPlaylistManagementActions,
   initializeManagementForms,
 } from './bootstrap/management-init';
+import {
+  importPlaylistFromManagementFile,
+  resolveManagementRelativeFilepath,
+} from './bootstrap/management-import';
 import { createPlaylistUiBindings } from './bootstrap/playlist-ui-init';
 import { createAppBootController } from './bootstrap/app-boot';
 import {
@@ -2212,19 +2216,15 @@ const init = function (): void {
     : [];
 
   async function getRelativeFilepath(basefile: string): Promise<boolean> {
-    const endpointURL = `${BASE_URL}filepath/${encodeURIComponent(basefile)}`;
-    const $LABEL_MEDIA_FILE = document.getElementById('note-error-local-media-file');
-    const $HIDDEN_FILEPATH = document.getElementById('local-media-filepath') as HTMLInputElement | null;
-    const response = await fetchData(endpointURL) as any;
-    if (response && response.code == 200) {
-      if ($HIDDEN_FILEPATH) $HIDDEN_FILEPATH.value = decodeURIComponent(response.data);
-      if ($LABEL_MEDIA_FILE) $LABEL_MEDIA_FILE.textContent = String(getAtts($LABEL_MEDIA_FILE as HTMLElement, 'data-default-message') ?? '');
-    } else {
-      if ($HIDDEN_FILEPATH) $HIDDEN_FILEPATH.value = '';
-      if ($LABEL_MEDIA_FILE) $LABEL_MEDIA_FILE.textContent = response?.data || '';
-    }
-    runtimeLogger('getRelativeFilepath:', endpointURL, response);
-    return response && response.code == 200;
+    return resolveManagementRelativeFilepath({
+      baseUrl: BASE_URL,
+      basefile,
+      fetchData: async (url) => fetchData(url),
+      filepathInput: document.getElementById('local-media-filepath') as HTMLInputElement | null,
+      messageLabel: document.getElementById('note-error-local-media-file'),
+      getDefaultMessage: (label) => String(getAtts(label, 'data-default-message') ?? ''),
+      logger: runtimeLogger,
+    });
   }
   const {
     resetMediaManageForm,
@@ -2298,87 +2298,43 @@ const init = function (): void {
 
   async function importPlaylistFromFile(file: File): Promise<{ ok: boolean; message: string }> {
     const ambientData = getRuntimeAmbientData();
-    if (!sharedIsLikelyJsonFile(file)) {
-      return { ok: false, message: getRuntimeLocalizedMessage('importUnsupportedFile', 'Only .json files are accepted.') };
-    }
-
-    if (ambientData?.isCloud) {
-      const maxBytes = getCloudImportSizeLimitBytesDomain(
-        navigator.userAgent || '',
-        CLOUD_IMPORT_SIZE_LIMIT_BYTES
-      );
-      if (file.size > maxBytes) {
-        return { ok: false, message: getRuntimeLocalizedMessage('importCloudSizeError', 'File size exceeds the cloud import limit for this device.') };
-      }
-    }
-
-    let parsed: unknown;
-    try {
-      const text = await file.text();
-      parsed = parseImportedPlaylistJson(text);
-    } catch (_error) {
-      return { ok: false, message: getRuntimeLocalizedMessage('importParseError', 'The selected file is not valid JSON.') };
-    }
-
-    if (!validatePlaylistSchemaContractDomain(parsed)) {
-      return { ok: false, message: getRuntimeLocalizedMessage('importSchemaError', 'The selected file does not match the playlist schema.') };
-    }
-
-    const sanitized = sanitizeAndNormalizeImportPlaylistDomain({
-      source: parsed,
-      stripPlaylistTemplate: ambientData?.isCloud === true,
-      sanitizeText: sanitizeMediaText,
-      sanitizeDesc: sanitizeMediaDesc,
-      titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
-      artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
-      descMaxLength: MEDIA_DESC_MAX_LENGTH,
-    });
-    if (!sanitized) {
-      return { ok: false, message: getRuntimeLocalizedMessage('importSanitizeError', 'Unsafe or invalid media entries exceeded the allowed limit.') };
-    }
-
-    if (!validatePlaylistSchemaContractDomain(sanitized.playlist)) {
-      return { ok: false, message: getRuntimeLocalizedMessage('importSchemaError', 'The selected file does not match the playlist schema.') };
-    }
-
-    if (ambientData?.isCloud) {
-      if (!persistImportedCloudPlaylist(sanitized.playlist)) {
-        return { ok: false, message: getRuntimeLocalizedMessage('importPersistError', 'Failed to save imported playlist data.') };
-      }
-      ensureMyPlaylistOptionFromStorage();
-      await activateImportedPlaylist(MYPLAYLIST_NAME);
-      return { ok: true, message: getRuntimeLocalizedMessage('importCloudReplacedMyPlaylist', 'Import completed. MyPlaylist has been replaced.') };
-    }
-
-    const response = await postImportedPlaylist({
+    return importPlaylistFromManagementFile({
+      file,
+      ambientData,
+      isLikelyJsonFile: sharedIsLikelyJsonFile,
+      getLocalizedMessage: getRuntimeLocalizedMessage,
+      getCloudImportSizeLimitBytes: getCloudImportSizeLimitBytesDomain,
+      cloudImportSizeLimitBytes: CLOUD_IMPORT_SIZE_LIMIT_BYTES,
+      parseImportedPlaylistJson,
+      validatePlaylistSchemaContract: validatePlaylistSchemaContractDomain,
+      sanitizeAndNormalizeImportPlaylist: (source, stripPlaylistTemplate) => sanitizeAndNormalizeImportPlaylistDomain({
+        source: source as Record<string, unknown>,
+        stripPlaylistTemplate,
+        sanitizeText: sanitizeMediaText,
+        sanitizeDesc: sanitizeMediaDesc,
+        titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+        artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+        descMaxLength: MEDIA_DESC_MAX_LENGTH,
+      }),
+      persistImportedCloudPlaylist,
+      ensureMyPlaylistOptionFromStorage,
+      activateImportedPlaylist,
+      myPlaylistName: MYPLAYLIST_NAME,
+      postImportedPlaylist: async (baseUrl, filename, playlist) => postImportedPlaylist({
+        baseUrl,
+        filename,
+        playlist: playlist as Record<string, unknown>,
+      }),
       baseUrl: BASE_URL,
-      filename: file.name,
-      playlist: sanitized.playlist,
+      resolveImportedPlaylistPersistResult,
+      getRuntimeAmbientData,
+      ensureAmbientPlaylistMap: (ambient) => {
+        if (!sharedIsObject(ambient.playlists)) {
+          ambient.playlists = {};
+        }
+        return ambient.playlists as Record<string, unknown>;
+      },
     });
-
-    const persistResult = resolveImportedPlaylistPersistResult(
-      response,
-      getRuntimeLocalizedMessage('importPersistError', 'Failed to save imported playlist data.'),
-      getRuntimeLocalizedMessage('Playlist imported successfully.', 'Playlist imported successfully.')
-    );
-    if (!persistResult.ok) {
-      return persistResult;
-    }
-
-    const importedPlaylistName = persistResult.filename;
-    const ambient = getRuntimeAmbientData();
-    if (ambient) {
-      if (!sharedIsObject(ambient.playlists)) {
-        ambient.playlists = {};
-      }
-      ambient.playlists[importedPlaylistName] = `./assets/${importedPlaylistName}`;
-    }
-    await activateImportedPlaylist(importedPlaylistName);
-
-    return {
-      ok: true,
-      message: persistResult.message,
-    };
   }
 
   const {
