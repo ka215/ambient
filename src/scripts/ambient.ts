@@ -944,31 +944,6 @@ const init = function (): void {
   let mediaEditBaseDraft: MediaEditDraft | null = null;
   let mediaEditIsDirty = false;
 
-  // [MODULE-BOUNDARY][v2.5.3-P0][EXTRACT-BL-002]: shared time adapters for media-edit timing
-  function parseMediaTimeToIntegerSeconds(value: unknown): number | null {
-    return sharedParseMediaTimeToIntegerSeconds(value);
-  }
-
-  function normalizeMediaEditTimingValue(value: unknown, fallback: number | null = null): number | null {
-    return sharedNormalizeMediaEditTimingValue(value, fallback);
-  }
-
-  function toMediaEditTimingInputValue(value: number | null): string {
-    return sharedToMediaEditTimingInputValue(value);
-  }
-
-  function sanitizeMediaEditTimingInputField(field: HTMLInputElement | null): void {
-    sharedSanitizeMediaEditTimingInputField(field);
-  }
-
-  function formatSecondsToHHMMSS(value: number | null): string {
-    return sharedFormatSecondsToHHMMSS(value);
-  }
-
-  function formatSecondsToTimelineLabel(value: number | null): string {
-    return sharedFormatSecondsToTimelineLabel(value);
-  }
-
   const {
     resolveMediaEditEffectiveEnd,
     resolveMediaEditKnownDuration,
@@ -1002,15 +977,11 @@ const init = function (): void {
     getActiveItem: () => mediaEditActiveItem,
     getPreviewDurationSeconds: () => mediaEditPreview.getPreviewDurationSeconds(),
     getItemIdentity: getMediaEditItemIdentity,
-    normalizeTimingValue: normalizeMediaEditTimingValue,
-    parseMediaTimeToIntegerSeconds,
-    formatSecondsToHHMMSS,
-    formatSecondsToTimelineLabel,
+    normalizeTimingValue: sharedNormalizeMediaEditTimingValue,
+    parseMediaTimeToIntegerSeconds: sharedParseMediaTimeToIntegerSeconds,
+    formatSecondsToHHMMSS: sharedFormatSecondsToHHMMSS,
+    formatSecondsToTimelineLabel: sharedFormatSecondsToTimelineLabel,
   });
-
-  function stepMediaEditTimingField(field: HTMLInputElement, direction: 1 | -1): void {
-    sharedStepMediaEditTimingField(field, direction);
-  }
 
   function sanitizeMediaEditDraft(
     draft: MediaEditDraftInput,
@@ -1026,7 +997,7 @@ const init = function (): void {
       sanitizeText: sanitizeMediaText,
       sanitizeDescription: sanitizeMediaEditDescInput,
       normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
-      normalizeTimingValue: normalizeMediaEditTimingValue,
+      normalizeTimingValue: sharedNormalizeMediaEditTimingValue,
     });
   }
 
@@ -1058,14 +1029,14 @@ const init = function (): void {
     getActiveItem: () => mediaEditActiveItem,
     resolveKnownDuration: resolveMediaEditKnownDuration,
     resolveEffectiveEnd: resolveMediaEditEffectiveEnd,
-    normalizeTimingValue: normalizeMediaEditTimingValue,
+    normalizeTimingValue: sharedNormalizeMediaEditTimingValue,
   });
   const mediaEditPreview = createMediaEditPreviewBindings({
     previewElement: isElement($MEDIA_EDIT_PREVIEW) ? $MEDIA_EDIT_PREVIEW : null,
     errorElement: isElement($MEDIA_EDIT_PREVIEW_ERROR) ? $MEDIA_EDIT_PREVIEW_ERROR : null,
     errorMessageElement: isElement($MEDIA_EDIT_PREVIEW_ERROR_MESSAGE) ? $MEDIA_EDIT_PREVIEW_ERROR_MESSAGE : null,
     previewPlayerId: MEDIA_EDIT_PREVIEW_YT_PLAYER_ID,
-    normalizeTimingValue: normalizeMediaEditTimingValue,
+    normalizeTimingValue: sharedNormalizeMediaEditTimingValue,
     syncYouTubePreviewDuration,
     getLocalizedMessage,
     mediaEditDurationSync,
@@ -1181,7 +1152,7 @@ const init = function (): void {
       syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
       getLocalizedMessage,
       getThumbnailSrc: getMediaEditThumbnailSrc,
-      toTimingInputValue: toMediaEditTimingInputValue,
+      toTimingInputValue: sharedToMediaEditTimingInputValue,
       syncTimingDisplay: syncMediaEditTimingDisplay,
     });
   }
@@ -1785,25 +1756,25 @@ const init = function (): void {
       validateAndRenderMediaEditDraftFromForm();
     },
     onTimingInput: (field: HTMLInputElement) => {
-      sanitizeMediaEditTimingInputField(field);
+      sharedSanitizeMediaEditTimingInputField(field);
       syncMediaEditTimingDisplay();
       syncMediaEditDraftStateFromForm();
       validateAndRenderMediaEditDraftFromForm();
     },
     onTimingChange: (field: HTMLInputElement) => {
-      sanitizeMediaEditTimingInputField(field);
+      sharedSanitizeMediaEditTimingInputField(field);
       syncMediaEditTimingDisplay();
       syncMediaEditDraftStateFromForm();
       validateAndRenderMediaEditDraftFromForm();
     },
     onTimingBlur: (field: HTMLInputElement) => {
-      field.value = toMediaEditTimingInputValue(parseMediaTimeToIntegerSeconds(field.value));
+      field.value = sharedToMediaEditTimingInputValue(sharedParseMediaTimeToIntegerSeconds(field.value));
       syncMediaEditTimingDisplay();
       syncMediaEditDraftStateFromForm();
       validateAndRenderMediaEditDraftFromForm();
     },
     onTimingStep: (field: HTMLInputElement, direction: 1 | -1) => {
-      stepMediaEditTimingField(field, direction);
+      sharedStepMediaEditTimingField(field, direction);
     },
   });
 
