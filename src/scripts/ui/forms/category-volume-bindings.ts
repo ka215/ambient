@@ -92,6 +92,10 @@ export function normalizeAmbientVolume(value: unknown, fallback: number): number
     : fallback;
 }
 
+export function resolveAmbientDefaultVolume(value: unknown, fallback: number): number {
+  return normalizeAmbientVolume(value, fallback);
+}
+
 export function getAmbientPlaybackVolume(options: {
   mediaData: MediaItem | null;
   defaultVolume: number;

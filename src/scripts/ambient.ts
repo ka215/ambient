@@ -231,6 +231,7 @@ import {
   getAmbientActiveCategoryId,
   getAmbientPlaybackVolume,
   normalizeAmbientVolume,
+  resolveAmbientDefaultVolume,
   syncAmbientMediaCategoryField,
   syncAmbientMediaVolumeField,
   syncAmbientRangeProgress,
@@ -453,8 +454,11 @@ const init = function (): void {
           case /^volume$/i.test(prop):
             syncVolumeSlider({
               input: $RANGE_VOLUME,
-              volume: normalizeVolume(AMP_STATUS.volume, getDefaultVolume()),
-              syncRangeProgress,
+              volume: normalizeAmbientVolume(
+                AMP_STATUS.volume,
+                resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME)
+              ),
+              syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
               display: document.getElementById('default-volume-value') as HTMLElement | null,
             });
             break;
@@ -1051,13 +1055,13 @@ const init = function (): void {
     return sanitizeMediaEditDraftState({
       draft,
       fallback,
-      defaultVolume: getDefaultVolume(),
+      defaultVolume: resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
       titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
       artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
       descriptionMaxLength: MEDIA_DESC_MAX_LENGTH,
       sanitizeText: sanitizeMediaText,
       sanitizeDescription: sanitizeMediaEditDescInput,
-      normalizeVolume,
+      normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
       normalizeTimingValue: normalizeMediaEditTimingValue,
     });
   }
@@ -1164,12 +1168,12 @@ const init = function (): void {
     isSameDraft: isSameMediaEditDraftState,
     cloneDraft: cloneMediaEditDraftState,
     sanitizeDraft: sanitizeMediaEditDraft,
-      createEmptyDraft: () => createEmptyMediaEditDraft(getDefaultVolume()),
+    createEmptyDraft: () => createEmptyMediaEditDraft(resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME)),
       getItemIdentity: getMediaEditItemIdentity,
       getMediaCategoryName: (mediaItem) => getMediaCategoryNameState(mediaItem, AMP_STATUS.category),
       sanitizeDescription: (value) => sanitizeMediaEditDescInput(value, MEDIA_DESC_MAX_LENGTH),
       getTiming: getMediaEditTimingFromStoredDurations,
-      getDefaultVolume,
+      getDefaultVolume: () => resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
     applyDraftToForm: applyMediaEditDraftToForm,
     validateDraft: () => {
       validateAndRenderMediaEditDraftFromForm();
@@ -1210,7 +1214,7 @@ const init = function (): void {
       syncCategoryClearButton: syncMediaEditCategoryClearButton,
       renderCategoryOptions: renderMediaEditCategoryOptions,
       syncVolumeSlider,
-      syncRangeProgress,
+      syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
       getLocalizedMessage,
       getThumbnailSrc: getMediaEditThumbnailSrc,
       toTimingInputValue: toMediaEditTimingInputValue,
@@ -1694,32 +1698,16 @@ const init = function (): void {
     });
   }
 
-  function normalizeVolume(value: any, fallback: number = DEFAULT_VOLUME): number {
-    return normalizeAmbientVolume(value, fallback);
-  }
-
-  function getDefaultVolume(): number {
-    return normalizeVolume(getOption('volume'), DEFAULT_VOLUME);
-  }
-
-  function getPlaybackVolume(mediaData: MediaItem | null = null): number {
-    return getAmbientPlaybackVolume({
-      mediaData,
-      defaultVolume: getDefaultVolume(),
-    });
-  }
-
-  function syncRangeProgress(range: HTMLInputElement | null): void {
-    syncAmbientRangeProgress(range, DEFAULT_VOLUME);
-  }
-
-  function syncMediaVolumeField(volume: number = getDefaultVolume()): void {
-    const normalizedVolume = normalizeVolume(volume, getDefaultVolume());
+  function syncMediaVolumeField(
+    volume: number = resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME)
+  ): void {
+    const fallbackVolume = resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME);
+    const normalizedVolume = normalizeAmbientVolume(volume, fallbackVolume);
     syncAmbientMediaVolumeField({
       input: $MEDIA_VOLUME,
       display: document.getElementById('default-media-volume'),
       volume: normalizedVolume,
-      fallbackVolume: getDefaultVolume(),
+      fallbackVolume,
     });
   }
 
@@ -1817,7 +1805,7 @@ const init = function (): void {
       syncVolumeSlider({
         input: $MEDIA_EDIT_VOLUME,
         volume: normalized.volume,
-        syncRangeProgress,
+        syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
         display: $MEDIA_EDIT_VOLUME_VALUE,
       });
       syncMediaEditDraftStateFromForm();
@@ -1831,7 +1819,7 @@ const init = function (): void {
       syncVolumeSlider({
         input: $MEDIA_EDIT_VOLUME,
         volume: normalized.volume,
-        syncRangeProgress,
+        syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
         display: $MEDIA_EDIT_VOLUME_VALUE,
       });
       syncMediaEditDraftStateFromForm();
@@ -2066,7 +2054,7 @@ const init = function (): void {
     applyAmbientPlaylistOptions({
       status: AMP_STATUS,
       getOption,
-      defaultVolume: getDefaultVolume(),
+      defaultVolume: resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
       body: $BODY,
       menu: $MENU,
       imageDir: ambientData?.imageDir,
@@ -2076,8 +2064,8 @@ const init = function (): void {
       darkModeToggleInput: toggleDarkmodeInput,
       volumeRange: $RANGE_VOLUME,
       defaultVolumeDisplay: document.getElementById('default-volume-value') as HTMLElement | null,
-      normalizeVolume,
-      syncRangeProgress,
+      normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
+      syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
       syncMediaVolumeField,
       shufflePlaylist: () => createShuffledPlaylistItems({
         mediaItems: AMP_STATUS.media,
@@ -2261,8 +2249,8 @@ const init = function (): void {
       shuffleEnabled: true,
     }),
     persistMyPlaylistIfNeeded,
-    normalizeVolume,
-    syncRangeProgress,
+    normalizeVolume: (value) => normalizeAmbientVolume(value, DEFAULT_VOLUME),
+    syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
     getDefaultVolumeDisplay: () => document.getElementById('default-volume-value') as HTMLElement | null,
     isDarkModeEnabled,
     setStyles,
@@ -2299,14 +2287,17 @@ const init = function (): void {
     isElement,
     getOption,
     getExtension: sharedGetExt,
-    getDefaultVolume,
-    getPlaybackVolume,
+    getDefaultVolume: () => resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
+    getPlaybackVolume: (mediaData: MediaItem | null = null) => getAmbientPlaybackVolume({
+      mediaData,
+      defaultVolume: resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
+    }),
     getPlayerSizeForCurrentMode,
     getFullWindowPlayerSize,
     getViewportWidth: () => currentWindowSize.width,
     getPlaceholderPath: () => getNoMediaImagePath('placeholder'),
     isFullWindowMode: () => isFullWindowModeView($BODY),
-    normalizeVolume,
+    normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
     inRange: sharedInRange,
     findMediaById,
     resolveSeekRange,
@@ -2615,8 +2606,8 @@ const init = function (): void {
       mediaTitleMaxLength: MEDIA_TITLE_MAX_LENGTH,
       mediaArtistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
       mediaDescMaxLength: MEDIA_DESC_MAX_LENGTH,
-      getDefaultVolume,
-      normalizeVolume,
+      getDefaultVolume: () => resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
+      normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
       resetMediaManagementForm: resetMediaManageForm,
       canMutateCurrentPlaylist,
       applyCloudEditRestrictions,
@@ -2643,7 +2634,7 @@ const init = function (): void {
       basename: sharedBasename,
       isLikelyMediaFile,
       getRelativeFilepath,
-      syncRangeProgress,
+      syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
       logger: runtimeLogger,
       getMediaItems: () => AMP_STATUS.media || [],
       getAddType: () => AMP_STATUS.addtype,
