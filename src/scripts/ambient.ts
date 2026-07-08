@@ -628,27 +628,8 @@ const init = function (): void {
     });
   }
 
-  function isLikelyJsonFile(file: File): boolean {
-    return sharedIsLikelyJsonFile(file);
-  }
-
   function isLikelyMediaFile(file: File): boolean {
     return sharedIsLikelyMediaFile(file);
-  }
-
-  function parseJsonWithBom(text: string): unknown {
-    return sharedParseJsonWithBom(text);
-  }
-
-  function getCloudImportSizeLimitBytes(): number {
-    return getCloudImportSizeLimitBytesDomain(
-      navigator.userAgent || '',
-      CLOUD_IMPORT_SIZE_LIMIT_BYTES
-    );
-  }
-
-  function validatePlaylistSchemaContract(value: unknown): value is Record<string, unknown> {
-    return validatePlaylistSchemaContractDomain(value);
   }
 
 
@@ -1270,7 +1251,7 @@ const init = function (): void {
       persistCloud: persistMyPlaylistIfNeeded,
       persistRemote: async () => {
       const payloadText = generatePlaylistJson(false);
-      const payloadObject = parseJsonWithBom(payloadText);
+      const payloadObject = sharedParseJsonWithBom(payloadText);
       return persistPlaylistMediaEdit({
         baseUrl: BASE_URL,
         endpoint: MEDIA_EDIT_SAVE_ENDPOINT,
@@ -2483,12 +2464,15 @@ const init = function (): void {
 
   async function importPlaylistFromFile(file: File): Promise<{ ok: boolean; message: string }> {
     const ambientData = getRuntimeAmbientData();
-    if (!isLikelyJsonFile(file)) {
+    if (!sharedIsLikelyJsonFile(file)) {
       return { ok: false, message: getRuntimeLocalizedMessage('importUnsupportedFile', 'Only .json files are accepted.') };
     }
 
     if (ambientData?.isCloud) {
-      const maxBytes = getCloudImportSizeLimitBytes();
+      const maxBytes = getCloudImportSizeLimitBytesDomain(
+        navigator.userAgent || '',
+        CLOUD_IMPORT_SIZE_LIMIT_BYTES
+      );
       if (file.size > maxBytes) {
         return { ok: false, message: getRuntimeLocalizedMessage('importCloudSizeError', 'File size exceeds the cloud import limit for this device.') };
       }
@@ -2502,7 +2486,7 @@ const init = function (): void {
       return { ok: false, message: getRuntimeLocalizedMessage('importParseError', 'The selected file is not valid JSON.') };
     }
 
-    if (!validatePlaylistSchemaContract(parsed)) {
+    if (!validatePlaylistSchemaContractDomain(parsed)) {
       return { ok: false, message: getRuntimeLocalizedMessage('importSchemaError', 'The selected file does not match the playlist schema.') };
     }
 
@@ -2519,7 +2503,7 @@ const init = function (): void {
       return { ok: false, message: getRuntimeLocalizedMessage('importSanitizeError', 'Unsafe or invalid media entries exceeded the allowed limit.') };
     }
 
-    if (!validatePlaylistSchemaContract(sanitized.playlist)) {
+    if (!validatePlaylistSchemaContractDomain(sanitized.playlist)) {
       return { ok: false, message: getRuntimeLocalizedMessage('importSchemaError', 'The selected file does not match the playlist schema.') };
     }
 
@@ -2669,7 +2653,7 @@ const init = function (): void {
       },
       snakeToCapital: sharedSnakeToCapital,
       logger: runtimeLogger,
-      isLikelyJsonFile,
+      isLikelyJsonFile: sharedIsLikelyJsonFile,
       getBaseUrl: () => BASE_URL,
       getPlaylistManageFormData: (oneData: string | null = null) => {
         if (!$PLAYLIST_MANAGE_FORM) return null;
