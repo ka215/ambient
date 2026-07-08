@@ -122,3 +122,21 @@ export function syncAmbientMediaVolumeField(options: {
 }): void {
   syncMediaVolumeFieldView(options);
 }
+
+export function syncAmbientResolvedMediaVolumeField(options: {
+  input: HTMLInputElement | null;
+  display: HTMLElement | null;
+  volume: unknown;
+  defaultVolume: unknown;
+  fallbackVolume: number;
+}): void {
+  const resolvedDefaultVolume = resolveAmbientDefaultVolume(options.defaultVolume, options.fallbackVolume);
+  const normalizedVolume = normalizeAmbientVolume(options.volume, resolvedDefaultVolume);
+
+  syncMediaVolumeFieldView({
+    input: options.input,
+    display: options.display,
+    volume: normalizedVolume,
+    fallbackVolume: resolvedDefaultVolume,
+  });
+}

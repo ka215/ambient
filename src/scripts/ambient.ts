@@ -233,7 +233,7 @@ import {
   normalizeAmbientVolume,
   resolveAmbientDefaultVolume,
   syncAmbientMediaCategoryField,
-  syncAmbientMediaVolumeField,
+  syncAmbientResolvedMediaVolumeField,
   syncAmbientRangeProgress,
   syncAmbientTargetCategorySelection,
   updateAmbientCategory,
@@ -1698,19 +1698,6 @@ const init = function (): void {
     });
   }
 
-  function syncMediaVolumeField(
-    volume: number = resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME)
-  ): void {
-    const fallbackVolume = resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME);
-    const normalizedVolume = normalizeAmbientVolume(volume, fallbackVolume);
-    syncAmbientMediaVolumeField({
-      input: $MEDIA_VOLUME,
-      display: document.getElementById('default-media-volume'),
-      volume: normalizedVolume,
-      fallbackVolume,
-    });
-  }
-
   const {
     hideOptionsModal,
     openMediaManagement,
@@ -1733,7 +1720,15 @@ const init = function (): void {
     clearCategory,
     updateCategory,
     syncMediaCategoryField,
-    syncMediaVolumeField: () => syncMediaVolumeField(),
+    syncMediaVolumeField: () => {
+      syncAmbientResolvedMediaVolumeField({
+        input: $MEDIA_VOLUME,
+        display: document.getElementById('default-media-volume'),
+        volume: getOption('volume'),
+        defaultVolume: getOption('volume'),
+        fallbackVolume: DEFAULT_VOLUME,
+      });
+    },
     ensureAccordionPanel: (panelId) => {
       ensureAccordionPanelView(panelId);
     },
@@ -2066,7 +2061,15 @@ const init = function (): void {
       defaultVolumeDisplay: document.getElementById('default-volume-value') as HTMLElement | null,
       normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
       syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-      syncMediaVolumeField,
+      syncMediaVolumeField: () => {
+        syncAmbientResolvedMediaVolumeField({
+          input: $MEDIA_VOLUME,
+          display: document.getElementById('default-media-volume'),
+          volume: getOption('volume'),
+          defaultVolume: getOption('volume'),
+          fallbackVolume: DEFAULT_VOLUME,
+        });
+      },
       shufflePlaylist: () => createShuffledPlaylistItems({
         mediaItems: AMP_STATUS.media,
         categoryId: AMP_STATUS.ctg,
@@ -2419,7 +2422,15 @@ const init = function (): void {
     playlistForm: $PLAYLIST_MANAGE_FORM,
     playlistElements: $PLAYLIST_MANAGE_ELMS,
     getAddType: () => AMP_STATUS.addtype,
-    syncMediaVolumeField: () => syncMediaVolumeField(),
+    syncMediaVolumeField: () => {
+      syncAmbientResolvedMediaVolumeField({
+        input: $MEDIA_VOLUME,
+        display: document.getElementById('default-media-volume'),
+        volume: getOption('volume'),
+        defaultVolume: getOption('volume'),
+        fallbackVolume: DEFAULT_VOLUME,
+      });
+    },
     setValidated: (field, valid) => {
       if (field instanceof HTMLElement) {
         setValidated(field, valid);
