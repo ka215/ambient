@@ -598,24 +598,6 @@ const init = function (): void {
     },
   });
 
-  function sanitizeMediaEditDescInput(value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string {
-    return sharedSanitizeMediaEditDescInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
-  }
-
-  function sanitizeMediaEditDescForStorage(value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string {
-    return sharedSanitizeMediaEditDescForStorage(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
-  }
-
-  function sanitizeMediaItemTextFields<T extends Partial<MediaItem>>(item: T): T {
-    return sharedSanitizeMediaItemTextFields({
-      item,
-      titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
-      artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
-      descMaxLength: MEDIA_DESC_MAX_LENGTH,
-      disallowedControlChars: DISALLOWED_CONTROL_CHARS_RE,
-    });
-  }
-
   /**
    * Load MyPlaylist from localStorage and populate AMP_STATUS as if a
    * normal JSON playlist was loaded from the server.
@@ -624,7 +606,13 @@ const init = function (): void {
     return loadAmbientMyPlaylistFromStorage({
       status: AMP_STATUS,
       myPlaylistName: MYPLAYLIST_NAME,
-      sanitizeMediaItem: sanitizeMediaItemTextFields,
+      sanitizeMediaItem: <T extends Partial<MediaItem>>(item: T): T => sharedSanitizeMediaItemTextFields({
+        item,
+        titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+        artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+        descMaxLength: MEDIA_DESC_MAX_LENGTH,
+        disallowedControlChars: DISALLOWED_CONTROL_CHARS_RE,
+      }),
       applyPendingCategoryResume,
       applyPendingMediaResume,
       updatePlaylist,
@@ -995,7 +983,9 @@ const init = function (): void {
       artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
       descriptionMaxLength: MEDIA_DESC_MAX_LENGTH,
       sanitizeText: sanitizeMediaText,
-      sanitizeDescription: sanitizeMediaEditDescInput,
+      sanitizeDescription: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => (
+        sharedSanitizeMediaEditDescInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE)
+      ),
       normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
       normalizeTimingValue: sharedNormalizeMediaEditTimingValue,
     });
@@ -1106,7 +1096,11 @@ const init = function (): void {
     createEmptyDraft: () => createEmptyMediaEditDraft(resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME)),
       getItemIdentity: getMediaEditItemIdentity,
       getMediaCategoryName: (mediaItem) => getMediaCategoryNameState(mediaItem, AMP_STATUS.category),
-      sanitizeDescription: (value) => sanitizeMediaEditDescInput(value, MEDIA_DESC_MAX_LENGTH),
+      sanitizeDescription: (value) => sharedSanitizeMediaEditDescInput(
+        value,
+        MEDIA_DESC_MAX_LENGTH,
+        DISALLOWED_CONTROL_CHARS_RE
+      ),
       getTiming: getMediaEditTimingFromStoredDurations,
       getDefaultVolume: () => resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
     applyDraftToForm: applyMediaEditDraftToForm,
@@ -1162,7 +1156,11 @@ const init = function (): void {
       item,
       draft,
       findCategoryIndexByName: (categoryName) => findMediaEditCategoryIndex(AMP_STATUS.category, categoryName),
-      sanitizeDescriptionForStorage: (value) => sanitizeMediaEditDescForStorage(value, MEDIA_DESC_MAX_LENGTH),
+      sanitizeDescriptionForStorage: (value) => sharedSanitizeMediaEditDescForStorage(
+        value,
+        MEDIA_DESC_MAX_LENGTH,
+        DISALLOWED_CONTROL_CHARS_RE
+      ),
       getComputedFadeDurations: getMediaEditComputedFadeDurations,
     });
   }
