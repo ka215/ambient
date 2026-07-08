@@ -212,12 +212,6 @@ import {
   selectExistingOption,
 } from './ui/forms/management-forms';
 import { applyCloudEditRestrictionsView as applyCloudEditRestrictionsFormView } from './ui/forms/cloud-edit-restrictions';
-import { bindMediaManagementForm } from './ui/forms/media-management';
-import { bindPlaylistManagementForm } from './ui/forms/playlist-management';
-import {
-  buildMediaManagementBindings as buildMediaManagementBindingsView,
-  buildPlaylistManagementBindings as buildPlaylistManagementBindingsView,
-} from './ui/forms/management-binding-builders';
 import { createManagementFormBindings } from './ui/forms/management-form-bindings';
 import {
   clearAmbientCategory,
@@ -247,6 +241,10 @@ import {
   bindAmbientAppControlBindings,
   bindAmbientViewportLifecycle,
 } from './bootstrap/app-init';
+import {
+  createPlaylistManagementActions,
+  initializeManagementForms,
+} from './bootstrap/management-init';
 import { createAppBootController } from './bootstrap/app-boot';
 import {
   fetchAmbientPlaylistData,
@@ -259,11 +257,6 @@ import {
   resolveInitialPlaylistStartup,
 } from './bootstrap/playlist-startup';
 import {
-  createPlaylistCategoryAction,
-  downloadPlaylistAction,
-  importPlaylistFromManagementAction,
-} from './domain/playlist-management-actions';
-import {
   getCloudImportSizeLimitBytes as getCloudImportSizeLimitBytesDomain,
   parseImportedPlaylistJson,
   postImportedPlaylist,
@@ -272,7 +265,6 @@ import {
   sanitizeAndNormalizeImportPlaylist as sanitizeAndNormalizeImportPlaylistDomain,
   validatePlaylistSchemaContract as validatePlaylistSchemaContractDomain,
 } from './domain/playlist-import';
-import { appendUniqueCategory } from './domain/playlist-management-data';
 
 // ============================================================================
 // INITIALIZATION
@@ -2472,51 +2464,32 @@ const init = function (): void {
     };
   }
 
-  function createPlaylistCategory(): { ok: boolean; message: string } {
-    const selfElm = document.getElementById('btn-create-category');
-    return createPlaylistCategoryAction({
-      form: $PLAYLIST_MANAGE_FORM,
-      categories: AMP_STATUS.category || [],
-      successMessage: selfElm?.dataset['messageSuccess'] || '',
-      failureMessage: selfElm?.dataset['messageFailure'] || '',
-      appendCategory: appendUniqueCategory,
-      persist: persistMyPlaylistIfNeeded,
-      onCategoriesUpdated: (categories) => {
-        AMP_STATUS.category = categories;
-      },
-      onAfterSuccess: () => {
-        clearCategory();
-        updateCategory();
-      },
-      logger,
-    });
-  }
+  const {
+    createCategory: createPlaylistCategory,
+    downloadPlaylist: downloadCurrentPlaylist,
+    importPlaylist: importPlaylistFromManagementForm,
+  } = createPlaylistManagementActions({
+    form: $PLAYLIST_MANAGE_FORM,
+    getCategories: () => AMP_STATUS.category || [],
+    persistMyPlaylistIfNeeded,
+    setCategories: (categories) => {
+      AMP_STATUS.category = categories;
+    },
+    onCategoryCreated: () => {
+      clearCategory();
+      updateCategory();
+    },
+    logger,
+    getPlaylistName: () => AMP_STATUS.playlist || 'playlist.json',
+    generatePlaylistJson,
+    importFileInput: document.getElementById('playlist-import-file') as HTMLInputElement | null,
+    importPlaylistFromFile,
+    hideOptionsModal,
+    getLocalizedMessage: getRuntimeLocalizedMessage,
+  });
 
-  function downloadCurrentPlaylist(): { ok: boolean; message: string } {
-    const selfElm = document.getElementById('btn-download-playlist');
-    return downloadPlaylistAction({
-      form: $PLAYLIST_MANAGE_FORM,
-      playlistName: AMP_STATUS.playlist || 'playlist.json',
-      successMessage: selfElm?.dataset['messageSuccess'] || '',
-      failureMessage: selfElm?.dataset['messageFailure'] || '',
-      generatePlaylistJson,
-    });
-  }
-
-  async function importPlaylistFromManagementForm(): Promise<{ ok: boolean; message: string }> {
-    const selfElm = document.getElementById('btn-import-playlist') as HTMLButtonElement | null;
-    return importPlaylistFromManagementAction({
-      fileInput: document.getElementById('playlist-import-file') as HTMLInputElement | null,
-      successMessage: selfElm?.dataset['messageSuccess'] || '',
-      failureMessage: selfElm?.dataset['messageFailure'] || '',
-      noFileMessage: getRuntimeLocalizedMessage('importNoFile', 'Please choose a playlist JSON file.'),
-      importPlaylistFromFile,
-      onImportSuccess: hideOptionsModal,
-    });
-  }
-
-  if ($MEDIA_MANAGE_FORM) {
-    bindMediaManagementForm(buildMediaManagementBindingsView({
+  initializeManagementForms({
+    mediaBindings: $MEDIA_MANAGE_FORM ? {
       form: $MEDIA_MANAGE_FORM,
       elements: $MEDIA_MANAGE_ELMS,
       mediaCategorySelect: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
@@ -2558,11 +2531,8 @@ const init = function (): void {
       setAddType: (nextType: string) => {
         AMP_STATUS.addtype = nextType;
       },
-    }));
-  }
-
-  if ($PLAYLIST_MANAGE_FORM) {
-    bindPlaylistManagementForm(buildPlaylistManagementBindingsView({
+    } : null,
+    playlistBindings: $PLAYLIST_MANAGE_FORM ? {
       form: $PLAYLIST_MANAGE_FORM,
       elements: $PLAYLIST_MANAGE_ELMS,
       canMutateCurrentPlaylist,
@@ -2588,8 +2558,8 @@ const init = function (): void {
       createCategory: createPlaylistCategory,
       downloadPlaylist: downloadCurrentPlaylist,
       importPlaylist: importPlaylistFromManagementForm,
-    }));
-  }
+    } : null,
+  });
 
   const $INITIAL_ALERT = document.getElementById('alert-notification') as HTMLElement | null;
   dispatchInitialNotice($INITIAL_ALERT, updateNotice, 5000);
