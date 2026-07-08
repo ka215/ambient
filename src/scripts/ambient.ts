@@ -39,7 +39,6 @@ import {
   inRange as sharedInRange,
   isObject as sharedIsObject,
 } from './shared/validation';
-import { formatAmbientPlaylistLabel } from './shared/playlist-label';
 import {
   getAtts,
   getCookie,
@@ -117,9 +116,6 @@ import {
   isResponsiveDrawerOpen,
 } from './ui/drawers';
 import {
-  bindAddMediaTrigger,
-} from './ui/app-controls';
-import {
   getToggleInput,
   resolveNoMediaImagePath,
   syncToggleRoot,
@@ -171,11 +167,9 @@ import {
   applyAmbientPlaylistOptions,
 } from './ui/playlist-option-bindings';
 import {
-  syncAmbientShuffleIfNeeded,
   toggleAmbientCaptionMarquee,
   updateAmbientCarousel,
   updateAmbientMediaCaption,
-  updateAmbientPlaylistDisplay,
 } from './ui/playlist-display-bindings';
 import {
   createNoticeController,
@@ -214,16 +208,11 @@ import {
 import { applyCloudEditRestrictionsView as applyCloudEditRestrictionsFormView } from './ui/forms/cloud-edit-restrictions';
 import { createManagementFormBindings } from './ui/forms/management-form-bindings';
 import {
-  clearAmbientCategory,
-  getAmbientActiveCategoryId,
   getAmbientPlaybackVolume,
   normalizeAmbientVolume,
   resolveAmbientDefaultVolume,
-  syncAmbientMediaCategoryField,
   syncAmbientResolvedMediaVolumeField,
   syncAmbientRangeProgress,
-  syncAmbientTargetCategorySelection,
-  updateAmbientCategory,
 } from './ui/forms/category-volume-bindings';
 import {
   createPlaylistLoadGuard,
@@ -245,6 +234,7 @@ import {
   createPlaylistManagementActions,
   initializeManagementForms,
 } from './bootstrap/management-init';
+import { createPlaylistUiBindings } from './bootstrap/playlist-ui-init';
 import { createAppBootController } from './bootstrap/app-boot';
 import {
   fetchAmbientPlaylistData,
@@ -1536,6 +1526,50 @@ const init = function (): void {
     getLocalizedMessage,
   });
 
+  let openMediaManagementAction: (presetCategoryId?: number | null) => void = () => {};
+  let playlistUiBindings: ReturnType<typeof createPlaylistUiBindings> | null = createPlaylistUiBindings({
+    status: AMP_STATUS,
+    getOption: (key) => getOption(key as Extract<keyof PlaylistOptions, string>),
+    playlistMode: playlistMode,
+    setPlaylistMode: (mode) => {
+      playlistMode = mode;
+    },
+    deleteSelectedIds,
+    getEditSelectedId: () => mediaEditActiveItem?.amId ?? null,
+    playlistList: $LIST_PLAYLIST,
+    targetCategorySelect: isElement($SELECT_CATEGORY) ? $SELECT_CATEGORY : null,
+    mediaCategorySelect: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
+    mediaCategoryInput: document.getElementById('media-category-new') as HTMLInputElement | null,
+    mediaCategoryLabel: document.getElementById('media-category-label') as HTMLLabelElement | null,
+    mediaCategoryNote: document.getElementById('note-media-category-create-from-playlist-management') as HTMLElement | null,
+    canUseReorderMode,
+    canMutateCurrentPlaylist,
+    ambientData: (window as any).AmbientData as { imageDir?: string; debug?: boolean } | null,
+    getNoMediaImagePath,
+    openMediaManagement: (presetCategoryId) => {
+      openMediaManagementAction(presetCategoryId);
+    },
+    trimTitle: (value: string) => mb_strimwidth(value, 0, 50, '...'),
+    destroyPlaylistSortable,
+    closePlaylistDescModal: () => {
+      playlistDescModal.close(false);
+    },
+    syncPlaylistModeAvailability,
+    closePlaylistModeMenu,
+    setPlaylistReadyState: (isReady) => {
+      appBoot.setPlaylistReadyState(isReady);
+    },
+    resetReorderState,
+    updatePlaylistModeUi: updatePlaylistModeUI,
+    ensurePlaylistSortable,
+    execDebug,
+    logger,
+    applyCloudEditRestrictions,
+    onShuffleItemsChanged: (items) => {
+      AMP_STATUS.shuffle = items;
+    },
+  });
+
   // Process global data passed by the system.
   // In cloud mode: load MyPlaylist from localStorage before processing server data.
   // (Placed here, AFTER DOM constants, to avoid const temporal dead zone issues.)
@@ -1573,57 +1607,31 @@ const init = function (): void {
     noticeController.hideLegacyAlert();
   }
 
-  /**
-   * Empty the playlist.
-   */
-  function clearPlaylist(): void {
-    // Clear all items of playlist
-    const $NO_MEDIA = document.getElementById('no-media');
-    const clone = $NO_MEDIA?.cloneNode(true) as HTMLElement | null;
-    while ($LIST_PLAYLIST.firstChild) {
-      $LIST_PLAYLIST.removeChild($LIST_PLAYLIST.firstChild);
-    }
-    if (clone) {
-      $LIST_PLAYLIST.appendChild(clone);
-      // Re-attach click handler on the cloned "Register media" button
-      const addBtn = clone.querySelector('#btn-add-media-from-drawer');
-      if (addBtn) {
-        bindAddMediaTrigger({
-          trigger: addBtn,
-          onActivate: (evt: Event) => {
-            evt.preventDefault();
-            evt.stopPropagation();
-            openMediaManagement(getActiveCategoryId());
-          },
-        });
-      }
-    }
-  }
-
   function getActiveCategoryId(): number | null {
-    return getAmbientActiveCategoryId(AMP_STATUS.ctg);
+    return playlistUiBindings?.getActiveCategoryId() ?? null;
   }
 
   function syncTargetCategorySelection(): void {
-    syncAmbientTargetCategorySelection({
-      select: isElement($SELECT_CATEGORY) ? $SELECT_CATEGORY : null,
-      activeCategoryId: getActiveCategoryId(),
-    });
+    playlistUiBindings?.syncTargetCategorySelection();
   }
 
   function syncMediaCategoryField(preferredCategoryId: number | null = getActiveCategoryId()): void {
-    syncAmbientMediaCategoryField({
-      select: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
-      categoryInput: document.getElementById('media-category-new') as HTMLInputElement | null,
-      categories: AMP_STATUS.category,
-      preferredCategoryId,
-    });
+    playlistUiBindings?.syncMediaCategoryField(preferredCategoryId);
   }
 
-  const {
-    hideOptionsModal,
-    openMediaManagement,
-  } = bindAmbientOptionsModal({
+  function updatePlaylist(): void {
+    playlistUiBindings?.updatePlaylist();
+  }
+
+  function clearCategory(): void {
+    playlistUiBindings?.clearCategory();
+  }
+
+  function updateCategory(): void {
+    playlistUiBindings?.updateCategory();
+  }
+
+  const optionsModalBindings = bindAmbientOptionsModal({
     triggerButton: $BUTTON_OPTIONS,
     closeButton: $BUTTON_CLOSE_OPTIONS,
     optionsButton: $BUTTON_OPTIONS,
@@ -1672,6 +1680,9 @@ const init = function (): void {
     },
     watcher,
   });
+  const hideOptionsModal = optionsModalBindings.hideOptionsModal;
+  const openMediaManagement = optionsModalBindings.openMediaManagement;
+  openMediaManagementAction = openMediaManagement;
 
   bindMediaEditPrimaryControls({
     closeButton: $BUTTON_CLOSE_MEDIA_EDIT,
@@ -1862,100 +1873,6 @@ const init = function (): void {
       applyMediaEditDraftState(next);
     },
   });
-
-  /**
-   * Create a playlist from the data of the AMP_STATUS object.
-   */
-  function updatePlaylist(): void {
-    const ambientData = (window as any).AmbientData as AmbientData;
-    syncAmbientShuffleIfNeeded({
-      enabled: Boolean(getOption('shuffle')),
-      mediaItems: AMP_STATUS.media || [],
-      categoryId: AMP_STATUS.ctg,
-      logger,
-      setShuffleItems: (items) => {
-        AMP_STATUS.shuffle = items;
-      },
-    });
-    updateAmbientPlaylistDisplay({
-      mediaItems: AMP_STATUS.media || [],
-      categoryId: AMP_STATUS.ctg,
-      currentId: AMP_STATUS.current,
-      playlistMode,
-      deleteSelectedIds,
-      editSelectedId: mediaEditActiveItem?.amId ?? null,
-      playlistFormat: getOption('playlist'),
-      listElement: $LIST_PLAYLIST,
-      noMediaElement: document.getElementById('no-media') as HTMLElement,
-      canUseReorderMode: canUseReorderMode(),
-      canMutatePlaylist: canMutateCurrentPlaylist(),
-      imageDir: ambientData?.imageDir || null,
-      fallbackThumbPath: getNoMediaImagePath('thumb'),
-      getRegisterText: () => {
-        const registerBtn = document.getElementById('btn-add-media-from-drawer');
-        return (registerBtn?.dataset['label'] || registerBtn?.innerText || 'Register media').trim();
-      },
-      onQuickAdd: (evt: Event) => {
-        evt.preventDefault();
-        openMediaManagement(getActiveCategoryId());
-      },
-      trimTitle: (value: string) => mb_strimwidth(value, 0, 50, '...'),
-      formatLabel: formatAmbientPlaylistLabel,
-      destroyPlaylistSortable,
-      closePlaylistDescModal: () => {
-        playlistDescModal.close(false);
-      },
-      clearPlaylist,
-      syncPlaylistModeAvailability,
-      closePlaylistModeMenu,
-      setPlaylistReadyState: (isReady) => {
-        appBoot.setPlaylistReadyState(isReady);
-      },
-      resetReorderState,
-      updatePlaylistModeUi: updatePlaylistModeUI,
-      ensurePlaylistSortable,
-      execDebug,
-      debugEnabled: Boolean(ambientData?.hasOwnProperty('debug') && ambientData.debug),
-      logger,
-      setPlaylistMode: (mode) => {
-        playlistMode = mode;
-      },
-      setShuffleItems: (items) => {
-        AMP_STATUS.shuffle = items;
-      },
-    });
-  }
-
-  /**
-   * Clears items in the category selection field in the settings menu.
-   */
-  function clearCategory(): void {
-    clearAmbientCategory({
-      targetSelect: $SELECT_CATEGORY,
-      mediaSelect: $MEDIA_CATEGORY_SELECT,
-      mediaInput: document.getElementById('media-category-new') as HTMLInputElement | null,
-      mediaLabel: document.getElementById('media-category-label') as HTMLLabelElement | null,
-      mediaNote: document.getElementById('note-media-category-create-from-playlist-management') as HTMLElement | null,
-      applyCloudEditRestrictions,
-    });
-  }
-
-  /**
-   * Update the items in the category selection field of the settings menu.
-   */
-  function updateCategory(): void {
-    updateAmbientCategory({
-      targetSelect: $SELECT_CATEGORY,
-      mediaSelect: $MEDIA_CATEGORY_SELECT,
-      mediaInput: document.getElementById('media-category-new') as HTMLInputElement | null,
-      mediaLabel: document.getElementById('media-category-label') as HTMLLabelElement | null,
-      mediaNote: document.getElementById('note-media-category-create-from-playlist-management') as HTMLElement | null,
-      categories: AMP_STATUS.category,
-      syncTargetCategorySelection,
-      syncMediaCategoryField,
-      applyCloudEditRestrictions,
-    });
-  }
 
   function getOption<K extends Extract<keyof PlaylistOptions, string>>(
     key: K
