@@ -567,18 +567,6 @@ const init = function (): void {
     return sharedSanitizeMediaText(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
   }
 
-  function sanitizeMediaTextInput(value: string, maxLength: number): string {
-    return sharedSanitizeMediaTextInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
-  }
-
-  function sanitizeMediaDescInput(value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string {
-    return sharedSanitizeMediaDescInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
-  }
-
-  function sanitizeMediaDescInputLive(value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string {
-    return sharedSanitizeMediaDescInputLive(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
-  }
-
   function sanitizeMediaDesc(value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string {
     return sharedSanitizeMediaDesc(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
   }
@@ -627,11 +615,6 @@ const init = function (): void {
       disallowedControlChars: DISALLOWED_CONTROL_CHARS_RE,
     });
   }
-
-  function isLikelyMediaFile(file: File): boolean {
-    return sharedIsLikelyMediaFile(file);
-  }
-
 
   /**
    * Load MyPlaylist from localStorage and populate AMP_STATUS as if a
@@ -2620,11 +2603,11 @@ const init = function (): void {
       hideOptionsModal,
       setValidated,
       sanitizeMediaText,
-      sanitizeMediaTextInput,
-      sanitizeMediaDescInput,
-      sanitizeMediaDescInputLive,
+      sanitizeMediaTextInput: (value, maxLength) => sharedSanitizeMediaTextInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
+      sanitizeMediaDescInput: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => sharedSanitizeMediaDescInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
+      sanitizeMediaDescInputLive: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => sharedSanitizeMediaDescInputLive(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
       basename: sharedBasename,
-      isLikelyMediaFile,
+      isLikelyMediaFile: sharedIsLikelyMediaFile,
       getRelativeFilepath,
       syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
       logger: runtimeLogger,

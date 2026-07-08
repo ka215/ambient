@@ -175,7 +175,7 @@ v2.0.0 時点の基準実行で 18/18 pass を確認。
 
 | 項目 | v1 | v2.0.0 |
 |---|---|---|
-| フロント実行源 | src/scripts/ambient.js | dist/assets/ambient.js（Vite ビルド成果物） |
+| フロント実行源 | src/scripts/ambient.ts | dist/assets/ambient.js（Vite ビルド成果物） |
 | 型安全性 | なし | tsc --strict ベース |
 | E2E 基盤 | なし | Playwright 基盤あり |
 | YouTube 待機 | 時間依存寄り | DOM signal + seq ベース待機 |
