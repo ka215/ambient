@@ -26,6 +26,32 @@ export function updatePlaybackStatus(options: {
   options.applyPlaybackStatus(playbackStatus);
 }
 
+export function syncPlaybackStatusAndCarousel(options: {
+  mediaItems: MediaItem[];
+  categoryId: number | null;
+  shuffleEnabled: boolean;
+  shuffleItems?: MediaItem[] | null;
+  currentId: number;
+  order: 'normal' | 'random';
+  applyPlaybackStatus: (status: {
+    currentId: number;
+    prevId: number | null;
+    nextId: number | null;
+  }) => void;
+  refreshCarousel: () => void;
+}): void {
+  updatePlaybackStatus({
+    mediaItems: options.mediaItems,
+    categoryId: options.categoryId,
+    shuffleEnabled: options.shuffleEnabled,
+    shuffleItems: options.shuffleItems,
+    currentId: options.currentId,
+    order: options.order,
+    applyPlaybackStatus: options.applyPlaybackStatus,
+  });
+  options.refreshCarousel();
+}
+
 export function playMediaSelection(options: {
   mediaItems: MediaItem[];
   triggerElement?: HTMLElement | null;

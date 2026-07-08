@@ -197,7 +197,7 @@ import {
   syncWindowFullButtonState,
 } from './ui/player/player-shell';
 import {
-  updatePlaybackStatus,
+  syncPlaybackStatusAndCarousel,
 } from './ui/player/player-actions';
 import {
   getBottomMenuHeight as getBottomMenuHeightView,
@@ -2256,11 +2256,8 @@ const init = function (): void {
     setStyles,
   });
 
-  /**
-   * Updates the user's media playback state.
-   */
   function updatePlayStatus(currentAmId: number): void {
-    updatePlaybackStatus({
+    syncPlaybackStatusAndCarousel({
       mediaItems: AMP_STATUS.media || [],
       categoryId: AMP_STATUS.ctg,
       shuffleEnabled: Boolean(getOption('shuffle')),
@@ -2272,8 +2269,8 @@ const init = function (): void {
         AMP_STATUS.prev = playbackStatus.prevId;
         AMP_STATUS.next = playbackStatus.nextId;
       },
+      refreshCarousel: updateCarousel,
     });
-    updateCarousel();
   }
 
   const { playItem } = createAmbientPlayerBindings({
