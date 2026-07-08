@@ -114,9 +114,7 @@ import {
 import { createMediaEditDraftBindings } from './state/media-edit-draft-bindings';
 import {
   closeResponsiveDrawers,
-  cleanupDrawerBackdrops,
   isResponsiveDrawerOpen,
-  syncDrawerAndModalBackdrops,
 } from './ui/drawers';
 import {
   bindAddMediaTrigger,
@@ -128,7 +126,6 @@ import {
   syncVolumeSlider,
 } from './ui/settings-view';
 import {
-  bindViewportSyncEvents,
   isFullWindowMode as isFullWindowModeView,
 } from './ui/viewport';
 import { createViewportRuntimeController } from './ui/viewport-runtime';
@@ -168,11 +165,7 @@ import {
   syncPlaylistModeButton as syncPlaylistModeButtonView,
   syncDeleteSelectionIndicator as syncDeleteSelectionIndicatorView,
 } from './ui/playlist-view';
-import { bindAmbientPlayerControls } from './ui/player-control-bindings';
-import { bindAmbientSettingsControls } from './ui/settings-bindings';
-import { bindAmbientSelectorControls } from './ui/selector-bindings';
 import { bindAmbientOptionsModal } from './ui/options-modal-bindings';
-import { bindAmbientPlaylistInteractionControls } from './ui/playlist-interaction-bindings';
 import { bindAmbientPlaylistMode } from './ui/playlist-mode-bindings';
 import {
   applyAmbientPlaylistOptions,
@@ -250,6 +243,10 @@ import {
   writeMyPlaylistJson,
 } from './domain/myplaylist-storage';
 import { createPlaybackTimerController } from './domain/media-playback';
+import {
+  bindAmbientAppControlBindings,
+  bindAmbientViewportLifecycle,
+} from './bootstrap/app-init';
 import { createAppBootController } from './bootstrap/app-boot';
 import {
   fetchAmbientPlaylistData,
@@ -1989,7 +1986,7 @@ const init = function (): void {
       shuffleToggleRoot: $TOGGLE_SHUFFLE,
       seekToggleRoot: $TOGGLE_SEEKPLAY,
       faderToggleRoot: $TOGGLE_FADER,
-      darkModeToggleInput: toggleDarkmodeInput,
+      darkModeToggleInput: getToggleInput($TOGGLE_DARKMODE),
       volumeRange: $RANGE_VOLUME,
       defaultVolumeDisplay: document.getElementById('default-volume-value') as HTMLElement | null,
       normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
@@ -2063,133 +2060,127 @@ const init = function (): void {
   // EVENT HANDLERS
   // ============================================================================
 
-  bindAmbientSelectorControls({
-    playlistSelect: $SELECT_PLAYLIST,
-    categorySelect: $SELECT_CATEGORY,
-    languageSelect: $SELECT_LANGUAGE,
-    getCurrentPlaylist: () => AMP_STATUS.hasOwnProperty('playlist') ? AMP_STATUS.playlist : null,
-    getCurrentCategoryId: () => (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null ? AMP_STATUS.ctg : null),
-    getPlaylistMode: () => playlistMode,
-    canDiscardEditMode: () => confirmDiscardActiveMediaEditIfNeeded(),
-    clearDeleteSelections: () => {
-      deleteSelectedIds.clear();
+  bindAmbientAppControlBindings({
+    selectorControls: {
+      playlistSelect: $SELECT_PLAYLIST,
+      categorySelect: $SELECT_CATEGORY,
+      languageSelect: $SELECT_LANGUAGE,
+      getCurrentPlaylist: () => AMP_STATUS.hasOwnProperty('playlist') ? AMP_STATUS.playlist : null,
+      getCurrentCategoryId: () => (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null ? AMP_STATUS.ctg : null),
+      getPlaylistMode: () => playlistMode,
+      canDiscardEditMode: () => confirmDiscardActiveMediaEditIfNeeded(),
+      clearDeleteSelections: () => {
+        deleteSelectedIds.clear();
+      },
+      resetReorderState,
+      hideMediaEditModal: () => {
+        hideMediaEditModal(false);
+      },
+      clearMediaEditContext,
+      resetPlaylistMode: () => {
+        playlistMode = 'normal';
+      },
+      updatePlaylistModeUi: updatePlaylistModeUI,
+      loadPlaylist: (playlist) => {
+        void getPlaylistData(playlist);
+      },
+      applyCategoryChange: (newCtgId) => {
+        AMP_STATUS.ctg = newCtgId;
+        AMP_STATUS.prev = null;
+        AMP_STATUS.current = null;
+        AMP_STATUS.next = null;
+      },
+      updatePlaylist,
+      getCookie,
+      updateCookie,
+      logger,
+      reloadPage: () => {
+        window.location.reload();
+      },
     },
-    resetReorderState,
-    hideMediaEditModal: () => {
-      hideMediaEditModal(false);
+    playlistInteractionControls: {
+      listElement: $LIST_PLAYLIST,
+      getDescriptionPayload: getPlaylistDescriptionPayload,
+      openDescriptionModal: (payload) => {
+        playlistDescModal.open(
+          payload.titleText,
+          payload.artistText,
+          payload.descText,
+          payload.trigger
+        );
+      },
+      getPlaylistMode: () => playlistMode,
+      deleteSelectedIds,
+      syncDeleteSelectionIndicator,
+      resolveMediaItem: (amId) => AMP_STATUS.media?.find((item: MediaItem) => item.amId === amId) || null,
+      openMediaEditModal,
+      isPlaylistInteractionLocked,
+      playItem: (target) => {
+        playItem(target);
+      },
+      showPlayingState: () => {
+        $BUTTON_PLAY.classList.add('hidden');
+        $BUTTON_PAUSE.classList.remove('hidden');
+      },
     },
-    clearMediaEditContext,
-    resetPlaylistMode: () => {
-      playlistMode = 'normal';
-    },
-    updatePlaylistModeUi: updatePlaylistModeUI,
-    loadPlaylist: (playlist) => {
-      void getPlaylistData(playlist);
-    },
-    applyCategoryChange: (newCtgId) => {
-      AMP_STATUS.ctg = newCtgId;
-      AMP_STATUS.prev = null;
-      AMP_STATUS.current = null;
-      AMP_STATUS.next = null;
-    },
-    updatePlaylist,
-    getCookie,
-    updateCookie,
-    logger,
-    reloadPage: () => {
-      window.location.reload();
-    },
-  });
-
-  bindAmbientPlaylistInteractionControls({
-    listElement: $LIST_PLAYLIST,
-    getDescriptionPayload: getPlaylistDescriptionPayload,
-    openDescriptionModal: (payload) => {
-      playlistDescModal.open(
-        payload.titleText,
-        payload.artistText,
-        payload.descText,
-        payload.trigger
-      );
-    },
-    getPlaylistMode: () => playlistMode,
-    deleteSelectedIds,
-    syncDeleteSelectionIndicator,
-    resolveMediaItem: (amId) => AMP_STATUS.media?.find((item: MediaItem) => item.amId === amId) || null,
-    openMediaEditModal,
-    isPlaylistInteractionLocked,
-    playItem: (target) => {
-      playItem(target);
-    },
-    showPlayingState: () => {
-      $BUTTON_PLAY.classList.add('hidden');
-      $BUTTON_PAUSE.classList.remove('hidden');
-    },
-  });
-
-  bindAmbientPlayerControls({
-    carouselPrevButton: $CAROUSEL_PREV,
-    carouselNextButton: $CAROUSEL_NEXT,
-    refreshButton: $BUTTON_REFRESH,
-    windowFullButton: $BUTTON_WINDOW_FULL,
-    windowFullToggle: toggleWindowFullInput,
-    menuCollapseButton: $BUTTON_MENU_COLLAPSE,
-    playButton: $BUTTON_PLAY,
-    pauseButton: $BUTTON_PAUSE,
-    menuElement: $MENU,
-    getPreviousId: () => AMP_STATUS.prev,
-    getNextId: () => AMP_STATUS.next,
-    playItemById: (playId) => {
-      playItem(null, playId);
-    },
-    reloadPage: () => {
-      window.location.reload();
-    },
-    isFullWindowMode: () => isFullWindowModeView($BODY),
-    setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
-      viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
-    },
-    setMenuMinimized: (minimized) => {
-      viewportRuntime.setMenuMinimized(minimized);
-    },
-    playertype: AMP_STATUS.playertype,
-    player,
-    logger,
-    mediaItems: AMP_STATUS.media || [],
-    categoryId: AMP_STATUS.ctg,
-    shuffleEnabled: Boolean(getOption('shuffle')),
-    shuffleItems: AMP_STATUS.shuffle || [],
-    currentId: AMP_STATUS.current,
-    order: AMP_STATUS.order,
-  });
-
-  const toggleLoopInput = getToggleInput($TOGGLE_LOOP);
-  const toggleRandomlyInput = getToggleInput($TOGGLE_RANDOMLY);
-  const toggleShuffleInput = getToggleInput($TOGGLE_SHUFFLE);
-  const toggleSeekplayInput = getToggleInput($TOGGLE_SEEKPLAY);
-  const toggleFaderInput = getToggleInput($TOGGLE_FADER);
-  const toggleDarkmodeInput = getToggleInput($TOGGLE_DARKMODE);
-
-  bindAmbientSettingsControls({
-    loopToggle: toggleLoopInput,
-    randomlyToggle: toggleRandomlyInput,
-    shuffleToggle: toggleShuffleInput,
-    seekplayToggle: toggleSeekplayInput,
-    faderToggle: toggleFaderInput,
-    darkmodeToggle: toggleDarkmodeInput,
-    volumeRange: $RANGE_VOLUME,
-    status: AMP_STATUS,
-    shufflePlaylist: () => createShuffledPlaylistItems({
-      mediaItems: AMP_STATUS.media,
+    playerControls: {
+      carouselPrevButton: $CAROUSEL_PREV,
+      carouselNextButton: $CAROUSEL_NEXT,
+      refreshButton: $BUTTON_REFRESH,
+      windowFullButton: $BUTTON_WINDOW_FULL,
+      windowFullToggle: toggleWindowFullInput,
+      menuCollapseButton: $BUTTON_MENU_COLLAPSE,
+      playButton: $BUTTON_PLAY,
+      pauseButton: $BUTTON_PAUSE,
+      menuElement: $MENU,
+      getPreviousId: () => AMP_STATUS.prev,
+      getNextId: () => AMP_STATUS.next,
+      playItemById: (playId) => {
+        playItem(null, playId);
+      },
+      reloadPage: () => {
+        window.location.reload();
+      },
+      isFullWindowMode: () => isFullWindowModeView($BODY),
+      setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
+        viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
+      },
+      setMenuMinimized: (minimized) => {
+        viewportRuntime.setMenuMinimized(minimized);
+      },
+      playertype: AMP_STATUS.playertype,
+      player,
+      logger,
+      mediaItems: AMP_STATUS.media || [],
       categoryId: AMP_STATUS.ctg,
-      shuffleEnabled: true,
-    }),
-    persistMyPlaylistIfNeeded,
-    normalizeVolume: (value) => normalizeAmbientVolume(value, DEFAULT_VOLUME),
-    syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-    getDefaultVolumeDisplay: () => document.getElementById('default-volume-value') as HTMLElement | null,
-    isDarkModeEnabled,
-    setStyles,
+      shuffleEnabled: Boolean(getOption('shuffle')),
+      shuffleItems: AMP_STATUS.shuffle || [],
+      currentId: AMP_STATUS.current,
+      order: AMP_STATUS.order,
+    },
+    settingsControlRoots: {
+      loop: $TOGGLE_LOOP,
+      randomly: $TOGGLE_RANDOMLY,
+      shuffle: $TOGGLE_SHUFFLE,
+      seekplay: $TOGGLE_SEEKPLAY,
+      fader: $TOGGLE_FADER,
+      darkmode: $TOGGLE_DARKMODE,
+    },
+    settingsControls: {
+      volumeRange: $RANGE_VOLUME,
+      status: AMP_STATUS,
+      shufflePlaylist: () => createShuffledPlaylistItems({
+        mediaItems: AMP_STATUS.media,
+        categoryId: AMP_STATUS.ctg,
+        shuffleEnabled: true,
+      }),
+      persistMyPlaylistIfNeeded,
+      normalizeVolume: (value) => normalizeAmbientVolume(value, DEFAULT_VOLUME),
+      syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
+      getDefaultVolumeDisplay: () => document.getElementById('default-volume-value') as HTMLElement | null,
+      isDarkModeEnabled,
+      setStyles,
+    },
   });
 
   function updatePlayStatus(currentAmId: number): void {
@@ -2281,40 +2272,22 @@ const init = function (): void {
   /**
    * Toggle the display of backdrop for drawer or modal.
    */
-  watcher([$DRAWER_PLAYLIST, $DRAWER_SETTINGS, $MODAL_OPTIONS], (mutation: MutationRecord) => {
-    if (mutation.attributeName !== 'aria-modal') {
-      return;
-    }
-
-    if ((mutation.target as HTMLElement).ariaModal === 'true') {
-      syncDrawerAndModalBackdrops(currentWindowSize.width, currentWindowSize.minFullUIWidth);
-      return;
-    }
-
-    cleanupDrawerBackdrops([$DRAWER_PLAYLIST, $DRAWER_SETTINGS]);
-  });
-
-  viewportRuntime.setMenuMinimized(false);
-
-  syncViewportMetrics();
-  bindViewportSyncEvents({
-    onResizeSettled: () => {
-      syncViewportMetrics();
+  bindAmbientViewportLifecycle({
+    drawerPlaylist: $DRAWER_PLAYLIST,
+    drawerSettings: $DRAWER_SETTINGS,
+    modalOptions: $MODAL_OPTIONS,
+    getCurrentWidth: () => currentWindowSize.width,
+    minFullUIWidth: currentWindowSize.minFullUIWidth,
+    setMenuMinimized: (minimized) => {
+      viewportRuntime.setMenuMinimized(minimized);
+    },
+    syncViewportMetrics,
+    updateWindowSize: () => {
       viewportRuntime.updateWindowSize();
     },
-    onOrientationChange: () => {
-      refreshViewportMetricsAfter(80);
-      refreshViewportMetricsAfter(420);
-    },
-    onVisualViewportChange: () => {
-      scheduleViewportMetricsSync(60);
-    },
-    onVisibilityRestore: () => {
-      scheduleViewportMetricsSync(80);
-    },
+    refreshViewportMetricsAfter,
+    scheduleViewportMetricsSync,
   });
-
-  window.dispatchEvent(new Event('resize', { bubbles: true, cancelable: false }));
 
   // ============================================================================
   // MANAGEMENT FORMS (Media Management & Playlist Management)
