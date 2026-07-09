@@ -173,7 +173,6 @@ import {
   ensureSelectOption,
   selectExistingOption,
 } from './ui/forms/management-forms';
-import { applyCloudEditRestrictionsView as applyCloudEditRestrictionsFormView } from './ui/forms/cloud-edit-restrictions';
 import {
   getAmbientPlaybackVolume,
   normalizeAmbientVolume,
@@ -203,6 +202,7 @@ import { initializeMediaEditControls } from './bootstrap/media-edit-controls-ini
 import { initializeAmbientPlayer } from './bootstrap/player-init';
 import { initializeManagementBindingComposition } from './bootstrap/management-bindings-init';
 import { initializeStatusWatcher } from './bootstrap/status-watcher-init';
+import { initializePlaylistPolicy } from './bootstrap/playlist-policy-init';
 import {
   createPlaylistManagementActions,
 } from './bootstrap/management-init';
@@ -444,14 +444,6 @@ const init = function (): void {
     return true;
   }
 
-  function canMutateCurrentPlaylist(): boolean {
-    const ambientData = getAmbientData();
-    if (ambientData?.isCloud === true) {
-      return AMP_STATUS.playlist === MYPLAYLIST_NAME || !AMP_STATUS.playlist;
-    }
-    return true;
-  }
-
   function sanitizeMediaText(value: string, maxLength: number): string {
     return sharedSanitizeMediaText(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
   }
@@ -486,22 +478,6 @@ const init = function (): void {
       updatePlayStatus(resumeAmId);
     },
   });
-
-  /**
-   * In cloud mode, disable media-add and category-add controls when the
-   * currently loaded playlist is an existing JSON file (not MyPlaylist).
-   * MyPlaylist (localStorage-only virtual playlist) is always editable.
-   */
-  function applyCloudEditRestrictions(): void {
-    const ambientData = getRuntimeAmbientData();
-    if (!ambientData?.isCloud) return;
-    applyCloudEditRestrictionsFormView({
-      canMutatePlaylist: canMutateCurrentPlaylist(),
-      mediaForm: document.querySelector('form[name="mediaManagement"]') as HTMLFormElement | null,
-      playlistForm: document.querySelector('form[name="playlistManagement"]') as HTMLFormElement | null,
-      readonlyTitle: 'Editing existing playlists is not available in cloud mode.',
-    });
-  }
 
   // DOM Elements
   const $BODY = document.body;
@@ -623,6 +599,19 @@ const init = function (): void {
   if (isElement($MODAL_MEDIA_EDIT) && $MODAL_MEDIA_EDIT.parentElement !== document.body) {
     document.body.appendChild($MODAL_MEDIA_EDIT);
   }
+
+  const {
+    canMutateCurrentPlaylist,
+    applyCloudEditRestrictions,
+  } = initializePlaylistPolicy({
+    getAmbientData,
+    getRuntimeAmbientData,
+    getCurrentPlaylist: () => AMP_STATUS.playlist,
+    myPlaylistName: MYPLAYLIST_NAME,
+    mediaForm: document.querySelector('form[name="mediaManagement"]') as HTMLFormElement | null,
+    playlistForm: document.querySelector('form[name="playlistManagement"]') as HTMLFormElement | null,
+    readonlyTitle: 'Editing existing playlists is not available in cloud mode.',
+  });
 
   const viewportRuntime = createViewportRuntimeController({
     body: $BODY,
