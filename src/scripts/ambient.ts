@@ -127,17 +127,13 @@ import { createViewportRuntimeController } from './ui/viewport-runtime';
 import {
   createOptionsModalController,
   createPlaylistDescModalController,
-  ensureAccordionPanel as ensureAccordionPanelView,
-  openPlaylistManagementCategoryCreate as openPlaylistManagementCategoryCreateView,
 } from './ui/modals';
 import {
   focusPlaylistItemById as focusPlaylistItemByIdView,
   finalizeMediaEditModalClose,
-  isMediaEditModalVisible as isMediaEditModalVisibleView,
   openManagedMediaEditModal,
   renderMediaEditSourceBadges as renderMediaEditSourceBadgesView,
   resetMediaEditModalView,
-  trapMediaEditModalFocus as trapMediaEditModalFocusView,
 } from './ui/media-edit-modal-view';
 import {
   bindMediaEditCategoryControls,
@@ -160,7 +156,6 @@ import {
   syncPlaylistModeButton as syncPlaylistModeButtonView,
   syncDeleteSelectionIndicator as syncDeleteSelectionIndicatorView,
 } from './ui/playlist-view';
-import { bindAmbientOptionsModal } from './ui/options-modal-bindings';
 import { bindAmbientPlaylistMode } from './ui/playlist-mode-bindings';
 import {
   createNoticeController,
@@ -221,6 +216,7 @@ import {
   bindAmbientAppControlBindings,
   bindAmbientViewportLifecycle,
 } from './bootstrap/app-init';
+import { initializeOptionsModalBindings } from './bootstrap/options-modal-init';
 import {
   createPlaylistManagementActions,
   initializeManagementForms,
@@ -1634,7 +1630,7 @@ const init = function (): void {
     noticeController.hideLegacyAlert();
   }
 
-  const optionsModalBindings = bindAmbientOptionsModal({
+  const optionsModalBindings = initializeOptionsModalBindings({
     triggerButton: $BUTTON_OPTIONS,
     closeButton: $BUTTON_CLOSE_OPTIONS,
     optionsButton: $BUTTON_OPTIONS,
@@ -1649,6 +1645,12 @@ const init = function (): void {
     playlistDescCloseButton: $BUTTON_CLOSE_PLAYLIST_DESC,
     playlistDescBackdrop: $MODAL_PLAYLIST_DESC_BACKDROP,
     playlistDescManagementLink: document.getElementById('link-open-playlist-management-category') as HTMLAnchorElement | null,
+    mediaEditModal: $MODAL_MEDIA_EDIT,
+    mediaVolumeInput: $MEDIA_VOLUME,
+    defaultMediaVolumeDisplay: document.getElementById('default-media-volume'),
+    playlistList: $LIST_PLAYLIST,
+    defaultVolume: DEFAULT_VOLUME,
+    getVolumeOption: () => getOption('volume'),
     getActiveCategoryId: () => playlistUiBindings?.getActiveCategoryId() ?? null,
     clearCategory: () => {
       playlistUiBindings?.clearCategory();
@@ -1661,34 +1663,9 @@ const init = function (): void {
         preferredCategoryId ?? (playlistUiBindings?.getActiveCategoryId() ?? null)
       );
     },
-    syncMediaVolumeField: () => {
-      syncAmbientResolvedMediaVolumeField({
-        input: $MEDIA_VOLUME,
-        display: document.getElementById('default-media-volume'),
-        volume: getOption('volume'),
-        defaultVolume: getOption('volume'),
-        fallbackVolume: DEFAULT_VOLUME,
-      });
-    },
-    ensureAccordionPanel: (panelId) => {
-      ensureAccordionPanelView(panelId);
-    },
-    openPlaylistManagementCategoryCreate: () => {
-      openPlaylistManagementCategoryCreateView();
-    },
     closeMediaEditCategoryDropdown,
     closeMediaEditModal,
-    trapMediaEditModalFocus: (evt) => {
-      trapMediaEditModalFocusView({
-        modalElement: isElement($MODAL_MEDIA_EDIT) ? $MODAL_MEDIA_EDIT : null,
-        event: evt,
-      });
-    },
-    isMediaEditModalVisible: () => isMediaEditModalVisibleView(isElement($MODAL_MEDIA_EDIT) ? $MODAL_MEDIA_EDIT : null),
     isMediaEditCategoryDropdownVisible,
-    scrollToFocusItem: () => {
-      scrollPlaylistToCurrentFocus($LIST_PLAYLIST);
-    },
     watcher,
   });
   const hideOptionsModal = optionsModalBindings.hideOptionsModal;
