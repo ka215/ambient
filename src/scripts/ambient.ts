@@ -229,6 +229,7 @@ import {
   resolveInitialPlaylistStartup,
 } from './bootstrap/playlist-startup';
 import { executeInitialPlaylistStartup } from './bootstrap/playlist-startup-init';
+import { activateImportedPlaylistSelection } from './bootstrap/imported-playlist-init';
 import {
   getCloudImportSizeLimitBytes as getCloudImportSizeLimitBytesDomain,
   parseImportedPlaylistJson,
@@ -1992,15 +1993,24 @@ const init = function (): void {
   });
 
   async function activateImportedPlaylist(playlistName: string): Promise<void> {
-    ensureSelectOption(
-      isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null,
+    await activateImportedPlaylistSelection({
       playlistName,
-      playlistName.replace(/\.json$/i, '')
-    );
-    selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, playlistName);
-    requestCategoryResume(null);
-    requestMediaResume(null);
-    await getPlaylistData(playlistName, true);
+      ensurePlaylistOption: (nextPlaylistName) => {
+        ensureSelectOption(
+          isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null,
+          nextPlaylistName,
+          nextPlaylistName.replace(/\.json$/i, '')
+        );
+      },
+      selectPlaylistOption: (nextPlaylistName) => {
+        selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, nextPlaylistName);
+      },
+      requestCategoryResume,
+      requestMediaResume: () => {
+        requestMediaResume(null);
+      },
+      loadPlaylist: getPlaylistData,
+    });
   }
 
   // ============================================================================
