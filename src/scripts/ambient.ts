@@ -79,7 +79,6 @@ import {
   readPlaylistOption,
   setPlaylistOption,
 } from './state/playlist-options';
-import { bindAmbientStatusWatchers } from './state/status-watchers';
 import {
   canUsePlaylistReorderMode,
   createShuffledPlaylistItems,
@@ -203,6 +202,7 @@ import { initializePlaylistModeBindings } from './bootstrap/playlist-mode-init';
 import { initializeMediaEditControls } from './bootstrap/media-edit-controls-init';
 import { initializeAmbientPlayer } from './bootstrap/player-init';
 import { initializeManagementBindingComposition } from './bootstrap/management-bindings-init';
+import { initializeStatusWatcher } from './bootstrap/status-watcher-init';
 import {
   createPlaylistManagementActions,
 } from './bootstrap/management-init';
@@ -368,110 +368,6 @@ const init = function (): void {
   function abortFader(type: 'fadein' | 'fadeout'): void {
     playbackTimers.abortFader(type);
   }
-
-  /**
-   * Watcher for AMP_STATUS object.
-   */
-  function watchState(): void {
-    bindAmbientStatusWatchers({
-      status: AMP_STATUS as unknown as Record<string, unknown>,
-      onPropertyChange: (prop, _oldValue, newValue) => {
-        switch (true) {
-          case /^(prev|current|next|ctg|order|loop)$/i.test(prop):
-            saveStorageAdapter(prop, newValue, runtimeLogger);
-            if (/^ctg$/i.test(prop)) {
-              savePlaylistContext();
-            }
-            if ('current' === prop) {
-              syncPlaylistCurrentFocus($LIST_PLAYLIST, AMP_STATUS.current);
-              scrollPlaylistToCurrentFocus($LIST_PLAYLIST);
-              savePlaylistContext();
-            }
-            if ('order' === prop) {
-              syncToggleRoot($TOGGLE_RANDOMLY, AMP_STATUS.order === 'random');
-            }
-            break;
-          case /^playlist$/i.test(prop):
-            savePlaylistContext();
-            break;
-          case /^media$/i.test(prop):
-            syncPlaybackButtons($BUTTON_PLAY, $BUTTON_PAUSE, AMP_STATUS.media !== null && AMP_STATUS.media.length > 0);
-            break;
-          case /^category$/i.test(prop):
-            playlistUiBindings?.updateCategory();
-            break;
-          case /^shuffle$/i.test(prop):
-            syncToggleRoot($TOGGLE_SHUFFLE, !!(AMP_STATUS.options && AMP_STATUS.options.shuffle));
-            AMP_STATUS.shuffle = createShuffledPlaylistItems({
-              mediaItems: AMP_STATUS.media,
-              categoryId: AMP_STATUS.ctg,
-              shuffleEnabled: !!(AMP_STATUS.options && AMP_STATUS.options.shuffle),
-            });
-            break;
-          case /^volume$/i.test(prop):
-            syncVolumeSlider({
-              input: $RANGE_VOLUME,
-              volume: normalizeAmbientVolume(
-                AMP_STATUS.volume,
-                resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME)
-              ),
-              syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-              display: document.getElementById('default-volume-value') as HTMLElement | null,
-            });
-            break;
-          case /^notice$/i.test(prop):
-            if (newValue) {
-              updateNotice(newValue as NotificationPayload);
-            }
-            break;
-          case /^options$/i.test(prop):
-            {
-              const ambientData = (window as any).AmbientData as AmbientData;
-              applyAmbientDisplayOptions({
-                status: AMP_STATUS,
-                getOption: (key) => getOption(key as Extract<keyof PlaylistOptions, string>),
-                defaultVolume: resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
-                body: $BODY,
-                menu: $MENU,
-                imageDir: ambientData?.imageDir,
-                shuffleToggleRoot: $TOGGLE_SHUFFLE,
-                seekToggleRoot: $TOGGLE_SEEKPLAY,
-                faderToggleRoot: $TOGGLE_FADER,
-                darkModeToggleRoot: $TOGGLE_DARKMODE,
-                volumeRange: $RANGE_VOLUME,
-                defaultVolumeDisplay: document.getElementById('default-volume-value') as HTMLElement | null,
-                normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
-                syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-                syncMediaVolumeField: () => {
-                  syncAmbientResolvedMediaVolumeField({
-                    input: $MEDIA_VOLUME,
-                    display: document.getElementById('default-media-volume'),
-                    volume: getOption('volume'),
-                    defaultVolume: getOption('volume'),
-                    fallbackVolume: DEFAULT_VOLUME,
-                  });
-                },
-                shufflePlaylist: () => createShuffledPlaylistItems({
-                  mediaItems: AMP_STATUS.media,
-                  categoryId: AMP_STATUS.ctg,
-                  shuffleEnabled: true,
-                }),
-                setStyles,
-                setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
-                  viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
-                },
-              });
-            }
-            break;
-          case /^yt_(phase|seq|error)$/i.test(prop):
-            syncYouTubeSignalAttrs();
-            break;
-        }
-      },
-    });
-  }
-
-  watchState();
 
   // ============================================================================
   // CLOUD: MyPlaylist – localStorage persistence
@@ -1429,6 +1325,86 @@ const init = function (): void {
     onShuffleItemsChanged: (items) => {
       AMP_STATUS.shuffle = items;
     },
+  });
+
+  initializeStatusWatcher({
+    status: AMP_STATUS as unknown as Record<string, unknown>,
+    runtimeLogger,
+    saveStorageAdapter,
+    savePlaylistContext,
+    syncPlaylistCurrentFocus: () => {
+      syncPlaylistCurrentFocus($LIST_PLAYLIST, AMP_STATUS.current);
+    },
+    scrollPlaylistToCurrentFocus: () => {
+      scrollPlaylistToCurrentFocus($LIST_PLAYLIST);
+    },
+    syncRandomOrderToggle: () => {
+      syncToggleRoot($TOGGLE_RANDOMLY, AMP_STATUS.order === 'random');
+    },
+    syncPlaybackButtons: () => {
+      syncPlaybackButtons($BUTTON_PLAY, $BUTTON_PAUSE, AMP_STATUS.media !== null && AMP_STATUS.media.length > 0);
+    },
+    updatePlaylistCategory: () => {
+      playlistUiBindings?.updateCategory();
+    },
+    syncShuffleState: () => {
+      syncToggleRoot($TOGGLE_SHUFFLE, !!(AMP_STATUS.options && AMP_STATUS.options.shuffle));
+      AMP_STATUS.shuffle = createShuffledPlaylistItems({
+        mediaItems: AMP_STATUS.media,
+        categoryId: AMP_STATUS.ctg,
+        shuffleEnabled: !!(AMP_STATUS.options && AMP_STATUS.options.shuffle),
+      });
+    },
+    syncVolumeState: () => {
+      syncVolumeSlider({
+        input: $RANGE_VOLUME,
+        volume: normalizeAmbientVolume(
+          AMP_STATUS.volume,
+          resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME)
+        ),
+        syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
+        display: document.getElementById('default-volume-value') as HTMLElement | null,
+      });
+    },
+    updateNotice,
+    applyDisplayOptions: () => {
+      const ambientData = (window as any).AmbientData as AmbientData;
+      applyAmbientDisplayOptions({
+        status: AMP_STATUS,
+        getOption: (key) => getOption(key as Extract<keyof PlaylistOptions, string>),
+        defaultVolume: resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
+        body: $BODY,
+        menu: $MENU,
+        imageDir: ambientData?.imageDir,
+        shuffleToggleRoot: $TOGGLE_SHUFFLE,
+        seekToggleRoot: $TOGGLE_SEEKPLAY,
+        faderToggleRoot: $TOGGLE_FADER,
+        darkModeToggleRoot: $TOGGLE_DARKMODE,
+        volumeRange: $RANGE_VOLUME,
+        defaultVolumeDisplay: document.getElementById('default-volume-value') as HTMLElement | null,
+        normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
+        syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
+        syncMediaVolumeField: () => {
+          syncAmbientResolvedMediaVolumeField({
+            input: $MEDIA_VOLUME,
+            display: document.getElementById('default-media-volume'),
+            volume: getOption('volume'),
+            defaultVolume: getOption('volume'),
+            fallbackVolume: DEFAULT_VOLUME,
+          });
+        },
+        shufflePlaylist: () => createShuffledPlaylistItems({
+          mediaItems: AMP_STATUS.media,
+          categoryId: AMP_STATUS.ctg,
+          shuffleEnabled: true,
+        }),
+        setStyles,
+        setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
+          viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
+        },
+      });
+    },
+    syncYouTubeSignalAttrs,
   });
 
   if (isElement($ALERT)) {
