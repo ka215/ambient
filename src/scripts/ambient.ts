@@ -423,7 +423,7 @@ const init = function (): void {
             syncPlaybackButtons($BUTTON_PLAY, $BUTTON_PAUSE, AMP_STATUS.media !== null && AMP_STATUS.media.length > 0);
             break;
           case /^category$/i.test(prop):
-            updateCategory();
+            playlistUiBindings?.updateCategory();
             break;
           case /^shuffle$/i.test(prop):
             syncToggleRoot($TOGGLE_SHUFFLE, !!(AMP_STATUS.options && AMP_STATUS.options.shuffle));
@@ -533,8 +533,8 @@ const init = function (): void {
 
   function resetPlaylistRuntimeState(preserveOptions: boolean = false): void {
     resetPlaylistRuntimeStatus(AMP_STATUS, preserveOptions);
-    clearCategory();
-    updatePlaylist();
+    playlistUiBindings?.clearCategory();
+    playlistUiBindings?.updatePlaylist();
     appBoot.setPlaylistReadyState(false);
   }
 
@@ -609,7 +609,7 @@ const init = function (): void {
     hasPlaylist: platformHasPlaylist,
     onCategoryResumeApplied: (nextCategoryId) => {
       AMP_STATUS.ctg = nextCategoryId;
-      syncTargetCategorySelection();
+      playlistUiBindings?.syncTargetCategorySelection();
     },
     onMediaResumeApplied: (resumeAmId) => {
       updatePlayStatus(resumeAmId);
@@ -633,7 +633,9 @@ const init = function (): void {
       }),
       applyPendingCategoryResume,
       applyPendingMediaResume,
-      updatePlaylist,
+      updatePlaylist: () => {
+        playlistUiBindings?.updatePlaylist();
+      },
       updatePlayStatus,
       getDefaultMediaItemForCurrentView: () => getDefaultMediaItemForView({
         mediaItems: AMP_STATUS.media,
@@ -708,7 +710,9 @@ const init = function (): void {
       status: AMP_STATUS,
       applyPendingCategoryResume,
       applyPendingMediaResume,
-      updatePlaylist,
+      updatePlaylist: () => {
+        playlistUiBindings?.updatePlaylist();
+      },
       updatePlayStatus,
       getDefaultMediaItemForCurrentView: () => getDefaultMediaItemForView({
         mediaItems: AMP_STATUS.media,
@@ -1277,12 +1281,12 @@ const init = function (): void {
     deleteMediaEditDraftByKey(draftKey);
     mediaEditBaseDraft = createMediaEditBaseDraft(options.updatedItem);
     setMediaEditDirtyState(false);
-    clearCategory();
-    updateCategory();
-    syncMediaCategoryField();
+    playlistUiBindings?.clearCategory();
+    playlistUiBindings?.updateCategory();
+    playlistUiBindings?.syncMediaCategoryField(playlistUiBindings?.getActiveCategoryId() ?? null);
     syncMediaEditCategoryClearButton();
     renderMediaEditCategoryOptions();
-    updatePlaylist();
+    playlistUiBindings?.updatePlaylist();
     if (AMP_STATUS.current === options.updatedItem.amId) {
       updatePlayStatus(options.updatedItem.amId);
     }
@@ -1411,7 +1415,9 @@ const init = function (): void {
         });
       },
       bindForm: bindMediaEditForm,
-      updatePlaylist,
+      updatePlaylist: () => {
+        playlistUiBindings?.updatePlaylist();
+      },
       createPreview: createMediaEditPreview,
       startDurationSyncWait: mediaEditDurationSync.startIfNeeded,
       modalElement: $MODAL_MEDIA_EDIT,
@@ -1535,7 +1541,9 @@ const init = function (): void {
       hideMediaEditModal(false);
       clearMediaEditContext();
     },
-    updatePlaylist,
+    updatePlaylist: () => {
+      playlistUiBindings?.updatePlaylist();
+    },
     syncModeButton: syncPlaylistModeButton,
     syncDeleteSelectionIndicator: (itemElm, isSelected) => {
       syncDeleteSelectionIndicatorView(itemElm, isSelected);
@@ -1626,30 +1634,6 @@ const init = function (): void {
     noticeController.hideLegacyAlert();
   }
 
-  function getActiveCategoryId(): number | null {
-    return playlistUiBindings?.getActiveCategoryId() ?? null;
-  }
-
-  function syncTargetCategorySelection(): void {
-    playlistUiBindings?.syncTargetCategorySelection();
-  }
-
-  function syncMediaCategoryField(preferredCategoryId: number | null = getActiveCategoryId()): void {
-    playlistUiBindings?.syncMediaCategoryField(preferredCategoryId);
-  }
-
-  function updatePlaylist(): void {
-    playlistUiBindings?.updatePlaylist();
-  }
-
-  function clearCategory(): void {
-    playlistUiBindings?.clearCategory();
-  }
-
-  function updateCategory(): void {
-    playlistUiBindings?.updateCategory();
-  }
-
   const optionsModalBindings = bindAmbientOptionsModal({
     triggerButton: $BUTTON_OPTIONS,
     closeButton: $BUTTON_CLOSE_OPTIONS,
@@ -1665,10 +1649,18 @@ const init = function (): void {
     playlistDescCloseButton: $BUTTON_CLOSE_PLAYLIST_DESC,
     playlistDescBackdrop: $MODAL_PLAYLIST_DESC_BACKDROP,
     playlistDescManagementLink: document.getElementById('link-open-playlist-management-category') as HTMLAnchorElement | null,
-    getActiveCategoryId,
-    clearCategory,
-    updateCategory,
-    syncMediaCategoryField,
+    getActiveCategoryId: () => playlistUiBindings?.getActiveCategoryId() ?? null,
+    clearCategory: () => {
+      playlistUiBindings?.clearCategory();
+    },
+    updateCategory: () => {
+      playlistUiBindings?.updateCategory();
+    },
+    syncMediaCategoryField: (preferredCategoryId?: number | null) => {
+      playlistUiBindings?.syncMediaCategoryField(
+        preferredCategoryId ?? (playlistUiBindings?.getActiveCategoryId() ?? null)
+      );
+    },
     syncMediaVolumeField: () => {
       syncAmbientResolvedMediaVolumeField({
         input: $MEDIA_VOLUME,
@@ -1933,7 +1925,9 @@ const init = function (): void {
         AMP_STATUS.current = null;
         AMP_STATUS.next = null;
       },
-      updatePlaylist,
+      updatePlaylist: () => {
+        playlistUiBindings?.updatePlaylist();
+      },
       getCookie,
       updateCookie,
       logger,
@@ -2316,8 +2310,8 @@ const init = function (): void {
       AMP_STATUS.category = categories;
     },
     onCategoryCreated: () => {
-      clearCategory();
-      updateCategory();
+      playlistUiBindings?.clearCategory();
+      playlistUiBindings?.updateCategory();
     },
     logger,
     getPlaylistName: () => AMP_STATUS.playlist || 'playlist.json',
@@ -2343,10 +2337,20 @@ const init = function (): void {
       applyCloudEditRestrictions,
       updateNotice,
       addMediaData,
-      updatePlaylist,
-      clearCategory,
-      updateCategory,
-      syncMediaCategoryField,
+      updatePlaylist: () => {
+        playlistUiBindings?.updatePlaylist();
+      },
+      clearCategory: () => {
+        playlistUiBindings?.clearCategory();
+      },
+      updateCategory: () => {
+        playlistUiBindings?.updateCategory();
+      },
+      syncMediaCategoryField: (preferredCategoryId?: number | null) => {
+        playlistUiBindings?.syncMediaCategoryField(
+          preferredCategoryId ?? (playlistUiBindings?.getActiveCategoryId() ?? null)
+        );
+      },
       syncPlaybackAfterMediaAdd: (): void => {
         if (AMP_STATUS.current !== null) {
           updatePlayStatus(AMP_STATUS.current);
