@@ -175,7 +175,6 @@ import {
   selectExistingOption,
 } from './ui/forms/management-forms';
 import { applyCloudEditRestrictionsView as applyCloudEditRestrictionsFormView } from './ui/forms/cloud-edit-restrictions';
-import { createManagementFormBindings } from './ui/forms/management-form-bindings';
 import {
   getAmbientPlaybackVolume,
   normalizeAmbientVolume,
@@ -203,9 +202,9 @@ import { initializeOptionsModalBindings } from './bootstrap/options-modal-init';
 import { initializePlaylistModeBindings } from './bootstrap/playlist-mode-init';
 import { initializeMediaEditControls } from './bootstrap/media-edit-controls-init';
 import { initializeAmbientPlayer } from './bootstrap/player-init';
+import { initializeManagementBindingComposition } from './bootstrap/management-bindings-init';
 import {
   createPlaylistManagementActions,
-  initializeManagementForms,
 } from './bootstrap/management-init';
 import {
   applyAmbientDisplayOptions,
@@ -2059,7 +2058,8 @@ const init = function (): void {
     addMediaData,
     generatePlaylistJson,
     resetPlaylistManageForm,
-  } = createManagementFormBindings({
+  } = initializeManagementBindingComposition({
+    bindingOptions: {
     mediaForm: $MEDIA_MANAGE_FORM,
     mediaElements: $MEDIA_MANAGE_ELMS,
     playlistForm: $PLAYLIST_MANAGE_FORM,
@@ -2122,7 +2122,8 @@ const init = function (): void {
       playlistOptions: AMP_STATUS.options,
       seekFormat,
     }),
-  });
+    },
+  })!;
 
   async function importPlaylistFromFile(file: File): Promise<{ ok: boolean; message: string }> {
     const ambientData = getRuntimeAmbientData();
@@ -2189,7 +2190,8 @@ const init = function (): void {
     getLocalizedMessage: getRuntimeLocalizedMessage,
   });
 
-  initializeManagementForms({
+  initializeManagementBindingComposition({
+    initOptions: {
     mediaBindings: $MEDIA_MANAGE_FORM ? {
       form: $MEDIA_MANAGE_FORM,
       elements: $MEDIA_MANAGE_ELMS,
@@ -2270,6 +2272,7 @@ const init = function (): void {
       downloadPlaylist: downloadCurrentPlaylist,
       importPlaylist: importPlaylistFromManagementForm,
     } : null,
+    },
   });
 
   const $INITIAL_ALERT = document.getElementById('alert-notification') as HTMLElement | null;
