@@ -179,7 +179,6 @@ import {
 } from './ui/forms/category-volume-bindings';
 import {
   createPlaylistLoadGuard,
-  resetPlaylistRuntimeStatus,
 } from './domain/playlist-loader';
 import {
   buildPlaylistJson,
@@ -202,6 +201,7 @@ import { initializeStatusWatcher } from './bootstrap/status-watcher-init';
 import { initializePlaylistPolicy } from './bootstrap/playlist-policy-init';
 import { createManagementImportHelpers } from './bootstrap/management-import-init';
 import { canUseAmbientReorderMode } from './bootstrap/playlist-capabilities';
+import { initializePlaylistSession } from './bootstrap/playlist-session-init';
 import {
   createPlaylistManagementActions,
 } from './bootstrap/management-init';
@@ -381,62 +381,8 @@ const init = function (): void {
   const playlistLoadGuard = createPlaylistLoadGuard();
   const playlistResume = createPlaylistResumeController();
 
-  function isPlaylistLoadActive(seq: number): boolean {
-    return playlistLoadGuard.isActive(seq);
-  }
-
-  function beginPlaylistLoad(playlist: string): number {
-    appBoot.setPlaylistReadyState(false);
-    return playlistLoadGuard.begin(playlist, (nextPlaylist) => {
-      AMP_STATUS.playlist = nextPlaylist;
-      applyCloudEditRestrictions();
-    });
-  }
-
-  function finishPlaylistLoad(seq: number): void {
-    playlistLoadGuard.finish(seq);
-  }
-
-  function resetPlaylistRuntimeState(preserveOptions: boolean = false): void {
-    resetPlaylistRuntimeStatus(AMP_STATUS, preserveOptions);
-    playlistUiBindings?.clearCategory();
-    playlistUiBindings?.updatePlaylist();
-    appBoot.setPlaylistReadyState(false);
-  }
-
-  /**
-   * Save the current in-memory state of MyPlaylist to localStorage.
-   * Only called in cloud mode when the active playlist is MyPlaylist.
-   */
-  function saveMyPlaylistToStorage(): boolean {
-    try {
-      const jsonStr = generatePlaylistJson(false);
-      writeMyPlaylistJson(jsonStr);
-      runtimeLogger('saveMyPlaylistToStorage: saved', jsonStr.length, 'bytes');
-      return true;
-    } catch (e) {
-      runtimeLogger('saveMyPlaylistToStorage: error', e);
-      return false;
-    }
-  }
-
   function abortPlaybackTimers(): void {
     playbackTimers.abortAll();
-  }
-
-  /**
-   * Persist MyPlaylist only when cloud mode + MyPlaylist is currently active.
-   */
-  function persistMyPlaylistIfNeeded(): boolean {
-    const ambientData = getRuntimeAmbientData();
-    if (playlistLoadGuard.isLoading()) {
-      runtimeLogger('persistMyPlaylistIfNeeded: skipped while playlist load is active');
-      return false;
-    }
-    if (ambientData?.isCloud && AMP_STATUS.playlist === MYPLAYLIST_NAME) {
-      return saveMyPlaylistToStorage();
-    }
-    return true;
   }
 
   function sanitizeMediaText(value: string, maxLength: number): string {
@@ -606,6 +552,37 @@ const init = function (): void {
     mediaForm: document.querySelector('form[name="mediaManagement"]') as HTMLFormElement | null,
     playlistForm: document.querySelector('form[name="playlistManagement"]') as HTMLFormElement | null,
     readonlyTitle: 'Editing existing playlists is not available in cloud mode.',
+  });
+
+  const {
+    isPlaylistLoadActive,
+    beginPlaylistLoad,
+    finishPlaylistLoad,
+    resetPlaylistRuntimeState,
+    persistMyPlaylistIfNeeded,
+  } = initializePlaylistSession({
+    status: AMP_STATUS,
+    playlistLoadGuard,
+    myPlaylistName: MYPLAYLIST_NAME,
+    getRuntimeAmbientData,
+    applyCloudEditRestrictions,
+    setPlaylistReadyState: (isReady) => {
+      appBoot.setPlaylistReadyState(isReady);
+    },
+    clearCategory: () => {
+      playlistUiBindings?.clearCategory();
+    },
+    updatePlaylist: () => {
+      playlistUiBindings?.updatePlaylist();
+    },
+    generatePlaylistJson: (seekFormat) => buildPlaylistJson({
+      mediaItems: AMP_STATUS.media || [],
+      categories: AMP_STATUS.category || [],
+      playlistOptions: AMP_STATUS.options,
+      seekFormat,
+    }),
+    writeMyPlaylistJson,
+    logger: runtimeLogger,
   });
 
   const viewportRuntime = createViewportRuntimeController({
