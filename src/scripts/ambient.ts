@@ -228,6 +228,7 @@ import {
   ensureMyPlaylistOptionFromStorage as ensureMyPlaylistOptionFromStorageBootstrap,
   resolveInitialPlaylistStartup,
 } from './bootstrap/playlist-startup';
+import { executeInitialPlaylistStartup } from './bootstrap/playlist-startup-init';
 import {
   getCloudImportSizeLimitBytes as getCloudImportSizeLimitBytesDomain,
   parseImportedPlaylistJson,
@@ -1557,25 +1558,22 @@ const init = function (): void {
     myPlaylistName: MYPLAYLIST_NAME,
     savedPlaylistContext,
   });
-  switch (initialPlaylistStartup.type) {
-    case 'resume':
-      requestCategoryResume(initialPlaylistStartup.category);
-      requestMediaResume(initialPlaylistStartup.media);
-      selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, initialPlaylistStartup.playlist);
-      void getPlaylistData(initialPlaylistStartup.playlist);
-      break;
-    case 'autoload_myplaylist':
-      initMyPlaylistFromStorage();
+  executeInitialPlaylistStartup({
+    action: initialPlaylistStartup,
+    requestCategoryResume,
+    requestMediaResume,
+    selectPlaylistOption: (playlist) => {
+      selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, playlist);
+    },
+    loadPlaylist: (playlist) => getPlaylistData(playlist),
+    initMyPlaylistFromStorage,
+    setPlaylistReadyState: (isReady) => {
+      appBoot.setPlaylistReadyState(isReady);
+    },
+    releaseAppBoot: () => {
       appBoot.release();
-      break;
-    case 'autoload_current_playlist':
-      void getPlaylistData(initialPlaylistStartup.playlist);
-      break;
-    case 'ready':
-      appBoot.setPlaylistReadyState(true);
-      appBoot.release();
-      break;
-  }
+    },
+  });
 
   if (isElement($ALERT)) {
     noticeController.hideLegacyAlert();
