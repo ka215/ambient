@@ -153,10 +153,7 @@ import {
   PlaylistMode,
   scrollPlaylistToCurrentFocus,
   syncPlaylistCurrentFocus,
-  syncPlaylistModeButton as syncPlaylistModeButtonView,
-  syncDeleteSelectionIndicator as syncDeleteSelectionIndicatorView,
 } from './ui/playlist-view';
-import { bindAmbientPlaylistMode } from './ui/playlist-mode-bindings';
 import {
   createNoticeController,
   dispatchInitialNotice,
@@ -217,6 +214,7 @@ import {
   bindAmbientViewportLifecycle,
 } from './bootstrap/app-init';
 import { initializeOptionsModalBindings } from './bootstrap/options-modal-init';
+import { initializePlaylistModeBindings } from './bootstrap/playlist-mode-init';
 import {
   createPlaylistManagementActions,
   initializeManagementForms,
@@ -1444,29 +1442,12 @@ const init = function (): void {
     buttonLabel: $PLAYLIST_MODE_BUTTON_LABEL,
   };
 
-  function syncPlaylistModeButton(mode: PlaylistMode): void {
-    syncPlaylistModeButtonView(
-      playlistModeUi,
-      mode,
-      defaultPlaylistModeButtonIcon,
-      defaultPlaylistModeButtonLabel
-    );
-  }
-
-  function getPlaylistItemsForCurrentView(): MediaItem[] {
-    return getPlaylistItemsForView(AMP_STATUS.media, AMP_STATUS.ctg);
-  }
-
-  function isSortableAvailable(): boolean {
-    return typeof Sortable !== 'undefined' && typeof Sortable.create === 'function';
-  }
-
   function canUseReorderMode(): boolean {
     return canUsePlaylistReorderMode({
       canMutatePlaylist: canMutateCurrentPlaylist(),
-      sortableAvailable: isSortableAvailable(),
+      sortableAvailable: typeof Sortable !== 'undefined' && typeof Sortable.create === 'function',
       categoryId: AMP_STATUS.ctg,
-      visibleItems: getPlaylistItemsForCurrentView(),
+      visibleItems: getPlaylistItemsForView(AMP_STATUS.media, AMP_STATUS.ctg),
     });
   }
 
@@ -1491,7 +1472,7 @@ const init = function (): void {
     syncDeleteSelectionIndicator,
     syncPlaylistModeAvailability,
     updatePlaylistModeUi: updatePlaylistModeUI,
-  } = bindAmbientPlaylistMode({
+  } = initializePlaylistModeBindings({
     playlistModeUi,
     defaultPlaylistModeButtonIcon,
     defaultPlaylistModeButtonLabel,
@@ -1507,24 +1488,13 @@ const init = function (): void {
     setPlaylistModeState: (mode) => {
       playlistMode = mode;
     },
-    getStatus: () => ({
-      ctg: AMP_STATUS.ctg,
-      media: AMP_STATUS.media,
-      playlist: AMP_STATUS.playlist,
-    }),
+    getCategoryId: () => AMP_STATUS.ctg,
+    getMediaItems: () => AMP_STATUS.media,
+    getPlaylistName: () => AMP_STATUS.playlist,
     setMediaItems: (mediaItems) => {
       AMP_STATUS.media = mediaItems;
     },
-    getVisibleItems: getPlaylistItemsForCurrentView,
-    canMutatePlaylist: () => {
-      const ambientData = getAmbientData();
-      if (ambientData?.isCloud === true) {
-        return AMP_STATUS.playlist === MYPLAYLIST_NAME || !AMP_STATUS.playlist;
-      }
-      return true;
-    },
-    canUseReorderMode,
-    isCloud: () => getRuntimeAmbientData()?.isCloud === true,
+    canMutateCurrentPlaylist,
     myPlaylistName: MYPLAYLIST_NAME,
     hasStoredMyPlaylist: () => localStorage.getItem(MYPLAYLIST_KEY) !== null,
     getDeleteSelectedIds: () => deleteSelectedIds,
@@ -1539,10 +1509,6 @@ const init = function (): void {
     },
     updatePlaylist: () => {
       playlistUiBindings?.updatePlaylist();
-    },
-    syncModeButton: syncPlaylistModeButton,
-    syncDeleteSelectionIndicator: (itemElm, isSelected) => {
-      syncDeleteSelectionIndicatorView(itemElm, isSelected);
     },
     persistCurrentPlaylistMutation,
     updateNotice,
