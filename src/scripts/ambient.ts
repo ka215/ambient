@@ -160,20 +160,13 @@ import {
   syncWindowFullButtonState,
 } from './ui/player/player-shell';
 import {
-  syncPlaybackStatusAndCarousel,
-} from './ui/player/player-actions';
-import {
   getBottomMenuHeight as getBottomMenuHeightView,
-  getFullWindowPlayerSize as getFullWindowPlayerSizeView,
   getPlayerSizeForCurrentMode as getPlayerSizeForCurrentModeView,
 } from './ui/player/player-layout';
 import {
   findMediaById,
   resolveSeekRange,
 } from './ui/player/player-runtime';
-import {
-  createAmbientPlayerBindings,
-} from './ui/player/player-runtime-bindings';
 import {
   syncYouTubePreviewDuration,
 } from './ui/player/youtube-player-events';
@@ -209,6 +202,7 @@ import {
 import { initializeOptionsModalBindings } from './bootstrap/options-modal-init';
 import { initializePlaylistModeBindings } from './bootstrap/playlist-mode-init';
 import { initializeMediaEditControls } from './bootstrap/media-edit-controls-init';
+import { initializeAmbientPlayer } from './bootstrap/player-init';
 import {
   createPlaylistManagementActions,
   initializeManagementForms,
@@ -218,8 +212,6 @@ import {
   getAmbientNoMediaImagePath,
   isAmbientDarkModeEnabled,
   toggleAmbientCaptionBindings,
-  updateAmbientCaptionBindings,
-  updateAmbientCarouselDisplayBindings,
 } from './bootstrap/display-runtime';
 import {
   importPlaylistFromManagementFile,
@@ -1955,72 +1947,28 @@ const init = function (): void {
     },
   });
 
-  function updatePlayStatus(currentAmId: number): void {
-    syncPlaybackStatusAndCarousel({
-      mediaItems: AMP_STATUS.media || [],
-      categoryId: AMP_STATUS.ctg,
-      shuffleEnabled: Boolean(getOption('shuffle')),
-      shuffleItems: AMP_STATUS.shuffle || [],
-      currentId: currentAmId,
-      order: AMP_STATUS.order,
-      applyPlaybackStatus: (playbackStatus) => {
-        AMP_STATUS.current = playbackStatus.currentId;
-        AMP_STATUS.prev = playbackStatus.prevId;
-        AMP_STATUS.next = playbackStatus.nextId;
-      },
-      refreshCarousel: () => {
-        const ambientData = (window as any).AmbientData as AmbientData;
-        updateAmbientCarouselDisplayBindings({
-          prevId: AMP_STATUS.hasOwnProperty('prev') ? AMP_STATUS.prev : null,
-          currentId: AMP_STATUS.hasOwnProperty('current') ? AMP_STATUS.current : null,
-          nextId: AMP_STATUS.hasOwnProperty('next') ? AMP_STATUS.next : null,
-          wrapper: $CAROUSEL_WRAPPER as HTMLElement,
-          prevButton: $CAROUSEL_PREV as HTMLButtonElement,
-          nextButton: $CAROUSEL_NEXT as HTMLButtonElement,
-          mediaItems: AMP_STATUS.media || [],
-          playlistOptions: AMP_STATUS.options,
-          imageDir: ambientData?.imageDir || null,
-        });
-      },
-    });
-  }
-
-  const { playItem } = createAmbientPlayerBindings({
+  const { updatePlayStatus, playItem } = initializeAmbientPlayer({
     status: AMP_STATUS,
+    body: $BODY,
+    menu: $MENU,
     embedWrapper: $EMBED_WRAPPER,
     watchButton: $BUTTON_WATCH_TY,
     optionalContainer: $OPTIONAL_CONTAINER,
     playButton: $BUTTON_PLAY,
     pauseButton: $BUTTON_PAUSE,
+    carouselWrapper: $CAROUSEL_WRAPPER as HTMLElement,
+    carouselPrevButton: $CAROUSEL_PREV as HTMLButtonElement,
+    carouselNextButton: $CAROUSEL_NEXT as HTMLButtonElement,
+    mediaCaption: $MEDIA_CAPTION,
     currentWindowSize,
-    isElement,
+    defaultVolume: resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
+    imageDir: ((window as any).AmbientData as AmbientData | undefined)?.imageDir,
     getOption,
     getExtension: sharedGetExt,
-    getDefaultVolume: () => resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
     getPlaybackVolume: (mediaData: MediaItem | null = null) => getAmbientPlaybackVolume({
       mediaData,
       defaultVolume: resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
     }),
-    getPlayerSizeForCurrentMode: () => getPlayerSizeForCurrentModeView({
-      fullWindow: isFullWindowModeView($BODY),
-      viewportWidth: currentWindowSize.width,
-      viewportHeight: currentWindowSize.height,
-      bottomMenuHeight: getBottomMenuHeightView(
-        $MENU,
-        () => Math.round(window.visualViewport?.height || window.innerHeight)
-      ),
-    }),
-    getFullWindowPlayerSize: () => getFullWindowPlayerSizeView({
-      viewportWidth: currentWindowSize.width,
-      viewportHeight: currentWindowSize.height,
-      bottomMenuHeight: getBottomMenuHeightView(
-        $MENU,
-        () => Math.round(window.visualViewport?.height || window.innerHeight)
-      ),
-    }),
-    getViewportWidth: () => currentWindowSize.width,
-    getPlaceholderPath: () => getAmbientNoMediaImagePath(AMP_STATUS.options, 'placeholder'),
-    isFullWindowMode: () => isFullWindowModeView($BODY),
     normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
     inRange: sharedInRange,
     findMediaById,
@@ -2030,36 +1978,20 @@ const init = function (): void {
     escapeHtml: sharedEscapeHTML,
     updateNotice,
     closeResponsiveDrawers,
-    updatePlayStatus,
-    updateMediaCaption: (mediaData) => {
-      updateAmbientCaptionBindings({
-        mediaData,
-        bodyElement: $BODY,
-        captionElement: $MEDIA_CAPTION,
-        fallbackWidth: currentWindowSize.width,
-        sanitizeTitle: (value: string) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
-        sanitizeArtist: (value: string) => sanitizeMediaText(value, MEDIA_ARTIST_MAX_LENGTH),
-      });
-    },
-    emitYouTubeSignal,
     syncPlaybackButtonState,
     abortPlaybackTimers,
     abortSeeking,
     abortFader,
-    setPlayer: (nextPlayer) => {
-      player = nextPlayer;
-    },
     isSeekActive: () => playbackTimers.isSeekActive(),
     startSeek: (callback, intervalMs) => playbackTimers.startSeek(callback, intervalMs),
     startFader: (type, callback, intervalMs) => playbackTimers.startFader(type, callback, intervalMs),
-    reportPlaybackAutoplayTimeout: () => {
-      (document.getElementById('btn-play') as HTMLButtonElement).dispatchEvent(new Event('click'));
-    },
-    reportMissingSourceContext: () => ({
-      currentPlaylist: AMP_STATUS.playlist || '',
-      currentCategory: AMP_STATUS.ctg,
-    }),
+    emitYouTubeSignal,
+    sanitizeTitle: (value: string) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
+    sanitizeArtist: (value: string) => sanitizeMediaText(value, MEDIA_ARTIST_MAX_LENGTH),
     resolvePlayingState: () => (window as any).YT.PlayerState.PLAYING,
+    setPlayer: (nextPlayer) => {
+      player = nextPlayer;
+    },
   });
 
   async function activateImportedPlaylist(playlistName: string): Promise<void> {
