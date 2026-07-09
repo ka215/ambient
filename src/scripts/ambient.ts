@@ -203,6 +203,11 @@ import { createManagementImportHelpers } from './bootstrap/management-import-ini
 import { canUseAmbientReorderMode } from './bootstrap/playlist-capabilities';
 import { initializePlaylistSession } from './bootstrap/playlist-session-init';
 import {
+  createPlaybackTimerHelpers,
+  emitAmbientYouTubeSignal,
+  syncAmbientYouTubeSignalAttrs,
+} from './bootstrap/playback-runtime-init';
+import {
   createPlaylistManagementActions,
 } from './bootstrap/management-init';
 import {
@@ -308,28 +313,8 @@ const init = function (): void {
 
   let player: YTPlayer | undefined;
 
-  /**
-   * Reflect YouTube signal states to body data attributes for DOM-driven waits.
-   */
-  function syncYouTubeSignalAttrs(): void {
-    const body = document.body;
-    if (!body) {
-      return;
-    }
-    body.setAttribute('data-yt-phase', String(AMP_STATUS.yt_phase || 'idle'));
-    body.setAttribute('data-yt-seq', String(AMP_STATUS.yt_seq || 0));
-    body.setAttribute('data-yt-error', String(AMP_STATUS.yt_error || ''));
-  }
-
-  /**
-   * Update YouTube signal states and emit attribute updates.
-   */
-  function emitYouTubeSignal(phase: string, error = ''): void {
-    AMP_STATUS.yt_phase = phase;
-    AMP_STATUS.yt_error = error;
-    AMP_STATUS.yt_seq = Number(AMP_STATUS.yt_seq || 0) + 1;
-    syncYouTubeSignalAttrs();
-  }
+  const syncYouTubeSignalAttrs = (): void => syncAmbientYouTubeSignalAttrs(AMP_STATUS);
+  const emitYouTubeSignal = (phase: string, error = ''): void => emitAmbientYouTubeSignal(AMP_STATUS, phase, error);
 
   emitYouTubeSignal('api_loading');
   tag.addEventListener('load', () => {
@@ -349,20 +334,7 @@ const init = function (): void {
     noticeController?.update(notification);
   }
 
-  /**
-   * Abort seek for playback media.
-   */
-  function abortSeeking(): void {
-    playbackTimers.abortSeek();
-  }
-
-  /**
-   * Abort fader for playback media.
-   * @param type Either `fadein` or `fadeout`
-   */
-  function abortFader(type: 'fadein' | 'fadeout'): void {
-    playbackTimers.abortFader(type);
-  }
+  const { abortSeeking, abortFader, abortPlaybackTimers } = createPlaybackTimerHelpers(playbackTimers);
 
   // ============================================================================
   // CLOUD: MyPlaylist – localStorage persistence
@@ -380,10 +352,6 @@ const init = function (): void {
   const DEFAULT_VOLUME = 50;
   const playlistLoadGuard = createPlaylistLoadGuard();
   const playlistResume = createPlaylistResumeController();
-
-  function abortPlaybackTimers(): void {
-    playbackTimers.abortAll();
-  }
 
   function sanitizeMediaText(value: string, maxLength: number): string {
     return sharedSanitizeMediaText(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
