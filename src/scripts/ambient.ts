@@ -4,7 +4,6 @@
  */
 /// <reference path="./types/index.ts" />
 import 'flowbite';
-import Sortable from 'sortablejs';
 import '../styles/app.css';
 import {
   basename as sharedBasename,
@@ -80,11 +79,9 @@ import {
   setPlaylistOption,
 } from './state/playlist-options';
 import {
-  canUsePlaylistReorderMode,
   createShuffledPlaylistItems,
   getDefaultMediaItemForView,
   getMediaCategoryName as getMediaCategoryNameState,
-  getPlaylistItemsForView,
 } from './state/playlist-mode-state';
 import {
   applyMediaEditDirtyState,
@@ -204,6 +201,7 @@ import { initializeManagementBindingComposition } from './bootstrap/management-b
 import { initializeStatusWatcher } from './bootstrap/status-watcher-init';
 import { initializePlaylistPolicy } from './bootstrap/playlist-policy-init';
 import { createManagementImportHelpers } from './bootstrap/management-import-init';
+import { canUseAmbientReorderMode } from './bootstrap/playlist-capabilities';
 import {
   createPlaylistManagementActions,
 } from './bootstrap/management-init';
@@ -1197,11 +1195,10 @@ const init = function (): void {
   };
 
   function canUseReorderMode(): boolean {
-    return canUsePlaylistReorderMode({
+    return canUseAmbientReorderMode({
       canMutatePlaylist: canMutateCurrentPlaylist(),
-      sortableAvailable: typeof Sortable !== 'undefined' && typeof Sortable.create === 'function',
       categoryId: AMP_STATUS.ctg,
-      visibleItems: getPlaylistItemsForView(AMP_STATUS.media, AMP_STATUS.ctg),
+      mediaItems: AMP_STATUS.media,
     });
   }
 
