@@ -219,17 +219,11 @@ import {
 import { createPlaylistUiBindings } from './bootstrap/playlist-ui-init';
 import { createAppBootController } from './bootstrap/app-boot';
 import {
-  fetchAmbientPlaylistData,
-  initAmbientMyPlaylistFromStorage,
-  loadAmbientMyPlaylistFromStorage,
-  removeAmbientMyPlaylistOption,
-} from './bootstrap/playlist-load-bindings';
-import {
-  ensureMyPlaylistOptionFromStorage as ensureMyPlaylistOptionFromStorageBootstrap,
   resolveInitialPlaylistStartup,
 } from './bootstrap/playlist-startup';
 import { executeInitialPlaylistStartup } from './bootstrap/playlist-startup-init';
 import { activateImportedPlaylistSelection } from './bootstrap/imported-playlist-init';
+import { initializePlaylistRuntime } from './bootstrap/playlist-runtime-init';
 import {
   getCloudImportSizeLimitBytes as getCloudImportSizeLimitBytesDomain,
   parseImportedPlaylistJson,
@@ -596,115 +590,6 @@ const init = function (): void {
       updatePlayStatus(resumeAmId);
     },
   });
-
-  /**
-   * Load MyPlaylist from localStorage and populate AMP_STATUS as if a
-   * normal JSON playlist was loaded from the server.
-   */
-  function loadMyPlaylistFromStorage(): boolean {
-    return loadAmbientMyPlaylistFromStorage({
-      status: AMP_STATUS,
-      myPlaylistName: MYPLAYLIST_NAME,
-      sanitizeMediaItem: <T extends Partial<MediaItem>>(item: T): T => sharedSanitizeMediaItemTextFields({
-        item,
-        titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
-        artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
-        descMaxLength: MEDIA_DESC_MAX_LENGTH,
-        disallowedControlChars: DISALLOWED_CONTROL_CHARS_RE,
-      }),
-      applyPendingCategoryResume,
-      applyPendingMediaResume,
-      updatePlaylist: () => {
-        playlistUiBindings?.updatePlaylist();
-      },
-      updatePlayStatus,
-      getDefaultMediaItemForCurrentView: () => getDefaultMediaItemForView({
-        mediaItems: AMP_STATUS.media,
-        categoryId: AMP_STATUS.ctg,
-      }),
-      logger,
-    });
-  }
-
-  // In cloud mode: if MyPlaylist exists in localStorage, inject it into the
-  // playlist dropdown and load it automatically.
-  // NOTE: This block runs after DOM element constants are declared.
-  function ensureMyPlaylistOptionFromStorage(): boolean {
-    const ambientData = (window as any).AmbientData as AmbientData | undefined;
-    return ensureMyPlaylistOptionFromStorageBootstrap({
-      hasStoredMyPlaylist: hasStoredMyPlaylist(),
-      isCloud: ambientData?.isCloud === true,
-      myPlaylistName: MYPLAYLIST_NAME,
-      selectElement: document.getElementById('current-playlist') as HTMLSelectElement | null,
-    });
-  }
-
-  function initMyPlaylistFromStorage(): void {
-    initAmbientMyPlaylistFromStorage({
-      ensureMyPlaylistOptionFromStorage,
-      resetPlaylistRuntimeState: () => {
-        resetPlaylistRuntimeState();
-      },
-      loadMyPlaylistFromStorage,
-      selectPlaylistOption: (playlist) => {
-        selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, playlist);
-      },
-      myPlaylistName: MYPLAYLIST_NAME,
-      applyCloudEditRestrictions,
-      removePlaylistOption: () => {
-        removeAmbientMyPlaylistOption(
-          document.getElementById('current-playlist') as HTMLSelectElement | null,
-          MYPLAYLIST_NAME
-        );
-      },
-      clearCurrentPlaylist: () => {
-        AMP_STATUS.playlist = null;
-      },
-      setPlaylistReadyState: (isReady) => {
-        appBoot.setPlaylistReadyState(isReady);
-      },
-    });
-  }
-
-  // Process global data passed by the system.
-  // NOTE: initMyPlaylistFromStorage() and AmbientData processing have been moved
-  // to AFTER DOM element constants to avoid temporal dead zone issues.
-
-  /**
-   * Fetch data of specific playlist.
-   */
-  async function getPlaylistData(playlist: string, preserveOptionsDuringLoad: boolean = false): Promise<void> {
-    await fetchAmbientPlaylistData({
-      playlist,
-      preserveOptionsDuringLoad,
-      myPlaylistName: MYPLAYLIST_NAME,
-      beginPlaylistLoad,
-      resetPlaylistRuntimeState,
-      loadMyPlaylistFromStorage,
-      isPlaylistLoadActive,
-      clearCurrentPlaylist: () => {
-        AMP_STATUS.playlist = null;
-      },
-      applyCloudEditRestrictions,
-      fetchData,
-      baseUrl: BASE_URL,
-      status: AMP_STATUS,
-      applyPendingCategoryResume,
-      applyPendingMediaResume,
-      updatePlaylist: () => {
-        playlistUiBindings?.updatePlaylist();
-      },
-      updatePlayStatus,
-      getDefaultMediaItemForCurrentView: () => getDefaultMediaItemForView({
-        mediaItems: AMP_STATUS.media,
-        categoryId: AMP_STATUS.ctg,
-      }),
-      finishPlaylistLoad,
-      releaseAppBootGate: () => {
-        appBoot.release();
-      },
-    });
-  }
 
   /**
    * In cloud mode, disable media-add and category-add controls when the
@@ -1546,36 +1431,6 @@ const init = function (): void {
     },
   });
 
-  // Process global data passed by the system.
-  // In cloud mode: load MyPlaylist from localStorage before processing server data.
-  // (Placed here, AFTER DOM constants, to avoid const temporal dead zone issues.)
-  const savedPlaylistContext = getSavedPlaylistContext();
-  domainEnsureCloudMyPlaylistSeed(logger);
-  ensureMyPlaylistOptionFromStorage();
-  const initialPlaylistStartup = resolveInitialPlaylistStartup<PlaylistResumeMediaContext>({
-    ambientData: ((window as any).AmbientData as AmbientData | undefined) ?? null,
-    hasStoredMyPlaylist: localStorage.getItem(MYPLAYLIST_KEY) !== null,
-    isPlaylistAvailableForResume,
-    myPlaylistName: MYPLAYLIST_NAME,
-    savedPlaylistContext,
-  });
-  executeInitialPlaylistStartup({
-    action: initialPlaylistStartup,
-    requestCategoryResume,
-    requestMediaResume,
-    selectPlaylistOption: (playlist) => {
-      selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, playlist);
-    },
-    loadPlaylist: (playlist) => getPlaylistData(playlist),
-    initMyPlaylistFromStorage,
-    setPlaylistReadyState: (isReady) => {
-      appBoot.setPlaylistReadyState(isReady);
-    },
-    releaseAppBoot: () => {
-      appBoot.release();
-    },
-  });
-
   if (isElement($ALERT)) {
     noticeController.hideLegacyAlert();
   }
@@ -1989,6 +1844,82 @@ const init = function (): void {
     resolvePlayingState: () => (window as any).YT.PlayerState.PLAYING,
     setPlayer: (nextPlayer) => {
       player = nextPlayer;
+    },
+  });
+
+  const {
+    ensureMyPlaylistOptionFromStorage,
+    initMyPlaylistFromStorage,
+    getPlaylistData,
+  } = initializePlaylistRuntime({
+    status: AMP_STATUS,
+    ambientData: ((window as any).AmbientData as AmbientData | undefined) ?? null,
+    myPlaylistName: MYPLAYLIST_NAME,
+    hasStoredMyPlaylist,
+    selectElement: isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null,
+    sanitizeMediaItem: <T extends Partial<MediaItem>>(item: T): T => sharedSanitizeMediaItemTextFields({
+      item,
+      titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+      artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+      descMaxLength: MEDIA_DESC_MAX_LENGTH,
+      disallowedControlChars: DISALLOWED_CONTROL_CHARS_RE,
+    }),
+    applyPendingCategoryResume,
+    applyPendingMediaResume,
+    updatePlaylist: () => {
+      playlistUiBindings?.updatePlaylist();
+    },
+    updatePlayStatus,
+    getDefaultMediaItemForCurrentView: () => getDefaultMediaItemForView({
+      mediaItems: AMP_STATUS.media,
+      categoryId: AMP_STATUS.ctg,
+    }),
+    logger,
+    resetPlaylistRuntimeState,
+    selectPlaylistOption: (playlist) => {
+      selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, playlist);
+    },
+    applyCloudEditRestrictions,
+    setPlaylistReadyState: (isReady) => {
+      appBoot.setPlaylistReadyState(isReady);
+    },
+    beginPlaylistLoad,
+    isPlaylistLoadActive,
+    finishPlaylistLoad,
+    releaseAppBootGate: () => {
+      appBoot.release();
+    },
+    fetchData,
+    baseUrl: BASE_URL,
+  });
+
+  // Process global data passed by the system.
+  // In cloud mode: load MyPlaylist from localStorage before processing server data.
+  // (Placed here, AFTER runtime bindings, to avoid dependency initialization gaps.)
+  const savedPlaylistContext = getSavedPlaylistContext();
+  domainEnsureCloudMyPlaylistSeed(logger);
+  ensureMyPlaylistOptionFromStorage();
+  const initialPlaylistStartup = resolveInitialPlaylistStartup<PlaylistResumeMediaContext>({
+    ambientData: ((window as any).AmbientData as AmbientData | undefined) ?? null,
+    hasStoredMyPlaylist: localStorage.getItem(MYPLAYLIST_KEY) !== null,
+    isPlaylistAvailableForResume,
+    myPlaylistName: MYPLAYLIST_NAME,
+    savedPlaylistContext,
+  });
+  executeInitialPlaylistStartup({
+    action: initialPlaylistStartup,
+    requestCategoryResume,
+    requestMediaResume,
+    selectPlaylistOption: (playlist) => {
+      selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, playlist);
+    },
+    loadPlaylist: (playlist) => getPlaylistData(playlist),
+    initMyPlaylistFromStorage,
+    setPlaylistReadyState: (isReady) => {
+      appBoot.setPlaylistReadyState(isReady);
+    },
+    releaseAppBoot: () => {
+      appBoot.release();
     },
   });
 
