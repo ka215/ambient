@@ -450,7 +450,43 @@ const init = function (): void {
             }
             break;
           case /^options$/i.test(prop):
-            applyOptions();
+            {
+              const ambientData = (window as any).AmbientData as AmbientData;
+              applyAmbientDisplayOptions({
+                status: AMP_STATUS,
+                getOption: (key) => getOption(key as Extract<keyof PlaylistOptions, string>),
+                defaultVolume: resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
+                body: $BODY,
+                menu: $MENU,
+                imageDir: ambientData?.imageDir,
+                shuffleToggleRoot: $TOGGLE_SHUFFLE,
+                seekToggleRoot: $TOGGLE_SEEKPLAY,
+                faderToggleRoot: $TOGGLE_FADER,
+                darkModeToggleRoot: $TOGGLE_DARKMODE,
+                volumeRange: $RANGE_VOLUME,
+                defaultVolumeDisplay: document.getElementById('default-volume-value') as HTMLElement | null,
+                normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
+                syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
+                syncMediaVolumeField: () => {
+                  syncAmbientResolvedMediaVolumeField({
+                    input: $MEDIA_VOLUME,
+                    display: document.getElementById('default-media-volume'),
+                    volume: getOption('volume'),
+                    defaultVolume: getOption('volume'),
+                    fallbackVolume: DEFAULT_VOLUME,
+                  });
+                },
+                shufflePlaylist: () => createShuffledPlaylistItems({
+                  mediaItems: AMP_STATUS.media,
+                  categoryId: AMP_STATUS.ctg,
+                  shuffleEnabled: true,
+                }),
+                setStyles,
+                setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
+                  viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
+                },
+              });
+            }
             break;
           case /^yt_(phase|seq|error)$/i.test(prop):
             syncYouTubeSignalAttrs();
@@ -836,10 +872,21 @@ const init = function (): void {
       settingsCloseButton: document.getElementById('btn-close-settings') as HTMLButtonElement | null,
     },
     state: currentWindowSize,
-    getViewportWidth,
-    getViewportHeight,
-    getBottomMenuHeight,
-    getPlayerSizeForCurrentMode,
+    getViewportWidth: () => Math.round(window.visualViewport?.width || window.innerWidth),
+    getViewportHeight: () => Math.round(window.visualViewport?.height || window.innerHeight),
+    getBottomMenuHeight: () => getBottomMenuHeightView(
+      $MENU,
+      () => Math.round(window.visualViewport?.height || window.innerHeight)
+    ),
+    getPlayerSizeForCurrentMode: () => getPlayerSizeForCurrentModeView({
+      fullWindow: isFullWindowModeView($BODY),
+      viewportWidth: currentWindowSize.width,
+      viewportHeight: currentWindowSize.height,
+      bottomMenuHeight: getBottomMenuHeightView(
+        $MENU,
+        () => Math.round(window.visualViewport?.height || window.innerHeight)
+      ),
+    }),
     isFullWindowMode: () => isFullWindowModeView($BODY),
     getPlayer: () => player,
     getHtmlPlayer: () => document.getElementById('html-player') as HTMLVideoElement | null,
@@ -857,7 +904,13 @@ const init = function (): void {
     syncMenuCollapseButtonState: (minimized) => {
       syncMenuCollapseButtonState($BUTTON_MENU_COLLAPSE, minimized);
     },
-    onCaptionRefresh: toggleMarqueeCaption,
+    onCaptionRefresh: () => {
+      toggleAmbientCaptionBindings({
+        bodyElement: $BODY,
+        captionElement: $MEDIA_CAPTION,
+        fallbackWidth: currentWindowSize.width,
+      });
+    },
   });
 
   const playlistDescModal = createPlaylistDescModalController(
@@ -1280,7 +1333,7 @@ const init = function (): void {
       mediaItem,
       draft,
       imageDir: getRuntimeAmbientData()?.imageDir,
-      getFallbackThumbnailSrc: () => getNoMediaImagePath('thumb'),
+      getFallbackThumbnailSrc: () => getAmbientNoMediaImagePath(AMP_STATUS.options, 'thumb'),
     });
   }
 
@@ -1366,43 +1419,6 @@ const init = function (): void {
       itemTitleElement: isElement($MODAL_MEDIA_EDIT_ITEM_TITLE) ? $MODAL_MEDIA_EDIT_ITEM_TITLE : null,
       closeButton: isElement($BUTTON_CLOSE_MEDIA_EDIT) ? $BUTTON_CLOSE_MEDIA_EDIT : null,
       defaultTitle: defaultMediaEditModalTitle,
-    });
-  }
-
-  function isDarkModeEnabled(): boolean {
-    return isAmbientDarkModeEnabled({ playlistOptions: AMP_STATUS.options });
-  }
-
-  function getNoMediaImagePath(kind: 'placeholder' | 'thumb' = 'placeholder'): string {
-    return getAmbientNoMediaImagePath(AMP_STATUS.options, kind);
-  }
-
-  function getViewportWidth(): number {
-    return Math.round(window.visualViewport?.width || window.innerWidth);
-  }
-
-  function getViewportHeight(): number {
-    return Math.round(window.visualViewport?.height || window.innerHeight);
-  }
-
-  function getBottomMenuHeight(): number {
-    return getBottomMenuHeightView($MENU, getViewportHeight);
-  }
-
-  function getFullWindowPlayerSize(): { width: number; height: number } {
-    return getFullWindowPlayerSizeView({
-      viewportWidth: currentWindowSize.width,
-      viewportHeight: currentWindowSize.height,
-      bottomMenuHeight: getBottomMenuHeight(),
-    });
-  }
-
-  function getPlayerSizeForCurrentMode(): { width: number; height: number } {
-    return getPlayerSizeForCurrentModeView({
-      fullWindow: isFullWindowModeView($BODY),
-      viewportWidth: currentWindowSize.width,
-      viewportHeight: currentWindowSize.height,
-      bottomMenuHeight: getBottomMenuHeight(),
     });
   }
 
@@ -1548,7 +1564,7 @@ const init = function (): void {
     canUseReorderMode,
     canMutateCurrentPlaylist,
     ambientData: (window as any).AmbientData as { imageDir?: string; debug?: boolean } | null,
-    getNoMediaImagePath,
+    getNoMediaImagePath: (kind) => getAmbientNoMediaImagePath(AMP_STATUS.options, kind),
     openMediaManagement: (presetCategoryId) => {
       openMediaManagementAction(presetCategoryId);
     },
@@ -1883,90 +1899,6 @@ const init = function (): void {
     return readPlaylistOption<PlaylistOptions, K>(AMP_STATUS, key, MYPLAYLIST_NAME);
   }
 
-  /**
-   * Causes the application to apply specific option contents of the AMP_STATUS object.
-   */
-  function applyOptions(): void {
-    const ambientData = (window as any).AmbientData as AmbientData;
-    applyAmbientDisplayOptions({
-      status: AMP_STATUS,
-      getOption: (key) => getOption(key as Extract<keyof PlaylistOptions, string>),
-      defaultVolume: resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
-      body: $BODY,
-      menu: $MENU,
-      imageDir: ambientData?.imageDir,
-      shuffleToggleRoot: $TOGGLE_SHUFFLE,
-      seekToggleRoot: $TOGGLE_SEEKPLAY,
-      faderToggleRoot: $TOGGLE_FADER,
-      darkModeToggleRoot: $TOGGLE_DARKMODE,
-      volumeRange: $RANGE_VOLUME,
-      defaultVolumeDisplay: document.getElementById('default-volume-value') as HTMLElement | null,
-      normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
-      syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-      syncMediaVolumeField: () => {
-        syncAmbientResolvedMediaVolumeField({
-          input: $MEDIA_VOLUME,
-          display: document.getElementById('default-media-volume'),
-          volume: getOption('volume'),
-          defaultVolume: getOption('volume'),
-          fallbackVolume: DEFAULT_VOLUME,
-        });
-      },
-      shufflePlaylist: () => createShuffledPlaylistItems({
-        mediaItems: AMP_STATUS.media,
-        categoryId: AMP_STATUS.ctg,
-        shuffleEnabled: true,
-      }),
-      setStyles,
-      setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
-        viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
-      },
-    });
-  }
-
-  /**
-   * Clear and initialize the carousel display.
-   */
-  function updateCarousel(): void {
-    const ambientData = (window as any).AmbientData as AmbientData;
-    updateAmbientCarouselDisplayBindings({
-      prevId: AMP_STATUS.hasOwnProperty('prev') ? AMP_STATUS.prev : null,
-      currentId: AMP_STATUS.hasOwnProperty('current') ? AMP_STATUS.current : null,
-      nextId: AMP_STATUS.hasOwnProperty('next') ? AMP_STATUS.next : null,
-      wrapper: $CAROUSEL_WRAPPER as HTMLElement,
-      prevButton: $CAROUSEL_PREV as HTMLButtonElement,
-      nextButton: $CAROUSEL_NEXT as HTMLButtonElement,
-      mediaItems: AMP_STATUS.media || [],
-      playlistOptions: AMP_STATUS.options,
-      imageDir: ambientData?.imageDir || null,
-    });
-  }
-
-  /**
-   * Update the media caption display.
-   */
-  function updateMediaCaption(mediaData: MediaItem): void {
-    updateAmbientCaptionBindings({
-      mediaData,
-      bodyElement: $BODY,
-      captionElement: $MEDIA_CAPTION,
-      fallbackWidth: currentWindowSize.width,
-      sanitizeTitle: (value: string) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
-      sanitizeArtist: (value: string) => sanitizeMediaText(value, MEDIA_ARTIST_MAX_LENGTH),
-    });
-  }
-
-  /**
-   * Toggle caption marqueeing depending on window size.
-   */
-  function toggleMarqueeCaption(): void {
-    toggleAmbientCaptionBindings({
-      bodyElement: $BODY,
-      captionElement: $MEDIA_CAPTION,
-      fallbackWidth: currentWindowSize.width,
-    });
-  }
-
   // ============================================================================
   // EVENT HANDLERS
   // ============================================================================
@@ -2089,7 +2021,7 @@ const init = function (): void {
       normalizeVolume: (value) => normalizeAmbientVolume(value, DEFAULT_VOLUME),
       syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
       getDefaultVolumeDisplay: () => document.getElementById('default-volume-value') as HTMLElement | null,
-      isDarkModeEnabled,
+      isDarkModeEnabled: () => isAmbientDarkModeEnabled({ playlistOptions: AMP_STATUS.options }),
       setStyles,
     },
   });
@@ -2107,7 +2039,20 @@ const init = function (): void {
         AMP_STATUS.prev = playbackStatus.prevId;
         AMP_STATUS.next = playbackStatus.nextId;
       },
-      refreshCarousel: updateCarousel,
+      refreshCarousel: () => {
+        const ambientData = (window as any).AmbientData as AmbientData;
+        updateAmbientCarouselDisplayBindings({
+          prevId: AMP_STATUS.hasOwnProperty('prev') ? AMP_STATUS.prev : null,
+          currentId: AMP_STATUS.hasOwnProperty('current') ? AMP_STATUS.current : null,
+          nextId: AMP_STATUS.hasOwnProperty('next') ? AMP_STATUS.next : null,
+          wrapper: $CAROUSEL_WRAPPER as HTMLElement,
+          prevButton: $CAROUSEL_PREV as HTMLButtonElement,
+          nextButton: $CAROUSEL_NEXT as HTMLButtonElement,
+          mediaItems: AMP_STATUS.media || [],
+          playlistOptions: AMP_STATUS.options,
+          imageDir: ambientData?.imageDir || null,
+        });
+      },
     });
   }
 
@@ -2127,10 +2072,25 @@ const init = function (): void {
       mediaData,
       defaultVolume: resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
     }),
-    getPlayerSizeForCurrentMode,
-    getFullWindowPlayerSize,
+    getPlayerSizeForCurrentMode: () => getPlayerSizeForCurrentModeView({
+      fullWindow: isFullWindowModeView($BODY),
+      viewportWidth: currentWindowSize.width,
+      viewportHeight: currentWindowSize.height,
+      bottomMenuHeight: getBottomMenuHeightView(
+        $MENU,
+        () => Math.round(window.visualViewport?.height || window.innerHeight)
+      ),
+    }),
+    getFullWindowPlayerSize: () => getFullWindowPlayerSizeView({
+      viewportWidth: currentWindowSize.width,
+      viewportHeight: currentWindowSize.height,
+      bottomMenuHeight: getBottomMenuHeightView(
+        $MENU,
+        () => Math.round(window.visualViewport?.height || window.innerHeight)
+      ),
+    }),
     getViewportWidth: () => currentWindowSize.width,
-    getPlaceholderPath: () => getNoMediaImagePath('placeholder'),
+    getPlaceholderPath: () => getAmbientNoMediaImagePath(AMP_STATUS.options, 'placeholder'),
     isFullWindowMode: () => isFullWindowModeView($BODY),
     normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
     inRange: sharedInRange,
@@ -2142,7 +2102,16 @@ const init = function (): void {
     updateNotice,
     closeResponsiveDrawers,
     updatePlayStatus,
-    updateMediaCaption,
+    updateMediaCaption: (mediaData) => {
+      updateAmbientCaptionBindings({
+        mediaData,
+        bodyElement: $BODY,
+        captionElement: $MEDIA_CAPTION,
+        fallbackWidth: currentWindowSize.width,
+        sanitizeTitle: (value: string) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
+        sanitizeArtist: (value: string) => sanitizeMediaText(value, MEDIA_ARTIST_MAX_LENGTH),
+      });
+    },
     emitYouTubeSignal,
     syncPlaybackButtonState,
     abortPlaybackTimers,
