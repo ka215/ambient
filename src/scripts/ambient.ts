@@ -136,13 +136,6 @@ import {
   resetMediaEditModalView,
 } from './ui/media-edit-modal-view';
 import {
-  bindMediaEditCategoryControls,
-  bindMediaEditFieldControls,
-  bindMediaEditPreviewControls,
-  bindMediaEditPrimaryControls,
-  bindMediaEditThumbnailControls,
-} from './ui/media-edit-controls';
-import {
   applyMediaEditDraftToFormView,
   resolveMediaEditThumbnailSrc,
 } from './ui/media-edit-form-view';
@@ -215,6 +208,7 @@ import {
 } from './bootstrap/app-init';
 import { initializeOptionsModalBindings } from './bootstrap/options-modal-init';
 import { initializePlaylistModeBindings } from './bootstrap/playlist-mode-init';
+import { initializeMediaEditControls } from './bootstrap/media-edit-controls-init';
 import {
   createPlaylistManagementActions,
   initializeManagementForms,
@@ -1638,193 +1632,191 @@ const init = function (): void {
   const openMediaManagement = optionsModalBindings.openMediaManagement;
   openMediaManagementAction = openMediaManagement;
 
-  bindMediaEditPrimaryControls({
-    closeButton: $BUTTON_CLOSE_MEDIA_EDIT,
-    cancelButton: $BUTTON_CANCEL_MEDIA_EDIT,
-    saveButton: $BUTTON_SAVE_MEDIA_EDIT,
-    form: $FORM_MEDIA_EDIT,
-    onClose: () => {
-      closeMediaEditModal(true);
+  initializeMediaEditControls({
+    primary: {
+      closeButton: $BUTTON_CLOSE_MEDIA_EDIT,
+      cancelButton: $BUTTON_CANCEL_MEDIA_EDIT,
+      saveButton: $BUTTON_SAVE_MEDIA_EDIT,
+      form: $FORM_MEDIA_EDIT,
+      onClose: () => {
+        closeMediaEditModal(true);
+      },
+      onCancel: () => {
+        cancelMediaEditModal(true);
+      },
+      onSave: async () => {
+        await saveMediaEdit();
+      },
     },
-    onCancel: () => {
-      cancelMediaEditModal(true);
+    category: {
+      toggleButton: $BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE,
+      clearButton: $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR,
+      categoryInput: $MEDIA_EDIT_CATEGORY,
+      categoryCombobox: $MEDIA_EDIT_CATEGORY_COMBOBOX,
+      isDropdownVisible: isMediaEditCategoryDropdownVisible,
+      openDropdown: openMediaEditCategoryDropdown,
+      closeDropdown: closeMediaEditCategoryDropdown,
+      syncClearButton: syncMediaEditCategoryClearButton,
+      renderOptions: renderMediaEditCategoryOptions,
     },
-    onSave: async () => {
-      await saveMediaEdit();
-    },
-  });
-
-  bindMediaEditCategoryControls({
-    toggleButton: $BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE,
-    clearButton: $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR,
-    categoryInput: $MEDIA_EDIT_CATEGORY,
-    categoryCombobox: $MEDIA_EDIT_CATEGORY_COMBOBOX,
-    isDropdownVisible: isMediaEditCategoryDropdownVisible,
-    openDropdown: openMediaEditCategoryDropdown,
-    closeDropdown: closeMediaEditCategoryDropdown,
-    syncClearButton: syncMediaEditCategoryClearButton,
-    renderOptions: renderMediaEditCategoryOptions,
-  });
-
-  bindMediaEditFieldControls({
-    draftFields: [$MEDIA_EDIT_CATEGORY, $MEDIA_EDIT_TITLE, $MEDIA_EDIT_ARTIST, $MEDIA_EDIT_DESCRIPTION],
-    volumeInput: $MEDIA_EDIT_VOLUME,
-    timingFields: [$MEDIA_EDIT_SEEK_START, $MEDIA_EDIT_SEEK_END, $MEDIA_EDIT_FADEIN_END, $MEDIA_EDIT_FADEOUT_START],
-    timingStepperButtons: document.querySelectorAll('.media-edit-timing-stepper-btn'),
-    onDraftFieldInput: () => {
-      syncMediaEditDraftStateFromForm();
-      validateAndRenderMediaEditDraftFromForm();
-    },
-    onDraftFieldChange: () => {
-      syncMediaEditDraftStateFromForm();
-      validateAndRenderMediaEditDraftFromForm();
-    },
-    onVolumeInput: () => {
-      if (!$MEDIA_EDIT_VOLUME) {
-        return;
-      }
-      const normalized = readMediaEditDraftFromForm();
-      syncVolumeSlider({
-        input: $MEDIA_EDIT_VOLUME,
-        volume: normalized.volume,
-        syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-        display: $MEDIA_EDIT_VOLUME_VALUE,
-      });
-      syncMediaEditDraftStateFromForm();
-      validateAndRenderMediaEditDraftFromForm();
-    },
-    onVolumeBlur: () => {
-      if (!$MEDIA_EDIT_VOLUME) {
-        return;
-      }
-      const normalized = readMediaEditDraftFromForm();
-      syncVolumeSlider({
-        input: $MEDIA_EDIT_VOLUME,
-        volume: normalized.volume,
-        syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-        display: $MEDIA_EDIT_VOLUME_VALUE,
-      });
-      syncMediaEditDraftStateFromForm();
-      validateAndRenderMediaEditDraftFromForm();
-    },
-    onTimingInput: (field: HTMLInputElement) => {
-      sharedSanitizeMediaEditTimingInputField(field);
-      syncMediaEditTimingDisplay();
-      syncMediaEditDraftStateFromForm();
-      validateAndRenderMediaEditDraftFromForm();
-    },
-    onTimingChange: (field: HTMLInputElement) => {
-      sharedSanitizeMediaEditTimingInputField(field);
-      syncMediaEditTimingDisplay();
-      syncMediaEditDraftStateFromForm();
-      validateAndRenderMediaEditDraftFromForm();
-    },
-    onTimingBlur: (field: HTMLInputElement) => {
-      field.value = sharedToMediaEditTimingInputValue(sharedParseMediaTimeToIntegerSeconds(field.value));
-      syncMediaEditTimingDisplay();
-      syncMediaEditDraftStateFromForm();
-      validateAndRenderMediaEditDraftFromForm();
-    },
-    onTimingStep: (field: HTMLInputElement, direction: 1 | -1) => {
-      sharedStepMediaEditTimingField(field, direction);
-    },
-  });
-
-  bindMediaEditPreviewControls({
-    syncSeekStartButton: $BUTTON_MEDIA_EDIT_SYNC_SEEK_START,
-    syncSeekEndButton: $BUTTON_MEDIA_EDIT_SYNC_SEEK_END,
-    syncFadeinEndButton: $BUTTON_MEDIA_EDIT_SYNC_FADEIN_END,
-    syncFadeoutStartButton: $BUTTON_MEDIA_EDIT_SYNC_FADEOUT_START,
-    previewRetryButton: $BUTTON_MEDIA_EDIT_PREVIEW_RETRY,
-    onSyncSeekStart: () => {
-      syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_SEEK_START, 'seek start');
-    },
-    onSyncSeekEnd: () => {
-      syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_SEEK_END, 'seek end');
-    },
-    onSyncFadeinEnd: () => {
-      syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_FADEIN_END, 'fade-in end');
-    },
-    onSyncFadeoutStart: () => {
-      syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_FADEOUT_START, 'fade-out start');
-    },
-    onPreviewRetry: () => {
-      const previewSourceItem = mediaEditPreview.getPreviewSourceItem();
-      if (!previewSourceItem) {
-        return;
-      }
-      createMediaEditPreview(previewSourceItem);
-    },
-  });
-
-  bindMediaEditThumbnailControls({
-    pickButton: $BUTTON_MEDIA_EDIT_THUMBNAIL_PICK,
-    input: $MEDIA_EDIT_THUMBNAIL_INPUT,
-    removeButton: $BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE,
-    clearButton: $BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR,
-    onPick: () => {
-      $MEDIA_EDIT_THUMBNAIL_INPUT?.click();
-    },
-    onInputChange: () => {
-      const thumbnailInput = $MEDIA_EDIT_THUMBNAIL_INPUT;
-      if (!thumbnailInput) {
-        return;
-      }
-      const file = thumbnailInput.files?.[0] || null;
-      if (!file) {
-        return;
-      }
-      const allowed = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
-      if (!allowed.includes(file.type)) {
-        updateNotice({
-          type: 'error',
-          message: getRuntimeLocalizedMessage('mediaEditThumbnailTypeError', 'Only PNG, JPEG, GIF, and WebP images are accepted.'),
-          delay: 2500,
+    field: {
+      draftFields: [$MEDIA_EDIT_CATEGORY, $MEDIA_EDIT_TITLE, $MEDIA_EDIT_ARTIST, $MEDIA_EDIT_DESCRIPTION],
+      volumeInput: $MEDIA_EDIT_VOLUME,
+      timingFields: [$MEDIA_EDIT_SEEK_START, $MEDIA_EDIT_SEEK_END, $MEDIA_EDIT_FADEIN_END, $MEDIA_EDIT_FADEOUT_START],
+      timingStepperButtons: document.querySelectorAll('.media-edit-timing-stepper-btn'),
+      onDraftFieldInput: () => {
+        syncMediaEditDraftStateFromForm();
+        validateAndRenderMediaEditDraftFromForm();
+      },
+      onDraftFieldChange: () => {
+        syncMediaEditDraftStateFromForm();
+        validateAndRenderMediaEditDraftFromForm();
+      },
+      onVolumeInput: () => {
+        if (!$MEDIA_EDIT_VOLUME) {
+          return;
+        }
+        const normalized = readMediaEditDraftFromForm();
+        syncVolumeSlider({
+          input: $MEDIA_EDIT_VOLUME,
+          volume: normalized.volume,
+          syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
+          display: $MEDIA_EDIT_VOLUME_VALUE,
         });
+        syncMediaEditDraftStateFromForm();
+        validateAndRenderMediaEditDraftFromForm();
+      },
+      onVolumeBlur: () => {
+        if (!$MEDIA_EDIT_VOLUME) {
+          return;
+        }
+        const normalized = readMediaEditDraftFromForm();
+        syncVolumeSlider({
+          input: $MEDIA_EDIT_VOLUME,
+          volume: normalized.volume,
+          syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
+          display: $MEDIA_EDIT_VOLUME_VALUE,
+        });
+        syncMediaEditDraftStateFromForm();
+        validateAndRenderMediaEditDraftFromForm();
+      },
+      onTimingInput: (field: HTMLInputElement) => {
+        sharedSanitizeMediaEditTimingInputField(field);
+        syncMediaEditTimingDisplay();
+        syncMediaEditDraftStateFromForm();
+        validateAndRenderMediaEditDraftFromForm();
+      },
+      onTimingChange: (field: HTMLInputElement) => {
+        sharedSanitizeMediaEditTimingInputField(field);
+        syncMediaEditTimingDisplay();
+        syncMediaEditDraftStateFromForm();
+        validateAndRenderMediaEditDraftFromForm();
+      },
+      onTimingBlur: (field: HTMLInputElement) => {
+        field.value = sharedToMediaEditTimingInputValue(sharedParseMediaTimeToIntegerSeconds(field.value));
+        syncMediaEditTimingDisplay();
+        syncMediaEditDraftStateFromForm();
+        validateAndRenderMediaEditDraftFromForm();
+      },
+      onTimingStep: (field: HTMLInputElement, direction: 1 | -1) => {
+        sharedStepMediaEditTimingField(field, direction);
+      },
+    },
+    preview: {
+      syncSeekStartButton: $BUTTON_MEDIA_EDIT_SYNC_SEEK_START,
+      syncSeekEndButton: $BUTTON_MEDIA_EDIT_SYNC_SEEK_END,
+      syncFadeinEndButton: $BUTTON_MEDIA_EDIT_SYNC_FADEIN_END,
+      syncFadeoutStartButton: $BUTTON_MEDIA_EDIT_SYNC_FADEOUT_START,
+      previewRetryButton: $BUTTON_MEDIA_EDIT_PREVIEW_RETRY,
+      onSyncSeekStart: () => {
+        syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_SEEK_START, 'seek start');
+      },
+      onSyncSeekEnd: () => {
+        syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_SEEK_END, 'seek end');
+      },
+      onSyncFadeinEnd: () => {
+        syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_FADEIN_END, 'fade-in end');
+      },
+      onSyncFadeoutStart: () => {
+        syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_FADEOUT_START, 'fade-out start');
+      },
+      onPreviewRetry: () => {
+        const previewSourceItem = mediaEditPreview.getPreviewSourceItem();
+        if (!previewSourceItem) {
+          return;
+        }
+        createMediaEditPreview(previewSourceItem);
+      },
+    },
+    thumbnail: {
+      pickButton: $BUTTON_MEDIA_EDIT_THUMBNAIL_PICK,
+      input: $MEDIA_EDIT_THUMBNAIL_INPUT,
+      removeButton: $BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE,
+      clearButton: $BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR,
+      onPick: () => {
+        $MEDIA_EDIT_THUMBNAIL_INPUT?.click();
+      },
+      onInputChange: () => {
+        const thumbnailInput = $MEDIA_EDIT_THUMBNAIL_INPUT;
+        if (!thumbnailInput) {
+          return;
+        }
+        const file = thumbnailInput.files?.[0] || null;
+        if (!file) {
+          return;
+        }
+        const allowed = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+        if (!allowed.includes(file.type)) {
+          updateNotice({
+            type: 'error',
+            message: getRuntimeLocalizedMessage('mediaEditThumbnailTypeError', 'Only PNG, JPEG, GIF, and WebP images are accepted.'),
+            delay: 2500,
+          });
+          thumbnailInput.value = '';
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (!mediaEditActiveItem) {
+            return;
+          }
+          const current = readMediaEditDraftFromForm();
+          const next = sanitizeMediaEditDraft({
+            ...current,
+            thumbnailMode: 'upload',
+            thumbnailName: file.name,
+            thumbnailMime: file.type,
+            thumbnailDataUrl: typeof reader.result === 'string' ? reader.result : '',
+          }, current);
+          applyMediaEditDraftToForm(next);
+          applyMediaEditDraftState(next);
+        };
+        reader.readAsDataURL(file);
         thumbnailInput.value = '';
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => {
+      },
+      onRemove: () => {
         if (!mediaEditActiveItem) {
           return;
         }
         const current = readMediaEditDraftFromForm();
+        const currentName = current.thumbnailName || mediaEditBaseDraft?.thumbnailName || '';
+        if (currentName === '') {
+          return;
+        }
+        const confirmed = window.confirm(getRuntimeLocalizedMessage('mediaEditThumbnailRemoveConfirm', 'Remove the current thumbnail image?'));
+        if (!confirmed) {
+          return;
+        }
         const next = sanitizeMediaEditDraft({
           ...current,
-          thumbnailMode: 'upload',
-          thumbnailName: file.name,
-          thumbnailMime: file.type,
-          thumbnailDataUrl: typeof reader.result === 'string' ? reader.result : '',
+          thumbnailMode: 'remove',
+          thumbnailName: currentName,
+          thumbnailMime: '',
+          thumbnailDataUrl: '',
         }, current);
         applyMediaEditDraftToForm(next);
         applyMediaEditDraftState(next);
-      };
-      reader.readAsDataURL(file);
-      thumbnailInput.value = '';
-    },
-    onRemove: () => {
-      if (!mediaEditActiveItem) {
-        return;
-      }
-      const current = readMediaEditDraftFromForm();
-      const currentName = current.thumbnailName || mediaEditBaseDraft?.thumbnailName || '';
-      if (currentName === '') {
-        return;
-      }
-      const confirmed = window.confirm(getRuntimeLocalizedMessage('mediaEditThumbnailRemoveConfirm', 'Remove the current thumbnail image?'));
-      if (!confirmed) {
-        return;
-      }
-      const next = sanitizeMediaEditDraft({
-        ...current,
-        thumbnailMode: 'remove',
-        thumbnailName: currentName,
-        thumbnailMime: '',
-        thumbnailDataUrl: '',
-      }, current);
-      applyMediaEditDraftToForm(next);
-      applyMediaEditDraftState(next);
+      },
     },
   });
 
