@@ -117,7 +117,6 @@ import {
 } from './ui/drawers';
 import {
   getToggleInput,
-  resolveNoMediaImagePath,
   syncToggleRoot,
   syncVolumeSlider,
 } from './ui/settings-view';
@@ -163,14 +162,6 @@ import {
 } from './ui/playlist-view';
 import { bindAmbientOptionsModal } from './ui/options-modal-bindings';
 import { bindAmbientPlaylistMode } from './ui/playlist-mode-bindings';
-import {
-  applyAmbientPlaylistOptions,
-} from './ui/playlist-option-bindings';
-import {
-  toggleAmbientCaptionMarquee,
-  updateAmbientCarousel,
-  updateAmbientMediaCaption,
-} from './ui/playlist-display-bindings';
 import {
   createNoticeController,
   dispatchInitialNotice,
@@ -234,6 +225,14 @@ import {
   createPlaylistManagementActions,
   initializeManagementForms,
 } from './bootstrap/management-init';
+import {
+  applyAmbientDisplayOptions,
+  getAmbientNoMediaImagePath,
+  isAmbientDarkModeEnabled,
+  toggleAmbientCaptionBindings,
+  updateAmbientCaptionBindings,
+  updateAmbientCarouselDisplayBindings,
+} from './bootstrap/display-runtime';
 import {
   importPlaylistFromManagementFile,
   resolveManagementRelativeFilepath,
@@ -1371,11 +1370,11 @@ const init = function (): void {
   }
 
   function isDarkModeEnabled(): boolean {
-    return sharedIsObject(AMP_STATUS.options) && AMP_STATUS.options?.dark ? !!AMP_STATUS.options.dark : false;
+    return isAmbientDarkModeEnabled({ playlistOptions: AMP_STATUS.options });
   }
 
   function getNoMediaImagePath(kind: 'placeholder' | 'thumb' = 'placeholder'): string {
-    return resolveNoMediaImagePath(isDarkModeEnabled(), kind);
+    return getAmbientNoMediaImagePath(AMP_STATUS.options, kind);
   }
 
   function getViewportWidth(): number {
@@ -1889,9 +1888,9 @@ const init = function (): void {
    */
   function applyOptions(): void {
     const ambientData = (window as any).AmbientData as AmbientData;
-    applyAmbientPlaylistOptions({
+    applyAmbientDisplayOptions({
       status: AMP_STATUS,
-      getOption,
+      getOption: (key) => getOption(key as Extract<keyof PlaylistOptions, string>),
       defaultVolume: resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
       body: $BODY,
       menu: $MENU,
@@ -1899,7 +1898,7 @@ const init = function (): void {
       shuffleToggleRoot: $TOGGLE_SHUFFLE,
       seekToggleRoot: $TOGGLE_SEEKPLAY,
       faderToggleRoot: $TOGGLE_FADER,
-      darkModeToggleInput: getToggleInput($TOGGLE_DARKMODE),
+      darkModeToggleRoot: $TOGGLE_DARKMODE,
       volumeRange: $RANGE_VOLUME,
       defaultVolumeDisplay: document.getElementById('default-volume-value') as HTMLElement | null,
       normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
@@ -1918,7 +1917,6 @@ const init = function (): void {
         categoryId: AMP_STATUS.ctg,
         shuffleEnabled: true,
       }),
-      isDarkModeEnabled,
       setStyles,
       setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
         viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
@@ -1931,7 +1929,7 @@ const init = function (): void {
    */
   function updateCarousel(): void {
     const ambientData = (window as any).AmbientData as AmbientData;
-    updateAmbientCarousel({
+    updateAmbientCarouselDisplayBindings({
       prevId: AMP_STATUS.hasOwnProperty('prev') ? AMP_STATUS.prev : null,
       currentId: AMP_STATUS.hasOwnProperty('current') ? AMP_STATUS.current : null,
       nextId: AMP_STATUS.hasOwnProperty('next') ? AMP_STATUS.next : null,
@@ -1939,7 +1937,7 @@ const init = function (): void {
       prevButton: $CAROUSEL_PREV as HTMLButtonElement,
       nextButton: $CAROUSEL_NEXT as HTMLButtonElement,
       mediaItems: AMP_STATUS.media || [],
-      placeholderImage: getNoMediaImagePath('placeholder'),
+      playlistOptions: AMP_STATUS.options,
       imageDir: ambientData?.imageDir || null,
     });
   }
@@ -1948,7 +1946,7 @@ const init = function (): void {
    * Update the media caption display.
    */
   function updateMediaCaption(mediaData: MediaItem): void {
-    updateAmbientMediaCaption({
+    updateAmbientCaptionBindings({
       mediaData,
       bodyElement: $BODY,
       captionElement: $MEDIA_CAPTION,
@@ -1962,7 +1960,7 @@ const init = function (): void {
    * Toggle caption marqueeing depending on window size.
    */
   function toggleMarqueeCaption(): void {
-    toggleAmbientCaptionMarquee({
+    toggleAmbientCaptionBindings({
       bodyElement: $BODY,
       captionElement: $MEDIA_CAPTION,
       fallbackWidth: currentWindowSize.width,
