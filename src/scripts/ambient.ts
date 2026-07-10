@@ -926,14 +926,6 @@ const init = function (): void {
     buttonLabel: $PLAYLIST_MODE_BUTTON_LABEL,
   };
 
-  function canUseReorderMode(): boolean {
-    return canUseAmbientReorderMode({
-      canMutatePlaylist: canMutateCurrentPlaylist(),
-      categoryId: AMP_STATUS.ctg,
-      mediaItems: AMP_STATUS.media,
-    });
-  }
-
   // Playlist delete mode state (v2.2.0 Slice B)
   const $MODAL_PLAYLIST_CONFIRM = document.getElementById('modal-playlist-confirm') as HTMLElement | null;
   const $MODAL_PLAYLIST_CONFIRM_TITLE = document.getElementById('modal-playlist-confirm-title') as HTMLElement | null;
@@ -1011,7 +1003,11 @@ const init = function (): void {
     mediaCategoryInput: document.getElementById('media-category-new') as HTMLInputElement | null,
     mediaCategoryLabel: document.getElementById('media-category-label') as HTMLLabelElement | null,
     mediaCategoryNote: document.getElementById('note-media-category-create-from-playlist-management') as HTMLElement | null,
-    canUseReorderMode,
+    canUseReorderMode: () => canUseAmbientReorderMode({
+      canMutatePlaylist: canMutateCurrentPlaylist(),
+      categoryId: AMP_STATUS.ctg,
+      mediaItems: AMP_STATUS.media,
+    }),
     canMutateCurrentPlaylist,
     ambientData: (window as any).AmbientData as { imageDir?: string; debug?: boolean } | null,
     getNoMediaImagePath: (kind) => getAmbientNoMediaImagePath(AMP_STATUS.options, kind),
