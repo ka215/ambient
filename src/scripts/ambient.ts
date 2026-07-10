@@ -79,7 +79,6 @@ import {
 } from './state/playlist-mode-state';
 import { createMediaEditTimingBindings } from './state/media-edit-timing-bindings';
 import {
-  applyMediaEditDraftToItem,
   cloneMediaEditDraft as cloneMediaEditDraftState,
   createEmptyMediaEditDraft,
   ensureMediaEditCategory,
@@ -168,6 +167,7 @@ import { initializeMediaEditControls } from './bootstrap/media-edit-controls-ini
 import {
   createMediaEditDirtyStateHandler,
   createMediaEditDraftFormApplier,
+  createMediaEditDraftItemApplier,
   createMediaEditDraftSanitizer,
   createMediaEditItemIdentityResolver,
   createMediaEditThumbnailResolver,
@@ -798,19 +798,15 @@ const init = function (): void {
     }),
   });
 
-  function applyDraftToMediaItem(item: MediaItem, draft: MediaEditDraft): MediaItem {
-    return applyMediaEditDraftToItem({
-      item,
-      draft,
-      findCategoryIndexByName: (categoryName) => findMediaEditCategoryIndex(AMP_STATUS.category, categoryName),
-      sanitizeDescriptionForStorage: (value) => sharedSanitizeMediaEditDescForStorage(
-        value,
-        MEDIA_DESC_MAX_LENGTH,
-        DISALLOWED_CONTROL_CHARS_RE
-      ),
-      getComputedFadeDurations: getMediaEditComputedFadeDurations,
-    });
-  }
+  const applyDraftToMediaItem = createMediaEditDraftItemApplier({
+    findCategoryIndexByName: (categoryName) => findMediaEditCategoryIndex(AMP_STATUS.category, categoryName),
+    sanitizeDescriptionForStorage: (value) => sharedSanitizeMediaEditDescForStorage(
+      value,
+      MEDIA_DESC_MAX_LENGTH,
+      DISALLOWED_CONTROL_CHARS_RE
+    ),
+    getComputedFadeDurations: getMediaEditComputedFadeDurations,
+  });
 
   let mediaEditModalBindings: ReturnType<typeof initializeMediaEditModalBindings> | null = null;
   const { saveMediaEdit, persistMediaEditForCurrentPlaylist } = initializeMediaEditSaveRuntime({

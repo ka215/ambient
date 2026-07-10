@@ -1,5 +1,6 @@
 import { applyMediaEditDirtyState } from '../state/media-edit-state';
 import {
+  applyMediaEditDraftToItem,
   sanitizeMediaEditDraft as sanitizeMediaEditDraftState,
   type MediaEditDraft,
   type MediaEditDraftInput,
@@ -141,6 +142,22 @@ export function createMediaEditDraftFormApplier(options: {
       getThumbnailSrc: options.getThumbnailSrc,
       toTimingInputValue: options.toTimingInputValue,
       syncTimingDisplay: options.syncTimingDisplay,
+    });
+  };
+}
+
+export function createMediaEditDraftItemApplier(options: {
+  findCategoryIndexByName: (categoryName: string) => number | null;
+  sanitizeDescriptionForStorage: (value: string) => string;
+  getComputedFadeDurations: (item: MediaItem, draft: MediaEditDraft) => { fadein: number | ''; fadeout: number | '' };
+}): (item: MediaItem, draft: MediaEditDraft) => MediaItem {
+  return (item: MediaItem, draft: MediaEditDraft): MediaItem => {
+    return applyMediaEditDraftToItem({
+      item,
+      draft,
+      findCategoryIndexByName: options.findCategoryIndexByName,
+      sanitizeDescriptionForStorage: options.sanitizeDescriptionForStorage,
+      getComputedFadeDurations: options.getComputedFadeDurations,
     });
   };
 }
