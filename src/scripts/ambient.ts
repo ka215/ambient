@@ -201,7 +201,7 @@ import {
   resolveInitialPlaylistStartup,
 } from './bootstrap/playlist-startup';
 import { executeInitialPlaylistStartup } from './bootstrap/playlist-startup-init';
-import { activateImportedPlaylistSelection } from './bootstrap/imported-playlist-init';
+import { createImportedPlaylistActivator } from './bootstrap/imported-playlist-init';
 import { initializePlaylistRuntime } from './bootstrap/playlist-runtime-init';
 import {
   getCloudImportSizeLimitBytes as getCloudImportSizeLimitBytesDomain,
@@ -942,9 +942,6 @@ const init = function (): void {
   const $BTN_PLAYLIST_CONFIRM_CANCEL = document.getElementById('btn-playlist-confirm-cancel') as HTMLButtonElement | null;
 
   let deleteSelectedIds = new Set<number>();
-  async function persistCurrentPlaylistMutation(): Promise<{ ok: boolean; message: string }> {
-    return persistMediaEditForCurrentPlaylist(AMP_STATUS.media || []);
-  }
 
   const {
     closePlaylistModeMenu,
@@ -993,7 +990,7 @@ const init = function (): void {
     updatePlaylist: () => {
       playlistUiBindings?.updatePlaylist();
     },
-    persistCurrentPlaylistMutation,
+    persistCurrentPlaylistMutation: async () => persistMediaEditForCurrentPlaylist(AMP_STATUS.media || []),
     updateNotice,
     getLocalizedMessage,
   });
@@ -1614,26 +1611,23 @@ const init = function (): void {
     },
   });
 
-  async function activateImportedPlaylist(playlistName: string): Promise<void> {
-    await activateImportedPlaylistSelection({
-      playlistName,
-      ensurePlaylistOption: (nextPlaylistName) => {
-        ensureSelectOption(
-          isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null,
-          nextPlaylistName,
-          nextPlaylistName.replace(/\.json$/i, '')
-        );
-      },
-      selectPlaylistOption: (nextPlaylistName) => {
-        selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, nextPlaylistName);
-      },
-      requestCategoryResume,
-      requestMediaResume: () => {
-        requestMediaResume(null);
-      },
-      loadPlaylist: getPlaylistData,
-    });
-  }
+  const activateImportedPlaylist = createImportedPlaylistActivator({
+    ensurePlaylistOption: (nextPlaylistName) => {
+      ensureSelectOption(
+        isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null,
+        nextPlaylistName,
+        nextPlaylistName.replace(/\.json$/i, '')
+      );
+    },
+    selectPlaylistOption: (nextPlaylistName) => {
+      selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, nextPlaylistName);
+    },
+    requestCategoryResume,
+    requestMediaResume: () => {
+      requestMediaResume(null);
+    },
+    loadPlaylist: getPlaylistData,
+  });
 
   // ============================================================================
   // UTILITY FUNCTIONS
