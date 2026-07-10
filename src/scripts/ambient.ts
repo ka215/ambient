@@ -9,7 +9,6 @@ import {
   basename as sharedBasename,
   escapeHTML as sharedEscapeHTML,
   getExt as sharedGetExt,
-  parseJsonWithBom as sharedParseJsonWithBom,
   snakeToCapital as sharedSnakeToCapital,
 } from './shared/string';
 import {
@@ -65,11 +64,6 @@ import {
   useStorageAdapter,
 } from './platform/runtime-support';
 import {
-  deleteMediaEditThumbnail as deleteMediaEditThumbnailPlatform,
-  persistPlaylistMediaEdit,
-  uploadMediaEditThumbnail as uploadMediaEditThumbnailPlatform,
-} from './platform/media-edit-persistence';
-import {
   createPlaylistResumeController,
   PlaylistResumeMediaContext,
 } from './state/playlist-context';
@@ -89,12 +83,6 @@ import {
   confirmDiscardMediaEditDraft,
 } from './state/media-edit-state';
 import { createMediaEditTimingBindings } from './state/media-edit-timing-bindings';
-import {
-  deleteMediaEditThumbnailIfNeeded as deleteMediaEditThumbnailIfNeededState,
-  persistMediaEditForCurrentPlaylist as persistMediaEditForCurrentPlaylistState,
-  uploadMediaEditThumbnailIfNeeded as uploadMediaEditThumbnailIfNeededState,
-} from './state/media-edit-save';
-import { createMediaEditSaveBindings } from './state/media-edit-save-bindings';
 import {
   applyMediaEditDraftToItem,
   cloneMediaEditDraft as cloneMediaEditDraftState,
@@ -196,6 +184,7 @@ import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-
 import { initializeOptionsModalBindings } from './bootstrap/options-modal-init';
 import { initializePlaylistModeBindings } from './bootstrap/playlist-mode-init';
 import { initializeMediaEditControls } from './bootstrap/media-edit-controls-init';
+import { initializeMediaEditSaveRuntime } from './bootstrap/media-edit-save-init';
 import { initializeAmbientPlayer } from './bootstrap/player-init';
 import { initializeManagementBindingComposition } from './bootstrap/management-bindings-init';
 import { initializeStatusWatcher } from './bootstrap/status-watcher-init';
@@ -855,117 +844,53 @@ const init = function (): void {
     });
   }
 
-  async function uploadMediaEditThumbnailIfNeeded(draft: MediaEditDraft): Promise<{ ok: boolean; message: string }> {
-    return uploadMediaEditThumbnailIfNeededState({
-      draft,
-      isLocalMode: isRuntimeLocalMode(),
-      getLocalizedMessage,
-      upload: async (nextDraft) => uploadMediaEditThumbnailPlatform({
-        baseUrl: BASE_URL,
-        endpoint: MEDIA_EDIT_THUMBNAIL_ENDPOINT,
-        filename: nextDraft.thumbnailName,
-        dataUrl: nextDraft.thumbnailDataUrl,
-        getLocalizedMessage,
-      }),
-    });
-  }
-
-  async function deleteMediaEditThumbnailIfNeeded(draft: MediaEditDraft): Promise<{ ok: boolean; message: string }> {
-    return deleteMediaEditThumbnailIfNeededState({
-      draft,
-      baseThumbnailName: mediaEditBaseDraft?.thumbnailName || '',
-      isLocalMode: isRuntimeLocalMode(),
-      getLocalizedMessage,
-      remove: async (filename) => deleteMediaEditThumbnailPlatform({
-        baseUrl: BASE_URL,
-        endpoint: MEDIA_EDIT_THUMBNAIL_ENDPOINT,
-        filename,
-        getLocalizedMessage,
-      }),
-    });
-  }
-
-  async function persistMediaEditForCurrentPlaylist(workingMedia: MediaItem[]): Promise<{ ok: boolean; message: string }> {
-    return persistMediaEditForCurrentPlaylistState({
-      workingMedia,
-      isCloud: !!getRuntimeAmbientData()?.isCloud,
-      playlistName: AMP_STATUS.playlist || '',
-      persistCloud: persistMyPlaylistIfNeeded,
-      persistRemote: async () => {
-      const payloadText = generatePlaylistJson(false);
-      const payloadObject = sharedParseJsonWithBom(payloadText);
-      return persistPlaylistMediaEdit({
-        baseUrl: BASE_URL,
-        endpoint: MEDIA_EDIT_SAVE_ENDPOINT,
-        playlistName: AMP_STATUS.playlist || '',
-        payloadObject,
-        getLocalizedMessage,
-      });
-      },
-      getLocalizedMessage,
-    });
-  }
-
-  function setMediaEditSaveBusyState(isBusy: boolean): void {
-    if (!isElement($BUTTON_SAVE_MEDIA_EDIT)) {
-      return;
-    }
-    $BUTTON_SAVE_MEDIA_EDIT.disabled = isBusy;
-    if (isBusy) {
-      $BUTTON_SAVE_MEDIA_EDIT.setAttribute('aria-busy', 'true');
-      return;
-    }
-    $BUTTON_SAVE_MEDIA_EDIT.removeAttribute('aria-busy');
-  }
-
-  function failMediaEditSave(message: string, delay: number = 2600): void {
-    setMediaEditSaveBusyState(false);
-    updateNotice({ type: 'error', message, delay });
-  }
-
-  function finalizeMediaEditSave(options: {
-    activeItem: MediaItem;
-    updatedItem: MediaItem;
-    persistMessage: string;
-  }): void {
-    const draftKey = getMediaEditDraftKey(options.activeItem);
-    deleteMediaEditDraftByKey(draftKey);
-    mediaEditBaseDraft = createMediaEditBaseDraft(options.updatedItem);
-    setMediaEditDirtyState(false);
-    playlistUiBindings?.clearCategory();
-    playlistUiBindings?.updateCategory();
-    playlistUiBindings?.syncMediaCategoryField(playlistUiBindings?.getActiveCategoryId() ?? null);
-    syncMediaEditCategoryClearButton();
-    renderMediaEditCategoryOptions();
-    playlistUiBindings?.updatePlaylist();
-    if (AMP_STATUS.current === options.updatedItem.amId) {
-      updatePlayStatus(options.updatedItem.amId);
-    }
-    setMediaEditSaveBusyState(false);
-    updateNotice({
-      type: 'success',
-      message: options.persistMessage || getRuntimeLocalizedMessage('mediaEditSaveSuccess', 'Media changes were saved successfully.'),
-      delay: 2200,
-    });
-    hideMediaEditModal(true);
-  }
-  const { saveMediaEdit } = createMediaEditSaveBindings({
+  const { saveMediaEdit, persistMediaEditForCurrentPlaylist } = initializeMediaEditSaveRuntime({
+    baseUrl: BASE_URL,
+    saveEndpoint: MEDIA_EDIT_SAVE_ENDPOINT,
+    thumbnailEndpoint: MEDIA_EDIT_THUMBNAIL_ENDPOINT,
     status: AMP_STATUS,
+    saveButton: isElement($BUTTON_SAVE_MEDIA_EDIT) ? $BUTTON_SAVE_MEDIA_EDIT : null,
     getActiveItem: () => mediaEditActiveItem,
     getBaseDraft: () => mediaEditBaseDraft,
+    setBaseDraft: (draft) => {
+      mediaEditBaseDraft = draft;
+      syncMediaEditCategoryClearButton();
+      renderMediaEditCategoryOptions();
+    },
+    getDraftKey: getMediaEditDraftKey,
+    deleteDraftByKey: deleteMediaEditDraftByKey,
+    createBaseDraft: createMediaEditBaseDraft,
+    setDirtyState: setMediaEditDirtyState,
+    clearCategory: () => {
+      playlistUiBindings?.clearCategory();
+    },
+    updateCategory: () => {
+      playlistUiBindings?.updateCategory();
+    },
+    syncMediaCategoryField: (preferredCategoryId?: number | null) => {
+      playlistUiBindings?.syncMediaCategoryField(preferredCategoryId ?? null);
+      syncMediaEditCategoryClearButton();
+      renderMediaEditCategoryOptions();
+    },
+    getActiveCategoryId: () => playlistUiBindings?.getActiveCategoryId() ?? null,
+    updatePlaylist: () => {
+      playlistUiBindings?.updatePlaylist();
+    },
+    updatePlayStatus: (amId) => {
+      updatePlayStatus(amId);
+    },
+    hideMediaEditModal,
     getLocalizedMessage,
+    updateNotice,
+    isLocalMode: isRuntimeLocalMode,
+    isCloudMode: () => !!getRuntimeAmbientData()?.isCloud,
+    persistCloudPlaylist: persistMyPlaylistIfNeeded,
+    generatePlaylistJson: (pretty = false) => generatePlaylistJson(pretty),
     ensureCategory: ensureMediaEditCategory,
     readDraftFromForm: readMediaEditDraftFromForm,
     validateDraft: validateAndRenderMediaEditDraftFromForm,
     setSaveButtonDisabled: setMediaEditSaveButtonDisabled,
-    setSaveBusyState: setMediaEditSaveBusyState,
-    updateNotice,
     applyDraftToMediaItem,
-    uploadThumbnail: uploadMediaEditThumbnailIfNeeded,
-    deleteThumbnail: deleteMediaEditThumbnailIfNeeded,
-    persistWorkingMedia: persistMediaEditForCurrentPlaylist,
-    finalizeSave: finalizeMediaEditSave,
-    failSave: failMediaEditSave,
   });
 
   function confirmDiscardActiveMediaEditIfNeeded(
