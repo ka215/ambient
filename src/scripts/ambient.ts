@@ -267,10 +267,9 @@ const init = function (): void {
 
   const playbackTimers = createPlaybackTimerController();
   let noticeController: NoticeController | null = null;
-
-  function updateNotice(notification: NotificationPayload): void {
+  const updateNotice = (notification: NotificationPayload): void => {
     noticeController?.update(notification);
-  }
+  };
 
   const { abortSeeking, abortFader, abortPlaybackTimers } = createPlaybackTimerHelpers(playbackTimers);
 
@@ -290,14 +289,13 @@ const init = function (): void {
   const DEFAULT_VOLUME = 50;
   const playlistLoadGuard = createPlaylistLoadGuard();
   const playlistResume = createPlaylistResumeController();
-
-  function sanitizeMediaText(value: string, maxLength: number): string {
+  const sanitizeMediaText = (value: string, maxLength: number): string => {
     return sharedSanitizeMediaText(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
-  }
+  };
 
-  function sanitizeMediaDesc(value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string {
+  const sanitizeMediaDesc = (value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string => {
     return sharedSanitizeMediaDesc(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
-  }
+  };
 
   const {
     getSavedPlaylistContext,
@@ -1897,7 +1895,7 @@ const init = function (): void {
 };
 
 // for debugging code
-function execDebug(): void {
+const execDebug = (): void => {
   /*
   const f1 = document.getElementById('youtube-url'),
         f2 = document.getElementById('media-category'),
@@ -1921,7 +1919,7 @@ function execDebug(): void {
   f2.dispatchEvent(new Event('change'))
   f3.dispatchEvent(new Event('change'))
   */
-}
+};
 
 // ============================================================================
 // UTILITY FUNCTIONS (SHARED LIBRARY)
