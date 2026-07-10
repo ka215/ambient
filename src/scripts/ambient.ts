@@ -79,8 +79,6 @@ import {
 } from './state/playlist-mode-state';
 import {
   applyMediaEditDirtyState,
-  canOpenMediaEditModal,
-  confirmDiscardMediaEditDraft,
 } from './state/media-edit-state';
 import { createMediaEditTimingBindings } from './state/media-edit-timing-bindings';
 import {
@@ -113,13 +111,6 @@ import {
   createPlaylistDescModalController,
 } from './ui/modals';
 import {
-  focusPlaylistItemById as focusPlaylistItemByIdView,
-  finalizeMediaEditModalClose,
-  openManagedMediaEditModal,
-  renderMediaEditSourceBadges as renderMediaEditSourceBadgesView,
-  resetMediaEditModalView,
-} from './ui/media-edit-modal-view';
-import {
   applyMediaEditDraftToFormView,
   resolveMediaEditThumbnailSrc,
 } from './ui/media-edit-form-view';
@@ -137,7 +128,6 @@ import {
   type NoticeController,
 } from './ui/notifications';
 import {
-  isPlaybackActive,
   syncPlaybackButtonState,
   syncMenuCollapseButtonState,
   syncPlaybackButtons,
@@ -184,6 +174,7 @@ import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-
 import { initializeOptionsModalBindings } from './bootstrap/options-modal-init';
 import { initializePlaylistModeBindings } from './bootstrap/playlist-mode-init';
 import { initializeMediaEditControls } from './bootstrap/media-edit-controls-init';
+import { initializeMediaEditModalBindings } from './bootstrap/media-edit-modal-init';
 import { initializeMediaEditSaveRuntime } from './bootstrap/media-edit-save-init';
 import { initializeAmbientPlayer } from './bootstrap/player-init';
 import { initializeManagementBindingComposition } from './bootstrap/management-bindings-init';
@@ -594,7 +585,6 @@ const init = function (): void {
       }
     },
   });
-  let activeMediaEditTrigger: HTMLElement | null = null;
   const defaultMediaEditModalTitle = $MODAL_MEDIA_EDIT_TITLE?.textContent?.trim() || 'Media Edit';
   const MEDIA_EDIT_DRAFT_STORAGE_KEY = 'ambient:media-edit-drafts:v2.5.0';
   const MEDIA_EDIT_PREVIEW_YT_PLAYER_ID = 'modal-media-edit-preview-yt-player';
@@ -844,6 +834,7 @@ const init = function (): void {
     });
   }
 
+  let mediaEditModalBindings: ReturnType<typeof initializeMediaEditModalBindings> | null = null;
   const { saveMediaEdit, persistMediaEditForCurrentPlaylist } = initializeMediaEditSaveRuntime({
     baseUrl: BASE_URL,
     saveEndpoint: MEDIA_EDIT_SAVE_ENDPOINT,
@@ -879,7 +870,9 @@ const init = function (): void {
     updatePlayStatus: (amId) => {
       updatePlayStatus(amId);
     },
-    hideMediaEditModal,
+    hideMediaEditModal: (restoreFocus = false) => {
+      mediaEditModalBindings?.hideMediaEditModal(restoreFocus);
+    },
     getLocalizedMessage,
     updateNotice,
     isLocalMode: isRuntimeLocalMode,
@@ -893,19 +886,6 @@ const init = function (): void {
     applyDraftToMediaItem,
   });
 
-  function confirmDiscardActiveMediaEditIfNeeded(
-    fallbackMessage: string = getRuntimeLocalizedMessage('mediaEditDiscardUnsaved', 'Discard unsaved edits?')
-  ): boolean {
-    return confirmDiscardMediaEditDraft({
-      hasUnsavedDraft: isActiveMediaEditUnsaved(),
-      isDirty: mediaEditIsDirty,
-      fallbackMessage,
-      getLocalizedMessage,
-      confirm: (message) => window.confirm(message),
-      discardDraft: discardActiveMediaEditDraft,
-    });
-  }
-
   hydrateMediaEditDraftStore();
 
   function getMediaEditThumbnailSrc(mediaItem: MediaItem | null, draft: MediaEditDraft | null = null): string {
@@ -917,92 +897,49 @@ const init = function (): void {
     });
   }
 
-  function hideMediaEditModal(restoreFocus = false): void {
-    if (!isElement($MODAL_MEDIA_EDIT)) {
-      return;
-    }
-    const editedMediaId = mediaEditActiveItem?.amId ?? null;
-    resetMediaEditPreviewState();
-    clearMediaEditValidationView();
-    const restoreTarget = activeMediaEditTrigger;
-    activeMediaEditTrigger = null;
-    finalizeMediaEditModalClose({
-      restoreFocus,
-      preferredFocusId: isPlaybackActive({
-        currentMediaId: AMP_STATUS.current,
-        playerType: AMP_STATUS.playertype,
-        youtubePlayer: player || null,
-        playButton: $BUTTON_PLAY,
-        pauseButton: $BUTTON_PAUSE,
-      }) ? AMP_STATUS.current : editedMediaId,
-      restoreTarget,
-      resetModalView: () => {
-        resetMediaEditModalView({
-          modalElement: $MODAL_MEDIA_EDIT,
-          titleElement: isElement($MODAL_MEDIA_EDIT_TITLE) ? $MODAL_MEDIA_EDIT_TITLE : null,
-          itemTitleElement: isElement($MODAL_MEDIA_EDIT_ITEM_TITLE) ? $MODAL_MEDIA_EDIT_ITEM_TITLE : null,
-          itemSourceElement: isElement($MODAL_MEDIA_EDIT_ITEM_SOURCE) ? $MODAL_MEDIA_EDIT_ITEM_SOURCE : null,
-          defaultTitle: defaultMediaEditModalTitle,
-        });
-      },
-      closeCategoryDropdown: () => closeMediaEditCategoryDropdown(false),
-      focusPlaylistItemById: (amId) => focusPlaylistItemByIdView({
-        listElement: $LIST_PLAYLIST,
-        amId,
-      }),
-    });
-  }
+  mediaEditModalBindings = initializeMediaEditModalBindings({
+    status: AMP_STATUS,
+    modalElement: isElement($MODAL_MEDIA_EDIT) ? $MODAL_MEDIA_EDIT : null,
+    modalTitleElement: isElement($MODAL_MEDIA_EDIT_TITLE) ? $MODAL_MEDIA_EDIT_TITLE : null,
+    modalItemTitleElement: isElement($MODAL_MEDIA_EDIT_ITEM_TITLE) ? $MODAL_MEDIA_EDIT_ITEM_TITLE : null,
+    modalItemSourceElement: isElement($MODAL_MEDIA_EDIT_ITEM_SOURCE) ? $MODAL_MEDIA_EDIT_ITEM_SOURCE : null,
+    modalCloseButton: isElement($BUTTON_CLOSE_MEDIA_EDIT) ? $BUTTON_CLOSE_MEDIA_EDIT : null,
+    playlistListElement: $LIST_PLAYLIST,
+    playButton: $BUTTON_PLAY,
+    pauseButton: $BUTTON_PAUSE,
+    youtubePlayer: player || null,
+    defaultModalTitle: defaultMediaEditModalTitle,
+    playlistMode: () => playlistMode,
+    closePlaylistModeMenu: () => {
+      closePlaylistModeMenu();
+    },
+    getLocalizedMessage,
+    getMediaCategoryName: (mediaItem) => getMediaCategoryNameState(mediaItem, AMP_STATUS.category),
+    sanitizeMediaTitle: (value) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
+    resetMediaEditPreviewState,
+    clearMediaEditValidationView,
+    closeCategoryDropdown: closeMediaEditCategoryDropdown,
+    bindForm: bindMediaEditForm,
+    updatePlaylist: () => {
+      playlistUiBindings?.updatePlaylist();
+    },
+    createPreview: createMediaEditPreview,
+    startDurationSyncWait: mediaEditDurationSync.startIfNeeded,
+    getActiveItem: () => mediaEditActiveItem,
+    getDraftKey: getMediaEditDraftKey,
+    hasUnsavedDraft: isActiveMediaEditUnsaved,
+    isDirty: () => mediaEditIsDirty,
+    discardDraft: discardActiveMediaEditDraft,
+    confirm: (message) => window.confirm(message),
+  });
 
-  function closeMediaEditModal(restoreFocus = false): void {
-    hideMediaEditModal(restoreFocus);
-  }
-
-  function cancelMediaEditModal(restoreFocus = false): void {
-    discardActiveMediaEditDraft();
-    hideMediaEditModal(restoreFocus);
-  }
-
-  function openMediaEditModal(mediaItem: MediaItem, trigger: HTMLElement): void {
-    if (!canOpenMediaEditModal({
-      mediaItem,
-      activeItem: mediaEditActiveItem,
-      getDraftKey: getMediaEditDraftKey,
-      confirmDiscard: confirmDiscardActiveMediaEditIfNeeded,
-      getLocalizedMessage,
-    })) {
-      return;
-    }
-    openManagedMediaEditModal({
-      mediaItem,
-      trigger,
-      playlistMode,
-      setActiveTrigger: (nextTrigger) => {
-        activeMediaEditTrigger = nextTrigger;
-      },
-      closePlaylistModeMenu,
-      buildItemTitle: (item) => sanitizeMediaText(item.title || '', MEDIA_TITLE_MAX_LENGTH)
-        || getRuntimeLocalizedMessage('mediaEditUntitled', 'Untitled media'),
-      renderSourceBadges: (item) => {
-        renderMediaEditSourceBadgesView({
-          container: isElement($MODAL_MEDIA_EDIT_ITEM_SOURCE) ? $MODAL_MEDIA_EDIT_ITEM_SOURCE : null,
-          mediaItem: item,
-          getLocalizedMessage,
-          getCategoryName: (mediaItem) => getMediaCategoryNameState(mediaItem, AMP_STATUS.category),
-        });
-      },
-      bindForm: bindMediaEditForm,
-      updatePlaylist: () => {
-        playlistUiBindings?.updatePlaylist();
-      },
-      createPreview: createMediaEditPreview,
-      startDurationSyncWait: mediaEditDurationSync.startIfNeeded,
-      modalElement: $MODAL_MEDIA_EDIT,
-      titleElement: $MODAL_MEDIA_EDIT_TITLE,
-      itemTitleElement: isElement($MODAL_MEDIA_EDIT_ITEM_TITLE) ? $MODAL_MEDIA_EDIT_ITEM_TITLE : null,
-      closeButton: isElement($BUTTON_CLOSE_MEDIA_EDIT) ? $BUTTON_CLOSE_MEDIA_EDIT : null,
-      defaultTitle: defaultMediaEditModalTitle,
-    });
-  }
+  const {
+    confirmDiscardActiveMediaEditIfNeeded,
+    hideMediaEditModal,
+    closeMediaEditModal,
+    cancelMediaEditModal,
+    openMediaEditModal,
+  } = mediaEditModalBindings;
 
   const syncViewportMetrics = (): void => viewportRuntime.syncMetrics();
   const scheduleViewportMetricsSync = (delay = 0): void => viewportRuntime.scheduleMetricsSync(delay);
