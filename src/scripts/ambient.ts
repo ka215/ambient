@@ -192,6 +192,7 @@ import {
   bindAmbientAppControlBindings,
   bindAmbientViewportLifecycle,
 } from './bootstrap/app-init';
+import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-runtime-bootstrap';
 import { initializeOptionsModalBindings } from './bootstrap/options-modal-init';
 import { initializePlaylistModeBindings } from './bootstrap/playlist-mode-init';
 import { initializeMediaEditControls } from './bootstrap/media-edit-controls-init';
@@ -248,7 +249,7 @@ const init = function (): void {
   }
 
   useStorageAdapter();
-  const AMP_STATUS = initStatus();
+  const AMP_STATUS = initializeAmbientStatus((window as any).$ambient);
   const logger = runtimeLogger;
   const getAmbientData = getRuntimeAmbientData;
   const getLocalizedMessage = getRuntimeLocalizedMessage;
@@ -273,32 +274,6 @@ const init = function (): void {
     appBoot.forceRelease();
   }, 3500);
 
-  /**
-   * Initialize AMP_STATUS object.
-   */
-  function initStatus(): AMP_STATUS {
-    const baseObj = (window as any).$ambient || {};
-    return Object.assign(baseObj, {
-      prev: null,
-      current: null,
-      next: null,
-      ctg: -1,
-      category: null,
-      playlist: null,
-      media: null,
-      order: 'normal' as const,
-      playertype: null,
-      volume: null,
-      options: null,
-      addtype: null,
-      notice: null,
-      loop: null,
-      yt_phase: 'idle',
-      yt_seq: 0,
-      yt_error: '',
-    } as AMP_STATUS);
-  }
-
   // Window sizes container
   const currentWindowSize: WindowSize = {
     width: window.innerWidth,
@@ -306,26 +281,11 @@ const init = function (): void {
     minFullUIWidth: 1282, // = 320 + 1 + 640 + 1 + 320
   };
 
-  // Advance preparation for using YouTube players.
-  const tag = document.createElement('script');
-  tag.src = 'https://www.youtube.com/player_api';
-  const firstScriptTag = document.getElementsByTagName('script')[0];
-
   let player: YTPlayer | undefined;
 
   const syncYouTubeSignalAttrs = (): void => syncAmbientYouTubeSignalAttrs(AMP_STATUS);
   const emitYouTubeSignal = (phase: string, error = ''): void => emitAmbientYouTubeSignal(AMP_STATUS, phase, error);
-
-  emitYouTubeSignal('api_loading');
-  tag.addEventListener('load', () => {
-    emitYouTubeSignal('api_loaded');
-  });
-  tag.addEventListener('error', () => {
-    emitYouTubeSignal('api_error', 'player_api_load_failed');
-  });
-  if (firstScriptTag?.parentNode) {
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-  }
+  mountYouTubePlayerApi({ emitYouTubeSignal });
 
   const playbackTimers = createPlaybackTimerController();
   let noticeController: NoticeController | null = null;
