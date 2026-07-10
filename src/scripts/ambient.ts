@@ -77,9 +77,6 @@ import {
   getDefaultMediaItemForView,
   getMediaCategoryName as getMediaCategoryNameState,
 } from './state/playlist-mode-state';
-import {
-  applyMediaEditDirtyState,
-} from './state/media-edit-state';
 import { createMediaEditTimingBindings } from './state/media-edit-timing-bindings';
 import {
   applyMediaEditDraftToItem,
@@ -88,9 +85,7 @@ import {
   ensureMediaEditCategory,
   findMediaEditCategoryIndex,
   isSameMediaEditDraft as isSameMediaEditDraftState,
-  sanitizeMediaEditDraft as sanitizeMediaEditDraftState,
   type MediaEditDraft,
-  type MediaEditDraftInput,
 } from './state/media-edit-draft';
 import { createMediaEditDraftBindings } from './state/media-edit-draft-bindings';
 import {
@@ -110,10 +105,6 @@ import {
   createOptionsModalController,
   createPlaylistDescModalController,
 } from './ui/modals';
-import {
-  applyMediaEditDraftToFormView,
-  resolveMediaEditThumbnailSrc,
-} from './ui/media-edit-form-view';
 import { createMediaEditUiBindings } from './state/media-edit-ui-bindings';
 import { createMediaEditPreviewBindings } from './state/media-edit-preview-bindings';
 import {
@@ -174,6 +165,13 @@ import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-
 import { initializeOptionsModalBindings } from './bootstrap/options-modal-init';
 import { initializePlaylistModeBindings } from './bootstrap/playlist-mode-init';
 import { initializeMediaEditControls } from './bootstrap/media-edit-controls-init';
+import {
+  createMediaEditDirtyStateHandler,
+  createMediaEditDraftFormApplier,
+  createMediaEditDraftSanitizer,
+  createMediaEditItemIdentityResolver,
+  createMediaEditThumbnailResolver,
+} from './bootstrap/media-edit-draft-init';
 import { initializeMediaEditModalBindings } from './bootstrap/media-edit-modal-init';
 import { initializeMediaEditSaveRuntime } from './bootstrap/media-edit-save-init';
 import { initializeAmbientPlayer } from './bootstrap/player-init';
@@ -600,6 +598,9 @@ const init = function (): void {
   let mediaEditActiveItem: MediaItem | null = null;
   let mediaEditBaseDraft: MediaEditDraft | null = null;
   let mediaEditIsDirty = false;
+  const getMediaEditItemIdentity = createMediaEditItemIdentityResolver({
+    sanitizeTitle: (value) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
+  });
 
   const {
     resolveMediaEditEffectiveEnd,
@@ -640,25 +641,18 @@ const init = function (): void {
     formatSecondsToTimelineLabel: sharedFormatSecondsToTimelineLabel,
   });
 
-  function sanitizeMediaEditDraft(
-    draft: MediaEditDraftInput,
-    fallback: MediaEditDraft | null = null
-  ): MediaEditDraft {
-    return sanitizeMediaEditDraftState({
-      draft,
-      fallback,
-      defaultVolume: resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
-      titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
-      artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
-      descriptionMaxLength: MEDIA_DESC_MAX_LENGTH,
-      sanitizeText: sanitizeMediaText,
-      sanitizeDescription: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => (
-        sharedSanitizeMediaEditDescInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE)
-      ),
-      normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
-      normalizeTimingValue: sharedNormalizeMediaEditTimingValue,
-    });
-  }
+  const sanitizeMediaEditDraft = createMediaEditDraftSanitizer({
+    getDefaultVolume: () => resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
+    titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+    artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+    descriptionMaxLength: MEDIA_DESC_MAX_LENGTH,
+    sanitizeText: sanitizeMediaText,
+    sanitizeDescription: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => (
+      sharedSanitizeMediaEditDescInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE)
+    ),
+    normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
+    normalizeTimingValue: sharedNormalizeMediaEditTimingValue,
+  });
 
   const {
     isMediaEditCategoryDropdownVisible,
@@ -709,28 +703,43 @@ const init = function (): void {
     createMediaEditPreview,
   } = mediaEditPreview;
 
-  function setMediaEditDirtyState(isDirty: boolean): void {
-    applyMediaEditDirtyState({
-      isDirty,
-      modalElement: isElement($MODAL_MEDIA_EDIT) ? $MODAL_MEDIA_EDIT : null,
-      onDirtyChange: (nextDirty) => {
-        mediaEditIsDirty = nextDirty;
-      },
-    });
-  }
-
-  function getMediaEditItemIdentity(mediaItem: MediaItem): string {
-    if (Number.isInteger(mediaItem.amId) && mediaItem.amId >= 0) {
-      return `amId:${mediaItem.amId}`;
-    }
-    if (typeof mediaItem.file === 'string' && mediaItem.file.trim() !== '') {
-      return `file:${mediaItem.file.trim()}`;
-    }
-    if (typeof mediaItem.videoid === 'string' && mediaItem.videoid.trim() !== '') {
-      return `videoid:${mediaItem.videoid.trim()}`;
-    }
-    return `title:${sanitizeMediaText(mediaItem.title || '', MEDIA_TITLE_MAX_LENGTH)}`;
-  }
+  const setMediaEditDirtyState = createMediaEditDirtyStateHandler({
+    modalElement: isElement($MODAL_MEDIA_EDIT) ? $MODAL_MEDIA_EDIT : null,
+    onDirtyChange: (nextDirty) => {
+      mediaEditIsDirty = nextDirty;
+    },
+  });
+  const getMediaEditThumbnailSrc = createMediaEditThumbnailResolver({
+    getImageDir: () => getRuntimeAmbientData()?.imageDir,
+    getFallbackThumbnailSrc: () => getAmbientNoMediaImagePath(AMP_STATUS.options, 'thumb'),
+  });
+  const applyMediaEditDraftToForm = createMediaEditDraftFormApplier({
+    getActiveItem: () => mediaEditActiveItem,
+    categoryInput: isElement($MEDIA_EDIT_CATEGORY) ? $MEDIA_EDIT_CATEGORY : null,
+    titleInput: isElement($MEDIA_EDIT_TITLE) ? $MEDIA_EDIT_TITLE : null,
+    artistInput: isElement($MEDIA_EDIT_ARTIST) ? $MEDIA_EDIT_ARTIST : null,
+    descriptionInput: isElement($MEDIA_EDIT_DESCRIPTION) ? $MEDIA_EDIT_DESCRIPTION : null,
+    volumeInput: isElement($MEDIA_EDIT_VOLUME) ? $MEDIA_EDIT_VOLUME : null,
+    volumeDisplay: isElement($MEDIA_EDIT_VOLUME_VALUE) ? $MEDIA_EDIT_VOLUME_VALUE : null,
+    thumbnailName: isElement($MEDIA_EDIT_THUMBNAIL_NAME) ? $MEDIA_EDIT_THUMBNAIL_NAME : null,
+    thumbnailPreview: isElement($MEDIA_EDIT_THUMBNAIL_PREVIEW) ? $MEDIA_EDIT_THUMBNAIL_PREVIEW : null,
+    thumbnailSection: isElement($MEDIA_EDIT_THUMBNAIL_SECTION) ? $MEDIA_EDIT_THUMBNAIL_SECTION : null,
+    thumbnailClearButton: isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR) ? $BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR : null,
+    thumbnailRemoveButton: isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE) ? $BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE : null,
+    seekStartInput: isElement($MEDIA_EDIT_SEEK_START) ? $MEDIA_EDIT_SEEK_START : null,
+    seekEndInput: isElement($MEDIA_EDIT_SEEK_END) ? $MEDIA_EDIT_SEEK_END : null,
+    fadeinEndInput: isElement($MEDIA_EDIT_FADEIN_END) ? $MEDIA_EDIT_FADEIN_END : null,
+    fadeoutStartInput: isElement($MEDIA_EDIT_FADEOUT_START) ? $MEDIA_EDIT_FADEOUT_START : null,
+    isLocalMode: isRuntimeLocalMode,
+    syncCategoryClearButton: syncMediaEditCategoryClearButton,
+    renderCategoryOptions: renderMediaEditCategoryOptions,
+    syncVolumeSlider,
+    syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
+    getLocalizedMessage,
+    getThumbnailSrc: (mediaItem, draft) => getMediaEditThumbnailSrc(mediaItem, draft),
+    toTimingInputValue: sharedToMediaEditTimingInputValue,
+    syncTimingDisplay: syncMediaEditTimingDisplay,
+  });
   const {
     getMediaEditDraftKey,
     hydrateMediaEditDraftStore,
@@ -788,37 +797,6 @@ const init = function (): void {
       fadeOutStart: $MEDIA_EDIT_FADEOUT_START?.value,
     }),
   });
-
-  function applyMediaEditDraftToForm(draft: MediaEditDraft): void {
-    applyMediaEditDraftToFormView({
-      draft,
-      activeItem: mediaEditActiveItem,
-      categoryInput: isElement($MEDIA_EDIT_CATEGORY) ? $MEDIA_EDIT_CATEGORY : null,
-      titleInput: isElement($MEDIA_EDIT_TITLE) ? $MEDIA_EDIT_TITLE : null,
-      artistInput: isElement($MEDIA_EDIT_ARTIST) ? $MEDIA_EDIT_ARTIST : null,
-      descriptionInput: isElement($MEDIA_EDIT_DESCRIPTION) ? $MEDIA_EDIT_DESCRIPTION : null,
-      volumeInput: isElement($MEDIA_EDIT_VOLUME) ? $MEDIA_EDIT_VOLUME : null,
-      volumeDisplay: isElement($MEDIA_EDIT_VOLUME_VALUE) ? $MEDIA_EDIT_VOLUME_VALUE : null,
-      thumbnailName: isElement($MEDIA_EDIT_THUMBNAIL_NAME) ? $MEDIA_EDIT_THUMBNAIL_NAME : null,
-      thumbnailPreview: isElement($MEDIA_EDIT_THUMBNAIL_PREVIEW) ? $MEDIA_EDIT_THUMBNAIL_PREVIEW : null,
-      thumbnailSection: isElement($MEDIA_EDIT_THUMBNAIL_SECTION) ? $MEDIA_EDIT_THUMBNAIL_SECTION : null,
-      thumbnailClearButton: isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR) ? $BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR : null,
-      thumbnailRemoveButton: isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE) ? $BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE : null,
-      seekStartInput: isElement($MEDIA_EDIT_SEEK_START) ? $MEDIA_EDIT_SEEK_START : null,
-      seekEndInput: isElement($MEDIA_EDIT_SEEK_END) ? $MEDIA_EDIT_SEEK_END : null,
-      fadeinEndInput: isElement($MEDIA_EDIT_FADEIN_END) ? $MEDIA_EDIT_FADEIN_END : null,
-      fadeoutStartInput: isElement($MEDIA_EDIT_FADEOUT_START) ? $MEDIA_EDIT_FADEOUT_START : null,
-      isLocalMode: isRuntimeLocalMode(),
-      syncCategoryClearButton: syncMediaEditCategoryClearButton,
-      renderCategoryOptions: renderMediaEditCategoryOptions,
-      syncVolumeSlider,
-      syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-      getLocalizedMessage,
-      getThumbnailSrc: getMediaEditThumbnailSrc,
-      toTimingInputValue: sharedToMediaEditTimingInputValue,
-      syncTimingDisplay: syncMediaEditTimingDisplay,
-    });
-  }
 
   function applyDraftToMediaItem(item: MediaItem, draft: MediaEditDraft): MediaItem {
     return applyMediaEditDraftToItem({
@@ -887,15 +865,6 @@ const init = function (): void {
   });
 
   hydrateMediaEditDraftStore();
-
-  function getMediaEditThumbnailSrc(mediaItem: MediaItem | null, draft: MediaEditDraft | null = null): string {
-    return resolveMediaEditThumbnailSrc({
-      mediaItem,
-      draft,
-      imageDir: getRuntimeAmbientData()?.imageDir,
-      getFallbackThumbnailSrc: () => getAmbientNoMediaImagePath(AMP_STATUS.options, 'thumb'),
-    });
-  }
 
   mediaEditModalBindings = initializeMediaEditModalBindings({
     status: AMP_STATUS,
