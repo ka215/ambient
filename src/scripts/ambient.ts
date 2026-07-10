@@ -1447,15 +1447,15 @@ const init = function (): void {
       setMenuMinimized: (minimized) => {
         viewportRuntime.setMenuMinimized(minimized);
       },
-      playertype: AMP_STATUS.playertype,
-      player,
+      getPlayertype: () => AMP_STATUS.playertype,
+      getPlayer: () => player,
       logger,
-      mediaItems: AMP_STATUS.media || [],
-      categoryId: AMP_STATUS.ctg,
-      shuffleEnabled: Boolean(getOption('shuffle')),
-      shuffleItems: AMP_STATUS.shuffle || [],
-      currentId: AMP_STATUS.current,
-      order: AMP_STATUS.order,
+      getMediaItems: () => AMP_STATUS.media || [],
+      getCategoryId: () => AMP_STATUS.ctg,
+      isShuffleEnabled: () => Boolean(getOption('shuffle')),
+      getShuffleItems: () => AMP_STATUS.shuffle || [],
+      getCurrentId: () => AMP_STATUS.current,
+      getOrder: () => AMP_STATUS.order,
     },
     settingsControlRoots: {
       loop: $TOGGLE_LOOP,

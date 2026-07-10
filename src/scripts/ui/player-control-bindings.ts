@@ -20,20 +20,20 @@ export function bindAmbientPlayerControls(options: {
   isFullWindowMode(): boolean;
   setFullWindowMode(enabled: boolean, forceApply?: boolean, persist?: boolean): void;
   setMenuMinimized(minimized: boolean): void;
-  playertype: string | null;
-  player: {
+  getPlayertype(): string | null;
+  getPlayer(): {
     getPlayerState(): number;
     playVideo(): void;
     pauseVideo(): void;
     stopVideo(): void;
   } | null | undefined;
   logger: (...args: unknown[]) => void;
-  mediaItems: MediaItem[];
-  categoryId: number | null;
-  shuffleEnabled: boolean;
-  shuffleItems: MediaItem[];
-  currentId: number | null;
-  order: 'random' | 'normal';
+  getMediaItems(): MediaItem[];
+  getCategoryId(): number | null;
+  isShuffleEnabled(): boolean;
+  getShuffleItems(): MediaItem[];
+  getCurrentId(): number | null;
+  getOrder(): 'random' | 'normal';
 }): void {
   bindPlayerControls({
     carouselPrevButton: options.carouselPrevButton,
@@ -70,20 +70,20 @@ export function bindAmbientPlayerControls(options: {
     },
     onPlay: () => {
       handlePlayerPlay({
-        playertype: options.playertype,
-        player: options.player,
+        playertype: options.getPlayertype(),
+        player: options.getPlayer(),
         logger: options.logger,
         resolvePlayId: () => {
           const playableIds = resolvePlaybackCandidateIds({
-            mediaItems: options.mediaItems,
-            categoryId: options.categoryId,
-            shuffleEnabled: options.shuffleEnabled,
-            shuffleItems: options.shuffleItems,
+            mediaItems: options.getMediaItems(),
+            categoryId: options.getCategoryId(),
+            shuffleEnabled: options.isShuffleEnabled(),
+            shuffleItems: options.getShuffleItems(),
           });
           return resolveRequestedPlayId({
-            currentId: options.currentId,
+            currentId: options.getCurrentId(),
             candidateIds: playableIds,
-            order: options.order,
+            order: options.getOrder(),
           });
         },
         playItem: (playId) => {
@@ -100,8 +100,8 @@ export function bindAmbientPlayerControls(options: {
     },
     onPause: () => {
       handlePlayerPause({
-        playertype: options.playertype,
-        player: options.player,
+        playertype: options.getPlayertype(),
+        player: options.getPlayer(),
         showDisabledState: () => {
           if (options.playButton && options.pauseButton) {
             syncPlaybackButtonState(options.playButton, options.pauseButton, 'disabled');
