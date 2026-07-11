@@ -110,6 +110,7 @@ import { initializeAppControlsRuntime } from './bootstrap/app-controls-runtime-i
 import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-runtime-bootstrap';
 import { initializeOptionsModalRuntime } from './bootstrap/options-modal-runtime-init';
 import { initializePlaylistModeRuntime } from './bootstrap/playlist-mode-runtime-init';
+import { createMediaEditRuntimeFacade } from './bootstrap/media-edit-runtime-facade';
 import { initializeMediaEditRuntimeWiring } from './bootstrap/media-edit-runtime-wiring-init';
 import { initializeAmbientPlayerRuntimeWiring } from './bootstrap/player-runtime-wiring-init';
 import { initializeManagementRuntime } from './bootstrap/management-runtime-init';
@@ -483,15 +484,7 @@ const init = function (): void {
     },
     confirm: (message) => window.confirm(message),
   });
-  const isMediaEditCategoryDropdownVisible = mediaEditRuntime.isMediaEditCategoryDropdownVisible;
-  const closeMediaEditCategoryDropdown = mediaEditRuntime.closeMediaEditCategoryDropdown;
-  const closeMediaEditModal = mediaEditRuntime.closeMediaEditModal;
-  const hideMediaEditModal = mediaEditRuntime.hideMediaEditModal;
-  const openMediaEditModal = mediaEditRuntime.openMediaEditModal;
-  const confirmDiscardActiveMediaEditIfNeeded = mediaEditRuntime.confirmDiscardActiveMediaEditIfNeeded;
-  const clearMediaEditContext = mediaEditRuntime.clearMediaEditContext;
-  const discardActiveMediaEditDraft = mediaEditRuntime.discardActiveMediaEditDraft;
-  const persistMediaEditForCurrentPlaylist = mediaEditRuntime.persistMediaEditForCurrentPlaylist;
+  const mediaEditFacade = createMediaEditRuntimeFacade(mediaEditRuntime);
 
   // Playlist operation mode UI (v2.2.0 Slice A)
   const $BUTTON_PLAYLIST_MODE = document.getElementById('btn-playlist-mode') as HTMLButtonElement | null;
@@ -543,16 +536,16 @@ const init = function (): void {
     clearDeleteSelections: () => {
       deleteSelectedIds.clear();
     },
-    canDiscardEditLeave: confirmDiscardActiveMediaEditIfNeeded,
+    canDiscardEditLeave: mediaEditFacade.confirmDiscard,
     discardEditState: () => {
-      discardActiveMediaEditDraft();
-      hideMediaEditModal(false);
-      clearMediaEditContext();
+      mediaEditFacade.discardDraft();
+      mediaEditFacade.hideModal(false);
+      mediaEditFacade.clearContext();
     },
     updatePlaylist: () => {
       playlistUiBindings?.updatePlaylist();
     },
-    persistCurrentPlaylistMutation: async () => persistMediaEditForCurrentPlaylist(AMP_STATUS.media || []),
+    persistCurrentPlaylistMutation: async () => mediaEditFacade.persistCurrentPlaylist(AMP_STATUS.media || []),
     updateNotice,
     getLocalizedMessage,
   });
@@ -567,7 +560,7 @@ const init = function (): void {
       playlistMode = mode;
     },
     deleteSelectedIds,
-    getEditSelectedId: () => mediaEditRuntime.getActiveItem()?.amId ?? null,
+    getEditSelectedId: () => mediaEditFacade.getActiveItem()?.amId ?? null,
     playlistList: $LIST_PLAYLIST,
     targetCategorySelect: isElement($SELECT_CATEGORY) ? $SELECT_CATEGORY : null,
     mediaCategorySelect: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
@@ -689,9 +682,9 @@ const init = function (): void {
         preferredCategoryId ?? (playlistUiBindings?.getActiveCategoryId() ?? null)
       );
     },
-    closeMediaEditCategoryDropdown,
-    closeMediaEditModal,
-    isMediaEditCategoryDropdownVisible,
+    closeMediaEditCategoryDropdown: mediaEditFacade.closeCategoryDropdown,
+    closeMediaEditModal: mediaEditFacade.closeModal,
+    isMediaEditCategoryDropdownVisible: mediaEditFacade.isCategoryDropdownVisible,
     watcher,
   });
   const hideOptionsModal = optionsModalBindings.hideOptionsModal;
@@ -735,7 +728,7 @@ const init = function (): void {
         deleteSelectedIds.clear();
       },
       resetReorderState,
-      clearMediaEditContext,
+      clearMediaEditContext: mediaEditFacade.clearContext,
       updatePlaylistModeUi: updatePlaylistModeUI,
       updatePlaylist: () => {
         playlistUiBindings?.updatePlaylist();
@@ -748,7 +741,7 @@ const init = function (): void {
       },
       getDescriptionPayload: getPlaylistDescriptionPayload,
       resolveMediaItem: (amId) => AMP_STATUS.media?.find((item: MediaItem) => item.amId === amId) || null,
-      openMediaEditModal,
+      openMediaEditModal: mediaEditFacade.openModal,
       loadPlaylist: (playlist) => {
         void getPlaylistData(playlist);
       },
@@ -758,9 +751,9 @@ const init = function (): void {
         AMP_STATUS.current = null;
         AMP_STATUS.next = null;
       },
-      canDiscardEditMode: () => confirmDiscardActiveMediaEditIfNeeded(),
+      canDiscardEditMode: () => mediaEditFacade.confirmDiscard(),
       hideMediaEditModal: () => {
-        hideMediaEditModal(false);
+        mediaEditFacade.hideModal(false);
       },
       resetPlaylistMode: () => {
         playlistMode = 'normal';
@@ -1105,7 +1098,7 @@ const init = function (): void {
             updatePlayStatus((AMP_STATUS.media || [])[0]?.amId ?? 0);
           }
         },
-        persistMediaEditForCurrentPlaylist,
+        persistMediaEditForCurrentPlaylist: mediaEditFacade.persistCurrentPlaylist,
         hideOptionsModal,
         setValidated,
         sanitizeMediaText,
