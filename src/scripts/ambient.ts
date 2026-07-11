@@ -116,9 +116,6 @@ import {
   writeMyPlaylistJson,
 } from './domain/myplaylist-storage';
 import { createPlaybackTimerController } from './domain/media-playback';
-import {
-  bindAmbientViewportLifecycle,
-} from './bootstrap/app-init';
 import { initializeAppControlsRuntime } from './bootstrap/app-controls-runtime-init';
 import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-runtime-bootstrap';
 import { initializeOptionsModalRuntime } from './bootstrap/options-modal-runtime-init';
@@ -144,6 +141,7 @@ import { createAppBootController } from './bootstrap/app-boot';
 import { initializePlaylistUiRuntime } from './bootstrap/playlist-ui-runtime-init';
 import { initializePlaylistRuntimeWiring } from './bootstrap/playlist-runtime-wiring-init';
 import { initializePlaylistStartupRuntime } from './bootstrap/playlist-startup-runtime-init';
+import { initializeViewportLifecycleRuntime } from './bootstrap/viewport-lifecycle-runtime-init';
 import {
   getCloudImportSizeLimitBytes as getCloudImportSizeLimitBytesDomain,
   parseImportedPlaylistJson,
@@ -180,7 +178,7 @@ const init = function (): void {
     minVisibleMs: BOOT_SPLASH_MIN_VISIBLE_MS,
     fadeMs: BOOT_SPLASH_FADE_MS,
     onReady: () => {
-      syncViewportMetrics();
+      viewportRuntime.syncMetrics();
       viewportRuntime.updateWindowSize();
     },
   });
@@ -542,10 +540,6 @@ const init = function (): void {
   const clearMediaEditContext = mediaEditRuntime.clearMediaEditContext;
   const discardActiveMediaEditDraft = mediaEditRuntime.discardActiveMediaEditDraft;
   const persistMediaEditForCurrentPlaylist = mediaEditRuntime.persistMediaEditForCurrentPlaylist;
-
-  const syncViewportMetrics = (): void => viewportRuntime.syncMetrics();
-  const scheduleViewportMetricsSync = (delay = 0): void => viewportRuntime.scheduleMetricsSync(delay);
-  const refreshViewportMetricsAfter = (delay: number): void => viewportRuntime.refreshMetricsAfter(delay);
 
   // Playlist operation mode UI (v2.2.0 Slice A)
   const $BUTTON_PLAYLIST_MODE = document.getElementById('btn-playlist-mode') as HTMLButtonElement | null;
@@ -998,21 +992,12 @@ const init = function (): void {
   /**
    * Toggle the display of backdrop for drawer or modal.
    */
-  bindAmbientViewportLifecycle({
+  initializeViewportLifecycleRuntime({
     drawerPlaylist: $DRAWER_PLAYLIST,
     drawerSettings: $DRAWER_SETTINGS,
     modalOptions: $MODAL_OPTIONS,
-    getCurrentWidth: () => currentWindowSize.width,
-    minFullUIWidth: currentWindowSize.minFullUIWidth,
-    setMenuMinimized: (minimized) => {
-      viewportRuntime.setMenuMinimized(minimized);
-    },
-    syncViewportMetrics,
-    updateWindowSize: () => {
-      viewportRuntime.updateWindowSize();
-    },
-    refreshViewportMetricsAfter,
-    scheduleViewportMetricsSync,
+    currentWindowSize,
+    viewportRuntime,
   });
 
   // ============================================================================
