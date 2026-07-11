@@ -109,7 +109,7 @@ import { createPlaybackTimerController } from './domain/media-playback';
 import { initializeAppControlsRuntime } from './bootstrap/app-controls-runtime-init';
 import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-runtime-bootstrap';
 import { initializeOptionsModalRuntime } from './bootstrap/options-modal-runtime-init';
-import { initializePlaylistModeBindings } from './bootstrap/playlist-mode-init';
+import { initializePlaylistModeRuntime } from './bootstrap/playlist-mode-runtime-init';
 import { initializeMediaEditRuntimeWiring } from './bootstrap/media-edit-runtime-wiring-init';
 import { initializeAmbientPlayerRuntimeWiring } from './bootstrap/player-runtime-wiring-init';
 import { initializeManagementRuntime } from './bootstrap/management-runtime-init';
@@ -509,13 +509,6 @@ const init = function (): void {
     buttonLabel: $PLAYLIST_MODE_BUTTON_LABEL,
   };
 
-  // Playlist delete mode state (v2.2.0 Slice B)
-  const $MODAL_PLAYLIST_CONFIRM = document.getElementById('modal-playlist-confirm') as HTMLElement | null;
-  const $MODAL_PLAYLIST_CONFIRM_TITLE = document.getElementById('modal-playlist-confirm-title') as HTMLElement | null;
-  const $MODAL_PLAYLIST_CONFIRM_BODY = document.getElementById('modal-playlist-confirm-body') as HTMLElement | null;
-  const $BTN_PLAYLIST_CONFIRM_APPLY = document.getElementById('btn-playlist-confirm-apply') as HTMLButtonElement | null;
-  const $BTN_PLAYLIST_CONFIRM_CANCEL = document.getElementById('btn-playlist-confirm-cancel') as HTMLButtonElement | null;
-
   let deleteSelectedIds = new Set<number>();
 
   const {
@@ -527,18 +520,12 @@ const init = function (): void {
     syncDeleteSelectionIndicator,
     syncPlaylistModeAvailability,
     updatePlaylistModeUi: updatePlaylistModeUI,
-  } = initializePlaylistModeBindings({
+  } = initializePlaylistModeRuntime({
+    document,
     playlistModeUi,
     defaultPlaylistModeButtonIcon,
     defaultPlaylistModeButtonLabel,
     listElement: $LIST_PLAYLIST,
-    confirmModal: {
-      modal: $MODAL_PLAYLIST_CONFIRM,
-      title: $MODAL_PLAYLIST_CONFIRM_TITLE,
-      body: $MODAL_PLAYLIST_CONFIRM_BODY,
-      applyButton: $BTN_PLAYLIST_CONFIRM_APPLY,
-      cancelButton: $BTN_PLAYLIST_CONFIRM_CANCEL,
-    },
     getPlaylistMode: () => playlistMode,
     setPlaylistModeState: (mode) => {
       playlistMode = mode;
