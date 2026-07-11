@@ -65,7 +65,6 @@ import {
 } from './platform/runtime-support';
 import {
   createPlaylistResumeController,
-  PlaylistResumeMediaContext,
 } from './state/playlist-context';
 import { createPlaylistResumeBindings } from './state/playlist-resume-bindings';
 import {
@@ -123,7 +122,6 @@ import {
   syncYouTubePreviewDuration,
 } from './ui/player/youtube-player-events';
 import {
-  ensureSelectOption,
   selectExistingOption,
 } from './ui/forms/management-forms';
 import {
@@ -170,12 +168,8 @@ import {
 } from './bootstrap/display-runtime';
 import { createPlaylistUiBindings } from './bootstrap/playlist-ui-init';
 import { createAppBootController } from './bootstrap/app-boot';
-import {
-  resolveInitialPlaylistStartup,
-} from './bootstrap/playlist-startup';
-import { executeInitialPlaylistStartup } from './bootstrap/playlist-startup-init';
-import { createImportedPlaylistActivator } from './bootstrap/imported-playlist-init';
 import { initializePlaylistRuntime } from './bootstrap/playlist-runtime-init';
+import { initializePlaylistStartupRuntime } from './bootstrap/playlist-startup-runtime-init';
 import {
   getCloudImportSizeLimitBytes as getCloudImportSizeLimitBytesDomain,
   parseImportedPlaylistJson,
@@ -1036,21 +1030,16 @@ const init = function (): void {
   const savedPlaylistContext = getSavedPlaylistContext();
   domainEnsureCloudMyPlaylistSeed(logger);
   ensureMyPlaylistOptionFromStorage();
-  const initialPlaylistStartup = resolveInitialPlaylistStartup<PlaylistResumeMediaContext>({
+  const { activateImportedPlaylist } = initializePlaylistStartupRuntime({
     ambientData: ((window as any).AmbientData as AmbientData | undefined) ?? null,
     hasStoredMyPlaylist: localStorage.getItem(MYPLAYLIST_KEY) !== null,
     isPlaylistAvailableForResume,
     myPlaylistName: MYPLAYLIST_NAME,
     savedPlaylistContext,
-  });
-  executeInitialPlaylistStartup({
-    action: initialPlaylistStartup,
     requestCategoryResume,
     requestMediaResume,
-    selectPlaylistOption: (playlist) => {
-      selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, playlist);
-    },
-    loadPlaylist: (playlist) => getPlaylistData(playlist),
+    selectElement: isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null,
+    loadPlaylist: getPlaylistData,
     initMyPlaylistFromStorage,
     setPlaylistReadyState: (isReady) => {
       appBoot.setPlaylistReadyState(isReady);
@@ -1058,24 +1047,6 @@ const init = function (): void {
     releaseAppBoot: () => {
       appBoot.release();
     },
-  });
-
-  const activateImportedPlaylist = createImportedPlaylistActivator({
-    ensurePlaylistOption: (nextPlaylistName) => {
-      ensureSelectOption(
-        isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null,
-        nextPlaylistName,
-        nextPlaylistName.replace(/\.json$/i, '')
-      );
-    },
-    selectPlaylistOption: (nextPlaylistName) => {
-      selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, nextPlaylistName);
-    },
-    requestCategoryResume,
-    requestMediaResume: () => {
-      requestMediaResume(null);
-    },
-    loadPlaylist: getPlaylistData,
   });
 
   // ============================================================================
