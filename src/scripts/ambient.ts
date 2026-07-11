@@ -107,6 +107,7 @@ import {
 import { createPlaybackTimerController } from './domain/media-playback';
 import { initializeAppControlsRuntime } from './bootstrap/app-controls-runtime-init';
 import { createAmbientAppControlsFacade } from './bootstrap/app-controls-facade';
+import { createAmbientAppSettingsFacade } from './bootstrap/app-settings-facade';
 import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-runtime-bootstrap';
 import { initializeOptionsSurfaceRuntime } from './bootstrap/options-surface-runtime-init';
 import { initializePlaylistModeRuntime } from './bootstrap/playlist-mode-runtime-init';
@@ -755,6 +756,30 @@ const init = function (): void {
     },
     getPlayer: () => player,
   });
+  const appSettingsFacade = createAmbientAppSettingsFacade({
+    status: AMP_STATUS as typeof AMP_STATUS & {
+      ctg: number | null;
+      playlist?: string | null;
+      options: Record<string, unknown>;
+    },
+    loopToggleRoot: $TOGGLE_LOOP,
+    randomlyToggleRoot: $TOGGLE_RANDOMLY,
+    shuffleToggleRoot: $TOGGLE_SHUFFLE,
+    seekToggleRoot: $TOGGLE_SEEKPLAY,
+    faderToggleRoot: $TOGGLE_FADER,
+    darkModeToggleRoot: $TOGGLE_DARKMODE,
+    volumeRange: $RANGE_VOLUME,
+    shufflePlaylist: () => createShuffledPlaylistItems({
+      mediaItems: AMP_STATUS.media,
+      categoryId: AMP_STATUS.ctg,
+      shuffleEnabled: true,
+    }),
+    persistMyPlaylistIfNeeded,
+    normalizeVolume: (value) => normalizeAmbientVolume(value, DEFAULT_VOLUME),
+    syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
+    isDarkModeEnabled: () => isAmbientDarkModeEnabled({ playlistOptions: AMP_STATUS.options }),
+    setStyles,
+  });
 
   initializeAppControlsRuntime({
     document,
@@ -778,29 +803,10 @@ const init = function (): void {
     },
     playlist: appControlsFacade.playlist,
     playerControls: appControlsFacade.playerControls,
-    settingsControlRoots: {
-      loop: $TOGGLE_LOOP,
-      randomly: $TOGGLE_RANDOMLY,
-      shuffle: $TOGGLE_SHUFFLE,
-      seekplay: $TOGGLE_SEEKPLAY,
-      fader: $TOGGLE_FADER,
-      darkmode: $TOGGLE_DARKMODE,
-    },
-    settings: {
-      volumeRange: $RANGE_VOLUME,
-      shufflePlaylist: () => createShuffledPlaylistItems({
-        mediaItems: AMP_STATUS.media,
-        categoryId: AMP_STATUS.ctg,
-        shuffleEnabled: true,
-      }),
-      persistMyPlaylistIfNeeded,
-      normalizeVolume: (value) => normalizeAmbientVolume(value, DEFAULT_VOLUME),
-      syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-      isDarkModeEnabled: () => isAmbientDarkModeEnabled({ playlistOptions: AMP_STATUS.options }),
-      setStyles,
-    },
-    getCurrentPlaylist: () => AMP_STATUS.hasOwnProperty('playlist') ? AMP_STATUS.playlist : null,
-    getCurrentCategoryId: () => (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null ? AMP_STATUS.ctg : null),
+    settingsControlRoots: appSettingsFacade.settingsControlRoots,
+    settings: appSettingsFacade.settings,
+    getCurrentPlaylist: appSettingsFacade.getCurrentPlaylist,
+    getCurrentCategoryId: appSettingsFacade.getCurrentCategoryId,
     getCookie,
     updateCookie,
     logger,
