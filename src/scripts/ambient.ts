@@ -55,7 +55,6 @@ import {
 import { createPlaylistResumeBindings } from './state/playlist-resume-bindings';
 import {
   readPlaylistOption,
-  setPlaylistOption,
 } from './state/playlist-options';
 import {
   createShuffledPlaylistItems,
@@ -69,10 +68,7 @@ import {
 import {
   getToggleInput,
 } from './ui/settings-view';
-import {
-  isFullWindowMode as isFullWindowModeView,
-} from './ui/viewport';
-import { createViewportRuntimeController } from './ui/viewport-runtime';
+import { isFullWindowMode as isFullWindowModeView } from './ui/viewport';
 import {
   createOptionsModalController,
   createPlaylistDescModalController,
@@ -91,14 +87,8 @@ import {
 } from './ui/notifications';
 import {
   syncPlaybackButtonState,
-  syncMenuCollapseButtonState,
   syncPlaybackButtons,
-  syncWindowFullButtonState,
 } from './ui/player/player-shell';
-import {
-  getBottomMenuHeight as getBottomMenuHeightView,
-  getPlayerSizeForCurrentMode as getPlayerSizeForCurrentModeView,
-} from './ui/player/player-layout';
 import {
   normalizeAmbientVolume,
   resolveAmbientDefaultVolume,
@@ -135,13 +125,13 @@ import {
 import {
   getAmbientNoMediaImagePath,
   isAmbientDarkModeEnabled,
-  toggleAmbientCaptionBindings,
 } from './bootstrap/display-runtime';
 import { createAppBootController } from './bootstrap/app-boot';
 import { initializePlaylistUiRuntime } from './bootstrap/playlist-ui-runtime-init';
 import { initializePlaylistRuntimeWiring } from './bootstrap/playlist-runtime-wiring-init';
 import { initializePlaylistStartupRuntime } from './bootstrap/playlist-startup-runtime-init';
 import { initializeViewportLifecycleRuntime } from './bootstrap/viewport-lifecycle-runtime-init';
+import { initializeViewportRuntimeWiring } from './bootstrap/viewport-runtime-wiring-init';
 import {
   getCloudImportSizeLimitBytes as getCloudImportSizeLimitBytesDomain,
   parseImportedPlaylistJson,
@@ -375,59 +365,21 @@ const init = function (): void {
     logger: runtimeLogger,
   });
 
-  const viewportRuntime = createViewportRuntimeController({
+  const viewportRuntime = initializeViewportRuntimeWiring({
     body: $BODY,
     menu: $MENU,
     menuCollapseButton: $BUTTON_MENU_COLLAPSE,
-    toggleInput: toggleWindowFullInput,
-    drawerElements: {
-      playlistDrawer: $DRAWER_PLAYLIST,
-      settingsDrawer: $DRAWER_SETTINGS,
-      playlistButton: $BUTTON_PLAYLIST,
-      settingsButton: $BUTTON_SETTINGS,
-      playlistCloseButton: document.getElementById('btn-close-playlist') as HTMLButtonElement | null,
-      settingsCloseButton: document.getElementById('btn-close-settings') as HTMLButtonElement | null,
-    },
-    state: currentWindowSize,
-    getViewportWidth: () => Math.round(window.visualViewport?.width || window.innerWidth),
-    getViewportHeight: () => Math.round(window.visualViewport?.height || window.innerHeight),
-    getBottomMenuHeight: () => getBottomMenuHeightView(
-      $MENU,
-      () => Math.round(window.visualViewport?.height || window.innerHeight)
-    ),
-    getPlayerSizeForCurrentMode: () => getPlayerSizeForCurrentModeView({
-      fullWindow: isFullWindowModeView($BODY),
-      viewportWidth: currentWindowSize.width,
-      viewportHeight: currentWindowSize.height,
-      bottomMenuHeight: getBottomMenuHeightView(
-        $MENU,
-        () => Math.round(window.visualViewport?.height || window.innerHeight)
-      ),
-    }),
-    isFullWindowMode: () => isFullWindowModeView($BODY),
+    toggleWindowFullInput,
+    drawerPlaylist: $DRAWER_PLAYLIST,
+    drawerSettings: $DRAWER_SETTINGS,
+    playlistButton: $BUTTON_PLAYLIST,
+    settingsButton: $BUTTON_SETTINGS,
+    currentWindowSize,
+    buttonWindowFull: $BUTTON_WINDOW_FULL,
+    mediaCaption: $MEDIA_CAPTION,
+    status: AMP_STATUS,
+    persistMyPlaylistIfNeeded,
     getPlayer: () => player,
-    getHtmlPlayer: () => document.getElementById('html-player') as HTMLVideoElement | null,
-    clearTimer: (timerId) => {
-      window.clearTimeout(timerId);
-    },
-    setTimer: (handler, delay) => window.setTimeout(handler, delay),
-    persistFullWindowOption: (enabled) => {
-      setPlaylistOption(AMP_STATUS, 'fullwindow', enabled);
-      persistMyPlaylistIfNeeded();
-    },
-    syncFullWindowButtonState: (enabled) => {
-      syncWindowFullButtonState($BUTTON_WINDOW_FULL, enabled);
-    },
-    syncMenuCollapseButtonState: (minimized) => {
-      syncMenuCollapseButtonState($BUTTON_MENU_COLLAPSE, minimized);
-    },
-    onCaptionRefresh: () => {
-      toggleAmbientCaptionBindings({
-        bodyElement: $BODY,
-        captionElement: $MEDIA_CAPTION,
-        fallbackWidth: currentWindowSize.width,
-      });
-    },
   });
 
   const playlistDescModal = createPlaylistDescModalController(
