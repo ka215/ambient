@@ -7,8 +7,6 @@ import 'flowbite';
 import '../styles/app.css';
 import {
   basename as sharedBasename,
-  escapeHTML as sharedEscapeHTML,
-  getExt as sharedGetExt,
   snakeToCapital as sharedSnakeToCapital,
 } from './shared/string';
 import {
@@ -115,14 +113,9 @@ import {
   getPlayerSizeForCurrentMode as getPlayerSizeForCurrentModeView,
 } from './ui/player/player-layout';
 import {
-  findMediaById,
-  resolveSeekRange,
-} from './ui/player/player-runtime';
-import {
   syncYouTubePreviewDuration,
 } from './ui/player/youtube-player-events';
 import {
-  getAmbientPlaybackVolume,
   normalizeAmbientVolume,
   resolveAmbientDefaultVolume,
   syncAmbientResolvedMediaVolumeField,
@@ -147,7 +140,7 @@ import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-
 import { initializeOptionsModalRuntime } from './bootstrap/options-modal-runtime-init';
 import { initializePlaylistModeBindings } from './bootstrap/playlist-mode-init';
 import { initializeMediaEditRuntime } from './bootstrap/media-edit-runtime-init';
-import { initializeAmbientPlayer } from './bootstrap/player-init';
+import { initializeAmbientPlayerRuntimeWiring } from './bootstrap/player-runtime-wiring-init';
 import { initializeManagementRuntime } from './bootstrap/management-runtime-init';
 import { initializeStatusWatcherRuntime } from './bootstrap/status-watcher-runtime-init';
 import { initializePlaylistPolicy } from './bootstrap/playlist-policy-init';
@@ -928,7 +921,7 @@ const init = function (): void {
     logger,
   });
 
-  const { updatePlayStatus, playItem } = initializeAmbientPlayer({
+  const { updatePlayStatus, playItem } = initializeAmbientPlayerRuntimeWiring({
     status: AMP_STATUS,
     body: $BODY,
     menu: $MENU,
@@ -942,21 +935,11 @@ const init = function (): void {
     carouselNextButton: $CAROUSEL_NEXT as HTMLButtonElement,
     mediaCaption: $MEDIA_CAPTION,
     currentWindowSize,
-    defaultVolume: resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
+    defaultVolume: DEFAULT_VOLUME,
     imageDir: ((window as any).AmbientData as AmbientData | undefined)?.imageDir,
     getOption,
-    getExtension: sharedGetExt,
-    getPlaybackVolume: (mediaData: MediaItem | null = null) => getAmbientPlaybackVolume({
-      mediaData,
-      defaultVolume: resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
-    }),
-    normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
-    inRange: sharedInRange,
-    findMediaById,
-    resolveSeekRange,
     logger,
     getLocalizedMessage,
-    escapeHtml: sharedEscapeHTML,
     updateNotice,
     closeResponsiveDrawers,
     syncPlaybackButtonState,
