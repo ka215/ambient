@@ -140,8 +140,8 @@ import {
   isAmbientDarkModeEnabled,
   toggleAmbientCaptionBindings,
 } from './bootstrap/display-runtime';
-import { createPlaylistUiBindings } from './bootstrap/playlist-ui-init';
 import { createAppBootController } from './bootstrap/app-boot';
+import { initializePlaylistUiRuntime } from './bootstrap/playlist-ui-runtime-init';
 import { initializePlaylistRuntimeWiring } from './bootstrap/playlist-runtime-wiring-init';
 import { initializePlaylistStartupRuntime } from './bootstrap/playlist-startup-runtime-init';
 import {
@@ -625,7 +625,8 @@ const init = function (): void {
   });
 
   let openMediaManagementAction: (presetCategoryId?: number | null) => void = () => {};
-  let playlistUiBindings: ReturnType<typeof createPlaylistUiBindings> | null = createPlaylistUiBindings({
+  let playlistUiBindings: ReturnType<typeof initializePlaylistUiRuntime> | null = initializePlaylistUiRuntime({
+    document,
     status: AMP_STATUS,
     getOption: (key) => getOption(key as Extract<keyof PlaylistOptions, string>),
     playlistMode: playlistMode,
@@ -637,9 +638,6 @@ const init = function (): void {
     playlistList: $LIST_PLAYLIST,
     targetCategorySelect: isElement($SELECT_CATEGORY) ? $SELECT_CATEGORY : null,
     mediaCategorySelect: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
-    mediaCategoryInput: document.getElementById('media-category-new') as HTMLInputElement | null,
-    mediaCategoryLabel: document.getElementById('media-category-label') as HTMLLabelElement | null,
-    mediaCategoryNote: document.getElementById('note-media-category-create-from-playlist-management') as HTMLElement | null,
     canUseReorderMode: () => canUseAmbientReorderMode({
       canMutatePlaylist: canMutateCurrentPlaylist(),
       categoryId: AMP_STATUS.ctg,
