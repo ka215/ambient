@@ -15,21 +15,10 @@ import {
   sanitizeMediaDesc as sharedSanitizeMediaDesc,
   sanitizeMediaDescInput as sharedSanitizeMediaDescInput,
   sanitizeMediaDescInputLive as sharedSanitizeMediaDescInputLive,
-  sanitizeMediaEditDescForStorage as sharedSanitizeMediaEditDescForStorage,
-  sanitizeMediaEditDescInput as sharedSanitizeMediaEditDescInput,
   sanitizeMediaItemTextFields as sharedSanitizeMediaItemTextFields,
   sanitizeMediaText as sharedSanitizeMediaText,
   sanitizeMediaTextInput as sharedSanitizeMediaTextInput,
 } from './shared/media-sanitize';
-import {
-  formatSecondsToHHMMSS as sharedFormatSecondsToHHMMSS,
-  formatSecondsToTimelineLabel as sharedFormatSecondsToTimelineLabel,
-  normalizeMediaEditTimingValue as sharedNormalizeMediaEditTimingValue,
-  parseMediaTimeToIntegerSeconds as sharedParseMediaTimeToIntegerSeconds,
-  sanitizeMediaEditTimingInputField as sharedSanitizeMediaEditTimingInputField,
-  stepMediaEditTimingField as sharedStepMediaEditTimingField,
-  toMediaEditTimingInputValue as sharedToMediaEditTimingInputValue,
-} from './shared/media-edit-timing-input';
 import {
   inArray as sharedInArray,
   inRange as sharedInRange,
@@ -56,7 +45,6 @@ import {
 import {
   getRuntimeAmbientData,
   getRuntimeLocalizedMessage,
-  isRuntimeLocalMode,
   runtimeLogger,
   saveStorageAdapter,
   useStorageAdapter,
@@ -80,7 +68,6 @@ import {
 } from './ui/drawers';
 import {
   getToggleInput,
-  syncVolumeSlider,
 } from './ui/settings-view';
 import {
   isFullWindowMode as isFullWindowModeView,
@@ -113,9 +100,6 @@ import {
   getPlayerSizeForCurrentMode as getPlayerSizeForCurrentModeView,
 } from './ui/player/player-layout';
 import {
-  syncYouTubePreviewDuration,
-} from './ui/player/youtube-player-events';
-import {
   normalizeAmbientVolume,
   resolveAmbientDefaultVolume,
   syncAmbientResolvedMediaVolumeField,
@@ -139,7 +123,7 @@ import { initializeAppControlsRuntime } from './bootstrap/app-controls-runtime-i
 import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-runtime-bootstrap';
 import { initializeOptionsModalRuntime } from './bootstrap/options-modal-runtime-init';
 import { initializePlaylistModeBindings } from './bootstrap/playlist-mode-init';
-import { initializeMediaEditRuntime } from './bootstrap/media-edit-runtime-init';
+import { initializeMediaEditRuntimeWiring } from './bootstrap/media-edit-runtime-wiring-init';
 import { initializeAmbientPlayerRuntimeWiring } from './bootstrap/player-runtime-wiring-init';
 import { initializeManagementRuntime } from './bootstrap/management-runtime-init';
 import { initializeStatusWatcherRuntime } from './bootstrap/status-watcher-runtime-init';
@@ -501,7 +485,7 @@ const init = function (): void {
     playlistOptions: AMP_STATUS.options,
     seekFormat,
   });
-  const mediaEditRuntime = initializeMediaEditRuntime({
+  const mediaEditRuntime = initializeMediaEditRuntimeWiring({
     elements: mediaEditElements,
     status: AMP_STATUS,
     baseUrl: BASE_URL,
@@ -526,25 +510,8 @@ const init = function (): void {
     thumbnailEndpoint: MEDIA_EDIT_THUMBNAIL_ENDPOINT,
     getLocalizedMessage,
     updateNotice,
-    getDefaultVolume: () => resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
+    getOption: (key) => getOption(key as Extract<keyof PlaylistOptions, string>),
     sanitizeMediaText: sanitizeMediaText,
-    sanitizeMediaEditDescInput: (value, maxLength) => sharedSanitizeMediaEditDescInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
-    sanitizeMediaEditDescForStorage: (value, maxLength) => sharedSanitizeMediaEditDescForStorage(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
-    normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
-    normalizeTimingValue: sharedNormalizeMediaEditTimingValue,
-    parseMediaTimeToIntegerSeconds: sharedParseMediaTimeToIntegerSeconds,
-    formatSecondsToHHMMSS: sharedFormatSecondsToHHMMSS,
-    formatSecondsToTimelineLabel: sharedFormatSecondsToTimelineLabel,
-    toTimingInputValue: sharedToMediaEditTimingInputValue,
-    sanitizeTimingInputField: sharedSanitizeMediaEditTimingInputField,
-    stepTimingField: sharedStepMediaEditTimingField,
-    syncYouTubePreviewDuration,
-    syncVolumeSlider,
-    syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-    getImageDir: () => getRuntimeAmbientData()?.imageDir,
-    getFallbackThumbnailSrc: () => getAmbientNoMediaImagePath(AMP_STATUS.options, 'thumb'),
-    isLocalMode: isRuntimeLocalMode,
-    isCloudMode: () => !!getRuntimeAmbientData()?.isCloud,
     persistCloudPlaylist: persistMyPlaylistIfNeeded,
     generatePlaylistJson: (pretty = false) => generatePlaylistJson(pretty),
     updatePlayStatus: (amId) => {
