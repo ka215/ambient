@@ -107,6 +107,7 @@ import {
 } from './domain/myplaylist-storage';
 import { createPlaybackTimerController } from './domain/media-playback';
 import { initializeAppControlsRuntime } from './bootstrap/app-controls-runtime-init';
+import { createAmbientAppControlsFacade } from './bootstrap/app-controls-facade';
 import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-runtime-bootstrap';
 import { initializeOptionsModalRuntime } from './bootstrap/options-modal-runtime-init';
 import { initializePlaylistModeRuntime } from './bootstrap/playlist-mode-runtime-init';
@@ -701,6 +702,62 @@ const init = function (): void {
   // EVENT HANDLERS
   // ============================================================================
 
+  const appControlsFacade = createAmbientAppControlsFacade({
+    status: AMP_STATUS,
+    listElement: $LIST_PLAYLIST,
+    getPlaylistMode: () => playlistMode,
+    clearDeleteSelections: () => {
+      deleteSelectedIds.clear();
+    },
+    resetReorderState,
+    clearMediaEditContext: mediaEditFacade.clearContext,
+    updatePlaylistModeUi: updatePlaylistModeUI,
+    updatePlaylist: () => {
+      playlistUiBindings?.updatePlaylist();
+    },
+    deleteSelectedIds,
+    syncDeleteSelectionIndicator,
+    isPlaylistInteractionLocked,
+    openDescriptionModal: (payload) => {
+      playlistDescModal.open(payload.titleText, payload.artistText, payload.descText, payload.trigger);
+    },
+    getDescriptionPayload: getPlaylistDescriptionPayload,
+    openMediaEditModal: mediaEditFacade.openModal,
+    loadPlaylist: (playlist) => {
+      void getPlaylistData(playlist);
+    },
+    canDiscardEditMode: () => mediaEditFacade.confirmDiscard(),
+    hideMediaEditModal: () => {
+      mediaEditFacade.hideModal(false);
+    },
+    resetPlaylistMode: () => {
+      playlistMode = 'normal';
+    },
+    carouselPrevButton: $CAROUSEL_PREV,
+    carouselNextButton: $CAROUSEL_NEXT,
+    refreshButton: $BUTTON_REFRESH,
+    windowFullButton: $BUTTON_WINDOW_FULL,
+    windowFullToggle: toggleWindowFullInput,
+    menuCollapseButton: $BUTTON_MENU_COLLAPSE,
+    playButton: $BUTTON_PLAY,
+    pauseButton: $BUTTON_PAUSE,
+    menuElement: $MENU,
+    playItem: (target) => {
+      playItem(target);
+    },
+    playItemById: (playId) => {
+      playItem(null, playId);
+    },
+    isFullWindowMode: () => isFullWindowModeView($BODY),
+    setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
+      viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
+    },
+    setMenuMinimized: (minimized) => {
+      viewportRuntime.setMenuMinimized(minimized);
+    },
+    getPlayer: () => player,
+  });
+
   initializeAppControlsRuntime({
     document,
     windowObject: window,
@@ -721,69 +778,8 @@ const init = function (): void {
       categorySelect: $SELECT_CATEGORY,
       languageSelect: $SELECT_LANGUAGE,
     },
-    playlist: {
-      listElement: $LIST_PLAYLIST,
-      getPlaylistMode: () => playlistMode,
-      clearDeleteSelections: () => {
-        deleteSelectedIds.clear();
-      },
-      resetReorderState,
-      clearMediaEditContext: mediaEditFacade.clearContext,
-      updatePlaylistModeUi: updatePlaylistModeUI,
-      updatePlaylist: () => {
-        playlistUiBindings?.updatePlaylist();
-      },
-      deleteSelectedIds,
-      syncDeleteSelectionIndicator,
-      isPlaylistInteractionLocked,
-      openDescriptionModal: (payload) => {
-        playlistDescModal.open(payload.titleText, payload.artistText, payload.descText, payload.trigger);
-      },
-      getDescriptionPayload: getPlaylistDescriptionPayload,
-      resolveMediaItem: (amId) => AMP_STATUS.media?.find((item: MediaItem) => item.amId === amId) || null,
-      openMediaEditModal: mediaEditFacade.openModal,
-      loadPlaylist: (playlist) => {
-        void getPlaylistData(playlist);
-      },
-      applyCategoryChange: (newCtgId) => {
-        AMP_STATUS.ctg = newCtgId;
-        AMP_STATUS.prev = null;
-        AMP_STATUS.current = null;
-        AMP_STATUS.next = null;
-      },
-      canDiscardEditMode: () => mediaEditFacade.confirmDiscard(),
-      hideMediaEditModal: () => {
-        mediaEditFacade.hideModal(false);
-      },
-      resetPlaylistMode: () => {
-        playlistMode = 'normal';
-      },
-    },
-    playerControls: {
-      carouselPrevButton: $CAROUSEL_PREV,
-      carouselNextButton: $CAROUSEL_NEXT,
-      refreshButton: $BUTTON_REFRESH,
-      windowFullButton: $BUTTON_WINDOW_FULL,
-      windowFullToggle: toggleWindowFullInput,
-      menuCollapseButton: $BUTTON_MENU_COLLAPSE,
-      playButton: $BUTTON_PLAY,
-      pauseButton: $BUTTON_PAUSE,
-      menuElement: $MENU,
-      playItem: (target) => {
-        playItem(target);
-      },
-      playItemById: (playId) => {
-        playItem(null, playId);
-      },
-      isFullWindowMode: () => isFullWindowModeView($BODY),
-      setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
-        viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
-      },
-      setMenuMinimized: (minimized) => {
-        viewportRuntime.setMenuMinimized(minimized);
-      },
-      getPlayer: () => player,
-    },
+    playlist: appControlsFacade.playlist,
+    playerControls: appControlsFacade.playerControls,
     settingsControlRoots: {
       loop: $TOGGLE_LOOP,
       randomly: $TOGGLE_RANDOMLY,
