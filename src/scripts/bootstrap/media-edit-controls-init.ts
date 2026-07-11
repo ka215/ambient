@@ -4,7 +4,7 @@ import {
   bindMediaEditPreviewControls,
   bindMediaEditPrimaryControls,
   bindMediaEditThumbnailControls,
-} from '../ui/media-edit-controls';
+} from '../ui/media-edit/controls';
 
 type PrimaryBindings = Parameters<typeof bindMediaEditPrimaryControls>[0];
 type CategoryBindings = Parameters<typeof bindMediaEditCategoryControls>[0];

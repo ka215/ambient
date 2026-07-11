@@ -1,15 +1,15 @@
-import type { MediaItem } from '../types/ambient';
-import type { MediaEditDraft, MediaEditDraftInput } from './media-edit-draft';
+import type { MediaItem } from '../../types/ambient';
+import type { MediaEditDraft, MediaEditDraftInput } from './draft';
 import {
   applyBoundMediaEditDraftState,
   bindMediaEditDraftState,
   clearMediaEditStateContext,
   discardMediaEditDraft,
   hasActiveUnsavedMediaEditDraft,
-} from './media-edit-state';
-import { deleteMediaEditDraftEntry, hydrateMediaEditDraftMap } from './media-edit-draft-store';
-import { syncSessionDraftState } from './session-draft-store';
-import { createMediaEditBaseDraft, createMediaEditDraftKey, readMediaEditDraftFromForm } from './media-edit-draft';
+} from './session-state';
+import { deleteMediaEditDraftEntry, hydrateMediaEditDraftMap } from '../../state/media-edit-draft-store';
+import { syncSessionDraftState } from '../../state/session-draft-store';
+import { createMediaEditBaseDraft, createMediaEditDraftKey, readMediaEditDraftFromForm } from './draft';
 
 export function createMediaEditDraftBindings(options: {
   storageKey: string;

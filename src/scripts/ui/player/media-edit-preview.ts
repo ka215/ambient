@@ -1,5 +1,6 @@
 import type { MediaItem } from '../../types/ambient';
 import type { YTPlayer } from '../../types/youtube';
+import type { PlayerViewKind, PlayerViewSource } from './player-view-types';
 import {
   buildYouTubePreviewPlayerConfig,
   createYouTubePreviewHost,
@@ -20,12 +21,15 @@ export type MediaEditPreviewSource =
   | {
     kind: 'youtube';
     videoId: string;
+    viewSource: PlayerViewSource;
   }
   | {
     kind: 'html';
     sourcePath: string;
     tagName: 'audio' | 'video';
     sourceType: string;
+    viewKind: Extract<PlayerViewKind, 'audio' | 'video'>;
+    viewSource: PlayerViewSource;
   }
   | {
     kind: 'missing';
@@ -33,9 +37,16 @@ export type MediaEditPreviewSource =
 
 export function resolveMediaEditPreviewSource(mediaItem: MediaItem): MediaEditPreviewSource {
   if (mediaItem.videoid && mediaItem.videoid.trim() !== '') {
+    const videoId = mediaItem.videoid.trim();
     return {
       kind: 'youtube',
-      videoId: mediaItem.videoid.trim(),
+      videoId,
+      viewSource: {
+        videoId,
+        controls: true,
+        fullscreen: false,
+        rel: 0,
+      },
     };
   }
 
@@ -48,6 +59,13 @@ export function resolveMediaEditPreviewSource(mediaItem: MediaItem): MediaEditPr
       sourcePath,
       tagName,
       sourceType: resolveHtmlMediaMimeType(sourcePath, tagName),
+      viewKind: tagName,
+      viewSource: {
+        filePath: sourcePath,
+        sourceType: resolveHtmlMediaMimeType(sourcePath, tagName),
+        controls: true,
+        fullscreen: false,
+      },
     };
   }
 

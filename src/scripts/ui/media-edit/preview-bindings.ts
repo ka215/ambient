@@ -1,14 +1,14 @@
-import type { MediaItem } from '../types/ambient';
-import type { YTPlayer } from '../types/youtube';
-import { destroyHtmlPreviewPlayer } from '../ui/player/html-player-view';
+import type { MediaItem } from '../../types/ambient';
+import type { YTPlayer } from '../../types/youtube';
+import { destroyHtmlPreviewPlayer } from '../player/html-player-view';
 import {
   clearMediaEditPreviewContainerView,
   createManagedMediaEditPreview,
   hideMediaEditPreviewErrorView,
   resolveMediaEditPreviewCurrentTime,
   showMediaEditPreviewErrorView,
-} from '../ui/player/media-edit-preview';
-import { destroyYouTubePreviewPlayer } from '../ui/player/youtube-player-view';
+} from '../player/media-edit-preview';
+import { destroyYouTubePreviewPlayer } from '../player/youtube-player-view';
 
 export function createMediaEditPreviewBindings(options: {
   previewElement: HTMLElement | null;

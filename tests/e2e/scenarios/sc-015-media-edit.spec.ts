@@ -96,6 +96,27 @@ async function openMediaEditFromFirstPlaylistItem(page: Page): Promise<void> {
   await expect(page.locator('#modal-media-edit')).toBeVisible();
 }
 
+function capturePlaylistSavePayload(page: Page): { read: () => Record<string, unknown> | null } {
+  let capturedPlaylistSavePayload: Record<string, unknown> | null = null;
+  page.on('request', (request) => {
+    if (request.method() !== 'POST') {
+      return;
+    }
+    if (!request.url().includes('/playlist-save/')) {
+      return;
+    }
+    try {
+      capturedPlaylistSavePayload = request.postDataJSON() as Record<string, unknown>;
+    } catch (_error) {
+      capturedPlaylistSavePayload = null;
+    }
+  });
+
+  return {
+    read: () => capturedPlaylistSavePayload,
+  };
+}
+
 async function assertJapaneseValidationMessagesInjected(page: Page): Promise<void> {
   await expect.poll(async () => {
     return page.evaluate(() => {
@@ -195,6 +216,68 @@ test.describe('SC-015 Media edit modal refinements', () => {
     await ambientPage.closeSettingsDrawer();
   });
 
+  test('persists category move and timing fields in playlist-save payload in local mode', async ({ ambientPage, page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'Media edit E2E is validated on chromium only.');
+
+    const baseUrl = process.env.E2E_BASE_URL || 'https://dev-amp.ka2.org/';
+    await page.context().addCookies([
+      {
+        name: 'lang',
+        value: 'ja',
+        url: baseUrl,
+      },
+    ]);
+
+    await seedMyPlaylist(page);
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+
+    const isCloudMode = await page.evaluate(() => {
+      return Boolean((window as any).AmbientData?.isCloud === true);
+    });
+    test.skip(isCloudMode, 'Local-mode scenario only.');
+
+    const payloadCapture = capturePlaylistSavePayload(page);
+
+    await ambientPage.openPlaylistDrawer();
+    const hasPlaylistItems = await page.evaluate(() => {
+      return document.querySelectorAll('#playlist-list-group a[data-playlist-item]').length > 0;
+    });
+    test.skip(!hasPlaylistItems, 'No playlist items available for media edit in this environment.');
+
+    await openMediaEditFromFirstPlaylistItem(page);
+
+    await page.locator('#modal-media-edit-category').fill('Deep Focus');
+    await page.locator('#modal-media-edit-title-input').fill('media-edit-focus-1-updated');
+    await page.locator('#modal-media-edit-seek-start').fill('5');
+    await page.locator('#modal-media-edit-seek-end').fill('30');
+    await page.locator('#modal-media-edit-fadein-end').fill('8');
+    await page.locator('#modal-media-edit-fadeout-start').fill('25');
+
+    await page.locator('#btn-save-media-edit').click();
+    await expect(page.locator('#modal-media-edit')).toBeHidden();
+    await expect(page.locator('#alert-message')).toContainText('プレイリストを保存しました。');
+
+    const capturedPlaylistSavePayload = payloadCapture.read();
+    expect(capturedPlaylistSavePayload).not.toBeNull();
+
+    const deepFocusItems = capturedPlaylistSavePayload?.['Deep Focus'];
+    expect(Array.isArray(deepFocusItems)).toBe(true);
+
+    const updatedItem = (deepFocusItems as unknown[]).find((item) => {
+      if (!item || typeof item !== 'object') {
+        return false;
+      }
+      return (item as Record<string, unknown>)['title'] === 'media-edit-focus-1-updated';
+    }) as Record<string, unknown> | undefined;
+
+    expect(updatedItem).toBeDefined();
+    expect(updatedItem?.['start']).toBe(5);
+    expect(updatedItem?.['end']).toBe(30);
+    expect(updatedItem?.['fadein']).toBe(3);
+    expect(updatedItem?.['fadeout']).toBe(5);
+  });
+
   test('shows JA validation messages in cloud mode when lang cookie is ja', async ({ ambientPage, page }) => {
 
     const baseUrl = process.env.E2E_BASE_URL || 'https://dev-amp.ka2.org/';
@@ -262,20 +345,7 @@ test.describe('SC-015 Media edit modal refinements', () => {
     });
     test.skip(isCloudMode, 'Local-mode scenario only.');
 
-    let capturedPlaylistSavePayload: Record<string, unknown> | null = null;
-    page.on('request', (request) => {
-      if (request.method() !== 'POST') {
-        return;
-      }
-      if (!request.url().includes('/playlist-save/')) {
-        return;
-      }
-      try {
-        capturedPlaylistSavePayload = request.postDataJSON() as Record<string, unknown>;
-      } catch (_error) {
-        capturedPlaylistSavePayload = null;
-      }
-    });
+    const payloadCapture = capturePlaylistSavePayload(page);
 
     await ambientPage.openPlaylistDrawer();
     const hasPlaylistItems = await page.evaluate(() => {
@@ -295,6 +365,7 @@ test.describe('SC-015 Media edit modal refinements', () => {
     await expect(page.locator('#modal-media-edit')).toBeHidden();
     await expect(page.locator('#alert-message')).toContainText('プレイリストを保存しました。');
 
+    const capturedPlaylistSavePayload = payloadCapture.read();
     expect(capturedPlaylistSavePayload).not.toBeNull();
     const payloadValues = Object.values(capturedPlaylistSavePayload || {});
     const hasImageField = payloadValues.some((value) => {
@@ -333,20 +404,7 @@ test.describe('SC-015 Media edit modal refinements', () => {
     });
     test.skip(isCloudMode, 'Local-mode scenario only.');
 
-    let capturedPlaylistSavePayload: Record<string, unknown> | null = null;
-    page.on('request', (request) => {
-      if (request.method() !== 'POST') {
-        return;
-      }
-      if (!request.url().includes('/playlist-save/')) {
-        return;
-      }
-      try {
-        capturedPlaylistSavePayload = request.postDataJSON() as Record<string, unknown>;
-      } catch (_error) {
-        capturedPlaylistSavePayload = null;
-      }
-    });
+    const payloadCapture = capturePlaylistSavePayload(page);
 
     await ambientPage.openPlaylistDrawer();
     const hasPlaylistItems = await page.evaluate(() => {
@@ -365,6 +423,7 @@ test.describe('SC-015 Media edit modal refinements', () => {
     await page.locator('#btn-save-media-edit').click();
     await expect(page.locator('#modal-media-edit')).toBeHidden();
 
+    const capturedPlaylistSavePayload = payloadCapture.read();
     expect(capturedPlaylistSavePayload).not.toBeNull();
     const payloadValues = Object.values(capturedPlaylistSavePayload || {});
     const hasRemovedImageField = payloadValues.some((value) => {

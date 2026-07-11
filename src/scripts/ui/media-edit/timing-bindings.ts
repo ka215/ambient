@@ -1,16 +1,16 @@
-import type { MediaItem } from '../types/ambient';
-import type { MediaEditDraft } from './media-edit-draft';
+import type { MediaItem } from '../../types/ambient';
+import type { MediaEditDraft } from '../../domain/media-edit/draft';
 import {
   getMediaEditComputedFadeDurations,
   getMediaEditTimingFromStoredDurations,
   resolveMediaEditEffectiveEnd,
   resolveMediaEditKnownDuration,
-} from '../domain/media-edit-timing';
+} from '../../domain/media-edit-timing';
 import {
   setMediaEditSeekTimelineLoadingView,
   syncMediaEditSeekTimelineView,
-} from '../ui/media-edit-timing-view';
-import { createMediaEditDurationSyncController } from './media-edit-duration-sync';
+} from './timing-view';
+import { createMediaEditDurationSyncController } from '../../domain/media-edit/duration-sync';
 
 export function createMediaEditTimingBindings(options: {
   timeline: HTMLElement | null;

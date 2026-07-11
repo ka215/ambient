@@ -1,4 +1,4 @@
-import type { MediaItem } from '../types/ambient';
+import type { MediaItem } from '../../types/ambient';
 
 export function isMediaEditModalVisible(modalElement: HTMLElement | null): boolean {
   return !!modalElement && !modalElement.classList.contains('hidden');

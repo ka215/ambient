@@ -1,14 +1,14 @@
-import { applyMediaEditDirtyState } from '../state/media-edit-state';
+import { applyMediaEditDirtyState } from '../domain/media-edit/session-state';
 import {
   applyMediaEditDraftToItem,
   sanitizeMediaEditDraft as sanitizeMediaEditDraftState,
   type MediaEditDraft,
   type MediaEditDraftInput,
-} from '../state/media-edit-draft';
+} from '../domain/media-edit/draft';
 import {
   applyMediaEditDraftToFormView,
   resolveMediaEditThumbnailSrc,
-} from '../ui/media-edit-form-view';
+} from '../ui/media-edit/form-view';
 import type { MediaItem } from '../types/ambient';
 
 export function createMediaEditDraftSanitizer(options: {

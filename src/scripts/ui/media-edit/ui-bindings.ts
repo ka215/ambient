@@ -1,20 +1,20 @@
-import type { MediaItem } from '../types/ambient';
+import type { MediaItem } from '../../types/ambient';
 import {
   createMediaEditCategoryOptionButton,
-} from '../ui/media-edit-controls';
+} from './controls';
 import {
   getMediaEditCategoryOptions,
   isMediaEditCategoryDropdownVisible,
   renderMediaEditCategoryOptionsView,
   setMediaEditCategoryDropdownExpandedView,
   syncMediaEditCategoryClearButtonView,
-} from '../ui/media-edit-category-view';
+} from './category-view';
 import {
   clearMediaEditValidationView,
   renderMediaEditValidationView,
   setMediaEditSaveButtonDisabled,
-} from '../ui/media-edit-validation-view';
-import type { MediaEditDraft } from './media-edit-draft';
+} from './validation-view';
+import type { MediaEditDraft } from '../../domain/media-edit/draft';
 
 export interface MediaEditValidationResult {
   valid: boolean;

@@ -1,4 +1,4 @@
-import type { MediaItem } from '../types/ambient';
+import type { MediaItem } from '../../types/ambient';
 import {
   deleteMediaEditThumbnailIfNeeded,
   executeMediaEditSavePipeline,
@@ -6,8 +6,8 @@ import {
   resolveMediaEditValidationGate,
   persistMediaEditForCurrentPlaylist,
   uploadMediaEditThumbnailIfNeeded,
-} from './media-edit-save';
-import type { MediaEditDraft } from './media-edit-draft';
+} from './save';
+import type { MediaEditDraft } from './draft';
 
 export function createMediaEditSaveBindings(options: {
   status: {

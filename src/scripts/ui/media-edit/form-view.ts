@@ -1,4 +1,4 @@
-import type { MediaEditDraft } from '../state/media-edit-draft';
+import type { MediaEditDraft } from '../../domain/media-edit/draft';
 
 export function resolveMediaEditThumbnailSrc(options: {
   mediaItem: MediaItem | null;

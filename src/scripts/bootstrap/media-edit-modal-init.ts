@@ -1,11 +1,11 @@
-import { canOpenMediaEditModal, confirmDiscardMediaEditDraft } from '../state/media-edit-state';
+import { canOpenMediaEditModal, confirmDiscardMediaEditDraft } from '../domain/media-edit/session-state';
 import {
   finalizeMediaEditModalClose,
   focusPlaylistItemById as focusPlaylistItemByIdView,
   openManagedMediaEditModal,
   renderMediaEditSourceBadges as renderMediaEditSourceBadgesView,
   resetMediaEditModalView,
-} from '../ui/media-edit-modal-view';
+} from '../ui/media-edit/modal-view';
 import { isPlaybackActive } from '../ui/player/player-shell';
 import type { MediaItem } from '../types/ambient';
 

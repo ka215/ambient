@@ -1,7 +1,7 @@
 import { bindAmbientOptionsModal } from '../ui/options-modal-bindings';
 import { isElement } from '../shared/dom-utils';
 import { ensureAccordionPanel as ensureAccordionPanelView, openPlaylistManagementCategoryCreate as openPlaylistManagementCategoryCreateView, type OptionsModalController, type PlaylistDescModalController } from '../ui/modals';
-import { isMediaEditModalVisible as isMediaEditModalVisibleView, trapMediaEditModalFocus as trapMediaEditModalFocusView } from '../ui/media-edit-modal-view';
+import { isMediaEditModalVisible as isMediaEditModalVisibleView, trapMediaEditModalFocus as trapMediaEditModalFocusView } from '../ui/media-edit/modal-view';
 import { scrollPlaylistToCurrentFocus } from '../ui/playlist-view';
 import { syncAmbientResolvedMediaVolumeField } from '../ui/forms/category-volume-bindings';
 

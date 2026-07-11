@@ -1,4 +1,4 @@
-import type { MediaItem } from '../types/ambient';
+import type { MediaItem } from '../../types/ambient';
 
 export interface MediaEditDraft {
   category: string;

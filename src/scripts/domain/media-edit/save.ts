@@ -1,5 +1,5 @@
-import type { MediaItem } from '../types/ambient';
-import type { MediaEditDraft } from './media-edit-draft';
+import type { MediaItem } from '../../types/ambient';
+import type { MediaEditDraft } from './draft';
 
 export type MediaEditSaveResult =
   | {

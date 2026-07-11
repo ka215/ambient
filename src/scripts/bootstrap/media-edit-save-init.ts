@@ -8,9 +8,9 @@ import {
   deleteMediaEditThumbnailIfNeeded as deleteMediaEditThumbnailIfNeededState,
   persistMediaEditForCurrentPlaylist as persistMediaEditForCurrentPlaylistState,
   uploadMediaEditThumbnailIfNeeded as uploadMediaEditThumbnailIfNeededState,
-} from '../state/media-edit-save';
-import { createMediaEditSaveBindings } from '../state/media-edit-save-bindings';
-import type { MediaEditDraft } from '../state/media-edit-draft';
+} from '../domain/media-edit/save';
+import { createMediaEditSaveBindings } from '../domain/media-edit/save-bindings';
+import type { MediaEditDraft } from '../domain/media-edit/draft';
 import type { MediaItem } from '../types/ambient';
 
 export interface InitializeMediaEditSaveRuntimeOptions {

@@ -77,23 +77,12 @@ import {
   getDefaultMediaItemForView,
   getMediaCategoryName as getMediaCategoryNameState,
 } from './state/playlist-mode-state';
-import { createMediaEditTimingBindings } from './state/media-edit-timing-bindings';
-import {
-  cloneMediaEditDraft as cloneMediaEditDraftState,
-  createEmptyMediaEditDraft,
-  ensureMediaEditCategory,
-  findMediaEditCategoryIndex,
-  isSameMediaEditDraft as isSameMediaEditDraftState,
-  type MediaEditDraft,
-} from './state/media-edit-draft';
-import { createMediaEditDraftBindings } from './state/media-edit-draft-bindings';
 import {
   closeResponsiveDrawers,
   isResponsiveDrawerOpen,
 } from './ui/drawers';
 import {
   getToggleInput,
-  syncToggleRoot,
   syncVolumeSlider,
 } from './ui/settings-view';
 import {
@@ -104,14 +93,13 @@ import {
   createOptionsModalController,
   createPlaylistDescModalController,
 } from './ui/modals';
-import { createMediaEditUiBindings } from './state/media-edit-ui-bindings';
-import { createMediaEditPreviewBindings } from './state/media-edit-preview-bindings';
 import {
   getPlaylistDescriptionPayload,
   PlaylistMode,
   scrollPlaylistToCurrentFocus,
   syncPlaylistCurrentFocus,
 } from './ui/playlist-view';
+import { resolveMediaEditElements } from './ui/media-edit/elements';
 import {
   createNoticeController,
   dispatchInitialNotice,
@@ -157,28 +145,17 @@ import {
 } from './domain/myplaylist-storage';
 import { createPlaybackTimerController } from './domain/media-playback';
 import {
-  bindAmbientAppControlBindings,
   bindAmbientViewportLifecycle,
 } from './bootstrap/app-init';
+import { initializeAppControlsRuntime } from './bootstrap/app-controls-runtime-init';
 import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-runtime-bootstrap';
-import { initializeOptionsModalBindings } from './bootstrap/options-modal-init';
+import { initializeOptionsModalRuntime } from './bootstrap/options-modal-runtime-init';
 import { initializePlaylistModeBindings } from './bootstrap/playlist-mode-init';
-import { initializeMediaEditControls } from './bootstrap/media-edit-controls-init';
-import {
-  createMediaEditDirtyStateHandler,
-  createMediaEditDraftFormApplier,
-  createMediaEditDraftItemApplier,
-  createMediaEditDraftSanitizer,
-  createMediaEditItemIdentityResolver,
-  createMediaEditThumbnailResolver,
-} from './bootstrap/media-edit-draft-init';
-import { initializeMediaEditModalBindings } from './bootstrap/media-edit-modal-init';
-import { initializeMediaEditSaveRuntime } from './bootstrap/media-edit-save-init';
+import { initializeMediaEditRuntime } from './bootstrap/media-edit-runtime-init';
 import { initializeAmbientPlayer } from './bootstrap/player-init';
-import { initializeManagementBindingComposition } from './bootstrap/management-bindings-init';
-import { initializeStatusWatcher } from './bootstrap/status-watcher-init';
+import { initializeManagementRuntime } from './bootstrap/management-runtime-init';
+import { initializeStatusWatcherRuntime } from './bootstrap/status-watcher-runtime-init';
 import { initializePlaylistPolicy } from './bootstrap/playlist-policy-init';
-import { createManagementImportHelpers } from './bootstrap/management-import-init';
 import { canUseAmbientReorderMode } from './bootstrap/playlist-capabilities';
 import { initializePlaylistSession } from './bootstrap/playlist-session-init';
 import {
@@ -187,10 +164,6 @@ import {
   syncAmbientYouTubeSignalAttrs,
 } from './bootstrap/playback-runtime-init';
 import {
-  createPlaylistManagementActions,
-} from './bootstrap/management-init';
-import {
-  applyAmbientDisplayOptions,
   getAmbientNoMediaImagePath,
   isAmbientDarkModeEnabled,
   toggleAmbientCaptionBindings,
@@ -376,60 +349,7 @@ const init = function (): void {
     logger,
   });
   const $BUTTON_CLOSE_PLAYLIST_DESC = document.getElementById('btn-close-playlist-desc') as HTMLButtonElement | null;
-  const $MODAL_MEDIA_EDIT = document.getElementById('modal-media-edit') as HTMLElement | null;
-  const $MODAL_MEDIA_EDIT_TITLE = document.getElementById('modal-media-edit-title') as HTMLElement | null;
-  const $MODAL_MEDIA_EDIT_ITEM_TITLE = document.getElementById('modal-media-edit-item-title') as HTMLElement | null;
-  const $MODAL_MEDIA_EDIT_ITEM_SOURCE = document.getElementById('modal-media-edit-item-source') as HTMLElement | null;
-  const $FORM_MEDIA_EDIT = document.getElementById('form-media-edit') as HTMLFormElement | null;
-  const $MEDIA_EDIT_CATEGORY_COMBOBOX = document.getElementById('modal-media-edit-category-combobox') as HTMLElement | null;
-  const $MEDIA_EDIT_CATEGORY = document.getElementById('modal-media-edit-category') as HTMLInputElement | null;
-  const $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR = document.getElementById('btn-media-edit-category-clear') as HTMLButtonElement | null;
-  const $BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE = document.getElementById('btn-media-edit-category-toggle') as HTMLButtonElement | null;
-  const $MEDIA_EDIT_CATEGORY_DROPDOWN = document.getElementById('modal-media-edit-category-dropdown') as HTMLElement | null;
-  const $MEDIA_EDIT_CATEGORY_OPTIONS = document.getElementById('modal-media-edit-category-options') as HTMLElement | null;
-  const $MEDIA_EDIT_TITLE = document.getElementById('modal-media-edit-title-input') as HTMLInputElement | null;
-  const $MEDIA_EDIT_ARTIST = document.getElementById('modal-media-edit-artist-input') as HTMLInputElement | null;
-  const $MEDIA_EDIT_DESCRIPTION = document.getElementById('modal-media-edit-description') as HTMLTextAreaElement | null;
-  const $MEDIA_EDIT_VOLUME = document.getElementById('modal-media-edit-volume') as HTMLInputElement | null;
-  const $MEDIA_EDIT_VOLUME_VALUE = document.getElementById('modal-media-edit-volume-value') as HTMLElement | null;
-  const $MEDIA_EDIT_THUMBNAIL_PREVIEW = document.getElementById('modal-media-edit-thumbnail-preview') as HTMLImageElement | null;
-  const $MEDIA_EDIT_THUMBNAIL_NAME = document.getElementById('modal-media-edit-thumbnail-name') as HTMLElement | null;
-  const $MEDIA_EDIT_THUMBNAIL_INPUT = document.getElementById('modal-media-edit-thumbnail-input') as HTMLInputElement | null;
-  const $BUTTON_MEDIA_EDIT_THUMBNAIL_PICK = document.getElementById('btn-media-edit-thumbnail-pick') as HTMLButtonElement | null;
-  const $BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE = document.getElementById('btn-media-edit-thumbnail-remove') as HTMLButtonElement | null;
-  const $BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR = document.getElementById('btn-media-edit-thumbnail-clear') as HTMLButtonElement | null;
-  const $MEDIA_EDIT_THUMBNAIL_SECTION = document.getElementById('media-edit-thumbnail-section') as HTMLElement | null;
-  const $MEDIA_EDIT_PREVIEW = document.getElementById('modal-media-edit-preview') as HTMLElement | null;
-  const $MEDIA_EDIT_PREVIEW_ERROR = document.getElementById('modal-media-edit-preview-error') as HTMLElement | null;
-  const $MEDIA_EDIT_PREVIEW_ERROR_MESSAGE = document.getElementById('modal-media-edit-preview-error-message') as HTMLElement | null;
-  const $BUTTON_MEDIA_EDIT_PREVIEW_RETRY = document.getElementById('btn-media-edit-preview-retry') as HTMLButtonElement | null;
-  const $MEDIA_EDIT_SEEK_START = document.getElementById('modal-media-edit-seek-start') as HTMLInputElement | null;
-  const $MEDIA_EDIT_SEEK_END = document.getElementById('modal-media-edit-seek-end') as HTMLInputElement | null;
-  const $MEDIA_EDIT_FADEIN_END = document.getElementById('modal-media-edit-fadein-end') as HTMLInputElement | null;
-  const $MEDIA_EDIT_FADEOUT_START = document.getElementById('modal-media-edit-fadeout-start') as HTMLInputElement | null;
-  const $MEDIA_EDIT_SEEK_START_HMS = document.getElementById('modal-media-edit-seek-start-hms') as HTMLElement | null;
-  const $MEDIA_EDIT_SEEK_END_HMS = document.getElementById('modal-media-edit-seek-end-hms') as HTMLElement | null;
-  const $MEDIA_EDIT_FADEIN_END_HMS = document.getElementById('modal-media-edit-fadein-end-hms') as HTMLElement | null;
-  const $MEDIA_EDIT_FADEOUT_START_HMS = document.getElementById('modal-media-edit-fadeout-start-hms') as HTMLElement | null;
-  const $MEDIA_EDIT_SEEK_TIMELINE = document.getElementById('modal-media-edit-seek-timeline') as HTMLElement | null;
-  const $MEDIA_EDIT_SEEK_TIMELINE_LOADING = document.getElementById('modal-media-edit-seek-timeline-loading') as HTMLElement | null;
-  const $MEDIA_EDIT_SEEK_MARKER_START = document.getElementById('modal-media-edit-seek-marker-start') as HTMLElement | null;
-  const $MEDIA_EDIT_SEEK_MARKER_FADEIN_END = document.getElementById('modal-media-edit-seek-marker-fadein-end') as HTMLElement | null;
-  const $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START = document.getElementById('modal-media-edit-seek-marker-fadeout-start') as HTMLElement | null;
-  const $MEDIA_EDIT_SEEK_MARKER_END = document.getElementById('modal-media-edit-seek-marker-end') as HTMLElement | null;
-  const $MEDIA_EDIT_SEEK_FIXED_START_TIME = document.getElementById('modal-media-edit-seek-fixed-start-time') as HTMLElement | null;
-  const $MEDIA_EDIT_SEEK_FIXED_END_TIME = document.getElementById('modal-media-edit-seek-fixed-end-time') as HTMLElement | null;
-  const $MEDIA_EDIT_SEEK_MARKER_START_TIME = document.getElementById('modal-media-edit-seek-marker-start-time') as HTMLElement | null;
-  const $MEDIA_EDIT_SEEK_MARKER_FADEIN_END_TIME = document.getElementById('modal-media-edit-seek-marker-fadein-end-time') as HTMLElement | null;
-  const $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START_TIME = document.getElementById('modal-media-edit-seek-marker-fadeout-start-time') as HTMLElement | null;
-  const $MEDIA_EDIT_SEEK_MARKER_END_TIME = document.getElementById('modal-media-edit-seek-marker-end-time') as HTMLElement | null;
-  const $BUTTON_MEDIA_EDIT_SYNC_SEEK_START = document.getElementById('btn-media-edit-sync-seek-start') as HTMLButtonElement | null;
-  const $BUTTON_MEDIA_EDIT_SYNC_SEEK_END = document.getElementById('btn-media-edit-sync-seek-end') as HTMLButtonElement | null;
-  const $BUTTON_MEDIA_EDIT_SYNC_FADEIN_END = document.getElementById('btn-media-edit-sync-fadein-end') as HTMLButtonElement | null;
-  const $BUTTON_MEDIA_EDIT_SYNC_FADEOUT_START = document.getElementById('btn-media-edit-sync-fadeout-start') as HTMLButtonElement | null;
-  const $BUTTON_CLOSE_MEDIA_EDIT = document.getElementById('btn-close-media-edit') as HTMLButtonElement | null;
-  const $BUTTON_CANCEL_MEDIA_EDIT = document.getElementById('btn-cancel-media-edit') as HTMLButtonElement | null;
-  const $BUTTON_SAVE_MEDIA_EDIT = document.getElementById('btn-save-media-edit') as HTMLButtonElement | null;
+  const mediaEditElements = resolveMediaEditElements(document);
   const $COLLAPSE_MENU = document.getElementById('collapse-menu') as HTMLElement;
 
   // Add elements since v1.1.0
@@ -441,8 +361,8 @@ const init = function (): void {
   if (isElement($MODAL_PLAYLIST_DESC) && $MODAL_PLAYLIST_DESC.parentElement !== document.body) {
     document.body.appendChild($MODAL_PLAYLIST_DESC);
   }
-  if (isElement($MODAL_MEDIA_EDIT) && $MODAL_MEDIA_EDIT.parentElement !== document.body) {
-    document.body.appendChild($MODAL_MEDIA_EDIT);
+  if (isElement(mediaEditElements.modal) && mediaEditElements.modal.parentElement !== document.body) {
+    document.body.appendChild(mediaEditElements.modal);
   }
 
   const {
@@ -581,7 +501,6 @@ const init = function (): void {
       }
     },
   });
-  const defaultMediaEditModalTitle = $MODAL_MEDIA_EDIT_TITLE?.textContent?.trim() || 'Media Edit';
   const MEDIA_EDIT_DRAFT_STORAGE_KEY = 'ambient:media-edit-drafts:v2.5.0';
   const MEDIA_EDIT_PREVIEW_YT_PLAYER_ID = 'modal-media-edit-preview-yt-player';
   const mediaEditDurationSyncTimeoutEnv = Number(import.meta.env.VITE_MEDIA_EDIT_DURATION_SYNC_TIMEOUT_MS);
@@ -592,238 +511,62 @@ const init = function (): void {
   const MEDIA_EDIT_DURATION_SYNC_POLL_MS = 250;
   const MEDIA_EDIT_SAVE_ENDPOINT = 'playlist-save';
   const MEDIA_EDIT_THUMBNAIL_ENDPOINT = 'thumbnail';
-  const mediaEditDraftStore = new Map<string, MediaEditDraft>();
-  let mediaEditActiveItem: MediaItem | null = null;
-  let mediaEditBaseDraft: MediaEditDraft | null = null;
-  let mediaEditIsDirty = false;
-  const getMediaEditItemIdentity = createMediaEditItemIdentityResolver({
-    sanitizeTitle: (value) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
+  const generatePlaylistJson = (seekFormat = false): string => buildPlaylistJson({
+    mediaItems: AMP_STATUS.media || [],
+    categories: AMP_STATUS.category || [],
+    playlistOptions: AMP_STATUS.options,
+    seekFormat,
   });
-
-  const {
-    resolveMediaEditEffectiveEnd,
-    resolveMediaEditKnownDuration,
-    getMediaEditTimingFromStoredDurations,
-    getMediaEditComputedFadeDurations,
-    syncMediaEditTimingDisplay,
-    mediaEditDurationSync,
-  } = createMediaEditTimingBindings({
-    timeline: isElement($MEDIA_EDIT_SEEK_TIMELINE) ? $MEDIA_EDIT_SEEK_TIMELINE : null,
-    timelineLoading: isElement($MEDIA_EDIT_SEEK_TIMELINE_LOADING) ? $MEDIA_EDIT_SEEK_TIMELINE_LOADING : null,
-    fixedStartTime: isElement($MEDIA_EDIT_SEEK_FIXED_START_TIME) ? $MEDIA_EDIT_SEEK_FIXED_START_TIME : null,
-    fixedEndTime: isElement($MEDIA_EDIT_SEEK_FIXED_END_TIME) ? $MEDIA_EDIT_SEEK_FIXED_END_TIME : null,
-    startMarker: isElement($MEDIA_EDIT_SEEK_MARKER_START) ? $MEDIA_EDIT_SEEK_MARKER_START : null,
-    startLabel: isElement($MEDIA_EDIT_SEEK_MARKER_START_TIME) ? $MEDIA_EDIT_SEEK_MARKER_START_TIME : null,
-    fadeInMarker: isElement($MEDIA_EDIT_SEEK_MARKER_FADEIN_END) ? $MEDIA_EDIT_SEEK_MARKER_FADEIN_END : null,
-    fadeInLabel: isElement($MEDIA_EDIT_SEEK_MARKER_FADEIN_END_TIME) ? $MEDIA_EDIT_SEEK_MARKER_FADEIN_END_TIME : null,
-    fadeOutMarker: isElement($MEDIA_EDIT_SEEK_MARKER_FADEOUT_START) ? $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START : null,
-    fadeOutLabel: isElement($MEDIA_EDIT_SEEK_MARKER_FADEOUT_START_TIME) ? $MEDIA_EDIT_SEEK_MARKER_FADEOUT_START_TIME : null,
-    endMarker: isElement($MEDIA_EDIT_SEEK_MARKER_END) ? $MEDIA_EDIT_SEEK_MARKER_END : null,
-    endLabel: isElement($MEDIA_EDIT_SEEK_MARKER_END_TIME) ? $MEDIA_EDIT_SEEK_MARKER_END_TIME : null,
-    seekStartHms: isElement($MEDIA_EDIT_SEEK_START_HMS) ? $MEDIA_EDIT_SEEK_START_HMS : null,
-    seekEndHms: isElement($MEDIA_EDIT_SEEK_END_HMS) ? $MEDIA_EDIT_SEEK_END_HMS : null,
-    fadeInEndHms: isElement($MEDIA_EDIT_FADEIN_END_HMS) ? $MEDIA_EDIT_FADEIN_END_HMS : null,
-    fadeOutStartHms: isElement($MEDIA_EDIT_FADEOUT_START_HMS) ? $MEDIA_EDIT_FADEOUT_START_HMS : null,
-    seekStartField: $MEDIA_EDIT_SEEK_START,
-    seekEndField: $MEDIA_EDIT_SEEK_END,
-    fadeInEndField: $MEDIA_EDIT_FADEIN_END,
-    fadeOutStartField: $MEDIA_EDIT_FADEOUT_START,
-    timeoutMs: MEDIA_EDIT_DURATION_SYNC_TIMEOUT_MS,
-    pollMs: MEDIA_EDIT_DURATION_SYNC_POLL_MS,
-    getActiveItem: () => mediaEditActiveItem,
-    getPreviewDurationSeconds: () => mediaEditPreview.getPreviewDurationSeconds(),
-    getItemIdentity: getMediaEditItemIdentity,
+  const mediaEditRuntime = initializeMediaEditRuntime({
+    elements: mediaEditElements,
+    status: AMP_STATUS,
+    baseUrl: BASE_URL,
+    playlistListElement: $LIST_PLAYLIST,
+    playButton: $BUTTON_PLAY,
+    pauseButton: $BUTTON_PAUSE,
+    youtubePlayer: player || null,
+    playlistMode: () => playlistMode,
+    closePlaylistModeMenu: () => {
+      closePlaylistModeMenu();
+    },
+    defaultVolume: DEFAULT_VOLUME,
+    mediaTitleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+    mediaArtistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+    mediaDescMaxLength: MEDIA_DESC_MAX_LENGTH,
+    disallowedControlChars: DISALLOWED_CONTROL_CHARS_RE,
+    draftStorageKey: MEDIA_EDIT_DRAFT_STORAGE_KEY,
+    previewPlayerId: MEDIA_EDIT_PREVIEW_YT_PLAYER_ID,
+    durationSyncTimeoutMs: MEDIA_EDIT_DURATION_SYNC_TIMEOUT_MS,
+    durationSyncPollMs: MEDIA_EDIT_DURATION_SYNC_POLL_MS,
+    saveEndpoint: MEDIA_EDIT_SAVE_ENDPOINT,
+    thumbnailEndpoint: MEDIA_EDIT_THUMBNAIL_ENDPOINT,
+    getLocalizedMessage,
+    updateNotice,
+    getDefaultVolume: () => resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
+    sanitizeMediaText: sanitizeMediaText,
+    sanitizeMediaEditDescInput: (value, maxLength) => sharedSanitizeMediaEditDescInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
+    sanitizeMediaEditDescForStorage: (value, maxLength) => sharedSanitizeMediaEditDescForStorage(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
+    normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
     normalizeTimingValue: sharedNormalizeMediaEditTimingValue,
     parseMediaTimeToIntegerSeconds: sharedParseMediaTimeToIntegerSeconds,
     formatSecondsToHHMMSS: sharedFormatSecondsToHHMMSS,
     formatSecondsToTimelineLabel: sharedFormatSecondsToTimelineLabel,
-  });
-
-  const sanitizeMediaEditDraft = createMediaEditDraftSanitizer({
-    getDefaultVolume: () => resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
-    titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
-    artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
-    descriptionMaxLength: MEDIA_DESC_MAX_LENGTH,
-    sanitizeText: sanitizeMediaText,
-    sanitizeDescription: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => (
-      sharedSanitizeMediaEditDescInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE)
-    ),
-    normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
-    normalizeTimingValue: sharedNormalizeMediaEditTimingValue,
-  });
-
-  const {
-    isMediaEditCategoryDropdownVisible,
-    renderMediaEditCategoryOptions,
-    syncMediaEditCategoryClearButton,
-    closeMediaEditCategoryDropdown,
-    openMediaEditCategoryDropdown,
-    setMediaEditSaveButtonDisabled,
-    clearMediaEditValidationView,
-    validateAndRenderMediaEditDraftFromForm,
-  } = createMediaEditUiBindings({
-    categoryField: $MEDIA_EDIT_CATEGORY,
-    titleField: $MEDIA_EDIT_TITLE,
-    seekStartField: $MEDIA_EDIT_SEEK_START,
-    seekEndField: $MEDIA_EDIT_SEEK_END,
-    fadeInEndField: $MEDIA_EDIT_FADEIN_END,
-    fadeOutStartField: $MEDIA_EDIT_FADEOUT_START,
-    saveButton: $BUTTON_SAVE_MEDIA_EDIT instanceof HTMLButtonElement ? $BUTTON_SAVE_MEDIA_EDIT : null,
-    categoryDropdown: isElement($MEDIA_EDIT_CATEGORY_DROPDOWN) ? $MEDIA_EDIT_CATEGORY_DROPDOWN : null,
-    categoryCombobox: isElement($MEDIA_EDIT_CATEGORY_COMBOBOX) ? $MEDIA_EDIT_CATEGORY_COMBOBOX : null,
-    categoryToggleButton: isElement($BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE) ? $BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE : null,
-    categoryOptionsContainer: isElement($MEDIA_EDIT_CATEGORY_OPTIONS) ? $MEDIA_EDIT_CATEGORY_OPTIONS : null,
-    categoryClearButton: isElement($BUTTON_MEDIA_EDIT_CATEGORY_CLEAR) ? $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR : null,
-    getCategories: () => AMP_STATUS.category,
-    getLocalizedMessage,
-    createValidationDraft: () => readMediaEditDraftFromForm(),
-    getActiveItem: () => mediaEditActiveItem,
-    resolveKnownDuration: resolveMediaEditKnownDuration,
-    resolveEffectiveEnd: resolveMediaEditEffectiveEnd,
-    normalizeTimingValue: sharedNormalizeMediaEditTimingValue,
-  });
-  const mediaEditPreview = createMediaEditPreviewBindings({
-    previewElement: isElement($MEDIA_EDIT_PREVIEW) ? $MEDIA_EDIT_PREVIEW : null,
-    errorElement: isElement($MEDIA_EDIT_PREVIEW_ERROR) ? $MEDIA_EDIT_PREVIEW_ERROR : null,
-    errorMessageElement: isElement($MEDIA_EDIT_PREVIEW_ERROR_MESSAGE) ? $MEDIA_EDIT_PREVIEW_ERROR_MESSAGE : null,
-    previewPlayerId: MEDIA_EDIT_PREVIEW_YT_PLAYER_ID,
-    normalizeTimingValue: sharedNormalizeMediaEditTimingValue,
+    toTimingInputValue: sharedToMediaEditTimingInputValue,
+    sanitizeTimingInputField: sharedSanitizeMediaEditTimingInputField,
+    stepTimingField: sharedStepMediaEditTimingField,
     syncYouTubePreviewDuration,
-    getLocalizedMessage,
-    mediaEditDurationSync,
-    syncMediaEditTimingDisplay,
-    syncMediaEditDraftStateFromForm: () => syncMediaEditDraftStateFromForm(),
-    validateAndRenderMediaEditDraftFromForm,
-  });
-  const {
-    resetMediaEditPreviewState,
-    syncMediaEditTimingFieldFromPreview,
-    createMediaEditPreview,
-  } = mediaEditPreview;
-
-  const setMediaEditDirtyState = createMediaEditDirtyStateHandler({
-    modalElement: isElement($MODAL_MEDIA_EDIT) ? $MODAL_MEDIA_EDIT : null,
-    onDirtyChange: (nextDirty) => {
-      mediaEditIsDirty = nextDirty;
-    },
-  });
-  const getMediaEditThumbnailSrc = createMediaEditThumbnailResolver({
-    getImageDir: () => getRuntimeAmbientData()?.imageDir,
-    getFallbackThumbnailSrc: () => getAmbientNoMediaImagePath(AMP_STATUS.options, 'thumb'),
-  });
-  const applyMediaEditDraftToForm = createMediaEditDraftFormApplier({
-    getActiveItem: () => mediaEditActiveItem,
-    categoryInput: isElement($MEDIA_EDIT_CATEGORY) ? $MEDIA_EDIT_CATEGORY : null,
-    titleInput: isElement($MEDIA_EDIT_TITLE) ? $MEDIA_EDIT_TITLE : null,
-    artistInput: isElement($MEDIA_EDIT_ARTIST) ? $MEDIA_EDIT_ARTIST : null,
-    descriptionInput: isElement($MEDIA_EDIT_DESCRIPTION) ? $MEDIA_EDIT_DESCRIPTION : null,
-    volumeInput: isElement($MEDIA_EDIT_VOLUME) ? $MEDIA_EDIT_VOLUME : null,
-    volumeDisplay: isElement($MEDIA_EDIT_VOLUME_VALUE) ? $MEDIA_EDIT_VOLUME_VALUE : null,
-    thumbnailName: isElement($MEDIA_EDIT_THUMBNAIL_NAME) ? $MEDIA_EDIT_THUMBNAIL_NAME : null,
-    thumbnailPreview: isElement($MEDIA_EDIT_THUMBNAIL_PREVIEW) ? $MEDIA_EDIT_THUMBNAIL_PREVIEW : null,
-    thumbnailSection: isElement($MEDIA_EDIT_THUMBNAIL_SECTION) ? $MEDIA_EDIT_THUMBNAIL_SECTION : null,
-    thumbnailClearButton: isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR) ? $BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR : null,
-    thumbnailRemoveButton: isElement($BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE) ? $BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE : null,
-    seekStartInput: isElement($MEDIA_EDIT_SEEK_START) ? $MEDIA_EDIT_SEEK_START : null,
-    seekEndInput: isElement($MEDIA_EDIT_SEEK_END) ? $MEDIA_EDIT_SEEK_END : null,
-    fadeinEndInput: isElement($MEDIA_EDIT_FADEIN_END) ? $MEDIA_EDIT_FADEIN_END : null,
-    fadeoutStartInput: isElement($MEDIA_EDIT_FADEOUT_START) ? $MEDIA_EDIT_FADEOUT_START : null,
-    isLocalMode: isRuntimeLocalMode,
-    syncCategoryClearButton: syncMediaEditCategoryClearButton,
-    renderCategoryOptions: renderMediaEditCategoryOptions,
     syncVolumeSlider,
     syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-    getLocalizedMessage,
-    getThumbnailSrc: (mediaItem, draft) => getMediaEditThumbnailSrc(mediaItem, draft),
-    toTimingInputValue: sharedToMediaEditTimingInputValue,
-    syncTimingDisplay: syncMediaEditTimingDisplay,
-  });
-  const {
-    getMediaEditDraftKey,
-    hydrateMediaEditDraftStore,
-    deleteMediaEditDraftByKey,
-    createMediaEditBaseDraft,
-    readMediaEditDraftFromForm,
-    isActiveMediaEditUnsaved,
-    syncMediaEditDraftStateFromForm,
-    applyMediaEditDraftState,
-    discardActiveMediaEditDraft,
-    clearMediaEditContext,
-    bindMediaEditForm,
-  } = createMediaEditDraftBindings({
-    storageKey: MEDIA_EDIT_DRAFT_STORAGE_KEY,
-    status: AMP_STATUS,
-    draftStore: mediaEditDraftStore,
-    getActiveItem: () => mediaEditActiveItem,
-    setActiveItem: (mediaItem) => {
-      mediaEditActiveItem = mediaItem;
+    getImageDir: () => getRuntimeAmbientData()?.imageDir,
+    getFallbackThumbnailSrc: () => getAmbientNoMediaImagePath(AMP_STATUS.options, 'thumb'),
+    isLocalMode: isRuntimeLocalMode,
+    isCloudMode: () => !!getRuntimeAmbientData()?.isCloud,
+    persistCloudPlaylist: persistMyPlaylistIfNeeded,
+    generatePlaylistJson: (pretty = false) => generatePlaylistJson(pretty),
+    updatePlayStatus: (amId) => {
+      updatePlayStatus(amId);
     },
-    getBaseDraft: () => mediaEditBaseDraft,
-    setBaseDraft: (draft) => {
-      mediaEditBaseDraft = draft;
-    },
-    setPreviewSourceItem: (mediaItem) => {
-      mediaEditPreview.setPreviewSourceItem(mediaItem);
-    },
-    setDirtyState: setMediaEditDirtyState,
-    isSameDraft: isSameMediaEditDraftState,
-    cloneDraft: cloneMediaEditDraftState,
-    sanitizeDraft: sanitizeMediaEditDraft,
-    createEmptyDraft: () => createEmptyMediaEditDraft(resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME)),
-      getItemIdentity: getMediaEditItemIdentity,
-      getMediaCategoryName: (mediaItem) => getMediaCategoryNameState(mediaItem, AMP_STATUS.category),
-      sanitizeDescription: (value) => sharedSanitizeMediaEditDescInput(
-        value,
-        MEDIA_DESC_MAX_LENGTH,
-        DISALLOWED_CONTROL_CHARS_RE
-      ),
-      getTiming: getMediaEditTimingFromStoredDurations,
-      getDefaultVolume: () => resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
-    applyDraftToForm: applyMediaEditDraftToForm,
-    validateDraft: () => {
-      validateAndRenderMediaEditDraftFromForm();
-    },
-    readFormValues: () => ({
-      category: $MEDIA_EDIT_CATEGORY?.value,
-      title: $MEDIA_EDIT_TITLE?.value,
-      artist: $MEDIA_EDIT_ARTIST?.value,
-      description: $MEDIA_EDIT_DESCRIPTION?.value,
-      volume: $MEDIA_EDIT_VOLUME ? Number($MEDIA_EDIT_VOLUME.value) : undefined,
-      seekStart: $MEDIA_EDIT_SEEK_START?.value,
-      seekEnd: $MEDIA_EDIT_SEEK_END?.value,
-      fadeInEnd: $MEDIA_EDIT_FADEIN_END?.value,
-      fadeOutStart: $MEDIA_EDIT_FADEOUT_START?.value,
-    }),
-  });
-
-  const applyDraftToMediaItem = createMediaEditDraftItemApplier({
-    findCategoryIndexByName: (categoryName) => findMediaEditCategoryIndex(AMP_STATUS.category, categoryName),
-    sanitizeDescriptionForStorage: (value) => sharedSanitizeMediaEditDescForStorage(
-      value,
-      MEDIA_DESC_MAX_LENGTH,
-      DISALLOWED_CONTROL_CHARS_RE
-    ),
-    getComputedFadeDurations: getMediaEditComputedFadeDurations,
-  });
-
-  let mediaEditModalBindings: ReturnType<typeof initializeMediaEditModalBindings> | null = null;
-  const { saveMediaEdit, persistMediaEditForCurrentPlaylist } = initializeMediaEditSaveRuntime({
-    baseUrl: BASE_URL,
-    saveEndpoint: MEDIA_EDIT_SAVE_ENDPOINT,
-    thumbnailEndpoint: MEDIA_EDIT_THUMBNAIL_ENDPOINT,
-    status: AMP_STATUS,
-    saveButton: isElement($BUTTON_SAVE_MEDIA_EDIT) ? $BUTTON_SAVE_MEDIA_EDIT : null,
-    getActiveItem: () => mediaEditActiveItem,
-    getBaseDraft: () => mediaEditBaseDraft,
-    setBaseDraft: (draft) => {
-      mediaEditBaseDraft = draft;
-      syncMediaEditCategoryClearButton();
-      renderMediaEditCategoryOptions();
-    },
-    getDraftKey: getMediaEditDraftKey,
-    deleteDraftByKey: deleteMediaEditDraftByKey,
-    createBaseDraft: createMediaEditBaseDraft,
-    setDirtyState: setMediaEditDirtyState,
+    getMediaCategoryName: (mediaItem) => getMediaCategoryNameState(mediaItem, AMP_STATUS.category),
     clearCategory: () => {
       playlistUiBindings?.clearCategory();
     },
@@ -832,77 +575,22 @@ const init = function (): void {
     },
     syncMediaCategoryField: (preferredCategoryId?: number | null) => {
       playlistUiBindings?.syncMediaCategoryField(preferredCategoryId ?? null);
-      syncMediaEditCategoryClearButton();
-      renderMediaEditCategoryOptions();
     },
     getActiveCategoryId: () => playlistUiBindings?.getActiveCategoryId() ?? null,
     updatePlaylist: () => {
       playlistUiBindings?.updatePlaylist();
     },
-    updatePlayStatus: (amId) => {
-      updatePlayStatus(amId);
-    },
-    hideMediaEditModal: (restoreFocus = false) => {
-      mediaEditModalBindings?.hideMediaEditModal(restoreFocus);
-    },
-    getLocalizedMessage,
-    updateNotice,
-    isLocalMode: isRuntimeLocalMode,
-    isCloudMode: () => !!getRuntimeAmbientData()?.isCloud,
-    persistCloudPlaylist: persistMyPlaylistIfNeeded,
-    generatePlaylistJson: (pretty = false) => generatePlaylistJson(pretty),
-    ensureCategory: ensureMediaEditCategory,
-    readDraftFromForm: readMediaEditDraftFromForm,
-    validateDraft: validateAndRenderMediaEditDraftFromForm,
-    setSaveButtonDisabled: setMediaEditSaveButtonDisabled,
-    applyDraftToMediaItem,
-  });
-
-  hydrateMediaEditDraftStore();
-
-  mediaEditModalBindings = initializeMediaEditModalBindings({
-    status: AMP_STATUS,
-    modalElement: isElement($MODAL_MEDIA_EDIT) ? $MODAL_MEDIA_EDIT : null,
-    modalTitleElement: isElement($MODAL_MEDIA_EDIT_TITLE) ? $MODAL_MEDIA_EDIT_TITLE : null,
-    modalItemTitleElement: isElement($MODAL_MEDIA_EDIT_ITEM_TITLE) ? $MODAL_MEDIA_EDIT_ITEM_TITLE : null,
-    modalItemSourceElement: isElement($MODAL_MEDIA_EDIT_ITEM_SOURCE) ? $MODAL_MEDIA_EDIT_ITEM_SOURCE : null,
-    modalCloseButton: isElement($BUTTON_CLOSE_MEDIA_EDIT) ? $BUTTON_CLOSE_MEDIA_EDIT : null,
-    playlistListElement: $LIST_PLAYLIST,
-    playButton: $BUTTON_PLAY,
-    pauseButton: $BUTTON_PAUSE,
-    youtubePlayer: player || null,
-    defaultModalTitle: defaultMediaEditModalTitle,
-    playlistMode: () => playlistMode,
-    closePlaylistModeMenu: () => {
-      closePlaylistModeMenu();
-    },
-    getLocalizedMessage,
-    getMediaCategoryName: (mediaItem) => getMediaCategoryNameState(mediaItem, AMP_STATUS.category),
-    sanitizeMediaTitle: (value) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
-    resetMediaEditPreviewState,
-    clearMediaEditValidationView,
-    closeCategoryDropdown: closeMediaEditCategoryDropdown,
-    bindForm: bindMediaEditForm,
-    updatePlaylist: () => {
-      playlistUiBindings?.updatePlaylist();
-    },
-    createPreview: createMediaEditPreview,
-    startDurationSyncWait: mediaEditDurationSync.startIfNeeded,
-    getActiveItem: () => mediaEditActiveItem,
-    getDraftKey: getMediaEditDraftKey,
-    hasUnsavedDraft: isActiveMediaEditUnsaved,
-    isDirty: () => mediaEditIsDirty,
-    discardDraft: discardActiveMediaEditDraft,
     confirm: (message) => window.confirm(message),
   });
-
-  const {
-    confirmDiscardActiveMediaEditIfNeeded,
-    hideMediaEditModal,
-    closeMediaEditModal,
-    cancelMediaEditModal,
-    openMediaEditModal,
-  } = mediaEditModalBindings;
+  const isMediaEditCategoryDropdownVisible = mediaEditRuntime.isMediaEditCategoryDropdownVisible;
+  const closeMediaEditCategoryDropdown = mediaEditRuntime.closeMediaEditCategoryDropdown;
+  const closeMediaEditModal = mediaEditRuntime.closeMediaEditModal;
+  const hideMediaEditModal = mediaEditRuntime.hideMediaEditModal;
+  const openMediaEditModal = mediaEditRuntime.openMediaEditModal;
+  const confirmDiscardActiveMediaEditIfNeeded = mediaEditRuntime.confirmDiscardActiveMediaEditIfNeeded;
+  const clearMediaEditContext = mediaEditRuntime.clearMediaEditContext;
+  const discardActiveMediaEditDraft = mediaEditRuntime.discardActiveMediaEditDraft;
+  const persistMediaEditForCurrentPlaylist = mediaEditRuntime.persistMediaEditForCurrentPlaylist;
 
   const syncViewportMetrics = (): void => viewportRuntime.syncMetrics();
   const scheduleViewportMetricsSync = (delay = 0): void => viewportRuntime.scheduleMetricsSync(delay);
@@ -994,7 +682,7 @@ const init = function (): void {
       playlistMode = mode;
     },
     deleteSelectedIds,
-    getEditSelectedId: () => mediaEditActiveItem?.amId ?? null,
+    getEditSelectedId: () => mediaEditRuntime.getActiveItem()?.amId ?? null,
     playlistList: $LIST_PLAYLIST,
     targetCategorySelect: isElement($SELECT_CATEGORY) ? $SELECT_CATEGORY : null,
     mediaCategorySelect: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
@@ -1033,91 +721,62 @@ const init = function (): void {
     },
   });
 
-  initializeStatusWatcher({
-    status: AMP_STATUS as unknown as Record<string, unknown>,
+  initializeStatusWatcherRuntime({
+    document,
+    windowObject: window,
+    status: AMP_STATUS as unknown as Record<string, unknown> & {
+      current?: number | null;
+      order?: string | null;
+      media?: unknown[] | null;
+      category?: string[] | null;
+      ctg?: number | null;
+      volume?: number | null;
+      options?: Record<string, unknown>;
+      shuffle?: unknown[] | null;
+    },
     runtimeLogger,
     saveStorageAdapter,
     savePlaylistContext,
+    listElement: $LIST_PLAYLIST,
+    randomToggleRoot: $TOGGLE_RANDOMLY,
+    shuffleToggleRoot: $TOGGLE_SHUFFLE,
+    seekToggleRoot: $TOGGLE_SEEKPLAY,
+    faderToggleRoot: $TOGGLE_FADER,
+    darkModeToggleRoot: $TOGGLE_DARKMODE,
+    playButton: $BUTTON_PLAY,
+    pauseButton: $BUTTON_PAUSE,
+    body: $BODY,
+    menu: $MENU,
+    volumeRange: $RANGE_VOLUME,
+    mediaVolumeInput: $MEDIA_VOLUME,
+    defaultVolume: DEFAULT_VOLUME,
+    getOption: (key) => getOption(key),
+    updatePlaylistCategory: () => {
+      playlistUiBindings?.updateCategory();
+    },
+    updateNotice,
     syncPlaylistCurrentFocus: () => {
       syncPlaylistCurrentFocus($LIST_PLAYLIST, AMP_STATUS.current);
     },
     scrollPlaylistToCurrentFocus: () => {
       scrollPlaylistToCurrentFocus($LIST_PLAYLIST);
     },
-    syncRandomOrderToggle: () => {
-      syncToggleRoot($TOGGLE_RANDOMLY, AMP_STATUS.order === 'random');
-    },
     syncPlaybackButtons: () => {
       syncPlaybackButtons($BUTTON_PLAY, $BUTTON_PAUSE, AMP_STATUS.media !== null && AMP_STATUS.media.length > 0);
     },
-    updatePlaylistCategory: () => {
-      playlistUiBindings?.updateCategory();
-    },
-    syncShuffleState: () => {
-      syncToggleRoot($TOGGLE_SHUFFLE, !!(AMP_STATUS.options && AMP_STATUS.options.shuffle));
-      AMP_STATUS.shuffle = createShuffledPlaylistItems({
-        mediaItems: AMP_STATUS.media,
-        categoryId: AMP_STATUS.ctg,
-        shuffleEnabled: !!(AMP_STATUS.options && AMP_STATUS.options.shuffle),
-      });
-    },
-    syncVolumeState: () => {
-      syncVolumeSlider({
-        input: $RANGE_VOLUME,
-        volume: normalizeAmbientVolume(
-          AMP_STATUS.volume,
-          resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME)
-        ),
-        syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-        display: document.getElementById('default-volume-value') as HTMLElement | null,
-      });
-    },
-    updateNotice,
-    applyDisplayOptions: () => {
-      const ambientData = (window as any).AmbientData as AmbientData;
-      applyAmbientDisplayOptions({
-        status: AMP_STATUS,
-        getOption: (key) => getOption(key as Extract<keyof PlaylistOptions, string>),
-        defaultVolume: resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
-        body: $BODY,
-        menu: $MENU,
-        imageDir: ambientData?.imageDir,
-        shuffleToggleRoot: $TOGGLE_SHUFFLE,
-        seekToggleRoot: $TOGGLE_SEEKPLAY,
-        faderToggleRoot: $TOGGLE_FADER,
-        darkModeToggleRoot: $TOGGLE_DARKMODE,
-        volumeRange: $RANGE_VOLUME,
-        defaultVolumeDisplay: document.getElementById('default-volume-value') as HTMLElement | null,
-        normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
-        syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-        syncMediaVolumeField: () => {
-          syncAmbientResolvedMediaVolumeField({
-            input: $MEDIA_VOLUME,
-            display: document.getElementById('default-media-volume'),
-            volume: getOption('volume'),
-            defaultVolume: getOption('volume'),
-            fallbackVolume: DEFAULT_VOLUME,
-          });
-        },
-        shufflePlaylist: () => createShuffledPlaylistItems({
-          mediaItems: AMP_STATUS.media,
-          categoryId: AMP_STATUS.ctg,
-          shuffleEnabled: true,
-        }),
-        setStyles,
-        setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
-          viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
-        },
-      });
-    },
     syncYouTubeSignalAttrs,
+    setStyles,
+    setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
+      viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
+    },
   });
 
   if (isElement($ALERT)) {
     noticeController.hideLegacyAlert();
   }
 
-  const optionsModalBindings = initializeOptionsModalBindings({
+  const optionsModalBindings = initializeOptionsModalRuntime({
+    document,
     triggerButton: $BUTTON_OPTIONS,
     closeButton: $BUTTON_CLOSE_OPTIONS,
     optionsButton: $BUTTON_OPTIONS,
@@ -1131,10 +790,8 @@ const init = function (): void {
     playlistDescModal,
     playlistDescCloseButton: $BUTTON_CLOSE_PLAYLIST_DESC,
     playlistDescBackdrop: $MODAL_PLAYLIST_DESC_BACKDROP,
-    playlistDescManagementLink: document.getElementById('link-open-playlist-management-category') as HTMLAnchorElement | null,
-    mediaEditModal: $MODAL_MEDIA_EDIT,
+    mediaEditModal: mediaEditElements.modal,
     mediaVolumeInput: $MEDIA_VOLUME,
-    defaultMediaVolumeDisplay: document.getElementById('default-media-volume'),
     playlistList: $LIST_PLAYLIST,
     defaultVolume: DEFAULT_VOLUME,
     getVolumeOption: () => getOption('volume'),
@@ -1159,194 +816,6 @@ const init = function (): void {
   const openMediaManagement = optionsModalBindings.openMediaManagement;
   openMediaManagementAction = openMediaManagement;
 
-  initializeMediaEditControls({
-    primary: {
-      closeButton: $BUTTON_CLOSE_MEDIA_EDIT,
-      cancelButton: $BUTTON_CANCEL_MEDIA_EDIT,
-      saveButton: $BUTTON_SAVE_MEDIA_EDIT,
-      form: $FORM_MEDIA_EDIT,
-      onClose: () => {
-        closeMediaEditModal(true);
-      },
-      onCancel: () => {
-        cancelMediaEditModal(true);
-      },
-      onSave: async () => {
-        await saveMediaEdit();
-      },
-    },
-    category: {
-      toggleButton: $BUTTON_MEDIA_EDIT_CATEGORY_TOGGLE,
-      clearButton: $BUTTON_MEDIA_EDIT_CATEGORY_CLEAR,
-      categoryInput: $MEDIA_EDIT_CATEGORY,
-      categoryCombobox: $MEDIA_EDIT_CATEGORY_COMBOBOX,
-      isDropdownVisible: isMediaEditCategoryDropdownVisible,
-      openDropdown: openMediaEditCategoryDropdown,
-      closeDropdown: closeMediaEditCategoryDropdown,
-      syncClearButton: syncMediaEditCategoryClearButton,
-      renderOptions: renderMediaEditCategoryOptions,
-    },
-    field: {
-      draftFields: [$MEDIA_EDIT_CATEGORY, $MEDIA_EDIT_TITLE, $MEDIA_EDIT_ARTIST, $MEDIA_EDIT_DESCRIPTION],
-      volumeInput: $MEDIA_EDIT_VOLUME,
-      timingFields: [$MEDIA_EDIT_SEEK_START, $MEDIA_EDIT_SEEK_END, $MEDIA_EDIT_FADEIN_END, $MEDIA_EDIT_FADEOUT_START],
-      timingStepperButtons: document.querySelectorAll('.media-edit-timing-stepper-btn'),
-      onDraftFieldInput: () => {
-        syncMediaEditDraftStateFromForm();
-        validateAndRenderMediaEditDraftFromForm();
-      },
-      onDraftFieldChange: () => {
-        syncMediaEditDraftStateFromForm();
-        validateAndRenderMediaEditDraftFromForm();
-      },
-      onVolumeInput: () => {
-        if (!$MEDIA_EDIT_VOLUME) {
-          return;
-        }
-        const normalized = readMediaEditDraftFromForm();
-        syncVolumeSlider({
-          input: $MEDIA_EDIT_VOLUME,
-          volume: normalized.volume,
-          syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-          display: $MEDIA_EDIT_VOLUME_VALUE,
-        });
-        syncMediaEditDraftStateFromForm();
-        validateAndRenderMediaEditDraftFromForm();
-      },
-      onVolumeBlur: () => {
-        if (!$MEDIA_EDIT_VOLUME) {
-          return;
-        }
-        const normalized = readMediaEditDraftFromForm();
-        syncVolumeSlider({
-          input: $MEDIA_EDIT_VOLUME,
-          volume: normalized.volume,
-          syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-          display: $MEDIA_EDIT_VOLUME_VALUE,
-        });
-        syncMediaEditDraftStateFromForm();
-        validateAndRenderMediaEditDraftFromForm();
-      },
-      onTimingInput: (field: HTMLInputElement) => {
-        sharedSanitizeMediaEditTimingInputField(field);
-        syncMediaEditTimingDisplay();
-        syncMediaEditDraftStateFromForm();
-        validateAndRenderMediaEditDraftFromForm();
-      },
-      onTimingChange: (field: HTMLInputElement) => {
-        sharedSanitizeMediaEditTimingInputField(field);
-        syncMediaEditTimingDisplay();
-        syncMediaEditDraftStateFromForm();
-        validateAndRenderMediaEditDraftFromForm();
-      },
-      onTimingBlur: (field: HTMLInputElement) => {
-        field.value = sharedToMediaEditTimingInputValue(sharedParseMediaTimeToIntegerSeconds(field.value));
-        syncMediaEditTimingDisplay();
-        syncMediaEditDraftStateFromForm();
-        validateAndRenderMediaEditDraftFromForm();
-      },
-      onTimingStep: (field: HTMLInputElement, direction: 1 | -1) => {
-        sharedStepMediaEditTimingField(field, direction);
-      },
-    },
-    preview: {
-      syncSeekStartButton: $BUTTON_MEDIA_EDIT_SYNC_SEEK_START,
-      syncSeekEndButton: $BUTTON_MEDIA_EDIT_SYNC_SEEK_END,
-      syncFadeinEndButton: $BUTTON_MEDIA_EDIT_SYNC_FADEIN_END,
-      syncFadeoutStartButton: $BUTTON_MEDIA_EDIT_SYNC_FADEOUT_START,
-      previewRetryButton: $BUTTON_MEDIA_EDIT_PREVIEW_RETRY,
-      onSyncSeekStart: () => {
-        syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_SEEK_START, 'seek start');
-      },
-      onSyncSeekEnd: () => {
-        syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_SEEK_END, 'seek end');
-      },
-      onSyncFadeinEnd: () => {
-        syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_FADEIN_END, 'fade-in end');
-      },
-      onSyncFadeoutStart: () => {
-        syncMediaEditTimingFieldFromPreview($MEDIA_EDIT_FADEOUT_START, 'fade-out start');
-      },
-      onPreviewRetry: () => {
-        const previewSourceItem = mediaEditPreview.getPreviewSourceItem();
-        if (!previewSourceItem) {
-          return;
-        }
-        createMediaEditPreview(previewSourceItem);
-      },
-    },
-    thumbnail: {
-      pickButton: $BUTTON_MEDIA_EDIT_THUMBNAIL_PICK,
-      input: $MEDIA_EDIT_THUMBNAIL_INPUT,
-      removeButton: $BUTTON_MEDIA_EDIT_THUMBNAIL_REMOVE,
-      clearButton: $BUTTON_MEDIA_EDIT_THUMBNAIL_CLEAR,
-      onPick: () => {
-        $MEDIA_EDIT_THUMBNAIL_INPUT?.click();
-      },
-      onInputChange: () => {
-        const thumbnailInput = $MEDIA_EDIT_THUMBNAIL_INPUT;
-        if (!thumbnailInput) {
-          return;
-        }
-        const file = thumbnailInput.files?.[0] || null;
-        if (!file) {
-          return;
-        }
-        const allowed = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
-        if (!allowed.includes(file.type)) {
-          updateNotice({
-            type: 'error',
-            message: getRuntimeLocalizedMessage('mediaEditThumbnailTypeError', 'Only PNG, JPEG, GIF, and WebP images are accepted.'),
-            delay: 2500,
-          });
-          thumbnailInput.value = '';
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (!mediaEditActiveItem) {
-            return;
-          }
-          const current = readMediaEditDraftFromForm();
-          const next = sanitizeMediaEditDraft({
-            ...current,
-            thumbnailMode: 'upload',
-            thumbnailName: file.name,
-            thumbnailMime: file.type,
-            thumbnailDataUrl: typeof reader.result === 'string' ? reader.result : '',
-          }, current);
-          applyMediaEditDraftToForm(next);
-          applyMediaEditDraftState(next);
-        };
-        reader.readAsDataURL(file);
-        thumbnailInput.value = '';
-      },
-      onRemove: () => {
-        if (!mediaEditActiveItem) {
-          return;
-        }
-        const current = readMediaEditDraftFromForm();
-        const currentName = current.thumbnailName || mediaEditBaseDraft?.thumbnailName || '';
-        if (currentName === '') {
-          return;
-        }
-        const confirmed = window.confirm(getRuntimeLocalizedMessage('mediaEditThumbnailRemoveConfirm', 'Remove the current thumbnail image?'));
-        if (!confirmed) {
-          return;
-        }
-        const next = sanitizeMediaEditDraft({
-          ...current,
-          thumbnailMode: 'remove',
-          thumbnailName: currentName,
-          thumbnailMime: '',
-          thumbnailDataUrl: '',
-        }, current);
-        applyMediaEditDraftToForm(next);
-        applyMediaEditDraftState(next);
-      },
-    },
-  });
-
   function getOption<K extends Extract<keyof PlaylistOptions, string>>(
     key: K
   ): Exclude<PlaylistOptions[K], undefined> | null {
@@ -1357,27 +826,47 @@ const init = function (): void {
   // EVENT HANDLERS
   // ============================================================================
 
-  bindAmbientAppControlBindings({
-    selectorControls: {
+  initializeAppControlsRuntime({
+    document,
+    windowObject: window,
+    status: AMP_STATUS as typeof AMP_STATUS & {
+      prev: number | null;
+      next: number | null;
+      ctg: number | null;
+      current: number | null;
+      volume: number | null;
+      shuffle?: MediaItem[] | null;
+      media?: MediaItem[] | null;
+      order: 'random' | 'normal';
+      playertype: string | null;
+      options: Record<string, unknown>;
+    },
+    selectors: {
       playlistSelect: $SELECT_PLAYLIST,
       categorySelect: $SELECT_CATEGORY,
       languageSelect: $SELECT_LANGUAGE,
-      getCurrentPlaylist: () => AMP_STATUS.hasOwnProperty('playlist') ? AMP_STATUS.playlist : null,
-      getCurrentCategoryId: () => (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null ? AMP_STATUS.ctg : null),
+    },
+    playlist: {
+      listElement: $LIST_PLAYLIST,
       getPlaylistMode: () => playlistMode,
-      canDiscardEditMode: () => confirmDiscardActiveMediaEditIfNeeded(),
       clearDeleteSelections: () => {
         deleteSelectedIds.clear();
       },
       resetReorderState,
-      hideMediaEditModal: () => {
-        hideMediaEditModal(false);
-      },
       clearMediaEditContext,
-      resetPlaylistMode: () => {
-        playlistMode = 'normal';
-      },
       updatePlaylistModeUi: updatePlaylistModeUI,
+      updatePlaylist: () => {
+        playlistUiBindings?.updatePlaylist();
+      },
+      deleteSelectedIds,
+      syncDeleteSelectionIndicator,
+      isPlaylistInteractionLocked,
+      openDescriptionModal: (payload) => {
+        playlistDescModal.open(payload.titleText, payload.artistText, payload.descText, payload.trigger);
+      },
+      getDescriptionPayload: getPlaylistDescriptionPayload,
+      resolveMediaItem: (amId) => AMP_STATUS.media?.find((item: MediaItem) => item.amId === amId) || null,
+      openMediaEditModal,
       loadPlaylist: (playlist) => {
         void getPlaylistData(playlist);
       },
@@ -1387,39 +876,12 @@ const init = function (): void {
         AMP_STATUS.current = null;
         AMP_STATUS.next = null;
       },
-      updatePlaylist: () => {
-        playlistUiBindings?.updatePlaylist();
+      canDiscardEditMode: () => confirmDiscardActiveMediaEditIfNeeded(),
+      hideMediaEditModal: () => {
+        hideMediaEditModal(false);
       },
-      getCookie,
-      updateCookie,
-      logger,
-      reloadPage: () => {
-        window.location.reload();
-      },
-    },
-    playlistInteractionControls: {
-      listElement: $LIST_PLAYLIST,
-      getDescriptionPayload: getPlaylistDescriptionPayload,
-      openDescriptionModal: (payload) => {
-        playlistDescModal.open(
-          payload.titleText,
-          payload.artistText,
-          payload.descText,
-          payload.trigger
-        );
-      },
-      getPlaylistMode: () => playlistMode,
-      deleteSelectedIds,
-      syncDeleteSelectionIndicator,
-      resolveMediaItem: (amId) => AMP_STATUS.media?.find((item: MediaItem) => item.amId === amId) || null,
-      openMediaEditModal,
-      isPlaylistInteractionLocked,
-      playItem: (target) => {
-        playItem(target);
-      },
-      showPlayingState: () => {
-        $BUTTON_PLAY.classList.add('hidden');
-        $BUTTON_PAUSE.classList.remove('hidden');
+      resetPlaylistMode: () => {
+        playlistMode = 'normal';
       },
     },
     playerControls: {
@@ -1432,13 +894,11 @@ const init = function (): void {
       playButton: $BUTTON_PLAY,
       pauseButton: $BUTTON_PAUSE,
       menuElement: $MENU,
-      getPreviousId: () => AMP_STATUS.prev,
-      getNextId: () => AMP_STATUS.next,
+      playItem: (target) => {
+        playItem(target);
+      },
       playItemById: (playId) => {
         playItem(null, playId);
-      },
-      reloadPage: () => {
-        window.location.reload();
       },
       isFullWindowMode: () => isFullWindowModeView($BODY),
       setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
@@ -1447,15 +907,7 @@ const init = function (): void {
       setMenuMinimized: (minimized) => {
         viewportRuntime.setMenuMinimized(minimized);
       },
-      getPlayertype: () => AMP_STATUS.playertype,
       getPlayer: () => player,
-      logger,
-      getMediaItems: () => AMP_STATUS.media || [],
-      getCategoryId: () => AMP_STATUS.ctg,
-      isShuffleEnabled: () => Boolean(getOption('shuffle')),
-      getShuffleItems: () => AMP_STATUS.shuffle || [],
-      getCurrentId: () => AMP_STATUS.current,
-      getOrder: () => AMP_STATUS.order,
     },
     settingsControlRoots: {
       loop: $TOGGLE_LOOP,
@@ -1465,9 +917,8 @@ const init = function (): void {
       fader: $TOGGLE_FADER,
       darkmode: $TOGGLE_DARKMODE,
     },
-    settingsControls: {
+    settings: {
       volumeRange: $RANGE_VOLUME,
-      status: AMP_STATUS,
       shufflePlaylist: () => createShuffledPlaylistItems({
         mediaItems: AMP_STATUS.media,
         categoryId: AMP_STATUS.ctg,
@@ -1476,10 +927,14 @@ const init = function (): void {
       persistMyPlaylistIfNeeded,
       normalizeVolume: (value) => normalizeAmbientVolume(value, DEFAULT_VOLUME),
       syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-      getDefaultVolumeDisplay: () => document.getElementById('default-volume-value') as HTMLElement | null,
       isDarkModeEnabled: () => isAmbientDarkModeEnabled({ playlistOptions: AMP_STATUS.options }),
       setStyles,
     },
+    getCurrentPlaylist: () => AMP_STATUS.hasOwnProperty('playlist') ? AMP_STATUS.playlist : null,
+    getCurrentCategoryId: () => (AMP_STATUS.hasOwnProperty('ctg') && AMP_STATUS.ctg !== null ? AMP_STATUS.ctg : null),
+    getCookie,
+    updateCookie,
+    logger,
   });
 
   const { updatePlayStatus, playItem } = initializeAmbientPlayer({
@@ -1651,242 +1106,207 @@ const init = function (): void {
   // MANAGEMENT FORMS (Media Management & Playlist Management)
   // ============================================================================
 
-  const $MEDIA_MANAGE_FORM = document.querySelector('form[name="mediaManagement"]') as HTMLFormElement | null;
-  const $MEDIA_MANAGE_ELMS: HTMLElement[] = $MEDIA_MANAGE_FORM
-    ? (Array.from($MEDIA_MANAGE_FORM.elements) as HTMLElement[])
-    : [];
-  const $PLAYLIST_MANAGE_FORM = document.querySelector('form[name="playlistManagement"]') as HTMLFormElement | null;
-  const $PLAYLIST_MANAGE_ELMS: HTMLElement[] = $PLAYLIST_MANAGE_FORM
-    ? (Array.from($PLAYLIST_MANAGE_FORM.elements) as HTMLElement[])
-    : [];
-
-  const {
-    getRelativeFilepath,
-    importPlaylistFromFile,
-  } = createManagementImportHelpers({
-    resolveRelativeFilepathOptions: {
-      baseUrl: BASE_URL,
-      fetchData: async (url) => fetchData(url),
-      filepathInput: document.getElementById('local-media-filepath') as HTMLInputElement | null,
-      messageLabel: document.getElementById('note-error-local-media-file'),
-      getDefaultMessage: (label) => String(getAtts(label, 'data-default-message') ?? ''),
-      logger: runtimeLogger,
-    },
-    importPlaylistOptions: {
-      ambientData: getRuntimeAmbientData(),
-      isLikelyJsonFile: sharedIsLikelyJsonFile,
-      getLocalizedMessage: getRuntimeLocalizedMessage,
-      getCloudImportSizeLimitBytes: getCloudImportSizeLimitBytesDomain,
-      cloudImportSizeLimitBytes: CLOUD_IMPORT_SIZE_LIMIT_BYTES,
-      parseImportedPlaylistJson,
-      validatePlaylistSchemaContract: validatePlaylistSchemaContractDomain,
-      sanitizeAndNormalizeImportPlaylist: (source, stripPlaylistTemplate) => sanitizeAndNormalizeImportPlaylistDomain({
-        source: source as Record<string, unknown>,
-        stripPlaylistTemplate,
-        sanitizeText: sanitizeMediaText,
-        sanitizeDesc: sanitizeMediaDesc,
-        titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
-        artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
-        descMaxLength: MEDIA_DESC_MAX_LENGTH,
-      }),
-      persistImportedCloudPlaylist,
-      ensureMyPlaylistOptionFromStorage,
-      activateImportedPlaylist,
-      myPlaylistName: MYPLAYLIST_NAME,
-      postImportedPlaylist: async (baseUrl, filename, playlist) => postImportedPlaylist({
-        baseUrl,
-        filename,
-        playlist: playlist as Record<string, unknown>,
-      }),
-      baseUrl: BASE_URL,
-      resolveImportedPlaylistPersistResult,
-      getRuntimeAmbientData,
-      ensureAmbientPlaylistMap: (ambient) => {
-        if (!sharedIsObject(ambient.playlists)) {
-          ambient.playlists = {};
-        }
-        return ambient.playlists as Record<string, unknown>;
+  initializeManagementRuntime({
+    document,
+    importHelperOptions: {
+      resolveRelativeFilepathOptions: {
+        baseUrl: BASE_URL,
+        fetchData: async (url) => fetchData(url),
+        filepathInput: document.getElementById('local-media-filepath') as HTMLInputElement | null,
+        messageLabel: document.getElementById('note-error-local-media-file'),
+        getDefaultMessage: (label) => String(getAtts(label, 'data-default-message') ?? ''),
+        logger: runtimeLogger,
+      },
+      importPlaylistOptions: {
+        ambientData: getRuntimeAmbientData(),
+        isLikelyJsonFile: sharedIsLikelyJsonFile,
+        getLocalizedMessage: getRuntimeLocalizedMessage,
+        getCloudImportSizeLimitBytes: getCloudImportSizeLimitBytesDomain,
+        cloudImportSizeLimitBytes: CLOUD_IMPORT_SIZE_LIMIT_BYTES,
+        parseImportedPlaylistJson,
+        validatePlaylistSchemaContract: validatePlaylistSchemaContractDomain,
+        sanitizeAndNormalizeImportPlaylist: (source, stripPlaylistTemplate) => sanitizeAndNormalizeImportPlaylistDomain({
+          source: source as Record<string, unknown>,
+          stripPlaylistTemplate,
+          sanitizeText: sanitizeMediaText,
+          sanitizeDesc: sanitizeMediaDesc,
+          titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+          artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+          descMaxLength: MEDIA_DESC_MAX_LENGTH,
+        }),
+        persistImportedCloudPlaylist,
+        ensureMyPlaylistOptionFromStorage,
+        activateImportedPlaylist,
+        myPlaylistName: MYPLAYLIST_NAME,
+        postImportedPlaylist: async (baseUrl, filename, playlist) => postImportedPlaylist({
+          baseUrl,
+          filename,
+          playlist: playlist as Record<string, unknown>,
+        }),
+        baseUrl: BASE_URL,
+        resolveImportedPlaylistPersistResult,
+        getRuntimeAmbientData,
+        ensureAmbientPlaylistMap: (ambient) => {
+          if (!sharedIsObject(ambient.playlists)) {
+            ambient.playlists = {};
+          }
+          return ambient.playlists as Record<string, unknown>;
+        },
       },
     },
-  });
-  const {
-    resetMediaManageForm,
-    addMediaData,
-    generatePlaylistJson,
-    resetPlaylistManageForm,
-  } = initializeManagementBindingComposition({
     bindingOptions: {
-    mediaForm: $MEDIA_MANAGE_FORM,
-    mediaElements: $MEDIA_MANAGE_ELMS,
-    playlistForm: $PLAYLIST_MANAGE_FORM,
-    playlistElements: $PLAYLIST_MANAGE_ELMS,
-    getAddType: () => AMP_STATUS.addtype,
-    syncMediaVolumeField: () => {
-      syncAmbientResolvedMediaVolumeField({
-        input: $MEDIA_VOLUME,
-        display: document.getElementById('default-media-volume'),
-        volume: getOption('volume'),
-        defaultVolume: getOption('volume'),
-        fallbackVolume: DEFAULT_VOLUME,
-      });
-    },
-    setValidated: (field, valid) => {
-      if (field instanceof HTMLElement) {
-        setValidated(field, valid);
-      }
-    },
-    logger,
-    ensureTargetPlaylist: () => {
-      if (!AMP_STATUS.playlist) {
-        AMP_STATUS.playlist = MYPLAYLIST_NAME;
-        if ($SELECT_PLAYLIST) {
-          const alreadyExists = Array.from($SELECT_PLAYLIST.options).some(
-            (opt) => opt.value === MYPLAYLIST_NAME
-          );
-          if (!alreadyExists) {
-            const opt = document.createElement('option');
-            opt.value = MYPLAYLIST_NAME;
-            opt.textContent = MYPLAYLIST_NAME.replace('.json', '');
-            $SELECT_PLAYLIST.appendChild(opt);
-          }
-          for (let i = 0; i < $SELECT_PLAYLIST.options.length; i++) {
-            if ($SELECT_PLAYLIST.options[i]?.value === MYPLAYLIST_NAME) {
-              $SELECT_PLAYLIST.selectedIndex = i;
-              break;
+      getAddType: () => AMP_STATUS.addtype,
+      syncMediaVolumeField: () => {
+        syncAmbientResolvedMediaVolumeField({
+          input: $MEDIA_VOLUME,
+          display: document.getElementById('default-media-volume'),
+          volume: getOption('volume'),
+          defaultVolume: getOption('volume'),
+          fallbackVolume: DEFAULT_VOLUME,
+        });
+      },
+      setValidated: (field, valid) => {
+        if (field instanceof HTMLElement) {
+          setValidated(field, valid);
+        }
+      },
+      logger,
+      ensureTargetPlaylist: () => {
+        if (!AMP_STATUS.playlist) {
+          AMP_STATUS.playlist = MYPLAYLIST_NAME;
+          if ($SELECT_PLAYLIST) {
+            const alreadyExists = Array.from($SELECT_PLAYLIST.options).some(
+              (opt) => opt.value === MYPLAYLIST_NAME
+            );
+            if (!alreadyExists) {
+              const opt = document.createElement('option');
+              opt.value = MYPLAYLIST_NAME;
+              opt.textContent = MYPLAYLIST_NAME.replace('.json', '');
+              $SELECT_PLAYLIST.appendChild(opt);
+            }
+            for (let i = 0; i < $SELECT_PLAYLIST.options.length; i++) {
+              if ($SELECT_PLAYLIST.options[i]?.value === MYPLAYLIST_NAME) {
+                $SELECT_PLAYLIST.selectedIndex = i;
+                break;
+              }
             }
           }
         }
-      }
-    },
-    getMediaItems: () => AMP_STATUS.media || [],
-    getCategories: () => AMP_STATUS.category || [],
-    setCategories: (categories) => {
-      AMP_STATUS.category = categories;
-    },
-    setMediaItems: (mediaItems) => {
-      AMP_STATUS.media = mediaItems;
-    },
-    titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
-    artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
-    descMaxLength: MEDIA_DESC_MAX_LENGTH,
-    sanitizeMediaText,
-    sanitizeMediaDesc,
-    isVolumeInRange: (value) => sharedInRange(value, 0, 100),
-    generatePlaylistJson: (seekFormat) => buildPlaylistJson({
-      mediaItems: AMP_STATUS.media || [],
-      categories: AMP_STATUS.category || [],
-      playlistOptions: AMP_STATUS.options,
-      seekFormat,
-    }),
-    },
-  })!;
-
-  const {
-    createCategory: createPlaylistCategory,
-    downloadPlaylist: downloadCurrentPlaylist,
-    importPlaylist: importPlaylistFromManagementForm,
-  } = createPlaylistManagementActions({
-    form: $PLAYLIST_MANAGE_FORM,
-    getCategories: () => AMP_STATUS.category || [],
-    persistMyPlaylistIfNeeded,
-    setCategories: (categories) => {
-      AMP_STATUS.category = categories;
-    },
-    onCategoryCreated: () => {
-      playlistUiBindings?.clearCategory();
-      playlistUiBindings?.updateCategory();
-    },
-    logger,
-    getPlaylistName: () => AMP_STATUS.playlist || 'playlist.json',
-    generatePlaylistJson,
-    importFileInput: document.getElementById('playlist-import-file') as HTMLInputElement | null,
-    importPlaylistFromFile,
-    hideOptionsModal,
-    getLocalizedMessage: getRuntimeLocalizedMessage,
-  });
-
-  initializeManagementBindingComposition({
-    initOptions: {
-    mediaBindings: $MEDIA_MANAGE_FORM ? {
-      form: $MEDIA_MANAGE_FORM,
-      elements: $MEDIA_MANAGE_ELMS,
-      mediaCategorySelect: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
-      mediaTitleMaxLength: MEDIA_TITLE_MAX_LENGTH,
-      mediaArtistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
-      mediaDescMaxLength: MEDIA_DESC_MAX_LENGTH,
-      getDefaultVolume: () => resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
-      normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
-      resetMediaManagementForm: resetMediaManageForm,
-      canMutateCurrentPlaylist,
-      applyCloudEditRestrictions,
-      updateNotice,
-      addMediaData,
-      updatePlaylist: () => {
-        playlistUiBindings?.updatePlaylist();
       },
-      clearCategory: () => {
+      getMediaItems: () => AMP_STATUS.media || [],
+      getCategories: () => AMP_STATUS.category || [],
+      setCategories: (categories) => {
+        AMP_STATUS.category = categories;
+      },
+      setMediaItems: (mediaItems) => {
+        AMP_STATUS.media = mediaItems;
+      },
+      titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+      artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+      descMaxLength: MEDIA_DESC_MAX_LENGTH,
+      sanitizeMediaText,
+      sanitizeMediaDesc,
+      isVolumeInRange: (value) => sharedInRange(value, 0, 100),
+      generatePlaylistJson: (seekFormat) => buildPlaylistJson({
+        mediaItems: AMP_STATUS.media || [],
+        categories: AMP_STATUS.category || [],
+        playlistOptions: AMP_STATUS.options,
+        seekFormat,
+      }),
+    },
+    playlistActionOptions: {
+      getCategories: () => AMP_STATUS.category || [],
+      persistMyPlaylistIfNeeded,
+      setCategories: (categories) => {
+        AMP_STATUS.category = categories;
+      },
+      onCategoryCreated: () => {
         playlistUiBindings?.clearCategory();
-      },
-      updateCategory: () => {
         playlistUiBindings?.updateCategory();
       },
-      syncMediaCategoryField: (preferredCategoryId?: number | null) => {
-        playlistUiBindings?.syncMediaCategoryField(
-          preferredCategoryId ?? (playlistUiBindings?.getActiveCategoryId() ?? null)
-        );
-      },
-      syncPlaybackAfterMediaAdd: (): void => {
-        if (AMP_STATUS.current !== null) {
-          updatePlayStatus(AMP_STATUS.current);
-        } else if ((AMP_STATUS.media || []).length > 0) {
-          updatePlayStatus((AMP_STATUS.media || [])[0]?.amId ?? 0);
-        }
-      },
-      persistMediaEditForCurrentPlaylist,
+      logger,
+      getPlaylistName: () => AMP_STATUS.playlist || 'playlist.json',
+      importFileInput: document.getElementById('playlist-import-file') as HTMLInputElement | null,
       hideOptionsModal,
-      setValidated,
-      sanitizeMediaText,
-      sanitizeMediaTextInput: (value, maxLength) => sharedSanitizeMediaTextInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
-      sanitizeMediaDescInput: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => sharedSanitizeMediaDescInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
-      sanitizeMediaDescInputLive: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => sharedSanitizeMediaDescInputLive(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
-      basename: sharedBasename,
-      isLikelyMediaFile: sharedIsLikelyMediaFile,
-      getRelativeFilepath,
-      syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-      logger: runtimeLogger,
-      getMediaItems: () => AMP_STATUS.media || [],
-      getAddType: () => AMP_STATUS.addtype,
-      setAddType: (nextType: string) => {
-        AMP_STATUS.addtype = nextType;
+      getLocalizedMessage: getRuntimeLocalizedMessage,
+      generatePlaylistJson: (seekFormat) => buildPlaylistJson({
+        mediaItems: AMP_STATUS.media || [],
+        categories: AMP_STATUS.category || [],
+        playlistOptions: AMP_STATUS.options,
+        seekFormat,
+      }),
+    },
+    initOptions: {
+      mediaBindings: {
+        mediaCategorySelect: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
+        mediaTitleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+        mediaArtistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+        mediaDescMaxLength: MEDIA_DESC_MAX_LENGTH,
+        getDefaultVolume: () => resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
+        normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
+        canMutateCurrentPlaylist,
+        applyCloudEditRestrictions,
+        updateNotice,
+        updatePlaylist: () => {
+          playlistUiBindings?.updatePlaylist();
+        },
+        clearCategory: () => {
+          playlistUiBindings?.clearCategory();
+        },
+        updateCategory: () => {
+          playlistUiBindings?.updateCategory();
+        },
+        syncMediaCategoryField: (preferredCategoryId?: number | null) => {
+          playlistUiBindings?.syncMediaCategoryField(
+            preferredCategoryId ?? (playlistUiBindings?.getActiveCategoryId() ?? null)
+          );
+        },
+        syncPlaybackAfterMediaAdd: (): void => {
+          if (AMP_STATUS.current !== null) {
+            updatePlayStatus(AMP_STATUS.current);
+          } else if ((AMP_STATUS.media || []).length > 0) {
+            updatePlayStatus((AMP_STATUS.media || [])[0]?.amId ?? 0);
+          }
+        },
+        persistMediaEditForCurrentPlaylist,
+        hideOptionsModal,
+        setValidated,
+        sanitizeMediaText,
+        sanitizeMediaTextInput: (value, maxLength) => sharedSanitizeMediaTextInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
+        sanitizeMediaDescInput: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => sharedSanitizeMediaDescInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
+        sanitizeMediaDescInputLive: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => sharedSanitizeMediaDescInputLive(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
+        basename: sharedBasename,
+        isLikelyMediaFile: sharedIsLikelyMediaFile,
+        syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
+        logger: runtimeLogger,
+        getMediaItems: () => AMP_STATUS.media || [],
+        getAddType: () => AMP_STATUS.addtype,
+        setAddType: (nextType: string) => {
+          AMP_STATUS.addtype = nextType;
+        },
       },
-    } : null,
-    playlistBindings: $PLAYLIST_MANAGE_FORM ? {
-      form: $PLAYLIST_MANAGE_FORM,
-      elements: $PLAYLIST_MANAGE_ELMS,
-      canMutateCurrentPlaylist,
-      applyCloudEditRestrictions,
-      setValidated,
-      updateNotice,
-      resetPlaylistManagementForm: resetPlaylistManageForm,
-      fetchData: async (endpointURL: string, method?: string, payload?: Record<string, string>) => {
-        return fetchData(endpointURL, method, payload, 'json', 15000, runtimeLogger);
+      playlistBindings: {
+        canMutateCurrentPlaylist,
+        applyCloudEditRestrictions,
+        setValidated,
+        updateNotice,
+        fetchData: async (endpointURL: string, method?: string, payload?: Record<string, string>) => {
+          return fetchData(endpointURL, method, payload, 'json', 15000, runtimeLogger);
+        },
+        inArray: (contains: unknown | unknown[], targetArray: unknown[], atLeastOne = false) => {
+          return sharedInArray(contains, targetArray as any[], atLeastOne);
+        },
+        snakeToCapital: sharedSnakeToCapital,
+        logger: runtimeLogger,
+        isLikelyJsonFile: sharedIsLikelyJsonFile,
+        getBaseUrl: () => BASE_URL,
+        getPlaylistManageFormData: (oneData: string | null = null) => {
+          const playlistForm = document.querySelector('form[name="playlistManagement"]') as HTMLFormElement | null;
+          if (!playlistForm) return null;
+          const formData = new FormData(playlistForm);
+          return oneData ? formData.get(oneData) : Array.from(formData.entries());
+        },
       },
-      inArray: (contains: unknown | unknown[], targetArray: unknown[], atLeastOne = false) => {
-        return sharedInArray(contains, targetArray as any[], atLeastOne);
-      },
-      snakeToCapital: sharedSnakeToCapital,
-      logger: runtimeLogger,
-      isLikelyJsonFile: sharedIsLikelyJsonFile,
-      getBaseUrl: () => BASE_URL,
-      getPlaylistManageFormData: (oneData: string | null = null) => {
-        if (!$PLAYLIST_MANAGE_FORM) return null;
-        const formData = new FormData($PLAYLIST_MANAGE_FORM);
-        return oneData ? formData.get(oneData) : Array.from(formData.entries());
-      },
-      createCategory: createPlaylistCategory,
-      downloadPlaylist: downloadCurrentPlaylist,
-      importPlaylist: importPlaylistFromManagementForm,
-    } : null,
     },
   });
 
