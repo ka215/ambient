@@ -122,9 +122,6 @@ import {
   syncYouTubePreviewDuration,
 } from './ui/player/youtube-player-events';
 import {
-  selectExistingOption,
-} from './ui/forms/management-forms';
-import {
   getAmbientPlaybackVolume,
   normalizeAmbientVolume,
   resolveAmbientDefaultVolume,
@@ -168,7 +165,7 @@ import {
 } from './bootstrap/display-runtime';
 import { createPlaylistUiBindings } from './bootstrap/playlist-ui-init';
 import { createAppBootController } from './bootstrap/app-boot';
-import { initializePlaylistRuntime } from './bootstrap/playlist-runtime-init';
+import { initializePlaylistRuntimeWiring } from './bootstrap/playlist-runtime-wiring-init';
 import { initializePlaylistStartupRuntime } from './bootstrap/playlist-startup-runtime-init';
 import {
   getCloudImportSizeLimitBytes as getCloudImportSizeLimitBytesDomain,
@@ -982,7 +979,7 @@ const init = function (): void {
     ensureMyPlaylistOptionFromStorage,
     initMyPlaylistFromStorage,
     getPlaylistData,
-  } = initializePlaylistRuntime({
+  } = initializePlaylistRuntimeWiring({
     status: AMP_STATUS,
     ambientData: ((window as any).AmbientData as AmbientData | undefined) ?? null,
     myPlaylistName: MYPLAYLIST_NAME,
@@ -1007,9 +1004,6 @@ const init = function (): void {
     }),
     logger,
     resetPlaylistRuntimeState,
-    selectPlaylistOption: (playlist) => {
-      selectExistingOption(isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null, playlist);
-    },
     applyCloudEditRestrictions,
     setPlaylistReadyState: (isReady) => {
       appBoot.setPlaylistReadyState(isReady);
