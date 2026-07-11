@@ -32,7 +32,6 @@ import {
   setStyles,
   setValidated,
   updateCookie,
-  watcher,
 } from './shared/dom-utils';
 import {
   hasPlaylist as platformHasPlaylist,
@@ -109,7 +108,7 @@ import { createPlaybackTimerController } from './domain/media-playback';
 import { initializeAppControlsRuntime } from './bootstrap/app-controls-runtime-init';
 import { createAmbientAppControlsFacade } from './bootstrap/app-controls-facade';
 import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-runtime-bootstrap';
-import { initializeOptionsModalRuntime } from './bootstrap/options-modal-runtime-init';
+import { initializeOptionsSurfaceRuntime } from './bootstrap/options-surface-runtime-init';
 import { initializePlaylistModeRuntime } from './bootstrap/playlist-mode-runtime-init';
 import { createMediaEditRuntimeFacade } from './bootstrap/media-edit-runtime-facade';
 import { initializeMediaEditRuntimeWiring } from './bootstrap/media-edit-runtime-wiring-init';
@@ -647,12 +646,10 @@ const init = function (): void {
     },
   });
 
-  if (isElement($ALERT)) {
-    noticeController.hideLegacyAlert();
-  }
-
-  const optionsModalBindings = initializeOptionsModalRuntime({
+  const optionsModalBindings = initializeOptionsSurfaceRuntime({
     document,
+    alertElement: $ALERT,
+    noticeController,
     triggerButton: $BUTTON_OPTIONS,
     closeButton: $BUTTON_CLOSE_OPTIONS,
     optionsButton: $BUTTON_OPTIONS,
@@ -686,7 +683,6 @@ const init = function (): void {
     closeMediaEditCategoryDropdown: mediaEditFacade.closeCategoryDropdown,
     closeMediaEditModal: mediaEditFacade.closeModal,
     isMediaEditCategoryDropdownVisible: mediaEditFacade.isCategoryDropdownVisible,
-    watcher,
   });
   const hideOptionsModal = optionsModalBindings.hideOptionsModal;
   const openMediaManagement = optionsModalBindings.openMediaManagement;
