@@ -110,6 +110,7 @@ import { createAmbientAppControlsFacade } from './bootstrap/app-controls-facade'
 import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-runtime-bootstrap';
 import { initializeOptionsSurfaceRuntime } from './bootstrap/options-surface-runtime-init';
 import { initializePlaylistModeRuntime } from './bootstrap/playlist-mode-runtime-init';
+import { createPlaylistUiFacade } from './bootstrap/playlist-ui-facade';
 import { createMediaEditRuntimeFacade } from './bootstrap/media-edit-runtime-facade';
 import { initializeMediaEditRuntimeWiring } from './bootstrap/media-edit-runtime-wiring-init';
 import { initializeAmbientPlayerRuntimeWiring } from './bootstrap/player-runtime-wiring-init';
@@ -247,7 +248,7 @@ const init = function (): void {
     hasPlaylist: platformHasPlaylist,
     onCategoryResumeApplied: (nextCategoryId) => {
       AMP_STATUS.ctg = nextCategoryId;
-      playlistUiBindings?.syncTargetCategorySelection();
+      playlistUiFacade.syncTargetCategorySelection();
     },
     onMediaResumeApplied: (resumeAmId) => {
       updatePlayStatus(resumeAmId);
@@ -351,10 +352,10 @@ const init = function (): void {
       appBoot.setPlaylistReadyState(isReady);
     },
     clearCategory: () => {
-      playlistUiBindings?.clearCategory();
+      playlistUiFacade.clearCategory();
     },
     updatePlaylist: () => {
-      playlistUiBindings?.updatePlaylist();
+      playlistUiFacade.updatePlaylist();
     },
     generatePlaylistJson: (seekFormat) => buildPlaylistJson({
       mediaItems: AMP_STATUS.media || [],
@@ -470,17 +471,17 @@ const init = function (): void {
     },
     getMediaCategoryName: (mediaItem) => getMediaCategoryNameState(mediaItem, AMP_STATUS.category),
     clearCategory: () => {
-      playlistUiBindings?.clearCategory();
+      playlistUiFacade.clearCategory();
     },
     updateCategory: () => {
-      playlistUiBindings?.updateCategory();
+      playlistUiFacade.updateCategory();
     },
     syncMediaCategoryField: (preferredCategoryId?: number | null) => {
-      playlistUiBindings?.syncMediaCategoryField(preferredCategoryId ?? null);
+      playlistUiFacade.syncMediaCategoryField(preferredCategoryId ?? null);
     },
-    getActiveCategoryId: () => playlistUiBindings?.getActiveCategoryId() ?? null,
+    getActiveCategoryId: () => playlistUiFacade.getActiveCategoryId(),
     updatePlaylist: () => {
-      playlistUiBindings?.updatePlaylist();
+      playlistUiFacade.updatePlaylist();
     },
     confirm: (message) => window.confirm(message),
   });
@@ -595,6 +596,7 @@ const init = function (): void {
       AMP_STATUS.shuffle = items;
     },
   });
+  const playlistUiFacade = createPlaylistUiFacade(() => playlistUiBindings);
 
   initializeStatusWatcherRuntime({
     document,
@@ -627,7 +629,7 @@ const init = function (): void {
     defaultVolume: DEFAULT_VOLUME,
     getOption: (key) => getOption(key),
     updatePlaylistCategory: () => {
-      playlistUiBindings?.updateCategory();
+      playlistUiFacade.updateCategory();
     },
     updateNotice,
     syncPlaylistCurrentFocus: () => {
@@ -668,16 +670,16 @@ const init = function (): void {
     playlistList: $LIST_PLAYLIST,
     defaultVolume: DEFAULT_VOLUME,
     getVolumeOption: () => getOption('volume'),
-    getActiveCategoryId: () => playlistUiBindings?.getActiveCategoryId() ?? null,
+    getActiveCategoryId: () => playlistUiFacade.getActiveCategoryId(),
     clearCategory: () => {
-      playlistUiBindings?.clearCategory();
+      playlistUiFacade.clearCategory();
     },
     updateCategory: () => {
-      playlistUiBindings?.updateCategory();
+      playlistUiFacade.updateCategory();
     },
     syncMediaCategoryField: (preferredCategoryId?: number | null) => {
-      playlistUiBindings?.syncMediaCategoryField(
-        preferredCategoryId ?? (playlistUiBindings?.getActiveCategoryId() ?? null)
+      playlistUiFacade.syncMediaCategoryField(
+        preferredCategoryId ?? playlistUiFacade.getActiveCategoryId()
       );
     },
     closeMediaEditCategoryDropdown: mediaEditFacade.closeCategoryDropdown,
@@ -709,7 +711,7 @@ const init = function (): void {
     clearMediaEditContext: mediaEditFacade.clearContext,
     updatePlaylistModeUi: updatePlaylistModeUI,
     updatePlaylist: () => {
-      playlistUiBindings?.updatePlaylist();
+      playlistUiFacade.updatePlaylist();
     },
     deleteSelectedIds,
     syncDeleteSelectionIndicator,
@@ -861,7 +863,7 @@ const init = function (): void {
     applyPendingCategoryResume,
     applyPendingMediaResume,
     updatePlaylist: () => {
-      playlistUiBindings?.updatePlaylist();
+      playlistUiFacade.updatePlaylist();
     },
     updatePlayStatus,
     getDefaultMediaItemForCurrentView: () => getDefaultMediaItemForView({
@@ -1043,8 +1045,8 @@ const init = function (): void {
         AMP_STATUS.category = categories;
       },
       onCategoryCreated: () => {
-        playlistUiBindings?.clearCategory();
-        playlistUiBindings?.updateCategory();
+        playlistUiFacade.clearCategory();
+        playlistUiFacade.updateCategory();
       },
       logger,
       getPlaylistName: () => AMP_STATUS.playlist || 'playlist.json',
@@ -1070,17 +1072,17 @@ const init = function (): void {
         applyCloudEditRestrictions,
         updateNotice,
         updatePlaylist: () => {
-          playlistUiBindings?.updatePlaylist();
+          playlistUiFacade.updatePlaylist();
         },
         clearCategory: () => {
-          playlistUiBindings?.clearCategory();
+          playlistUiFacade.clearCategory();
         },
         updateCategory: () => {
-          playlistUiBindings?.updateCategory();
+          playlistUiFacade.updateCategory();
         },
         syncMediaCategoryField: (preferredCategoryId?: number | null) => {
-          playlistUiBindings?.syncMediaCategoryField(
-            preferredCategoryId ?? (playlistUiBindings?.getActiveCategoryId() ?? null)
+          playlistUiFacade.syncMediaCategoryField(
+            preferredCategoryId ?? playlistUiFacade.getActiveCategoryId()
           );
         },
         syncPlaybackAfterMediaAdd: (): void => {
