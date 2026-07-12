@@ -108,6 +108,7 @@ import { createAppControlFacades } from './bootstrap/app-control-facades';
 import { createAppControlsRuntimeFacade } from './bootstrap/app-controls-runtime-facade';
 import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-runtime-bootstrap';
 import { initializeOptionsSurfaceRuntime } from './bootstrap/options-surface-runtime-init';
+import { createOptionsSurfaceFacade } from './bootstrap/options-surface-facade';
 import { initializePlaylistModeRuntime } from './bootstrap/playlist-mode-runtime-init';
 import { createPlaylistUiFacade } from './bootstrap/playlist-ui-facade';
 import { createMediaEditRuntimeFacade } from './bootstrap/media-edit-runtime-facade';
@@ -661,7 +662,7 @@ const init = function (): void {
   });
   initializeStatusWatcherRuntime(statusWatcherFacade);
 
-  const optionsModalBindings = initializeOptionsSurfaceRuntime({
+  const optionsModalBindings = initializeOptionsSurfaceRuntime(createOptionsSurfaceFacade({
     document,
     alertElement: $ALERT,
     noticeController,
@@ -698,7 +699,7 @@ const init = function (): void {
     closeMediaEditCategoryDropdown: mediaEditFacade.closeCategoryDropdown,
     closeMediaEditModal: mediaEditFacade.closeModal,
     isMediaEditCategoryDropdownVisible: mediaEditFacade.isCategoryDropdownVisible,
-  });
+  }));
   const hideOptionsModal = optionsModalBindings.hideOptionsModal;
   const openMediaManagement = optionsModalBindings.openMediaManagement;
   openMediaManagementAction = openMediaManagement;
