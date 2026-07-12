@@ -104,9 +104,8 @@ import {
 } from './domain/myplaylist-storage';
 import { createPlaybackTimerController } from './domain/media-playback';
 import { initializeAppControlsRuntime } from './bootstrap/app-controls-runtime-init';
-import { createAmbientAppControlsFacade } from './bootstrap/app-controls-facade';
+import { createAppControlFacades } from './bootstrap/app-control-facades';
 import { createAppControlsRuntimeFacade } from './bootstrap/app-controls-runtime-facade';
-import { createAmbientAppSettingsFacade } from './bootstrap/app-settings-facade';
 import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-runtime-bootstrap';
 import { initializeOptionsSurfaceRuntime } from './bootstrap/options-surface-runtime-init';
 import { initializePlaylistModeRuntime } from './bootstrap/playlist-mode-runtime-init';
@@ -714,84 +713,86 @@ const init = function (): void {
   // EVENT HANDLERS
   // ============================================================================
 
-  const appControlsFacade = createAmbientAppControlsFacade({
-    status: AMP_STATUS,
-    listElement: $LIST_PLAYLIST,
-    getPlaylistMode: () => playlistMode,
-    clearDeleteSelections: () => {
-      deleteSelectedIds.clear();
+  const { appControlsFacade, appSettingsFacade } = createAppControlFacades({
+    appControls: {
+      status: AMP_STATUS,
+      listElement: $LIST_PLAYLIST,
+      getPlaylistMode: () => playlistMode,
+      clearDeleteSelections: () => {
+        deleteSelectedIds.clear();
+      },
+      resetReorderState,
+      clearMediaEditContext: mediaEditFacade.clearContext,
+      updatePlaylistModeUi: updatePlaylistModeUI,
+      updatePlaylist: () => {
+        playlistUiFacade.updatePlaylist();
+      },
+      deleteSelectedIds,
+      syncDeleteSelectionIndicator,
+      isPlaylistInteractionLocked,
+      openDescriptionModal: (payload) => {
+        playlistDescModal.open(payload.titleText, payload.artistText, payload.descText, payload.trigger);
+      },
+      getDescriptionPayload: getPlaylistDescriptionPayload,
+      openMediaEditModal: mediaEditFacade.openModal,
+      loadPlaylist: (playlist) => {
+        void getPlaylistData(playlist);
+      },
+      canDiscardEditMode: () => mediaEditFacade.confirmDiscard(),
+      hideMediaEditModal: () => {
+        mediaEditFacade.hideModal(false);
+      },
+      resetPlaylistMode: () => {
+        playlistMode = 'normal';
+      },
+      carouselPrevButton: $CAROUSEL_PREV,
+      carouselNextButton: $CAROUSEL_NEXT,
+      refreshButton: $BUTTON_REFRESH,
+      windowFullButton: $BUTTON_WINDOW_FULL,
+      windowFullToggle: toggleWindowFullInput,
+      menuCollapseButton: $BUTTON_MENU_COLLAPSE,
+      playButton: $BUTTON_PLAY,
+      pauseButton: $BUTTON_PAUSE,
+      menuElement: $MENU,
+      playItem: (target) => {
+        playItem(target);
+      },
+      playItemById: (playId) => {
+        playItem(null, playId);
+      },
+      isFullWindowMode: () => isFullWindowModeView($BODY),
+      setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
+        viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
+      },
+      setMenuMinimized: (minimized) => {
+        viewportRuntime.setMenuMinimized(minimized);
+      },
+      getPlayer: () => player,
     },
-    resetReorderState,
-    clearMediaEditContext: mediaEditFacade.clearContext,
-    updatePlaylistModeUi: updatePlaylistModeUI,
-    updatePlaylist: () => {
-      playlistUiFacade.updatePlaylist();
+    appSettings: {
+      status: AMP_STATUS as typeof AMP_STATUS & {
+        ctg: number | null;
+        playlist?: string | null;
+        options: Record<string, unknown>;
+      },
+      loopToggleRoot: $TOGGLE_LOOP,
+      randomlyToggleRoot: $TOGGLE_RANDOMLY,
+      shuffleToggleRoot: $TOGGLE_SHUFFLE,
+      seekToggleRoot: $TOGGLE_SEEKPLAY,
+      faderToggleRoot: $TOGGLE_FADER,
+      darkModeToggleRoot: $TOGGLE_DARKMODE,
+      volumeRange: $RANGE_VOLUME,
+      shufflePlaylist: () => createShuffledPlaylistItems({
+        mediaItems: AMP_STATUS.media,
+        categoryId: AMP_STATUS.ctg,
+        shuffleEnabled: true,
+      }),
+      persistMyPlaylistIfNeeded,
+      normalizeVolume: (value) => normalizeAmbientVolume(value, DEFAULT_VOLUME),
+      syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
+      isDarkModeEnabled: () => isAmbientDarkModeEnabled({ playlistOptions: AMP_STATUS.options }),
+      setStyles,
     },
-    deleteSelectedIds,
-    syncDeleteSelectionIndicator,
-    isPlaylistInteractionLocked,
-    openDescriptionModal: (payload) => {
-      playlistDescModal.open(payload.titleText, payload.artistText, payload.descText, payload.trigger);
-    },
-    getDescriptionPayload: getPlaylistDescriptionPayload,
-    openMediaEditModal: mediaEditFacade.openModal,
-    loadPlaylist: (playlist) => {
-      void getPlaylistData(playlist);
-    },
-    canDiscardEditMode: () => mediaEditFacade.confirmDiscard(),
-    hideMediaEditModal: () => {
-      mediaEditFacade.hideModal(false);
-    },
-    resetPlaylistMode: () => {
-      playlistMode = 'normal';
-    },
-    carouselPrevButton: $CAROUSEL_PREV,
-    carouselNextButton: $CAROUSEL_NEXT,
-    refreshButton: $BUTTON_REFRESH,
-    windowFullButton: $BUTTON_WINDOW_FULL,
-    windowFullToggle: toggleWindowFullInput,
-    menuCollapseButton: $BUTTON_MENU_COLLAPSE,
-    playButton: $BUTTON_PLAY,
-    pauseButton: $BUTTON_PAUSE,
-    menuElement: $MENU,
-    playItem: (target) => {
-      playItem(target);
-    },
-    playItemById: (playId) => {
-      playItem(null, playId);
-    },
-    isFullWindowMode: () => isFullWindowModeView($BODY),
-    setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
-      viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
-    },
-    setMenuMinimized: (minimized) => {
-      viewportRuntime.setMenuMinimized(minimized);
-    },
-    getPlayer: () => player,
-  });
-  const appSettingsFacade = createAmbientAppSettingsFacade({
-    status: AMP_STATUS as typeof AMP_STATUS & {
-      ctg: number | null;
-      playlist?: string | null;
-      options: Record<string, unknown>;
-    },
-    loopToggleRoot: $TOGGLE_LOOP,
-    randomlyToggleRoot: $TOGGLE_RANDOMLY,
-    shuffleToggleRoot: $TOGGLE_SHUFFLE,
-    seekToggleRoot: $TOGGLE_SEEKPLAY,
-    faderToggleRoot: $TOGGLE_FADER,
-    darkModeToggleRoot: $TOGGLE_DARKMODE,
-    volumeRange: $RANGE_VOLUME,
-    shufflePlaylist: () => createShuffledPlaylistItems({
-      mediaItems: AMP_STATUS.media,
-      categoryId: AMP_STATUS.ctg,
-      shuffleEnabled: true,
-    }),
-    persistMyPlaylistIfNeeded,
-    normalizeVolume: (value) => normalizeAmbientVolume(value, DEFAULT_VOLUME),
-    syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-    isDarkModeEnabled: () => isAmbientDarkModeEnabled({ playlistOptions: AMP_STATUS.options }),
-    setStyles,
   });
 
   const appControlsRuntimeFacade = createAppControlsRuntimeFacade({
