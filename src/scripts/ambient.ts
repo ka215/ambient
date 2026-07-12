@@ -116,6 +116,7 @@ import { createMediaEditRuntimeFacade } from './bootstrap/media-edit-runtime-fac
 import { initializeMediaEditRuntimeWiring } from './bootstrap/media-edit-runtime-wiring-init';
 import { initializeAmbientPlayerRuntimeWiring } from './bootstrap/player-runtime-wiring-init';
 import { initializeManagementRuntime } from './bootstrap/management-runtime-init';
+import { createStatusWatcherFacade } from './bootstrap/status-watcher-facade';
 import { initializeStatusWatcherRuntime } from './bootstrap/status-watcher-runtime-init';
 import { initializePlaylistPolicy } from './bootstrap/playlist-policy-init';
 import { canUseAmbientReorderMode } from './bootstrap/playlist-capabilities';
@@ -599,7 +600,7 @@ const init = function (): void {
   });
   const playlistUiFacade = createPlaylistUiFacade(() => playlistUiBindings);
 
-  initializeStatusWatcherRuntime({
+  const statusWatcherFacade = createStatusWatcherFacade({
     document,
     windowObject: window,
     status: AMP_STATUS as unknown as Record<string, unknown> & {
@@ -648,6 +649,7 @@ const init = function (): void {
       viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
     },
   });
+  initializeStatusWatcherRuntime(statusWatcherFacade);
 
   const optionsModalBindings = initializeOptionsSurfaceRuntime({
     document,
