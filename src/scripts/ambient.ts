@@ -105,6 +105,7 @@ import {
 import { createPlaybackTimerController } from './domain/media-playback';
 import { initializeAppControlsRuntime } from './bootstrap/app-controls-runtime-init';
 import { createAmbientAppControlsFacade } from './bootstrap/app-controls-facade';
+import { createAppControlsRuntimeFacade } from './bootstrap/app-controls-runtime-facade';
 import { createAmbientAppSettingsFacade } from './bootstrap/app-settings-facade';
 import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-runtime-bootstrap';
 import { initializeOptionsSurfaceRuntime } from './bootstrap/options-surface-runtime-init';
@@ -789,7 +790,7 @@ const init = function (): void {
     setStyles,
   });
 
-  initializeAppControlsRuntime({
+  const appControlsRuntimeFacade = createAppControlsRuntimeFacade({
     document,
     windowObject: window,
     status: AMP_STATUS as typeof AMP_STATUS & {
@@ -809,16 +810,13 @@ const init = function (): void {
       categorySelect: $SELECT_CATEGORY,
       languageSelect: $SELECT_LANGUAGE,
     },
-    playlist: appControlsFacade.playlist,
-    playerControls: appControlsFacade.playerControls,
-    settingsControlRoots: appSettingsFacade.settingsControlRoots,
-    settings: appSettingsFacade.settings,
-    getCurrentPlaylist: appSettingsFacade.getCurrentPlaylist,
-    getCurrentCategoryId: appSettingsFacade.getCurrentCategoryId,
+    appControls: appControlsFacade,
+    appSettings: appSettingsFacade,
     getCookie,
     updateCookie,
     logger,
   });
+  initializeAppControlsRuntime(appControlsRuntimeFacade);
 
   const { updatePlayStatus, playItem } = initializeAmbientPlayerRuntimeWiring({
     status: AMP_STATUS,
