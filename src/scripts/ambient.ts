@@ -90,7 +90,6 @@ import {
 import {
   normalizeAmbientVolume,
   resolveAmbientDefaultVolume,
-  syncAmbientResolvedMediaVolumeField,
   syncAmbientRangeProgress,
 } from './ui/forms/category-volume-bindings';
 import {
@@ -116,6 +115,7 @@ import { initializeMediaEditRuntimeWiring } from './bootstrap/media-edit-runtime
 import { initializeAmbientPlayerRuntimeWiring } from './bootstrap/player-runtime-wiring-init';
 import { initializeManagementRuntime } from './bootstrap/management-runtime-init';
 import { createManagementImportFacade } from './bootstrap/management-import-facade';
+import { createManagementBindingOptionsFacade } from './bootstrap/management-binding-options-facade';
 import { createManagementMediaBindingsFacade } from './bootstrap/management-media-bindings-facade';
 import { createManagementPlaylistBindingsFacade } from './bootstrap/management-playlist-bindings-facade';
 import { createManagementStateFacade } from './bootstrap/management-state-facade';
@@ -1054,47 +1054,39 @@ const init = function (): void {
     getAddType: managementStateFacade.getAddType,
     setAddType: managementStateFacade.setAddType,
   });
+  const managementBindingOptionsFacade = createManagementBindingOptionsFacade({
+    document,
+    mediaVolumeInput: $MEDIA_VOLUME,
+    getVolumeOption: () => getOption('volume'),
+    defaultVolume: DEFAULT_VOLUME,
+    getAddType: managementStateFacade.getAddType,
+    setValidated,
+    logger,
+    ensureTargetPlaylist: () => {
+      ensureManagementTargetPlaylist({
+        status: AMP_STATUS,
+        selectElement: $SELECT_PLAYLIST,
+        myPlaylistName: MYPLAYLIST_NAME,
+        document,
+      });
+    },
+    getMediaItems: managementStateFacade.getMediaItems,
+    getCategories: managementStateFacade.getCategories,
+    setCategories: managementStateFacade.setCategories,
+    setMediaItems: managementStateFacade.setMediaItems,
+    titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+    artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+    descMaxLength: MEDIA_DESC_MAX_LENGTH,
+    sanitizeMediaText,
+    sanitizeMediaDesc,
+    isVolumeInRange: (value) => sharedInRange(value, 0, 100),
+    generatePlaylistJson: managementStateFacade.generatePlaylistJson,
+  });
 
   initializeManagementRuntime({
     document,
     importHelperOptions: managementImportFacade,
-    bindingOptions: {
-      getAddType: managementStateFacade.getAddType,
-      syncMediaVolumeField: () => {
-        syncAmbientResolvedMediaVolumeField({
-          input: $MEDIA_VOLUME,
-          display: document.getElementById('default-media-volume'),
-          volume: getOption('volume'),
-          defaultVolume: getOption('volume'),
-          fallbackVolume: DEFAULT_VOLUME,
-        });
-      },
-      setValidated: (field, valid) => {
-        if (field instanceof HTMLElement) {
-          setValidated(field, valid);
-        }
-      },
-      logger,
-      ensureTargetPlaylist: () => {
-        ensureManagementTargetPlaylist({
-          status: AMP_STATUS,
-          selectElement: $SELECT_PLAYLIST,
-          myPlaylistName: MYPLAYLIST_NAME,
-          document,
-        });
-      },
-      getMediaItems: managementStateFacade.getMediaItems,
-      getCategories: managementStateFacade.getCategories,
-      setCategories: managementStateFacade.setCategories,
-      setMediaItems: managementStateFacade.setMediaItems,
-      titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
-      artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
-      descMaxLength: MEDIA_DESC_MAX_LENGTH,
-      sanitizeMediaText,
-      sanitizeMediaDesc,
-      isVolumeInRange: (value) => sharedInRange(value, 0, 100),
-      generatePlaylistJson: managementStateFacade.generatePlaylistJson,
-    },
+    bindingOptions: managementBindingOptionsFacade,
     playlistActionOptions: {
       getCategories: managementStateFacade.getCategories,
       persistMyPlaylistIfNeeded,
