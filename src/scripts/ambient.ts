@@ -116,6 +116,7 @@ import { initializeMediaEditRuntimeWiring } from './bootstrap/media-edit-runtime
 import { initializeAmbientPlayerRuntimeWiring } from './bootstrap/player-runtime-wiring-init';
 import { initializeManagementRuntime } from './bootstrap/management-runtime-init';
 import { createManagementImportFacade } from './bootstrap/management-import-facade';
+import { createManagementPlaylistBindingsFacade } from './bootstrap/management-playlist-bindings-facade';
 import { createManagementStateFacade } from './bootstrap/management-state-facade';
 import { ensureManagementTargetPlaylist } from './bootstrap/management-target-playlist';
 import { createStatusWatcherFacade } from './bootstrap/status-watcher-facade';
@@ -989,6 +990,23 @@ const init = function (): void {
     descMaxLength: MEDIA_DESC_MAX_LENGTH,
     logger: runtimeLogger,
   });
+  const managementPlaylistBindingsFacade = createManagementPlaylistBindingsFacade({
+    document,
+    canMutateCurrentPlaylist,
+    applyCloudEditRestrictions,
+    setValidated,
+    updateNotice,
+    fetchData: async (endpointURL: string, method?: string, payload?: Record<string, string>) => {
+      return fetchData(endpointURL, method, payload, 'json', 15000, runtimeLogger);
+    },
+    inArray: (contains: unknown | unknown[], targetArray: unknown[], atLeastOne = false) => {
+      return sharedInArray(contains, targetArray as any[], atLeastOne);
+    },
+    snakeToCapital: sharedSnakeToCapital,
+    logger: runtimeLogger,
+    isLikelyJsonFile: sharedIsLikelyJsonFile,
+    getBaseUrl: () => BASE_URL,
+  });
 
   initializeManagementRuntime({
     document,
@@ -1093,26 +1111,7 @@ const init = function (): void {
         setAddType: managementStateFacade.setAddType,
       },
       playlistBindings: {
-        canMutateCurrentPlaylist,
-        applyCloudEditRestrictions,
-        setValidated,
-        updateNotice,
-        fetchData: async (endpointURL: string, method?: string, payload?: Record<string, string>) => {
-          return fetchData(endpointURL, method, payload, 'json', 15000, runtimeLogger);
-        },
-        inArray: (contains: unknown | unknown[], targetArray: unknown[], atLeastOne = false) => {
-          return sharedInArray(contains, targetArray as any[], atLeastOne);
-        },
-        snakeToCapital: sharedSnakeToCapital,
-        logger: runtimeLogger,
-        isLikelyJsonFile: sharedIsLikelyJsonFile,
-        getBaseUrl: () => BASE_URL,
-        getPlaylistManageFormData: (oneData: string | null = null) => {
-          const playlistForm = document.querySelector('form[name="playlistManagement"]') as HTMLFormElement | null;
-          if (!playlistForm) return null;
-          const formData = new FormData(playlistForm);
-          return oneData ? formData.get(oneData) : Array.from(formData.entries());
-        },
+        ...managementPlaylistBindingsFacade,
       },
     },
   });
