@@ -112,6 +112,7 @@ import { initializeOptionsSurfaceRuntime } from './bootstrap/options-surface-run
 import { initializePlaylistModeRuntime } from './bootstrap/playlist-mode-runtime-init';
 import { createPlaylistUiFacade } from './bootstrap/playlist-ui-facade';
 import { createMediaEditRuntimeFacade } from './bootstrap/media-edit-runtime-facade';
+import { createMediaEditRuntimeWiringFacade } from './bootstrap/media-edit-runtime-wiring-facade';
 import { initializeMediaEditRuntimeWiring } from './bootstrap/media-edit-runtime-wiring-init';
 import { createPlayerRuntimeWiringFacade } from './bootstrap/player-runtime-wiring-facade';
 import { initializeAmbientPlayerRuntimeWiring } from './bootstrap/player-runtime-wiring-init';
@@ -449,7 +450,7 @@ const init = function (): void {
     playlistOptions: AMP_STATUS.options,
     seekFormat,
   });
-  const mediaEditRuntime = initializeMediaEditRuntimeWiring({
+  const mediaEditRuntime = initializeMediaEditRuntimeWiring(createMediaEditRuntimeWiringFacade({
     elements: mediaEditElements,
     status: AMP_STATUS,
     baseUrl: BASE_URL,
@@ -496,7 +497,7 @@ const init = function (): void {
       playlistUiFacade.updatePlaylist();
     },
     confirm: (message) => window.confirm(message),
-  });
+  }));
   const mediaEditFacade = createMediaEditRuntimeFacade(mediaEditRuntime);
 
   // Playlist operation mode UI (v2.2.0 Slice A)
