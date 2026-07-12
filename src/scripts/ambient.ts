@@ -116,6 +116,7 @@ import { createMediaEditRuntimeFacade } from './bootstrap/media-edit-runtime-fac
 import { initializeMediaEditRuntimeWiring } from './bootstrap/media-edit-runtime-wiring-init';
 import { initializeAmbientPlayerRuntimeWiring } from './bootstrap/player-runtime-wiring-init';
 import { initializeManagementRuntime } from './bootstrap/management-runtime-init';
+import { createManagementStateFacade } from './bootstrap/management-state-facade';
 import { ensureManagementTargetPlaylist } from './bootstrap/management-target-playlist';
 import { createStatusWatcherFacade } from './bootstrap/status-watcher-facade';
 import { initializeStatusWatcherRuntime } from './bootstrap/status-watcher-runtime-init';
@@ -939,6 +940,16 @@ const init = function (): void {
   // MANAGEMENT FORMS (Media Management & Playlist Management)
   // ============================================================================
 
+  const managementStateFacade = createManagementStateFacade({
+    status: AMP_STATUS,
+    buildPlaylistJson: (seekFormat) => buildPlaylistJson({
+      mediaItems: AMP_STATUS.media || [],
+      categories: AMP_STATUS.category || [],
+      playlistOptions: AMP_STATUS.options,
+      seekFormat,
+    }),
+  });
+
   initializeManagementRuntime({
     document,
     importHelperOptions: {
@@ -988,7 +999,7 @@ const init = function (): void {
       },
     },
     bindingOptions: {
-      getAddType: () => AMP_STATUS.addtype,
+      getAddType: managementStateFacade.getAddType,
       syncMediaVolumeField: () => {
         syncAmbientResolvedMediaVolumeField({
           input: $MEDIA_VOLUME,
@@ -1012,48 +1023,32 @@ const init = function (): void {
           document,
         });
       },
-      getMediaItems: () => AMP_STATUS.media || [],
-      getCategories: () => AMP_STATUS.category || [],
-      setCategories: (categories) => {
-        AMP_STATUS.category = categories;
-      },
-      setMediaItems: (mediaItems) => {
-        AMP_STATUS.media = mediaItems;
-      },
+      getMediaItems: managementStateFacade.getMediaItems,
+      getCategories: managementStateFacade.getCategories,
+      setCategories: managementStateFacade.setCategories,
+      setMediaItems: managementStateFacade.setMediaItems,
       titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
       artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
       descMaxLength: MEDIA_DESC_MAX_LENGTH,
       sanitizeMediaText,
       sanitizeMediaDesc,
       isVolumeInRange: (value) => sharedInRange(value, 0, 100),
-      generatePlaylistJson: (seekFormat) => buildPlaylistJson({
-        mediaItems: AMP_STATUS.media || [],
-        categories: AMP_STATUS.category || [],
-        playlistOptions: AMP_STATUS.options,
-        seekFormat,
-      }),
+      generatePlaylistJson: managementStateFacade.generatePlaylistJson,
     },
     playlistActionOptions: {
-      getCategories: () => AMP_STATUS.category || [],
+      getCategories: managementStateFacade.getCategories,
       persistMyPlaylistIfNeeded,
-      setCategories: (categories) => {
-        AMP_STATUS.category = categories;
-      },
+      setCategories: managementStateFacade.setCategories,
       onCategoryCreated: () => {
         playlistUiFacade.clearCategory();
         playlistUiFacade.updateCategory();
       },
       logger,
-      getPlaylistName: () => AMP_STATUS.playlist || 'playlist.json',
+      getPlaylistName: managementStateFacade.getPlaylistName,
       importFileInput: document.getElementById('playlist-import-file') as HTMLInputElement | null,
       hideOptionsModal,
       getLocalizedMessage: getRuntimeLocalizedMessage,
-      generatePlaylistJson: (seekFormat) => buildPlaylistJson({
-        mediaItems: AMP_STATUS.media || [],
-        categories: AMP_STATUS.category || [],
-        playlistOptions: AMP_STATUS.options,
-        seekFormat,
-      }),
+      generatePlaylistJson: managementStateFacade.generatePlaylistJson,
     },
     initOptions: {
       mediaBindings: {
@@ -1098,11 +1093,9 @@ const init = function (): void {
         isLikelyMediaFile: sharedIsLikelyMediaFile,
         syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
         logger: runtimeLogger,
-        getMediaItems: () => AMP_STATUS.media || [],
-        getAddType: () => AMP_STATUS.addtype,
-        setAddType: (nextType: string) => {
-          AMP_STATUS.addtype = nextType;
-        },
+        getMediaItems: managementStateFacade.getMediaItems,
+        getAddType: managementStateFacade.getAddType,
+        setAddType: managementStateFacade.setAddType,
       },
       playlistBindings: {
         canMutateCurrentPlaylist,
