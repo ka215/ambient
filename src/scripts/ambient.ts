@@ -140,6 +140,7 @@ import {
 import { createAppBootController } from './bootstrap/app-boot';
 import { initializePlaylistUiRuntime } from './bootstrap/playlist-ui-runtime-init';
 import { initializePlaylistRuntimeWiring } from './bootstrap/playlist-runtime-wiring-init';
+import { createPlaylistStartupRuntimeFacade } from './bootstrap/playlist-startup-runtime-facade';
 import { initializePlaylistStartupRuntime } from './bootstrap/playlist-startup-runtime-init';
 import { initializeViewportLifecycleRuntime } from './bootstrap/viewport-lifecycle-runtime-init';
 import { initializeViewportRuntimeWiring } from './bootstrap/viewport-runtime-wiring-init';
@@ -904,7 +905,7 @@ const init = function (): void {
   const savedPlaylistContext = getSavedPlaylistContext();
   domainEnsureCloudMyPlaylistSeed(logger);
   ensureMyPlaylistOptionFromStorage();
-  const { activateImportedPlaylist } = initializePlaylistStartupRuntime({
+  const playlistStartupRuntimeFacade = createPlaylistStartupRuntimeFacade({
     ambientData: ((window as any).AmbientData as AmbientData | undefined) ?? null,
     hasStoredMyPlaylist: localStorage.getItem(MYPLAYLIST_KEY) !== null,
     isPlaylistAvailableForResume,
@@ -922,6 +923,7 @@ const init = function (): void {
       appBoot.release();
     },
   });
+  const { activateImportedPlaylist } = initializePlaylistStartupRuntime(playlistStartupRuntimeFacade);
 
   // ============================================================================
   // UTILITY FUNCTIONS
