@@ -126,6 +126,7 @@ import { createManagementRuntimeFacade } from './bootstrap/management-runtime-fa
 import { createManagementStateFacade } from './bootstrap/management-state-facade';
 import { ensureManagementTargetPlaylist } from './bootstrap/management-target-playlist';
 import { createStatusWatcherFacade } from './bootstrap/status-watcher-facade';
+import { createStatusWatcherRuntimeFacade } from './bootstrap/status-watcher-runtime-facade';
 import { initializeStatusWatcherRuntime } from './bootstrap/status-watcher-runtime-init';
 import { initializePlaylistPolicy } from './bootstrap/playlist-policy-init';
 import { canUseAmbientReorderMode } from './bootstrap/playlist-capabilities';
@@ -660,7 +661,7 @@ const init = function (): void {
       viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
     },
   });
-  initializeStatusWatcherRuntime(statusWatcherFacade);
+  initializeStatusWatcherRuntime(createStatusWatcherRuntimeFacade(statusWatcherFacade));
 
   const optionsModalBindings = initializeOptionsSurfaceRuntime(createOptionsSurfaceFacade({
     document,
