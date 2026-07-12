@@ -116,6 +116,7 @@ import { createMediaEditRuntimeFacade } from './bootstrap/media-edit-runtime-fac
 import { initializeMediaEditRuntimeWiring } from './bootstrap/media-edit-runtime-wiring-init';
 import { initializeAmbientPlayerRuntimeWiring } from './bootstrap/player-runtime-wiring-init';
 import { initializeManagementRuntime } from './bootstrap/management-runtime-init';
+import { ensureManagementTargetPlaylist } from './bootstrap/management-target-playlist';
 import { createStatusWatcherFacade } from './bootstrap/status-watcher-facade';
 import { initializeStatusWatcherRuntime } from './bootstrap/status-watcher-runtime-init';
 import { initializePlaylistPolicy } from './bootstrap/playlist-policy-init';
@@ -1004,26 +1005,12 @@ const init = function (): void {
       },
       logger,
       ensureTargetPlaylist: () => {
-        if (!AMP_STATUS.playlist) {
-          AMP_STATUS.playlist = MYPLAYLIST_NAME;
-          if ($SELECT_PLAYLIST) {
-            const alreadyExists = Array.from($SELECT_PLAYLIST.options).some(
-              (opt) => opt.value === MYPLAYLIST_NAME
-            );
-            if (!alreadyExists) {
-              const opt = document.createElement('option');
-              opt.value = MYPLAYLIST_NAME;
-              opt.textContent = MYPLAYLIST_NAME.replace('.json', '');
-              $SELECT_PLAYLIST.appendChild(opt);
-            }
-            for (let i = 0; i < $SELECT_PLAYLIST.options.length; i++) {
-              if ($SELECT_PLAYLIST.options[i]?.value === MYPLAYLIST_NAME) {
-                $SELECT_PLAYLIST.selectedIndex = i;
-                break;
-              }
-            }
-          }
-        }
+        ensureManagementTargetPlaylist({
+          status: AMP_STATUS,
+          selectElement: $SELECT_PLAYLIST,
+          myPlaylistName: MYPLAYLIST_NAME,
+          document,
+        });
       },
       getMediaItems: () => AMP_STATUS.media || [],
       getCategories: () => AMP_STATUS.category || [],
