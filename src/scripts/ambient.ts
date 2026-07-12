@@ -119,6 +119,7 @@ import { createManagementBindingOptionsFacade } from './bootstrap/management-bin
 import { createManagementMediaBindingsFacade } from './bootstrap/management-media-bindings-facade';
 import { createManagementPlaylistActionsFacade } from './bootstrap/management-playlist-actions-facade';
 import { createManagementPlaylistBindingsFacade } from './bootstrap/management-playlist-bindings-facade';
+import { createManagementRuntimeFacade } from './bootstrap/management-runtime-facade';
 import { createManagementStateFacade } from './bootstrap/management-state-facade';
 import { ensureManagementTargetPlaylist } from './bootstrap/management-target-playlist';
 import { createStatusWatcherFacade } from './bootstrap/status-watcher-facade';
@@ -1100,20 +1101,15 @@ const init = function (): void {
     generatePlaylistJson: managementStateFacade.generatePlaylistJson,
   });
 
-  initializeManagementRuntime({
+  const managementRuntimeFacade = createManagementRuntimeFacade({
     document,
     importHelperOptions: managementImportFacade,
     bindingOptions: managementBindingOptionsFacade,
     playlistActionOptions: managementPlaylistActionsFacade,
-    initOptions: {
-      mediaBindings: {
-        ...managementMediaBindingsFacade,
-      },
-      playlistBindings: {
-        ...managementPlaylistBindingsFacade,
-      },
-    },
+    mediaBindings: managementMediaBindingsFacade,
+    playlistBindings: managementPlaylistBindingsFacade,
   });
+  initializeManagementRuntime(managementRuntimeFacade);
 
   const $INITIAL_ALERT = document.getElementById('alert-notification') as HTMLElement | null;
   dispatchInitialNotice($INITIAL_ALERT, updateNotice, 5000);
