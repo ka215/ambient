@@ -116,6 +116,7 @@ import { initializeMediaEditRuntimeWiring } from './bootstrap/media-edit-runtime
 import { initializeAmbientPlayerRuntimeWiring } from './bootstrap/player-runtime-wiring-init';
 import { initializeManagementRuntime } from './bootstrap/management-runtime-init';
 import { createManagementImportFacade } from './bootstrap/management-import-facade';
+import { createManagementMediaBindingsFacade } from './bootstrap/management-media-bindings-facade';
 import { createManagementPlaylistBindingsFacade } from './bootstrap/management-playlist-bindings-facade';
 import { createManagementStateFacade } from './bootstrap/management-state-facade';
 import { ensureManagementTargetPlaylist } from './bootstrap/management-target-playlist';
@@ -1007,6 +1008,52 @@ const init = function (): void {
     isLikelyJsonFile: sharedIsLikelyJsonFile,
     getBaseUrl: () => BASE_URL,
   });
+  const managementMediaBindingsFacade = createManagementMediaBindingsFacade({
+    mediaCategorySelect: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
+    mediaTitleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+    mediaArtistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+    mediaDescMaxLength: MEDIA_DESC_MAX_LENGTH,
+    getDefaultVolume: () => resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
+    normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
+    canMutateCurrentPlaylist,
+    applyCloudEditRestrictions,
+    updateNotice,
+    updatePlaylist: () => {
+      playlistUiFacade.updatePlaylist();
+    },
+    clearCategory: () => {
+      playlistUiFacade.clearCategory();
+    },
+    updateCategory: () => {
+      playlistUiFacade.updateCategory();
+    },
+    syncMediaCategoryField: (preferredCategoryId?: number | null) => {
+      playlistUiFacade.syncMediaCategoryField(
+        preferredCategoryId ?? playlistUiFacade.getActiveCategoryId()
+      );
+    },
+    syncPlaybackAfterMediaAdd: (): void => {
+      if (AMP_STATUS.current !== null) {
+        updatePlayStatus(AMP_STATUS.current);
+      } else if ((AMP_STATUS.media || []).length > 0) {
+        updatePlayStatus((AMP_STATUS.media || [])[0]?.amId ?? 0);
+      }
+    },
+    persistMediaEditForCurrentPlaylist: mediaEditFacade.persistCurrentPlaylist,
+    hideOptionsModal,
+    setValidated,
+    sanitizeMediaText,
+    sanitizeMediaTextInput: (value, maxLength) => sharedSanitizeMediaTextInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
+    sanitizeMediaDescInput: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => sharedSanitizeMediaDescInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
+    sanitizeMediaDescInputLive: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => sharedSanitizeMediaDescInputLive(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
+    basename: sharedBasename,
+    isLikelyMediaFile: sharedIsLikelyMediaFile,
+    syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
+    logger: runtimeLogger,
+    getMediaItems: managementStateFacade.getMediaItems,
+    getAddType: managementStateFacade.getAddType,
+    setAddType: managementStateFacade.setAddType,
+  });
 
   initializeManagementRuntime({
     document,
@@ -1065,50 +1112,7 @@ const init = function (): void {
     },
     initOptions: {
       mediaBindings: {
-        mediaCategorySelect: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
-        mediaTitleMaxLength: MEDIA_TITLE_MAX_LENGTH,
-        mediaArtistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
-        mediaDescMaxLength: MEDIA_DESC_MAX_LENGTH,
-        getDefaultVolume: () => resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
-        normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
-        canMutateCurrentPlaylist,
-        applyCloudEditRestrictions,
-        updateNotice,
-        updatePlaylist: () => {
-          playlistUiFacade.updatePlaylist();
-        },
-        clearCategory: () => {
-          playlistUiFacade.clearCategory();
-        },
-        updateCategory: () => {
-          playlistUiFacade.updateCategory();
-        },
-        syncMediaCategoryField: (preferredCategoryId?: number | null) => {
-          playlistUiFacade.syncMediaCategoryField(
-            preferredCategoryId ?? playlistUiFacade.getActiveCategoryId()
-          );
-        },
-        syncPlaybackAfterMediaAdd: (): void => {
-          if (AMP_STATUS.current !== null) {
-            updatePlayStatus(AMP_STATUS.current);
-          } else if ((AMP_STATUS.media || []).length > 0) {
-            updatePlayStatus((AMP_STATUS.media || [])[0]?.amId ?? 0);
-          }
-        },
-        persistMediaEditForCurrentPlaylist: mediaEditFacade.persistCurrentPlaylist,
-        hideOptionsModal,
-        setValidated,
-        sanitizeMediaText,
-        sanitizeMediaTextInput: (value, maxLength) => sharedSanitizeMediaTextInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
-        sanitizeMediaDescInput: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => sharedSanitizeMediaDescInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
-        sanitizeMediaDescInputLive: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => sharedSanitizeMediaDescInputLive(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
-        basename: sharedBasename,
-        isLikelyMediaFile: sharedIsLikelyMediaFile,
-        syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-        logger: runtimeLogger,
-        getMediaItems: managementStateFacade.getMediaItems,
-        getAddType: managementStateFacade.getAddType,
-        setAddType: managementStateFacade.setAddType,
+        ...managementMediaBindingsFacade,
       },
       playlistBindings: {
         ...managementPlaylistBindingsFacade,
