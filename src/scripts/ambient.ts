@@ -139,6 +139,7 @@ import {
 } from './bootstrap/display-runtime';
 import { createAppBootController } from './bootstrap/app-boot';
 import { initializePlaylistUiRuntime } from './bootstrap/playlist-ui-runtime-init';
+import { createPlaylistRuntimeWiringFacade } from './bootstrap/playlist-runtime-wiring-facade';
 import { initializePlaylistRuntimeWiring } from './bootstrap/playlist-runtime-wiring-init';
 import { createPlaylistStartupRuntimeFacade } from './bootstrap/playlist-startup-runtime-facade';
 import { initializePlaylistStartupRuntime } from './bootstrap/playlist-startup-runtime-init';
@@ -860,7 +861,7 @@ const init = function (): void {
     ensureMyPlaylistOptionFromStorage,
     initMyPlaylistFromStorage,
     getPlaylistData,
-  } = initializePlaylistRuntimeWiring({
+  } = initializePlaylistRuntimeWiring(createPlaylistRuntimeWiringFacade({
     status: AMP_STATUS,
     ambientData: ((window as any).AmbientData as AmbientData | undefined) ?? null,
     myPlaylistName: MYPLAYLIST_NAME,
@@ -897,7 +898,7 @@ const init = function (): void {
     },
     fetchData,
     baseUrl: BASE_URL,
-  });
+  }));
 
   // Process global data passed by the system.
   // In cloud mode: load MyPlaylist from localStorage before processing server data.
