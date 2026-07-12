@@ -117,6 +117,7 @@ import { initializeManagementRuntime } from './bootstrap/management-runtime-init
 import { createManagementImportFacade } from './bootstrap/management-import-facade';
 import { createManagementBindingOptionsFacade } from './bootstrap/management-binding-options-facade';
 import { createManagementMediaBindingsFacade } from './bootstrap/management-media-bindings-facade';
+import { createManagementPlaylistActionsFacade } from './bootstrap/management-playlist-actions-facade';
 import { createManagementPlaylistBindingsFacade } from './bootstrap/management-playlist-bindings-facade';
 import { createManagementStateFacade } from './bootstrap/management-state-facade';
 import { ensureManagementTargetPlaylist } from './bootstrap/management-target-playlist';
@@ -1054,6 +1055,22 @@ const init = function (): void {
     getAddType: managementStateFacade.getAddType,
     setAddType: managementStateFacade.setAddType,
   });
+  const managementPlaylistActionsFacade = createManagementPlaylistActionsFacade({
+    document,
+    getCategories: managementStateFacade.getCategories,
+    persistMyPlaylistIfNeeded,
+    setCategories: managementStateFacade.setCategories,
+    onCategoryCreated: () => {
+      playlistUiFacade.clearCategory();
+      playlistUiFacade.updateCategory();
+    },
+    logger,
+    getPlaylistName: managementStateFacade.getPlaylistName,
+    importFileInput: document.getElementById('playlist-import-file') as HTMLInputElement | null,
+    hideOptionsModal,
+    getLocalizedMessage: getRuntimeLocalizedMessage,
+    generatePlaylistJson: managementStateFacade.generatePlaylistJson,
+  });
   const managementBindingOptionsFacade = createManagementBindingOptionsFacade({
     document,
     mediaVolumeInput: $MEDIA_VOLUME,
@@ -1087,21 +1104,7 @@ const init = function (): void {
     document,
     importHelperOptions: managementImportFacade,
     bindingOptions: managementBindingOptionsFacade,
-    playlistActionOptions: {
-      getCategories: managementStateFacade.getCategories,
-      persistMyPlaylistIfNeeded,
-      setCategories: managementStateFacade.setCategories,
-      onCategoryCreated: () => {
-        playlistUiFacade.clearCategory();
-        playlistUiFacade.updateCategory();
-      },
-      logger,
-      getPlaylistName: managementStateFacade.getPlaylistName,
-      importFileInput: document.getElementById('playlist-import-file') as HTMLInputElement | null,
-      hideOptionsModal,
-      getLocalizedMessage: getRuntimeLocalizedMessage,
-      generatePlaylistJson: managementStateFacade.generatePlaylistJson,
-    },
+    playlistActionOptions: managementPlaylistActionsFacade,
     initOptions: {
       mediaBindings: {
         ...managementMediaBindingsFacade,
