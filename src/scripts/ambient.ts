@@ -113,6 +113,7 @@ import { initializePlaylistModeRuntime } from './bootstrap/playlist-mode-runtime
 import { createPlaylistUiFacade } from './bootstrap/playlist-ui-facade';
 import { createMediaEditRuntimeFacade } from './bootstrap/media-edit-runtime-facade';
 import { initializeMediaEditRuntimeWiring } from './bootstrap/media-edit-runtime-wiring-init';
+import { createPlayerRuntimeWiringFacade } from './bootstrap/player-runtime-wiring-facade';
 import { initializeAmbientPlayerRuntimeWiring } from './bootstrap/player-runtime-wiring-init';
 import { initializeManagementRuntime } from './bootstrap/management-runtime-init';
 import { createManagementImportFacade } from './bootstrap/management-import-facade';
@@ -820,7 +821,7 @@ const init = function (): void {
   });
   initializeAppControlsRuntime(appControlsRuntimeFacade);
 
-  const { updatePlayStatus, playItem } = initializeAmbientPlayerRuntimeWiring({
+  const { updatePlayStatus, playItem } = initializeAmbientPlayerRuntimeWiring(createPlayerRuntimeWiringFacade({
     status: AMP_STATUS,
     body: $BODY,
     menu: $MENU,
@@ -855,7 +856,7 @@ const init = function (): void {
     setPlayer: (nextPlayer) => {
       player = nextPlayer;
     },
-  });
+  }));
 
   const {
     ensureMyPlaylistOptionFromStorage,
