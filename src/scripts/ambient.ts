@@ -25,7 +25,6 @@ import {
   isObject as sharedIsObject,
 } from './shared/validation';
 import {
-  getAtts,
   getCookie,
   isElement,
   mb_strimwidth,
@@ -116,6 +115,7 @@ import { createMediaEditRuntimeFacade } from './bootstrap/media-edit-runtime-fac
 import { initializeMediaEditRuntimeWiring } from './bootstrap/media-edit-runtime-wiring-init';
 import { initializeAmbientPlayerRuntimeWiring } from './bootstrap/player-runtime-wiring-init';
 import { initializeManagementRuntime } from './bootstrap/management-runtime-init';
+import { createManagementImportFacade } from './bootstrap/management-import-facade';
 import { createManagementStateFacade } from './bootstrap/management-state-facade';
 import { ensureManagementTargetPlaylist } from './bootstrap/management-target-playlist';
 import { createStatusWatcherFacade } from './bootstrap/status-watcher-facade';
@@ -949,55 +949,50 @@ const init = function (): void {
       seekFormat,
     }),
   });
+  const managementImportFacade = createManagementImportFacade({
+    document,
+    baseUrl: BASE_URL,
+    fetchData: async (url) => fetchData(url),
+    getRuntimeAmbientData,
+    isLikelyJsonFile: sharedIsLikelyJsonFile,
+    getLocalizedMessage: getRuntimeLocalizedMessage,
+    getCloudImportSizeLimitBytes: getCloudImportSizeLimitBytesDomain,
+    cloudImportSizeLimitBytes: CLOUD_IMPORT_SIZE_LIMIT_BYTES,
+    parseImportedPlaylistJson,
+    validatePlaylistSchemaContract: validatePlaylistSchemaContractDomain,
+    sanitizeAndNormalizeImportPlaylist: (source, stripPlaylistTemplate) => {
+      return sanitizeAndNormalizeImportPlaylistDomain({
+        source,
+        stripPlaylistTemplate,
+        sanitizeText: sanitizeMediaText,
+        sanitizeDesc: sanitizeMediaDesc,
+        titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+        artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+        descMaxLength: MEDIA_DESC_MAX_LENGTH,
+      });
+    },
+    persistImportedCloudPlaylist,
+    ensureMyPlaylistOptionFromStorage,
+    activateImportedPlaylist,
+    myPlaylistName: MYPLAYLIST_NAME,
+    postImportedPlaylist: async (baseUrl, filename, playlist) => postImportedPlaylist({
+      baseUrl,
+      filename,
+      playlist,
+    }),
+    resolveImportedPlaylistPersistResult,
+    isObject: sharedIsObject,
+    sanitizeText: sanitizeMediaText,
+    sanitizeDesc: sanitizeMediaDesc,
+    titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+    artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+    descMaxLength: MEDIA_DESC_MAX_LENGTH,
+    logger: runtimeLogger,
+  });
 
   initializeManagementRuntime({
     document,
-    importHelperOptions: {
-      resolveRelativeFilepathOptions: {
-        baseUrl: BASE_URL,
-        fetchData: async (url) => fetchData(url),
-        filepathInput: document.getElementById('local-media-filepath') as HTMLInputElement | null,
-        messageLabel: document.getElementById('note-error-local-media-file'),
-        getDefaultMessage: (label) => String(getAtts(label, 'data-default-message') ?? ''),
-        logger: runtimeLogger,
-      },
-      importPlaylistOptions: {
-        ambientData: getRuntimeAmbientData(),
-        isLikelyJsonFile: sharedIsLikelyJsonFile,
-        getLocalizedMessage: getRuntimeLocalizedMessage,
-        getCloudImportSizeLimitBytes: getCloudImportSizeLimitBytesDomain,
-        cloudImportSizeLimitBytes: CLOUD_IMPORT_SIZE_LIMIT_BYTES,
-        parseImportedPlaylistJson,
-        validatePlaylistSchemaContract: validatePlaylistSchemaContractDomain,
-        sanitizeAndNormalizeImportPlaylist: (source, stripPlaylistTemplate) => sanitizeAndNormalizeImportPlaylistDomain({
-          source: source as Record<string, unknown>,
-          stripPlaylistTemplate,
-          sanitizeText: sanitizeMediaText,
-          sanitizeDesc: sanitizeMediaDesc,
-          titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
-          artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
-          descMaxLength: MEDIA_DESC_MAX_LENGTH,
-        }),
-        persistImportedCloudPlaylist,
-        ensureMyPlaylistOptionFromStorage,
-        activateImportedPlaylist,
-        myPlaylistName: MYPLAYLIST_NAME,
-        postImportedPlaylist: async (baseUrl, filename, playlist) => postImportedPlaylist({
-          baseUrl,
-          filename,
-          playlist: playlist as Record<string, unknown>,
-        }),
-        baseUrl: BASE_URL,
-        resolveImportedPlaylistPersistResult,
-        getRuntimeAmbientData,
-        ensureAmbientPlaylistMap: (ambient) => {
-          if (!sharedIsObject(ambient.playlists)) {
-            ambient.playlists = {};
-          }
-          return ambient.playlists as Record<string, unknown>;
-        },
-      },
-    },
+    importHelperOptions: managementImportFacade,
     bindingOptions: {
       getAddType: managementStateFacade.getAddType,
       syncMediaVolumeField: () => {
