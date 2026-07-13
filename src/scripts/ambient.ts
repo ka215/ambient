@@ -142,6 +142,7 @@ import {
 } from './bootstrap/display-runtime';
 import { createAppBootController } from './bootstrap/app-boot';
 import { initializePlaylistUiRuntime } from './bootstrap/playlist-ui-runtime-init';
+import { createPlaylistUiRuntimeFacade } from './bootstrap/playlist-ui-runtime-facade';
 import { createPlaylistRuntimeWiringFacade } from './bootstrap/playlist-runtime-wiring-facade';
 import { initializePlaylistRuntimeWiring } from './bootstrap/playlist-runtime-wiring-init';
 import { createPlaylistStartupRuntimeFacade } from './bootstrap/playlist-startup-runtime-facade';
@@ -566,7 +567,7 @@ const init = function (): void {
   });
 
   let openMediaManagementAction: (presetCategoryId?: number | null) => void = () => {};
-  let playlistUiBindings: ReturnType<typeof initializePlaylistUiRuntime> | null = initializePlaylistUiRuntime({
+  let playlistUiBindings: ReturnType<typeof initializePlaylistUiRuntime> | null = initializePlaylistUiRuntime(createPlaylistUiRuntimeFacade({
     document,
     status: AMP_STATUS,
     getOption: (key) => getOption(key as Extract<keyof PlaylistOptions, string>),
@@ -609,7 +610,7 @@ const init = function (): void {
     onShuffleItemsChanged: (items) => {
       AMP_STATUS.shuffle = items;
     },
-  });
+  }));
   const playlistUiFacade = createPlaylistUiFacade(() => playlistUiBindings);
 
   const statusWatcherFacade = createStatusWatcherFacade({
