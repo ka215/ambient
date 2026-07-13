@@ -104,6 +104,7 @@ import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-
 import { createOptionsModalFacade, createPlaylistDescModalFacade } from './bootstrap/modal-controller-facades';
 import { initializeOptionsSurfaceRuntime } from './bootstrap/options-surface-runtime-init';
 import { createOptionsSurfaceFacade } from './bootstrap/options-surface-facade';
+import { createOptionsSurfacePlaylistHelpers } from './bootstrap/options-surface-playlist-helpers';
 import { initializePlaylistModeRuntime } from './bootstrap/playlist-mode-runtime-init';
 import { createPlaylistModeRuntimeFacade } from './bootstrap/playlist-mode-runtime-facade';
 import { createPlaylistUiFacade } from './bootstrap/playlist-ui-facade';
@@ -673,6 +674,7 @@ const init = function (): void {
     },
   });
   initializeStatusWatcherRuntime(createStatusWatcherRuntimeFacade(statusWatcherFacade));
+  const optionsSurfacePlaylistHelpers = createOptionsSurfacePlaylistHelpers(playlistUiFacade);
 
   const optionsModalBindings = initializeOptionsSurfaceRuntime(createOptionsSurfaceFacade({
     document,
@@ -696,18 +698,10 @@ const init = function (): void {
     playlistList: $LIST_PLAYLIST,
     defaultVolume: DEFAULT_VOLUME,
     getVolumeOption: () => getOption('volume'),
-    getActiveCategoryId: () => playlistUiFacade.getActiveCategoryId(),
-    clearCategory: () => {
-      playlistUiFacade.clearCategory();
-    },
-    updateCategory: () => {
-      playlistUiFacade.updateCategory();
-    },
-    syncMediaCategoryField: (preferredCategoryId?: number | null) => {
-      playlistUiFacade.syncMediaCategoryField(
-        preferredCategoryId ?? playlistUiFacade.getActiveCategoryId()
-      );
-    },
+    getActiveCategoryId: optionsSurfacePlaylistHelpers.getActiveCategoryId,
+    clearCategory: optionsSurfacePlaylistHelpers.clearCategory,
+    updateCategory: optionsSurfacePlaylistHelpers.updateCategory,
+    syncMediaCategoryField: optionsSurfacePlaylistHelpers.syncMediaCategoryField,
     closeMediaEditCategoryDropdown: mediaEditFacade.closeCategoryDropdown,
     closeMediaEditModal: mediaEditFacade.closeModal,
     isMediaEditCategoryDropdownVisible: mediaEditFacade.isCategoryDropdownVisible,
