@@ -150,6 +150,7 @@ import { initializePlaylistRuntimeWiring } from './bootstrap/playlist-runtime-wi
 import { createPlaylistStartupRuntimeFacade } from './bootstrap/playlist-startup-runtime-facade';
 import { initializePlaylistStartupRuntime } from './bootstrap/playlist-startup-runtime-init';
 import { initializeViewportLifecycleRuntime } from './bootstrap/viewport-lifecycle-runtime-init';
+import { createViewportRuntimeWiringFacade } from './bootstrap/viewport-runtime-wiring-facade';
 import { initializeViewportRuntimeWiring } from './bootstrap/viewport-runtime-wiring-init';
 import {
   getCloudImportSizeLimitBytes as getCloudImportSizeLimitBytesDomain,
@@ -384,7 +385,7 @@ const init = function (): void {
     logger: runtimeLogger,
   }));
 
-  const viewportRuntime = initializeViewportRuntimeWiring({
+  const viewportRuntime = initializeViewportRuntimeWiring(createViewportRuntimeWiringFacade({
     body: $BODY,
     menu: $MENU,
     menuCollapseButton: $BUTTON_MENU_COLLAPSE,
@@ -399,7 +400,7 @@ const init = function (): void {
     status: AMP_STATUS,
     persistMyPlaylistIfNeeded,
     getPlayer: () => player,
-  });
+  }));
 
   const playlistDescModal = createPlaylistDescModalController(
     {
