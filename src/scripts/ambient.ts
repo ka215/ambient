@@ -130,6 +130,7 @@ import { createStatusWatcherFacade } from './bootstrap/status-watcher-facade';
 import { createStatusWatcherRuntimeFacade } from './bootstrap/status-watcher-runtime-facade';
 import { initializeStatusWatcherRuntime } from './bootstrap/status-watcher-runtime-init';
 import { initializePlaylistPolicy } from './bootstrap/playlist-policy-init';
+import { createPlaylistSessionFacade } from './bootstrap/playlist-session-facade';
 import { canUseAmbientReorderMode } from './bootstrap/playlist-capabilities';
 import { initializePlaylistSession } from './bootstrap/playlist-session-init';
 import {
@@ -358,7 +359,7 @@ const init = function (): void {
     finishPlaylistLoad,
     resetPlaylistRuntimeState,
     persistMyPlaylistIfNeeded,
-  } = initializePlaylistSession({
+  } = initializePlaylistSession(createPlaylistSessionFacade({
     status: AMP_STATUS,
     playlistLoadGuard,
     myPlaylistName: MYPLAYLIST_NAME,
@@ -381,7 +382,7 @@ const init = function (): void {
     }),
     writeMyPlaylistJson,
     logger: runtimeLogger,
-  });
+  }));
 
   const viewportRuntime = initializeViewportRuntimeWiring({
     body: $BODY,
