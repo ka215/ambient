@@ -98,6 +98,7 @@ import {
 import { createPlaybackTimerController } from './domain/media-playback';
 import { initializeAppControlsRuntime } from './bootstrap/app-controls-runtime-init';
 import { createAppControlFacades } from './bootstrap/app-control-facades';
+import { createAppControlsPlaylistHelpers } from './bootstrap/app-controls-playlist-helpers';
 import { createAppControlsRuntimeFacade } from './bootstrap/app-controls-runtime-facade';
 import { createAmbientPlaylistHelpersFacade } from './bootstrap/ambient-playlist-helpers-facade';
 import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-runtime-bootstrap';
@@ -709,6 +710,34 @@ const init = function (): void {
   const hideOptionsModal = optionsModalBindings.hideOptionsModal;
   const openMediaManagement = optionsModalBindings.openMediaManagement;
   mediaManagementActionBridge.setOpenAction(openMediaManagement);
+  const appControlsPlaylistHelpers = createAppControlsPlaylistHelpers({
+    getPlaylistMode: () => playlistMode,
+    clearDeleteSelections: () => {
+      deleteSelectedIds.clear();
+    },
+    resetReorderState,
+    clearMediaEditContext: mediaEditFacade.clearContext,
+    updatePlaylistModeUi: updatePlaylistModeUI,
+    updatePlaylist: () => {
+      playlistUiFacade.updatePlaylist();
+    },
+    isPlaylistInteractionLocked,
+    openDescriptionModal: (payload) => {
+      playlistDescModal.open(payload.titleText, payload.artistText, payload.descText, payload.trigger);
+    },
+    getDescriptionPayload: getPlaylistDescriptionPayload,
+    openMediaEditModal: mediaEditFacade.openModal,
+    loadPlaylist: (playlist) => {
+      void getPlaylistData(playlist);
+    },
+    canDiscardEditMode: () => mediaEditFacade.confirmDiscard(),
+    hideMediaEditModal: () => {
+      mediaEditFacade.hideModal(false);
+    },
+    resetPlaylistMode: () => {
+      playlistMode = 'normal';
+    },
+  });
 
   // ============================================================================
   // EVENT HANDLERS
@@ -718,34 +747,22 @@ const init = function (): void {
     appControls: {
       status: AMP_STATUS,
       listElement: $LIST_PLAYLIST,
-      getPlaylistMode: () => playlistMode,
-      clearDeleteSelections: () => {
-        deleteSelectedIds.clear();
-      },
-      resetReorderState,
-      clearMediaEditContext: mediaEditFacade.clearContext,
-      updatePlaylistModeUi: updatePlaylistModeUI,
-      updatePlaylist: () => {
-        playlistUiFacade.updatePlaylist();
-      },
+      getPlaylistMode: appControlsPlaylistHelpers.getPlaylistMode,
+      clearDeleteSelections: appControlsPlaylistHelpers.clearDeleteSelections,
+      resetReorderState: appControlsPlaylistHelpers.resetReorderState,
+      clearMediaEditContext: appControlsPlaylistHelpers.clearMediaEditContext,
+      updatePlaylistModeUi: appControlsPlaylistHelpers.updatePlaylistModeUi,
+      updatePlaylist: appControlsPlaylistHelpers.updatePlaylist,
       deleteSelectedIds,
       syncDeleteSelectionIndicator,
-      isPlaylistInteractionLocked,
-      openDescriptionModal: (payload) => {
-        playlistDescModal.open(payload.titleText, payload.artistText, payload.descText, payload.trigger);
-      },
-      getDescriptionPayload: getPlaylistDescriptionPayload,
-      openMediaEditModal: mediaEditFacade.openModal,
-      loadPlaylist: (playlist) => {
-        void getPlaylistData(playlist);
-      },
-      canDiscardEditMode: () => mediaEditFacade.confirmDiscard(),
-      hideMediaEditModal: () => {
-        mediaEditFacade.hideModal(false);
-      },
-      resetPlaylistMode: () => {
-        playlistMode = 'normal';
-      },
+      isPlaylistInteractionLocked: appControlsPlaylistHelpers.isPlaylistInteractionLocked,
+      openDescriptionModal: appControlsPlaylistHelpers.openDescriptionModal,
+      getDescriptionPayload: appControlsPlaylistHelpers.getDescriptionPayload,
+      openMediaEditModal: appControlsPlaylistHelpers.openMediaEditModal,
+      loadPlaylist: appControlsPlaylistHelpers.loadPlaylist,
+      canDiscardEditMode: appControlsPlaylistHelpers.canDiscardEditMode,
+      hideMediaEditModal: appControlsPlaylistHelpers.hideMediaEditModal,
+      resetPlaylistMode: appControlsPlaylistHelpers.resetPlaylistMode,
       carouselPrevButton: $CAROUSEL_PREV,
       carouselNextButton: $CAROUSEL_NEXT,
       refreshButton: $BUTTON_REFRESH,
