@@ -131,11 +131,7 @@ import { initializePlaylistPolicy } from './bootstrap/playlist-policy-init';
 import { createPlaylistSessionFacade } from './bootstrap/playlist-session-facade';
 import { canUseAmbientReorderMode } from './bootstrap/playlist-capabilities';
 import { initializePlaylistSession } from './bootstrap/playlist-session-init';
-import {
-  createPlaybackTimerHelpers,
-  emitAmbientYouTubeSignal,
-  syncAmbientYouTubeSignalAttrs,
-} from './bootstrap/playback-runtime-init';
+import { createAmbientRuntimeSupportFacade } from './bootstrap/ambient-runtime-support-facade';
 import {
   getAmbientNoMediaImagePath,
   isAmbientDarkModeEnabled,
@@ -208,17 +204,25 @@ const init = function (): void {
 
   let player: YTPlayer | undefined;
 
-  const syncYouTubeSignalAttrs = (): void => syncAmbientYouTubeSignalAttrs(AMP_STATUS);
-  const emitYouTubeSignal = (phase: string, error = ''): void => emitAmbientYouTubeSignal(AMP_STATUS, phase, error);
-  mountYouTubePlayerApi({ emitYouTubeSignal });
-
   const playbackTimers = createPlaybackTimerController();
   let noticeController: NoticeController | null = null;
-  const updateNotice = (notification: NotificationPayload): void => {
+  const updateNoticeController = (notification: NotificationPayload): void => {
     noticeController?.update(notification);
   };
-
-  const { abortSeeking, abortFader, abortPlaybackTimers } = createPlaybackTimerHelpers(playbackTimers);
+  const runtimeSupport = createAmbientRuntimeSupportFacade({
+    status: AMP_STATUS,
+    playbackTimers,
+    updateNotice: updateNoticeController,
+  });
+  const {
+    syncYouTubeSignalAttrs,
+    emitYouTubeSignal,
+    updateNotice,
+    abortSeeking,
+    abortFader,
+    abortPlaybackTimers,
+  } = runtimeSupport;
+  mountYouTubePlayerApi({ emitYouTubeSignal });
 
   // ============================================================================
   // CLOUD: MyPlaylist – localStorage persistence
