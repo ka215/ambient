@@ -102,6 +102,7 @@ import { createPlaybackTimerController } from './domain/media-playback';
 import { initializeAppControlsRuntime } from './bootstrap/app-controls-runtime-init';
 import { createAppControlFacades } from './bootstrap/app-control-facades';
 import { createAppControlsRuntimeFacade } from './bootstrap/app-controls-runtime-facade';
+import { createAmbientPlaylistHelpersFacade } from './bootstrap/ambient-playlist-helpers-facade';
 import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-runtime-bootstrap';
 import { createOptionsModalFacade, createPlaylistDescModalFacade } from './bootstrap/modal-controller-facades';
 import { initializeOptionsSurfaceRuntime } from './bootstrap/options-surface-runtime-init';
@@ -235,13 +236,20 @@ const init = function (): void {
   const DEFAULT_VOLUME = 50;
   const playlistLoadGuard = createPlaylistLoadGuard();
   const playlistResume = createPlaylistResumeController();
-  const sanitizeMediaText = (value: string, maxLength: number): string => {
-    return sharedSanitizeMediaText(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
-  };
-
-  const sanitizeMediaDesc = (value: string, maxLength: number = MEDIA_DESC_MAX_LENGTH): string => {
-    return sharedSanitizeMediaDesc(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
-  };
+  function getOption<K extends Extract<keyof PlaylistOptions, string>>(
+    key: K
+  ): Exclude<PlaylistOptions[K], undefined> | null {
+    return readPlaylistOption<PlaylistOptions, K>(AMP_STATUS, key, MYPLAYLIST_NAME);
+  }
+  const playlistHelpers = createAmbientPlaylistHelpersFacade({
+    status: AMP_STATUS,
+    buildPlaylistJson,
+    sanitizeText: (value, maxLength) => sharedSanitizeMediaText(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
+    sanitizeDesc: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => {
+      return sharedSanitizeMediaDesc(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
+    },
+  });
+  const { generatePlaylistJson, sanitizeMediaText, sanitizeMediaDesc } = playlistHelpers;
 
   const {
     getSavedPlaylistContext,
@@ -448,12 +456,6 @@ const init = function (): void {
   const MEDIA_EDIT_DURATION_SYNC_POLL_MS = 250;
   const MEDIA_EDIT_SAVE_ENDPOINT = 'playlist-save';
   const MEDIA_EDIT_THUMBNAIL_ENDPOINT = 'thumbnail';
-  const generatePlaylistJson = (seekFormat = false): string => buildPlaylistJson({
-    mediaItems: AMP_STATUS.media || [],
-    categories: AMP_STATUS.category || [],
-    playlistOptions: AMP_STATUS.options,
-    seekFormat,
-  });
   const mediaEditRuntime = initializeMediaEditRuntimeWiring(createMediaEditRuntimeWiringFacade({
     elements: mediaEditElements,
     status: AMP_STATUS,
@@ -707,12 +709,6 @@ const init = function (): void {
   const hideOptionsModal = optionsModalBindings.hideOptionsModal;
   const openMediaManagement = optionsModalBindings.openMediaManagement;
   openMediaManagementAction = openMediaManagement;
-
-  function getOption<K extends Extract<keyof PlaylistOptions, string>>(
-    key: K
-  ): Exclude<PlaylistOptions[K], undefined> | null {
-    return readPlaylistOption<PlaylistOptions, K>(AMP_STATUS, key, MYPLAYLIST_NAME);
-  }
 
   // ============================================================================
   // EVENT HANDLERS
