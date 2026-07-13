@@ -100,6 +100,7 @@ import { initializeAppControlsRuntime } from './bootstrap/app-controls-runtime-i
 import { createAppControlFacades } from './bootstrap/app-control-facades';
 import { createAppControlsPlaylistHelpers } from './bootstrap/app-controls-playlist-helpers';
 import { createAppControlsRuntimeFacade } from './bootstrap/app-controls-runtime-facade';
+import { createAppSettingsHelpers } from './bootstrap/app-settings-helpers';
 import { createAmbientPlaylistHelpersFacade } from './bootstrap/ambient-playlist-helpers-facade';
 import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-runtime-bootstrap';
 import { createOptionsModalFacade, createPlaylistDescModalFacade } from './bootstrap/modal-controller-facades';
@@ -738,6 +739,17 @@ const init = function (): void {
       playlistMode = 'normal';
     },
   });
+  const appSettingsHelpers = createAppSettingsHelpers({
+    shufflePlaylist: () => createShuffledPlaylistItems({
+      mediaItems: AMP_STATUS.media,
+      categoryId: AMP_STATUS.ctg,
+      shuffleEnabled: true,
+    }),
+    persistMyPlaylistIfNeeded,
+    normalizeVolume: (value) => normalizeAmbientVolume(value, DEFAULT_VOLUME),
+    syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
+    isDarkModeEnabled: () => isAmbientDarkModeEnabled({ playlistOptions: AMP_STATUS.options }),
+  });
 
   // ============================================================================
   // EVENT HANDLERS
@@ -800,15 +812,11 @@ const init = function (): void {
       faderToggleRoot: $TOGGLE_FADER,
       darkModeToggleRoot: $TOGGLE_DARKMODE,
       volumeRange: $RANGE_VOLUME,
-      shufflePlaylist: () => createShuffledPlaylistItems({
-        mediaItems: AMP_STATUS.media,
-        categoryId: AMP_STATUS.ctg,
-        shuffleEnabled: true,
-      }),
-      persistMyPlaylistIfNeeded,
-      normalizeVolume: (value) => normalizeAmbientVolume(value, DEFAULT_VOLUME),
-      syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-      isDarkModeEnabled: () => isAmbientDarkModeEnabled({ playlistOptions: AMP_STATUS.options }),
+      shufflePlaylist: appSettingsHelpers.shufflePlaylist,
+      persistMyPlaylistIfNeeded: appSettingsHelpers.persistMyPlaylistIfNeeded,
+      normalizeVolume: appSettingsHelpers.normalizeVolume,
+      syncRangeProgress: appSettingsHelpers.syncRangeProgress,
+      isDarkModeEnabled: appSettingsHelpers.isDarkModeEnabled,
       setStyles,
     },
   });
