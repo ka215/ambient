@@ -529,6 +529,8 @@ const init = function (): void {
   };
 
   let deleteSelectedIds = new Set<number>();
+  let playlistUiBindings: ReturnType<typeof initializePlaylistUiRuntime> | null = null;
+  const playlistUiFacade = createPlaylistUiFacade(() => playlistUiBindings);
 
   const {
     closePlaylistModeMenu,
@@ -569,7 +571,7 @@ const init = function (): void {
       mediaEditFacade.clearContext();
     },
     updatePlaylist: () => {
-      playlistUiBindings?.updatePlaylist();
+      playlistUiFacade.updatePlaylist();
     },
     persistCurrentPlaylistMutation: async () => mediaEditFacade.persistCurrentPlaylist(AMP_STATUS.media || []),
     updateNotice,
@@ -577,7 +579,7 @@ const init = function (): void {
   }));
 
   const mediaManagementActionBridge = createMediaManagementActionBridge();
-  let playlistUiBindings: ReturnType<typeof initializePlaylistUiRuntime> | null = initializePlaylistUiRuntime(createPlaylistUiRuntimeFacade({
+  playlistUiBindings = initializePlaylistUiRuntime(createPlaylistUiRuntimeFacade({
     document,
     status: AMP_STATUS,
     getOption: (key) => getOption(key as Extract<keyof PlaylistOptions, string>),
@@ -621,7 +623,6 @@ const init = function (): void {
       AMP_STATUS.shuffle = items;
     },
   }));
-  const playlistUiFacade = createPlaylistUiFacade(() => playlistUiBindings);
 
   const statusWatcherFacade = createStatusWatcherFacade({
     document,
