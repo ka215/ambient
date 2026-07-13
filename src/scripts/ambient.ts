@@ -98,6 +98,7 @@ import {
 import { createPlaybackTimerController } from './domain/media-playback';
 import { initializeAppControlsRuntime } from './bootstrap/app-controls-runtime-init';
 import { createAppControlFacades } from './bootstrap/app-control-facades';
+import { createAppControlsPlayerHelpers } from './bootstrap/app-controls-player-helpers';
 import { createAppControlsPlaylistHelpers } from './bootstrap/app-controls-playlist-helpers';
 import { createAppControlsRuntimeFacade } from './bootstrap/app-controls-runtime-facade';
 import { createAppSettingsHelpers } from './bootstrap/app-settings-helpers';
@@ -750,6 +751,22 @@ const init = function (): void {
     syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
     isDarkModeEnabled: () => isAmbientDarkModeEnabled({ playlistOptions: AMP_STATUS.options }),
   });
+  const appControlsPlayerHelpers = createAppControlsPlayerHelpers({
+    playItem: (target) => {
+      playItem(target);
+    },
+    playItemById: (playId) => {
+      playItem(null, playId);
+    },
+    isFullWindowMode: () => isFullWindowModeView($BODY),
+    setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
+      viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
+    },
+    setMenuMinimized: (minimized) => {
+      viewportRuntime.setMenuMinimized(minimized);
+    },
+    getPlayer: () => player,
+  });
 
   // ============================================================================
   // EVENT HANDLERS
@@ -784,20 +801,12 @@ const init = function (): void {
       playButton: $BUTTON_PLAY,
       pauseButton: $BUTTON_PAUSE,
       menuElement: $MENU,
-      playItem: (target) => {
-        playItem(target);
-      },
-      playItemById: (playId) => {
-        playItem(null, playId);
-      },
-      isFullWindowMode: () => isFullWindowModeView($BODY),
-      setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
-        viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
-      },
-      setMenuMinimized: (minimized) => {
-        viewportRuntime.setMenuMinimized(minimized);
-      },
-      getPlayer: () => player,
+      playItem: appControlsPlayerHelpers.playItem,
+      playItemById: appControlsPlayerHelpers.playItemById,
+      isFullWindowMode: appControlsPlayerHelpers.isFullWindowMode,
+      setFullWindowMode: appControlsPlayerHelpers.setFullWindowMode,
+      setMenuMinimized: appControlsPlayerHelpers.setMenuMinimized,
+      getPlayer: appControlsPlayerHelpers.getPlayer,
     },
     appSettings: {
       status: AMP_STATUS as typeof AMP_STATUS & {
