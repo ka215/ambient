@@ -124,6 +124,7 @@ import { createManagementPlaylistBindingsFacade } from './bootstrap/management-p
 import { createManagementRuntimeFacade } from './bootstrap/management-runtime-facade';
 import { createManagementStateFacade } from './bootstrap/management-state-facade';
 import { ensureManagementTargetPlaylist } from './bootstrap/management-target-playlist';
+import { createMediaManagementActionBridge } from './bootstrap/management-action-bridge';
 import { createStatusWatcherFacade } from './bootstrap/status-watcher-facade';
 import { createStatusWatcherRuntimeFacade } from './bootstrap/status-watcher-runtime-facade';
 import { initializeStatusWatcherRuntime } from './bootstrap/status-watcher-runtime-init';
@@ -575,7 +576,7 @@ const init = function (): void {
     getLocalizedMessage,
   }));
 
-  let openMediaManagementAction: (presetCategoryId?: number | null) => void = () => {};
+  const mediaManagementActionBridge = createMediaManagementActionBridge();
   let playlistUiBindings: ReturnType<typeof initializePlaylistUiRuntime> | null = initializePlaylistUiRuntime(createPlaylistUiRuntimeFacade({
     document,
     status: AMP_STATUS,
@@ -598,7 +599,7 @@ const init = function (): void {
     ambientData: (window as any).AmbientData as { imageDir?: string; debug?: boolean } | null,
     getNoMediaImagePath: (kind) => getAmbientNoMediaImagePath(AMP_STATUS.options, kind),
     openMediaManagement: (presetCategoryId) => {
-      openMediaManagementAction(presetCategoryId);
+      mediaManagementActionBridge.open(presetCategoryId);
     },
     trimTitle: (value: string) => mb_strimwidth(value, 0, 50, '...'),
     destroyPlaylistSortable,
@@ -713,7 +714,7 @@ const init = function (): void {
   }));
   const hideOptionsModal = optionsModalBindings.hideOptionsModal;
   const openMediaManagement = optionsModalBindings.openMediaManagement;
-  openMediaManagementAction = openMediaManagement;
+  mediaManagementActionBridge.setOpenAction(openMediaManagement);
 
   // ============================================================================
   // EVENT HANDLERS
