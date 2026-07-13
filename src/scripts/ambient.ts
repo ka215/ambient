@@ -68,10 +68,6 @@ import {
 } from './ui/settings-view';
 import { isFullWindowMode as isFullWindowModeView } from './ui/viewport';
 import {
-  createOptionsModalController,
-  createPlaylistDescModalController,
-} from './ui/modals';
-import {
   getPlaylistDescriptionPayload,
   PlaylistMode,
   scrollPlaylistToCurrentFocus,
@@ -107,6 +103,7 @@ import { initializeAppControlsRuntime } from './bootstrap/app-controls-runtime-i
 import { createAppControlFacades } from './bootstrap/app-control-facades';
 import { createAppControlsRuntimeFacade } from './bootstrap/app-controls-runtime-facade';
 import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-runtime-bootstrap';
+import { createOptionsModalFacade, createPlaylistDescModalFacade } from './bootstrap/modal-controller-facades';
 import { initializeOptionsSurfaceRuntime } from './bootstrap/options-surface-runtime-init';
 import { createOptionsSurfaceFacade } from './bootstrap/options-surface-facade';
 import { initializePlaylistModeRuntime } from './bootstrap/playlist-mode-runtime-init';
@@ -402,41 +399,43 @@ const init = function (): void {
     getPlayer: () => player,
   }));
 
-  const playlistDescModal = createPlaylistDescModalController(
-    {
+  const playlistDescModal = createPlaylistDescModalFacade({
+    elements: {
       modal: $MODAL_PLAYLIST_DESC,
       title: $MODAL_PLAYLIST_DESC_TITLE,
       artist: $MODAL_PLAYLIST_DESC_ARTIST,
       content: $MODAL_PLAYLIST_DESC_CONTENT,
     },
-    {
+    sanitizers: {
       title: (value: string) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
       artist: (value: string) => sanitizeMediaText(value, MEDIA_ARTIST_MAX_LENGTH),
       desc: (value: string) => sanitizeMediaDesc(value, MEDIA_DESC_MAX_LENGTH),
-    }
-  );
-  const optionsModal = createOptionsModalController({
-    elements: {
-      modal: $MODAL_OPTIONS,
-      panel: $MODAL_OPTIONS_PANEL,
     },
+  });
+  const optionsModal = createOptionsModalFacade({
+    options: {
+      elements: {
+        modal: $MODAL_OPTIONS,
+        panel: $MODAL_OPTIONS_PANEL,
+      },
     getLayout: () => ({
       width: currentWindowSize.width,
       minFullUIWidth: currentWindowSize.minFullUIWidth,
     }),
-    beforeShow: () => {
-      if (
-        currentWindowSize.width < currentWindowSize.minFullUIWidth &&
-        isResponsiveDrawerOpen($DRAWER_PLAYLIST, '-translate-x-full')
-      ) {
-        (document.getElementById('btn-close-playlist') as HTMLButtonElement | null)?.click();
-      }
-      if (
-        currentWindowSize.width < currentWindowSize.minFullUIWidth &&
-        isResponsiveDrawerOpen($DRAWER_SETTINGS, 'translate-x-full')
-      ) {
-        (document.getElementById('btn-close-settings') as HTMLButtonElement | null)?.click();
-      }
+      beforeShow: () => {
+        if (
+          currentWindowSize.width < currentWindowSize.minFullUIWidth &&
+          isResponsiveDrawerOpen($DRAWER_PLAYLIST, '-translate-x-full')
+        ) {
+          (document.getElementById('btn-close-playlist') as HTMLButtonElement | null)?.click();
+        }
+        if (
+          currentWindowSize.width < currentWindowSize.minFullUIWidth &&
+          isResponsiveDrawerOpen($DRAWER_SETTINGS, 'translate-x-full')
+        ) {
+          (document.getElementById('btn-close-settings') as HTMLButtonElement | null)?.click();
+        }
+      },
     },
   });
   const MEDIA_EDIT_DRAFT_STORAGE_KEY = 'ambient:media-edit-drafts:v2.5.0';
