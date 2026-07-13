@@ -112,6 +112,7 @@ import { initializePlaylistModeRuntime } from './bootstrap/playlist-mode-runtime
 import { createPlaylistModeRuntimeFacade } from './bootstrap/playlist-mode-runtime-facade';
 import { createPlaylistUiFacade } from './bootstrap/playlist-ui-facade';
 import { createMediaEditRuntimeFacade } from './bootstrap/media-edit-runtime-facade';
+import { createMediaEditPlaylistHelpers } from './bootstrap/media-edit-playlist-helpers';
 import { createMediaEditRuntimeWiringFacade } from './bootstrap/media-edit-runtime-wiring-facade';
 import { initializeMediaEditRuntimeWiring } from './bootstrap/media-edit-runtime-wiring-init';
 import { createPlayerRuntimeWiringFacade } from './bootstrap/player-runtime-wiring-facade';
@@ -464,6 +465,7 @@ const init = function (): void {
   const MEDIA_EDIT_DURATION_SYNC_POLL_MS = 250;
   const MEDIA_EDIT_SAVE_ENDPOINT = 'playlist-save';
   const MEDIA_EDIT_THUMBNAIL_ENDPOINT = 'thumbnail';
+  const mediaEditPlaylistHelpers = createMediaEditPlaylistHelpers(() => playlistUiFacade);
   const mediaEditRuntime = initializeMediaEditRuntimeWiring(createMediaEditRuntimeWiringFacade({
     elements: mediaEditElements,
     status: AMP_STATUS,
@@ -497,19 +499,11 @@ const init = function (): void {
       updatePlayStatus(amId);
     },
     getMediaCategoryName: (mediaItem) => getMediaCategoryNameState(mediaItem, AMP_STATUS.category),
-    clearCategory: () => {
-      playlistUiFacade.clearCategory();
-    },
-    updateCategory: () => {
-      playlistUiFacade.updateCategory();
-    },
-    syncMediaCategoryField: (preferredCategoryId?: number | null) => {
-      playlistUiFacade.syncMediaCategoryField(preferredCategoryId ?? null);
-    },
-    getActiveCategoryId: () => playlistUiFacade.getActiveCategoryId(),
-    updatePlaylist: () => {
-      playlistUiFacade.updatePlaylist();
-    },
+    clearCategory: mediaEditPlaylistHelpers.clearCategory,
+    updateCategory: mediaEditPlaylistHelpers.updateCategory,
+    syncMediaCategoryField: mediaEditPlaylistHelpers.syncMediaCategoryField,
+    getActiveCategoryId: mediaEditPlaylistHelpers.getActiveCategoryId,
+    updatePlaylist: mediaEditPlaylistHelpers.updatePlaylist,
     confirm: (message) => window.confirm(message),
   }));
   const mediaEditFacade = createMediaEditRuntimeFacade(mediaEditRuntime);
