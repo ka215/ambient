@@ -123,6 +123,7 @@ import { createManagementBindingOptionsFacade } from './bootstrap/management-bin
 import { createManagementMediaBindingsFacade } from './bootstrap/management-media-bindings-facade';
 import { createManagementPlaylistActionsFacade } from './bootstrap/management-playlist-actions-facade';
 import { createManagementPlaylistBindingsFacade } from './bootstrap/management-playlist-bindings-facade';
+import { createManagementPlaylistUiHelpers } from './bootstrap/management-playlist-ui-helpers';
 import { createManagementRuntimeFacade } from './bootstrap/management-runtime-facade';
 import { createManagementStateFacade } from './bootstrap/management-state-facade';
 import { ensureManagementTargetPlaylist } from './bootstrap/management-target-playlist';
@@ -1043,6 +1044,12 @@ const init = function (): void {
     isLikelyJsonFile: sharedIsLikelyJsonFile,
     getBaseUrl: () => BASE_URL,
   });
+  const managementPlaylistUiHelpers = createManagementPlaylistUiHelpers({
+    playlistUiFacade,
+    getCurrentMediaId: () => AMP_STATUS.current,
+    getFirstMediaId: () => ((AMP_STATUS.media || [])[0]?.amId ?? null),
+    updatePlayStatus,
+  });
   const managementMediaBindingsFacade = createManagementMediaBindingsFacade({
     mediaCategorySelect: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
     mediaTitleMaxLength: MEDIA_TITLE_MAX_LENGTH,
@@ -1053,27 +1060,11 @@ const init = function (): void {
     canMutateCurrentPlaylist,
     applyCloudEditRestrictions,
     updateNotice,
-    updatePlaylist: () => {
-      playlistUiFacade.updatePlaylist();
-    },
-    clearCategory: () => {
-      playlistUiFacade.clearCategory();
-    },
-    updateCategory: () => {
-      playlistUiFacade.updateCategory();
-    },
-    syncMediaCategoryField: (preferredCategoryId?: number | null) => {
-      playlistUiFacade.syncMediaCategoryField(
-        preferredCategoryId ?? playlistUiFacade.getActiveCategoryId()
-      );
-    },
-    syncPlaybackAfterMediaAdd: (): void => {
-      if (AMP_STATUS.current !== null) {
-        updatePlayStatus(AMP_STATUS.current);
-      } else if ((AMP_STATUS.media || []).length > 0) {
-        updatePlayStatus((AMP_STATUS.media || [])[0]?.amId ?? 0);
-      }
-    },
+    updatePlaylist: managementPlaylistUiHelpers.updatePlaylist,
+    clearCategory: managementPlaylistUiHelpers.clearCategory,
+    updateCategory: managementPlaylistUiHelpers.updateCategory,
+    syncMediaCategoryField: managementPlaylistUiHelpers.syncMediaCategoryField,
+    syncPlaybackAfterMediaAdd: managementPlaylistUiHelpers.syncPlaybackAfterMediaAdd,
     persistMediaEditForCurrentPlaylist: mediaEditFacade.persistCurrentPlaylist,
     hideOptionsModal,
     setValidated,
@@ -1094,10 +1085,7 @@ const init = function (): void {
     getCategories: managementStateFacade.getCategories,
     persistMyPlaylistIfNeeded,
     setCategories: managementStateFacade.setCategories,
-    onCategoryCreated: () => {
-      playlistUiFacade.clearCategory();
-      playlistUiFacade.updateCategory();
-    },
+    onCategoryCreated: managementPlaylistUiHelpers.onCategoryCreated,
     logger,
     getPlaylistName: managementStateFacade.getPlaylistName,
     importFileInput: document.getElementById('playlist-import-file') as HTMLInputElement | null,
