@@ -110,6 +110,7 @@ import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-
 import { initializeOptionsSurfaceRuntime } from './bootstrap/options-surface-runtime-init';
 import { createOptionsSurfaceFacade } from './bootstrap/options-surface-facade';
 import { initializePlaylistModeRuntime } from './bootstrap/playlist-mode-runtime-init';
+import { createPlaylistModeRuntimeFacade } from './bootstrap/playlist-mode-runtime-facade';
 import { createPlaylistUiFacade } from './bootstrap/playlist-ui-facade';
 import { createMediaEditRuntimeFacade } from './bootstrap/media-edit-runtime-facade';
 import { createMediaEditRuntimeWiringFacade } from './bootstrap/media-edit-runtime-wiring-facade';
@@ -529,7 +530,7 @@ const init = function (): void {
     syncDeleteSelectionIndicator,
     syncPlaylistModeAvailability,
     updatePlaylistModeUi: updatePlaylistModeUI,
-  } = initializePlaylistModeRuntime({
+  } = initializePlaylistModeRuntime(createPlaylistModeRuntimeFacade({
     document,
     playlistModeUi,
     defaultPlaylistModeButtonIcon,
@@ -564,7 +565,7 @@ const init = function (): void {
     persistCurrentPlaylistMutation: async () => mediaEditFacade.persistCurrentPlaylist(AMP_STATUS.media || []),
     updateNotice,
     getLocalizedMessage,
-  });
+  }));
 
   let openMediaManagementAction: (presetCategoryId?: number | null) => void = () => {};
   let playlistUiBindings: ReturnType<typeof initializePlaylistUiRuntime> | null = initializePlaylistUiRuntime(createPlaylistUiRuntimeFacade({
