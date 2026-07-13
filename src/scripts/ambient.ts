@@ -70,8 +70,6 @@ import { isFullWindowMode as isFullWindowModeView } from './ui/viewport';
 import {
   getPlaylistDescriptionPayload,
   PlaylistMode,
-  scrollPlaylistToCurrentFocus,
-  syncPlaylistCurrentFocus,
 } from './ui/playlist-view';
 import { resolveMediaEditElements } from './ui/media-edit/elements';
 import {
@@ -81,7 +79,6 @@ import {
 } from './ui/notifications';
 import {
   syncPlaybackButtonState,
-  syncPlaybackButtons,
 } from './ui/player/player-shell';
 import {
   normalizeAmbientVolume,
@@ -126,6 +123,7 @@ import { createManagementStateFacade } from './bootstrap/management-state-facade
 import { ensureManagementTargetPlaylist } from './bootstrap/management-target-playlist';
 import { createMediaManagementActionBridge } from './bootstrap/management-action-bridge';
 import { createStatusWatcherFacade } from './bootstrap/status-watcher-facade';
+import { createStatusWatcherViewHelpers } from './bootstrap/status-watcher-view-helpers';
 import { createStatusWatcherRuntimeFacade } from './bootstrap/status-watcher-runtime-facade';
 import { initializeStatusWatcherRuntime } from './bootstrap/status-watcher-runtime-init';
 import { initializePlaylistPolicy } from './bootstrap/playlist-policy-init';
@@ -623,6 +621,13 @@ const init = function (): void {
       AMP_STATUS.shuffle = items;
     },
   }));
+  const statusWatcherViewHelpers = createStatusWatcherViewHelpers({
+    playlistList: $LIST_PLAYLIST,
+    getCurrentMediaId: () => AMP_STATUS.current,
+    playButton: $BUTTON_PLAY,
+    pauseButton: $BUTTON_PAUSE,
+    hasMediaItems: () => AMP_STATUS.media !== null && AMP_STATUS.media.length > 0,
+  });
 
   const statusWatcherFacade = createStatusWatcherFacade({
     document,
@@ -658,15 +663,9 @@ const init = function (): void {
       playlistUiFacade.updateCategory();
     },
     updateNotice,
-    syncPlaylistCurrentFocus: () => {
-      syncPlaylistCurrentFocus($LIST_PLAYLIST, AMP_STATUS.current);
-    },
-    scrollPlaylistToCurrentFocus: () => {
-      scrollPlaylistToCurrentFocus($LIST_PLAYLIST);
-    },
-    syncPlaybackButtons: () => {
-      syncPlaybackButtons($BUTTON_PLAY, $BUTTON_PAUSE, AMP_STATUS.media !== null && AMP_STATUS.media.length > 0);
-    },
+    syncPlaylistCurrentFocus: statusWatcherViewHelpers.syncPlaylistCurrentFocus,
+    scrollPlaylistToCurrentFocus: statusWatcherViewHelpers.scrollPlaylistToCurrentFocus,
+    syncPlaybackButtons: statusWatcherViewHelpers.syncPlaybackButtons,
     syncYouTubeSignalAttrs,
     setStyles,
     setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
