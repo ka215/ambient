@@ -56,7 +56,6 @@ import {
 } from './state/playlist-options';
 import {
   createShuffledPlaylistItems,
-  getDefaultMediaItemForView,
   getMediaCategoryName as getMediaCategoryNameState,
 } from './state/playlist-mode-state';
 import {
@@ -145,6 +144,7 @@ import {
 import { createAppBootController } from './bootstrap/app-boot';
 import { initializePlaylistUiRuntime } from './bootstrap/playlist-ui-runtime-init';
 import { createPlaylistUiRuntimeFacade } from './bootstrap/playlist-ui-runtime-facade';
+import { createPlaylistRuntimeViewHelpers } from './bootstrap/playlist-runtime-view-helpers';
 import { createPlaylistRuntimeWiringFacade } from './bootstrap/playlist-runtime-wiring-facade';
 import { initializePlaylistRuntimeWiring } from './bootstrap/playlist-runtime-wiring-init';
 import { createPlaylistStartupRuntimeFacade } from './bootstrap/playlist-startup-runtime-facade';
@@ -852,6 +852,17 @@ const init = function (): void {
     logger,
   });
   initializeAppControlsRuntime(appControlsRuntimeFacade);
+  const playlistRuntimeViewHelpers = createPlaylistRuntimeViewHelpers({
+    playlistUiFacade,
+    getMediaItems: () => AMP_STATUS.media,
+    getCategoryId: () => AMP_STATUS.ctg,
+    setPlaylistReadyState: (isReady) => {
+      appBoot.setPlaylistReadyState(isReady);
+    },
+    releaseAppBootGate: () => {
+      appBoot.release();
+    },
+  });
 
   const { updatePlayStatus, playItem } = initializeAmbientPlayerRuntimeWiring(createPlayerRuntimeWiringFacade({
     status: AMP_STATUS,
@@ -909,26 +920,17 @@ const init = function (): void {
     }),
     applyPendingCategoryResume,
     applyPendingMediaResume,
-    updatePlaylist: () => {
-      playlistUiFacade.updatePlaylist();
-    },
+    updatePlaylist: playlistRuntimeViewHelpers.updatePlaylist,
     updatePlayStatus,
-    getDefaultMediaItemForCurrentView: () => getDefaultMediaItemForView({
-      mediaItems: AMP_STATUS.media,
-      categoryId: AMP_STATUS.ctg,
-    }),
+    getDefaultMediaItemForCurrentView: playlistRuntimeViewHelpers.getDefaultMediaItemForCurrentView,
     logger,
     resetPlaylistRuntimeState,
     applyCloudEditRestrictions,
-    setPlaylistReadyState: (isReady) => {
-      appBoot.setPlaylistReadyState(isReady);
-    },
+    setPlaylistReadyState: playlistRuntimeViewHelpers.setPlaylistReadyState,
     beginPlaylistLoad,
     isPlaylistLoadActive,
     finishPlaylistLoad,
-    releaseAppBootGate: () => {
-      appBoot.release();
-    },
+    releaseAppBootGate: playlistRuntimeViewHelpers.releaseAppBootGate,
     fetchData,
     baseUrl: BASE_URL,
   }));
