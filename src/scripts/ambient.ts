@@ -128,6 +128,7 @@ import { createStatusWatcherFacade } from './bootstrap/status-watcher-facade';
 import { createStatusWatcherRuntimeFacade } from './bootstrap/status-watcher-runtime-facade';
 import { initializeStatusWatcherRuntime } from './bootstrap/status-watcher-runtime-init';
 import { initializePlaylistPolicy } from './bootstrap/playlist-policy-init';
+import { createPlaylistResumeBindingsFacade } from './bootstrap/playlist-resume-bindings-facade';
 import { createPlaylistSessionFacade } from './bootstrap/playlist-session-facade';
 import { canUseAmbientReorderMode } from './bootstrap/playlist-capabilities';
 import { initializePlaylistSession } from './bootstrap/playlist-session-init';
@@ -263,7 +264,7 @@ const init = function (): void {
     requestMediaResume,
     applyPendingCategoryResume,
     applyPendingMediaResume,
-  } = createPlaylistResumeBindings({
+  } = createPlaylistResumeBindings(createPlaylistResumeBindingsFacade({
     status: AMP_STATUS,
     playlistResume,
     sanitizeMediaText,
@@ -280,7 +281,7 @@ const init = function (): void {
     onMediaResumeApplied: (resumeAmId) => {
       updatePlayStatus(resumeAmId);
     },
-  });
+  }));
 
   // DOM Elements
   const $BODY = document.body;
