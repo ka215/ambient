@@ -125,6 +125,10 @@ export function sanitizeAndNormalizeImportPlaylist(options: {
   artistMaxLength: number;
   descMaxLength: number;
 }): ImportSanitizeResult | null {
+  if (!isObject(options.source) || Array.isArray(options.source)) {
+    return null;
+  }
+
   const normalized: Record<string, unknown> = {};
   let total = 0;
   let rejected = 0;

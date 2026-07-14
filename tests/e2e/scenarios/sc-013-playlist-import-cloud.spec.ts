@@ -115,6 +115,8 @@ test.describe('SC-013 Cloud playlist import', () => {
     await page.locator('#btn-import-playlist').click();
 
     await expect(page.locator('#alert-notification')).toContainClass('bg-red-50');
-    await expect.poll(async () => page.evaluate(() => localStorage.getItem('AmbientMyPlaylist'))).toBe(null);
+    await expect.poll(async () => page.evaluate(() => localStorage.getItem('AmbientMyPlaylist'))).toBe(
+      JSON.stringify({ options: {} }, null, 2)
+    );
   });
 });

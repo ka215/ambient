@@ -59,9 +59,9 @@ export function createManagementImportFacade(
       cloudImportSizeLimitBytes: options.cloudImportSizeLimitBytes,
       parseImportedPlaylistJson: options.parseImportedPlaylistJson,
       validatePlaylistSchemaContract: options.validatePlaylistSchemaContract,
-      sanitizeAndNormalizeImportPlaylist: (source, stripPlaylistTemplate) => ({
-        playlist: options.sanitizeAndNormalizeImportPlaylist(source, stripPlaylistTemplate)?.playlist ?? null,
-      }) as { playlist: Record<string, unknown> } | null,
+      sanitizeAndNormalizeImportPlaylist: (source, stripPlaylistTemplate) => {
+        return options.sanitizeAndNormalizeImportPlaylist(source, stripPlaylistTemplate);
+      },
       persistImportedCloudPlaylist: options.persistImportedCloudPlaylist,
       ensureMyPlaylistOptionFromStorage: options.ensureMyPlaylistOptionFromStorage,
       activateImportedPlaylist: options.activateImportedPlaylist,

@@ -37,7 +37,6 @@ import {
 } from './platform/ambient-data';
 import { fetchData } from './platform/fetch-data';
 import {
-  MYPLAYLIST_KEY,
   USER_DATA_APP_KEY,
 } from './platform/storage';
 import {
@@ -55,17 +54,11 @@ import {
   readPlaylistOption,
 } from './state/playlist-options';
 import {
-  createShuffledPlaylistItems,
-  getMediaCategoryName as getMediaCategoryNameState,
-} from './state/playlist-mode-state';
-import {
   closeResponsiveDrawers,
-  isResponsiveDrawerOpen,
 } from './ui/drawers';
 import {
   getToggleInput,
 } from './ui/settings-view';
-import { isFullWindowMode as isFullWindowModeView } from './ui/viewport';
 import {
   getPlaylistDescriptionPayload,
   PlaylistMode,
@@ -81,7 +74,6 @@ import {
 } from './ui/player/player-shell';
 import {
   normalizeAmbientVolume,
-  resolveAmbientDefaultVolume,
   syncAmbientRangeProgress,
 } from './ui/forms/category-volume-bindings';
 import {
@@ -101,54 +93,79 @@ import { createAppControlsPlayerHelpers } from './bootstrap/app-controls-player-
 import { createAppControlsPlaylistHelpers } from './bootstrap/app-controls-playlist-helpers';
 import { createAppControlsRuntimeFacade } from './bootstrap/app-controls-runtime-facade';
 import { createAppSettingsHelpers } from './bootstrap/app-settings-helpers';
+import { createAppSettingsSupport } from './bootstrap/app-settings-support';
 import { createAmbientPlaylistHelpersFacade } from './bootstrap/ambient-playlist-helpers-facade';
+import { createAmbientPlaylistSupport } from './bootstrap/ambient-playlist-support';
 import { initializeAmbientStatus, mountYouTubePlayerApi } from './bootstrap/app-runtime-bootstrap';
 import { createOptionsModalFacade, createPlaylistDescModalFacade } from './bootstrap/modal-controller-facades';
+import { createOptionsModalHelpers } from './bootstrap/options-modal-helpers';
 import { initializeOptionsSurfaceRuntime } from './bootstrap/options-surface-runtime-init';
 import { createOptionsSurfaceFacade } from './bootstrap/options-surface-facade';
 import { createOptionsSurfacePlaylistHelpers } from './bootstrap/options-surface-playlist-helpers';
+import { createPlaylistEnvironmentSupport } from './bootstrap/playlist-environment-support';
+import { createStatusWatcherViewSupport } from './bootstrap/status-watcher-view-support';
 import { initializePlaylistModeRuntime } from './bootstrap/playlist-mode-runtime-init';
 import { createPlaylistModeRuntimeFacade } from './bootstrap/playlist-mode-runtime-facade';
+import { createPlaylistModeStateSupport } from './bootstrap/playlist-mode-state-support';
+import { createPlaylistLoadSupport } from './bootstrap/playlist-load-support';
 import { createPlaylistUiFacade } from './bootstrap/playlist-ui-facade';
 import { createMediaEditRuntimeFacade } from './bootstrap/media-edit-runtime-facade';
+import { createMediaEditRuntimeSupport } from './bootstrap/media-edit-runtime-support';
 import { createMediaEditPlaylistHelpers } from './bootstrap/media-edit-playlist-helpers';
 import { createMediaEditRuntimeWiringFacade } from './bootstrap/media-edit-runtime-wiring-facade';
 import { initializeMediaEditRuntimeWiring } from './bootstrap/media-edit-runtime-wiring-init';
+import { createPlayerActionSupport } from './bootstrap/player-action-support';
 import { createPlayerRuntimeWiringFacade } from './bootstrap/player-runtime-wiring-facade';
 import { createPlayerRuntimeHelpers } from './bootstrap/player-runtime-helpers';
+import { createPlayerRuntimeSupport } from './bootstrap/player-runtime-support';
+import { createPlayerStateSupport } from './bootstrap/player-state-support';
+import { createPlaylistModeMenuSupport } from './bootstrap/playlist-mode-menu-support';
+import { createVolumeOptionSupport } from './bootstrap/volume-option-support';
 import { initializeAmbientPlayerRuntimeWiring } from './bootstrap/player-runtime-wiring-init';
 import { initializeManagementRuntime } from './bootstrap/management-runtime-init';
 import { createManagementImportFacade } from './bootstrap/management-import-facade';
+import { createManagementImportSanitizeSupport } from './bootstrap/management-import-sanitize-support';
 import { createManagementBindingOptionsFacade } from './bootstrap/management-binding-options-facade';
+import { createManagementMediaSupport } from './bootstrap/management-media-support';
 import { createManagementMediaBindingsFacade } from './bootstrap/management-media-bindings-facade';
 import { createManagementPlaylistActionsFacade } from './bootstrap/management-playlist-actions-facade';
 import { createManagementPlaylistBindingsFacade } from './bootstrap/management-playlist-bindings-facade';
+import { createManagementPlaylistStateSupport } from './bootstrap/management-playlist-state-support';
 import { createManagementPlaylistUiHelpers } from './bootstrap/management-playlist-ui-helpers';
+import { createManagementRuntimeSupport } from './bootstrap/management-runtime-support';
 import { createManagementRuntimeFacade } from './bootstrap/management-runtime-facade';
 import { createManagementStateFacade } from './bootstrap/management-state-facade';
-import { ensureManagementTargetPlaylist } from './bootstrap/management-target-playlist';
 import { createMediaManagementActionBridge } from './bootstrap/management-action-bridge';
+import { createAppControlsSupport } from './bootstrap/app-controls-support';
 import { createStatusWatcherFacade } from './bootstrap/status-watcher-facade';
 import { createStatusWatcherViewHelpers } from './bootstrap/status-watcher-view-helpers';
+import { createStatusWatcherSupport } from './bootstrap/status-watcher-support';
 import { createStatusWatcherRuntimeFacade } from './bootstrap/status-watcher-runtime-facade';
 import { initializeStatusWatcherRuntime } from './bootstrap/status-watcher-runtime-init';
 import { initializePlaylistPolicy } from './bootstrap/playlist-policy-init';
 import { createPlaylistResumeBindingsFacade } from './bootstrap/playlist-resume-bindings-facade';
+import { createPlaylistResumeSupport } from './bootstrap/playlist-resume-support';
 import { createPlaylistSessionFacade } from './bootstrap/playlist-session-facade';
+import { createPlaylistSessionSupport } from './bootstrap/playlist-session-support';
 import { canUseAmbientReorderMode } from './bootstrap/playlist-capabilities';
 import { initializePlaylistSession } from './bootstrap/playlist-session-init';
 import { createAmbientRuntimeSupportFacade } from './bootstrap/ambient-runtime-support-facade';
+import { createNoticeSupport } from './bootstrap/notice-support';
+import { createDebugSupport } from './bootstrap/debug-support';
 import {
   getAmbientNoMediaImagePath,
-  isAmbientDarkModeEnabled,
 } from './bootstrap/display-runtime';
 import { createAppBootController } from './bootstrap/app-boot';
+import { createAppBootSupport } from './bootstrap/app-boot-support';
 import { initializePlaylistUiRuntime } from './bootstrap/playlist-ui-runtime-init';
 import { createPlaylistUiRuntimeFacade } from './bootstrap/playlist-ui-runtime-facade';
 import { createPlaylistRuntimeViewHelpers } from './bootstrap/playlist-runtime-view-helpers';
+import { createPlaylistRuntimeViewSupport } from './bootstrap/playlist-runtime-view-support';
+import { createPlaylistRuntimeSupport } from './bootstrap/playlist-runtime-support';
 import { createPlaylistRuntimeWiringFacade } from './bootstrap/playlist-runtime-wiring-facade';
 import { initializePlaylistRuntimeWiring } from './bootstrap/playlist-runtime-wiring-init';
 import { createPlaylistStartupRuntimeFacade } from './bootstrap/playlist-startup-runtime-facade';
+import { createPlaylistStartupSupport } from './bootstrap/playlist-startup-support';
 import { initializePlaylistStartupRuntime } from './bootstrap/playlist-startup-runtime-init';
 import { initializeViewportLifecycleRuntime } from './bootstrap/viewport-lifecycle-runtime-init';
 import { createViewportRuntimeWiringFacade } from './bootstrap/viewport-runtime-wiring-facade';
@@ -183,24 +200,25 @@ const init = function (): void {
   const getLocalizedMessage = getRuntimeLocalizedMessage;
   const BOOT_SPLASH_MIN_VISIBLE_MS = isE2EMode ? 0 : 2400;
   const BOOT_SPLASH_FADE_MS = 220;
+  const appBootSupport = createAppBootSupport({
+    onViewportReady: () => {
+      viewportRuntime.syncMetrics();
+      viewportRuntime.updateWindowSize();
+    },
+  });
   const appBoot = createAppBootController({
     body: document.body,
     splash: document.getElementById('app-boot-splash'),
     minVisibleMs: BOOT_SPLASH_MIN_VISIBLE_MS,
     fadeMs: BOOT_SPLASH_FADE_MS,
-    onReady: () => {
-      viewportRuntime.syncMetrics();
-      viewportRuntime.updateWindowSize();
-    },
+    onReady: appBootSupport.onReady,
   });
 
   appBoot.setBootState('pending');
   appBoot.setPlaylistReadyState(false);
 
   // Fail-safe: never leave the UI hidden even if initialization errors occur.
-  window.setTimeout(() => {
-    appBoot.forceRelease();
-  }, 3500);
+  appBootSupport.scheduleFailSafeRelease(appBoot);
 
   // Window sizes container
   const currentWindowSize: WindowSize = {
@@ -209,17 +227,20 @@ const init = function (): void {
     minFullUIWidth: 1282, // = 320 + 1 + 640 + 1 + 320
   };
 
-  let player: YTPlayer | undefined;
+  const playerRef: { current: YTPlayer | undefined } = { current: undefined };
+  const playerStateSupport = createPlayerStateSupport({
+    playerRef,
+  });
 
   const playbackTimers = createPlaybackTimerController();
   let noticeController: NoticeController | null = null;
-  const updateNoticeController = (notification: NotificationPayload): void => {
-    noticeController?.update(notification);
-  };
+  const noticeSupport = createNoticeSupport({
+    getNoticeController: () => noticeController,
+  });
   const runtimeSupport = createAmbientRuntimeSupportFacade({
     status: AMP_STATUS,
     playbackTimers,
-    updateNotice: updateNoticeController,
+    updateNotice: noticeSupport.updateNoticeController,
   });
   const {
     syncYouTubeSignalAttrs,
@@ -252,15 +273,32 @@ const init = function (): void {
   ): Exclude<PlaylistOptions[K], undefined> | null {
     return readPlaylistOption<PlaylistOptions, K>(AMP_STATUS, key, MYPLAYLIST_NAME);
   }
+  const volumeOptionSupport = createVolumeOptionSupport({
+    getVolumeOption: () => getOption('volume'),
+  });
+  const ambientPlaylistSupport = createAmbientPlaylistSupport({
+    sanitizeMediaText: (value, maxLength) => sharedSanitizeMediaText(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
+    sanitizeMediaDesc: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => sharedSanitizeMediaDesc(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
+  });
   const playlistHelpers = createAmbientPlaylistHelpersFacade({
     status: AMP_STATUS,
     buildPlaylistJson,
-    sanitizeText: (value, maxLength) => sharedSanitizeMediaText(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
-    sanitizeDesc: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => {
-      return sharedSanitizeMediaDesc(value, maxLength, DISALLOWED_CONTROL_CHARS_RE);
-    },
+    sanitizeText: ambientPlaylistSupport.sanitizeText,
+    sanitizeDesc: ambientPlaylistSupport.sanitizeDesc,
   });
   const { generatePlaylistJson, sanitizeMediaText, sanitizeMediaDesc } = playlistHelpers;
+  let playlistUiBindings: ReturnType<typeof initializePlaylistUiRuntime> | null = null;
+  const playlistUiFacade = createPlaylistUiFacade(() => playlistUiBindings);
+  const playerActionSupport = createPlayerActionSupport();
+  const playlistEnvironmentSupport = createPlaylistEnvironmentSupport({
+    hasStoredMyPlaylist,
+    isCloudMode: () => getRuntimeAmbientData()?.isCloud === true,
+  });
+  const playlistResumeSupport = createPlaylistResumeSupport({
+    status: AMP_STATUS,
+    getPlaylistUiFacade: () => playlistUiFacade,
+    updatePlayStatus: playerActionSupport.updatePlayStatus,
+  });
 
   const {
     getSavedPlaylistContext,
@@ -276,18 +314,14 @@ const init = function (): void {
     sanitizeMediaText,
     titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
     artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
-    hasStoredMyPlaylist: () => localStorage.getItem(MYPLAYLIST_KEY) !== null,
-    isCloudMode: () => getRuntimeAmbientData()?.isCloud === true,
+    hasStoredMyPlaylist: playlistEnvironmentSupport.hasStoredMyPlaylist,
+    isCloudMode: playlistEnvironmentSupport.isCloudMode,
     myPlaylistName: MYPLAYLIST_NAME,
     hasPlaylist: platformHasPlaylist,
-    onCategoryResumeApplied: (nextCategoryId) => {
-      AMP_STATUS.ctg = nextCategoryId;
-      playlistUiFacade.syncTargetCategorySelection();
-    },
-    onMediaResumeApplied: (resumeAmId) => {
-      updatePlayStatus(resumeAmId);
-    },
+    onCategoryResumeApplied: playlistResumeSupport.onCategoryResumeApplied,
+    onMediaResumeApplied: playlistResumeSupport.onMediaResumeApplied,
   }));
+  const debugSupport = createDebugSupport();
 
   // DOM Elements
   const $BODY = document.body;
@@ -382,20 +416,11 @@ const init = function (): void {
     myPlaylistName: MYPLAYLIST_NAME,
     getRuntimeAmbientData,
     applyCloudEditRestrictions,
-    setPlaylistReadyState: (isReady) => {
-      appBoot.setPlaylistReadyState(isReady);
-    },
-    clearCategory: () => {
-      playlistUiFacade.clearCategory();
-    },
-    updatePlaylist: () => {
-      playlistUiFacade.updatePlaylist();
-    },
-    generatePlaylistJson: (seekFormat) => buildPlaylistJson({
-      mediaItems: AMP_STATUS.media || [],
-      categories: AMP_STATUS.category || [],
-      playlistOptions: AMP_STATUS.options,
-      seekFormat,
+    ...createPlaylistSessionSupport({
+      status: AMP_STATUS,
+      appBoot,
+      getPlaylistUiFacade: () => playlistUiFacade,
+      buildPlaylistJson,
     }),
     writeMyPlaylistJson,
     logger: runtimeLogger,
@@ -415,7 +440,7 @@ const init = function (): void {
     mediaCaption: $MEDIA_CAPTION,
     status: AMP_STATUS,
     persistMyPlaylistIfNeeded,
-    getPlayer: () => player,
+    getPlayer: playerStateSupport.getPlayer,
   }));
 
   const playlistDescModal = createPlaylistDescModalFacade({
@@ -431,30 +456,20 @@ const init = function (): void {
       desc: (value: string) => sanitizeMediaDesc(value, MEDIA_DESC_MAX_LENGTH),
     },
   });
+  const optionsModalHelpers = createOptionsModalHelpers({
+    document,
+    currentWindowSize,
+    drawerPlaylist: $DRAWER_PLAYLIST,
+    drawerSettings: $DRAWER_SETTINGS,
+  });
   const optionsModal = createOptionsModalFacade({
     options: {
       elements: {
         modal: $MODAL_OPTIONS,
         panel: $MODAL_OPTIONS_PANEL,
       },
-    getLayout: () => ({
-      width: currentWindowSize.width,
-      minFullUIWidth: currentWindowSize.minFullUIWidth,
-    }),
-      beforeShow: () => {
-        if (
-          currentWindowSize.width < currentWindowSize.minFullUIWidth &&
-          isResponsiveDrawerOpen($DRAWER_PLAYLIST, '-translate-x-full')
-        ) {
-          (document.getElementById('btn-close-playlist') as HTMLButtonElement | null)?.click();
-        }
-        if (
-          currentWindowSize.width < currentWindowSize.minFullUIWidth &&
-          isResponsiveDrawerOpen($DRAWER_SETTINGS, 'translate-x-full')
-        ) {
-          (document.getElementById('btn-close-settings') as HTMLButtonElement | null)?.click();
-        }
-      },
+      getLayout: optionsModalHelpers.getLayout,
+      beforeShow: optionsModalHelpers.beforeShow,
     },
   });
   const MEDIA_EDIT_DRAFT_STORAGE_KEY = 'ambient:media-edit-drafts:v2.5.0';
@@ -468,6 +483,15 @@ const init = function (): void {
   const MEDIA_EDIT_SAVE_ENDPOINT = 'playlist-save';
   const MEDIA_EDIT_THUMBNAIL_ENDPOINT = 'thumbnail';
   const mediaEditPlaylistHelpers = createMediaEditPlaylistHelpers(() => playlistUiFacade);
+  const playlistModeMenuSupport = createPlaylistModeMenuSupport();
+  const mediaEditRuntimeSupport = createMediaEditRuntimeSupport({
+    status: AMP_STATUS,
+    getOption: (key) => getOption(key as Extract<keyof PlaylistOptions, string>),
+    persistCloudPlaylist: persistMyPlaylistIfNeeded,
+    generatePlaylistJson: (pretty = false) => generatePlaylistJson(pretty),
+    updatePlayStatus: playerActionSupport.updatePlayStatus,
+    confirm: (message) => window.confirm(message),
+  });
   const mediaEditRuntime = initializeMediaEditRuntimeWiring(createMediaEditRuntimeWiringFacade({
     elements: mediaEditElements,
     status: AMP_STATUS,
@@ -475,11 +499,9 @@ const init = function (): void {
     playlistListElement: $LIST_PLAYLIST,
     playButton: $BUTTON_PLAY,
     pauseButton: $BUTTON_PAUSE,
-    youtubePlayer: player || null,
+    youtubePlayer: (playerStateSupport.getPlayer() as YTPlayer | undefined) ?? null,
     playlistMode: () => playlistMode,
-    closePlaylistModeMenu: () => {
-      closePlaylistModeMenu();
-    },
+    closePlaylistModeMenu: playlistModeMenuSupport.closePlaylistModeMenu,
     defaultVolume: DEFAULT_VOLUME,
     mediaTitleMaxLength: MEDIA_TITLE_MAX_LENGTH,
     mediaArtistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
@@ -493,20 +515,18 @@ const init = function (): void {
     thumbnailEndpoint: MEDIA_EDIT_THUMBNAIL_ENDPOINT,
     getLocalizedMessage,
     updateNotice,
-    getOption: (key) => getOption(key as Extract<keyof PlaylistOptions, string>),
+    getOption: mediaEditRuntimeSupport.getOption,
     sanitizeMediaText: sanitizeMediaText,
-    persistCloudPlaylist: persistMyPlaylistIfNeeded,
-    generatePlaylistJson: (pretty = false) => generatePlaylistJson(pretty),
-    updatePlayStatus: (amId) => {
-      updatePlayStatus(amId);
-    },
-    getMediaCategoryName: (mediaItem) => getMediaCategoryNameState(mediaItem, AMP_STATUS.category),
+    persistCloudPlaylist: mediaEditRuntimeSupport.persistCloudPlaylist,
+    generatePlaylistJson: mediaEditRuntimeSupport.generatePlaylistJson,
+    updatePlayStatus: mediaEditRuntimeSupport.updatePlayStatus,
+    getMediaCategoryName: mediaEditRuntimeSupport.getMediaCategoryName,
     clearCategory: mediaEditPlaylistHelpers.clearCategory,
     updateCategory: mediaEditPlaylistHelpers.updateCategory,
     syncMediaCategoryField: mediaEditPlaylistHelpers.syncMediaCategoryField,
     getActiveCategoryId: mediaEditPlaylistHelpers.getActiveCategoryId,
     updatePlaylist: mediaEditPlaylistHelpers.updatePlaylist,
-    confirm: (message) => window.confirm(message),
+    confirm: mediaEditRuntimeSupport.confirm,
   }));
   const mediaEditFacade = createMediaEditRuntimeFacade(mediaEditRuntime);
 
@@ -527,8 +547,37 @@ const init = function (): void {
   };
 
   let deleteSelectedIds = new Set<number>();
-  let playlistUiBindings: ReturnType<typeof initializePlaylistUiRuntime> | null = null;
-  const playlistUiFacade = createPlaylistUiFacade(() => playlistUiBindings);
+  const playlistModeStateSupport = createPlaylistModeStateSupport({
+    getPlaylistMode: () => playlistMode,
+    setPlaylistMode: (mode) => {
+      playlistMode = mode;
+    },
+    getDeleteSelectedIds: () => deleteSelectedIds,
+    clearDeleteSelections: () => {
+      deleteSelectedIds.clear();
+    },
+  });
+  const playlistLoadSupport = createPlaylistLoadSupport();
+  const mediaManagementActionBridge = createMediaManagementActionBridge();
+  const playlistRuntimeSupport = createPlaylistRuntimeSupport({
+    status: AMP_STATUS,
+    appBoot,
+    getPlaylistUiFacade: () => playlistUiFacade,
+    buildPlaylistJson,
+    getPlaylistMode: playlistModeStateSupport.getPlaylistMode,
+    setPlaylistMode: playlistModeStateSupport.setPlaylistMode,
+    getDeleteSelectedIds: playlistModeStateSupport.getDeleteSelectedIds,
+    clearDeleteSelections: playlistModeStateSupport.clearDeleteSelections,
+    mediaEdit: {
+      discardDraft: mediaEditFacade.discardDraft,
+      hideModal: mediaEditFacade.hideModal,
+      clearContext: mediaEditFacade.clearContext,
+      persistCurrentPlaylist: mediaEditFacade.persistCurrentPlaylist,
+      getActiveItem: mediaEditFacade.getActiveItem,
+    },
+    playlistDescModal,
+    mediaManagementActionBridge,
+  });
 
   const {
     closePlaylistModeMenu,
@@ -545,48 +594,34 @@ const init = function (): void {
     defaultPlaylistModeButtonIcon,
     defaultPlaylistModeButtonLabel,
     listElement: $LIST_PLAYLIST,
-    getPlaylistMode: () => playlistMode,
-    setPlaylistModeState: (mode) => {
-      playlistMode = mode;
-    },
-    getCategoryId: () => AMP_STATUS.ctg,
-    getMediaItems: () => AMP_STATUS.media,
-    getPlaylistName: () => AMP_STATUS.playlist,
-    setMediaItems: (mediaItems) => {
-      AMP_STATUS.media = mediaItems;
-    },
+    getPlaylistMode: playlistRuntimeSupport.getPlaylistMode,
+    setPlaylistModeState: playlistRuntimeSupport.setPlaylistMode,
+    getCategoryId: playlistRuntimeSupport.getCategoryId,
+    getMediaItems: playlistRuntimeSupport.getMediaItems,
+    getPlaylistName: playlistRuntimeSupport.getPlaylistName,
+    setMediaItems: playlistRuntimeSupport.setMediaItems,
     canMutateCurrentPlaylist,
     myPlaylistName: MYPLAYLIST_NAME,
-    hasStoredMyPlaylist: () => localStorage.getItem(MYPLAYLIST_KEY) !== null,
-    getDeleteSelectedIds: () => deleteSelectedIds,
-    clearDeleteSelections: () => {
-      deleteSelectedIds.clear();
-    },
+    hasStoredMyPlaylist: playlistEnvironmentSupport.hasStoredMyPlaylist,
+    getDeleteSelectedIds: playlistRuntimeSupport.getDeleteSelectedIds,
+    clearDeleteSelections: playlistRuntimeSupport.clearDeleteSelections,
     canDiscardEditLeave: mediaEditFacade.confirmDiscard,
-    discardEditState: () => {
-      mediaEditFacade.discardDraft();
-      mediaEditFacade.hideModal(false);
-      mediaEditFacade.clearContext();
-    },
-    updatePlaylist: () => {
-      playlistUiFacade.updatePlaylist();
-    },
-    persistCurrentPlaylistMutation: async () => mediaEditFacade.persistCurrentPlaylist(AMP_STATUS.media || []),
+    discardEditState: playlistRuntimeSupport.discardEditState,
+    updatePlaylist: playlistRuntimeSupport.updatePlaylist,
+    persistCurrentPlaylistMutation: playlistRuntimeSupport.persistCurrentPlaylistMutation,
     updateNotice,
     getLocalizedMessage,
   }));
+  playlistModeMenuSupport.setClosePlaylistModeMenu(closePlaylistModeMenu);
 
-  const mediaManagementActionBridge = createMediaManagementActionBridge();
   playlistUiBindings = initializePlaylistUiRuntime(createPlaylistUiRuntimeFacade({
     document,
     status: AMP_STATUS,
     getOption: (key) => getOption(key as Extract<keyof PlaylistOptions, string>),
     playlistMode: playlistMode,
-    setPlaylistMode: (mode) => {
-      playlistMode = mode;
-    },
+    setPlaylistMode: playlistRuntimeSupport.setPlaylistMode,
     deleteSelectedIds,
-    getEditSelectedId: () => mediaEditFacade.getActiveItem()?.amId ?? null,
+    getEditSelectedId: playlistRuntimeSupport.getEditSelectedId,
     playlistList: $LIST_PLAYLIST,
     targetCategorySelect: isElement($SELECT_CATEGORY) ? $SELECT_CATEGORY : null,
     mediaCategorySelect: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
@@ -598,35 +633,36 @@ const init = function (): void {
     canMutateCurrentPlaylist,
     ambientData: (window as any).AmbientData as { imageDir?: string; debug?: boolean } | null,
     getNoMediaImagePath: (kind) => getAmbientNoMediaImagePath(AMP_STATUS.options, kind),
-    openMediaManagement: (presetCategoryId) => {
-      mediaManagementActionBridge.open(presetCategoryId);
-    },
+    openMediaManagement: playlistRuntimeSupport.openMediaManagement,
     trimTitle: (value: string) => mb_strimwidth(value, 0, 50, '...'),
     destroyPlaylistSortable,
-    closePlaylistDescModal: () => {
-      playlistDescModal.close(false);
-    },
+    closePlaylistDescModal: playlistRuntimeSupport.closePlaylistDescModal,
     syncPlaylistModeAvailability,
     closePlaylistModeMenu,
-    setPlaylistReadyState: (isReady) => {
-      appBoot.setPlaylistReadyState(isReady);
-    },
+    setPlaylistReadyState: playlistRuntimeSupport.setPlaylistReadyState,
     resetReorderState,
     updatePlaylistModeUi: updatePlaylistModeUI,
     ensurePlaylistSortable,
-    execDebug,
+    execDebug: debugSupport.execDebug,
     logger,
     applyCloudEditRestrictions,
-    onShuffleItemsChanged: (items) => {
-      AMP_STATUS.shuffle = items;
-    },
+    onShuffleItemsChanged: playlistRuntimeSupport.onShuffleItemsChanged,
   }));
+  const statusWatcherViewSupport = createStatusWatcherViewSupport({
+    status: AMP_STATUS,
+  });
   const statusWatcherViewHelpers = createStatusWatcherViewHelpers({
     playlistList: $LIST_PLAYLIST,
-    getCurrentMediaId: () => AMP_STATUS.current,
+    getCurrentMediaId: statusWatcherViewSupport.getCurrentMediaId,
     playButton: $BUTTON_PLAY,
     pauseButton: $BUTTON_PAUSE,
-    hasMediaItems: () => AMP_STATUS.media !== null && AMP_STATUS.media.length > 0,
+    hasMediaItems: statusWatcherViewSupport.hasMediaItems,
+  });
+  const statusWatcherSupport = createStatusWatcherSupport({
+    body: $BODY,
+    getOption: (key) => getOption(key),
+    getPlaylistUiFacade: () => playlistUiFacade,
+    viewportRuntime,
   });
 
   const statusWatcherFacade = createStatusWatcherFacade({
@@ -659,18 +695,14 @@ const init = function (): void {
     mediaVolumeInput: $MEDIA_VOLUME,
     defaultVolume: DEFAULT_VOLUME,
     getOption: (key) => getOption(key),
-    updatePlaylistCategory: () => {
-      playlistUiFacade.updateCategory();
-    },
+    updatePlaylistCategory: statusWatcherSupport.updatePlaylistCategory,
     updateNotice,
     syncPlaylistCurrentFocus: statusWatcherViewHelpers.syncPlaylistCurrentFocus,
     scrollPlaylistToCurrentFocus: statusWatcherViewHelpers.scrollPlaylistToCurrentFocus,
     syncPlaybackButtons: statusWatcherViewHelpers.syncPlaybackButtons,
     syncYouTubeSignalAttrs,
     setStyles,
-    setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
-      viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
-    },
+    setFullWindowMode: statusWatcherSupport.setFullWindowMode,
   });
   initializeStatusWatcherRuntime(createStatusWatcherRuntimeFacade(statusWatcherFacade));
   const optionsSurfacePlaylistHelpers = createOptionsSurfacePlaylistHelpers(playlistUiFacade);
@@ -696,7 +728,7 @@ const init = function (): void {
     mediaVolumeInput: $MEDIA_VOLUME,
     playlistList: $LIST_PLAYLIST,
     defaultVolume: DEFAULT_VOLUME,
-    getVolumeOption: () => getOption('volume'),
+    getVolumeOption: volumeOptionSupport.getVolumeOption,
     getActiveCategoryId: optionsSurfacePlaylistHelpers.getActiveCategoryId,
     clearCategory: optionsSurfacePlaylistHelpers.clearCategory,
     updateCategory: optionsSurfacePlaylistHelpers.updateCategory,
@@ -708,60 +740,64 @@ const init = function (): void {
   const hideOptionsModal = optionsModalBindings.hideOptionsModal;
   const openMediaManagement = optionsModalBindings.openMediaManagement;
   mediaManagementActionBridge.setOpenAction(openMediaManagement);
-  const appControlsPlaylistHelpers = createAppControlsPlaylistHelpers({
-    getPlaylistMode: () => playlistMode,
-    clearDeleteSelections: () => {
-      deleteSelectedIds.clear();
+  const appSettingsSupport = createAppSettingsSupport({
+    status: AMP_STATUS,
+    defaultVolume: DEFAULT_VOLUME,
+    persistMyPlaylistIfNeeded,
+    normalizeVolume: normalizeAmbientVolume,
+    syncRangeProgress: syncAmbientRangeProgress,
+  });
+  const appSettingsHelpers = createAppSettingsHelpers({
+    shufflePlaylist: appSettingsSupport.shufflePlaylist,
+    persistMyPlaylistIfNeeded: appSettingsSupport.persistMyPlaylistIfNeeded,
+    normalizeVolume: appSettingsSupport.normalizeVolume,
+    syncRangeProgress: appSettingsSupport.syncRangeProgress,
+    isDarkModeEnabled: appSettingsSupport.isDarkModeEnabled,
+  });
+  const appControlsSupport = createAppControlsSupport({
+    getPlaylistMode: playlistModeStateSupport.getPlaylistMode,
+    clearDeleteSelections: playlistModeStateSupport.clearDeleteSelections,
+    getPlaylistUiFacade: () => playlistUiFacade,
+    playlistDescModal,
+    loadPlaylist: playlistLoadSupport.loadPlaylist,
+    mediaEdit: {
+      confirmDiscard: mediaEditFacade.confirmDiscard,
+      hideModal: mediaEditFacade.hideModal,
     },
+    setPlaylistMode: playlistModeStateSupport.setPlaylistMode,
+    playItem: playerActionSupport.playItem,
+    statusWatcherSupport,
+    viewportRuntime,
+    getPlayer: () => playerStateSupport.getPlayer() as {
+      getPlayerState(): number;
+      playVideo(): void;
+      pauseVideo(): void;
+      stopVideo(): void;
+    } | null | undefined,
+  });
+  const appControlsPlaylistHelpers = createAppControlsPlaylistHelpers({
+    getPlaylistMode: playlistModeStateSupport.getPlaylistMode,
+    clearDeleteSelections: playlistModeStateSupport.clearDeleteSelections,
     resetReorderState,
     clearMediaEditContext: mediaEditFacade.clearContext,
     updatePlaylistModeUi: updatePlaylistModeUI,
-    updatePlaylist: () => {
-      playlistUiFacade.updatePlaylist();
-    },
+    updatePlaylist: appControlsSupport.updatePlaylist,
     isPlaylistInteractionLocked,
-    openDescriptionModal: (payload) => {
-      playlistDescModal.open(payload.titleText, payload.artistText, payload.descText, payload.trigger);
-    },
+    openDescriptionModal: appControlsSupport.openDescriptionModal,
     getDescriptionPayload: getPlaylistDescriptionPayload,
     openMediaEditModal: mediaEditFacade.openModal,
-    loadPlaylist: (playlist) => {
-      void getPlaylistData(playlist);
-    },
-    canDiscardEditMode: () => mediaEditFacade.confirmDiscard(),
-    hideMediaEditModal: () => {
-      mediaEditFacade.hideModal(false);
-    },
-    resetPlaylistMode: () => {
-      playlistMode = 'normal';
-    },
-  });
-  const appSettingsHelpers = createAppSettingsHelpers({
-    shufflePlaylist: () => createShuffledPlaylistItems({
-      mediaItems: AMP_STATUS.media,
-      categoryId: AMP_STATUS.ctg,
-      shuffleEnabled: true,
-    }),
-    persistMyPlaylistIfNeeded,
-    normalizeVolume: (value) => normalizeAmbientVolume(value, DEFAULT_VOLUME),
-    syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
-    isDarkModeEnabled: () => isAmbientDarkModeEnabled({ playlistOptions: AMP_STATUS.options }),
+    loadPlaylist: appControlsSupport.loadPlaylist,
+    canDiscardEditMode: appControlsSupport.canDiscardEditMode,
+    hideMediaEditModal: appControlsSupport.hideMediaEditModal,
+    resetPlaylistMode: appControlsSupport.resetPlaylistMode,
   });
   const appControlsPlayerHelpers = createAppControlsPlayerHelpers({
-    playItem: (target) => {
-      playItem(target);
-    },
-    playItemById: (playId) => {
-      playItem(null, playId);
-    },
-    isFullWindowMode: () => isFullWindowModeView($BODY),
-    setFullWindowMode: (enabled, syncOption = true, closeDrawers = false) => {
-      viewportRuntime.setFullWindowMode(enabled, syncOption, closeDrawers);
-    },
-    setMenuMinimized: (minimized) => {
-      viewportRuntime.setMenuMinimized(minimized);
-    },
-    getPlayer: () => player,
+    playItem: appControlsSupport.playItem,
+    playItemById: appControlsSupport.playItemById,
+    isFullWindowMode: appControlsSupport.isFullWindowMode,
+    setFullWindowMode: appControlsSupport.setFullWindowMode,
+    setMenuMinimized: appControlsSupport.setMenuMinimized,
+    getPlayer: appControlsSupport.getPlayer,
   });
 
   // ============================================================================
@@ -853,25 +889,28 @@ const init = function (): void {
     logger,
   });
   initializeAppControlsRuntime(appControlsRuntimeFacade);
+  const playlistRuntimeViewSupport = createPlaylistRuntimeViewSupport({
+    status: AMP_STATUS,
+    appBoot,
+  });
   const playlistRuntimeViewHelpers = createPlaylistRuntimeViewHelpers({
     playlistUiFacade,
-    getMediaItems: () => AMP_STATUS.media,
-    getCategoryId: () => AMP_STATUS.ctg,
-    setPlaylistReadyState: (isReady) => {
-      appBoot.setPlaylistReadyState(isReady);
-    },
-    releaseAppBootGate: () => {
-      appBoot.release();
-    },
+    getMediaItems: playlistRuntimeViewSupport.getMediaItems,
+    getCategoryId: playlistRuntimeViewSupport.getCategoryId,
+    setPlaylistReadyState: playlistRuntimeViewSupport.setPlaylistReadyState,
+    releaseAppBootGate: playlistRuntimeViewSupport.releaseAppBootGate,
   });
   const playerRuntimeHelpers = createPlayerRuntimeHelpers({
     isSeekActive: () => playbackTimers.isSeekActive(),
     startSeek: (callback, intervalMs) => playbackTimers.startSeek(callback, intervalMs),
     startFader: (type, callback, intervalMs) => playbackTimers.startFader(type, callback, intervalMs),
     resolvePlayingState: () => (window as any).YT.PlayerState.PLAYING,
-    setPlayer: (nextPlayer) => {
-      player = nextPlayer;
-    },
+    setPlayer: playerStateSupport.setPlayer,
+  });
+  const playerRuntimeSupport = createPlayerRuntimeSupport({
+    sanitizeMediaText,
+    mediaTitleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+    mediaArtistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
   });
 
   const { updatePlayStatus, playItem } = initializeAmbientPlayerRuntimeWiring(createPlayerRuntimeWiringFacade({
@@ -903,11 +942,13 @@ const init = function (): void {
     startSeek: playerRuntimeHelpers.startSeek,
     startFader: playerRuntimeHelpers.startFader,
     emitYouTubeSignal,
-    sanitizeTitle: (value: string) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
-    sanitizeArtist: (value: string) => sanitizeMediaText(value, MEDIA_ARTIST_MAX_LENGTH),
+    sanitizeTitle: playerRuntimeSupport.sanitizeTitle,
+    sanitizeArtist: playerRuntimeSupport.sanitizeArtist,
     resolvePlayingState: playerRuntimeHelpers.resolvePlayingState,
     setPlayer: playerRuntimeHelpers.setPlayer,
   }));
+  playerActionSupport.setUpdatePlayStatus(updatePlayStatus);
+  playerActionSupport.setPlayItem(playItem);
 
   const {
     ensureMyPlaylistOptionFromStorage,
@@ -942,6 +983,7 @@ const init = function (): void {
     fetchData,
     baseUrl: BASE_URL,
   }));
+  playlistLoadSupport.setLoadPlaylist(getPlaylistData);
 
   // Process global data passed by the system.
   // In cloud mode: load MyPlaylist from localStorage before processing server data.
@@ -949,9 +991,12 @@ const init = function (): void {
   const savedPlaylistContext = getSavedPlaylistContext();
   domainEnsureCloudMyPlaylistSeed(logger);
   ensureMyPlaylistOptionFromStorage();
+  const playlistStartupSupport = createPlaylistStartupSupport({
+    appBoot,
+  });
   const playlistStartupRuntimeFacade = createPlaylistStartupRuntimeFacade({
     ambientData: ((window as any).AmbientData as AmbientData | undefined) ?? null,
-    hasStoredMyPlaylist: localStorage.getItem(MYPLAYLIST_KEY) !== null,
+    hasStoredMyPlaylist: playlistEnvironmentSupport.hasStoredMyPlaylist(),
     isPlaylistAvailableForResume,
     myPlaylistName: MYPLAYLIST_NAME,
     savedPlaylistContext,
@@ -960,12 +1005,8 @@ const init = function (): void {
     selectElement: isElement($SELECT_PLAYLIST) ? $SELECT_PLAYLIST : null,
     loadPlaylist: getPlaylistData,
     initMyPlaylistFromStorage,
-    setPlaylistReadyState: (isReady) => {
-      appBoot.setPlaylistReadyState(isReady);
-    },
-    releaseAppBoot: () => {
-      appBoot.release();
-    },
+    setPlaylistReadyState: playlistStartupSupport.setPlaylistReadyState,
+    releaseAppBoot: playlistStartupSupport.releaseAppBoot,
   });
   const { activateImportedPlaylist } = initializePlaylistStartupRuntime(playlistStartupRuntimeFacade);
 
@@ -997,10 +1038,35 @@ const init = function (): void {
       seekFormat,
     }),
   });
+  const managementRuntimeSupport = createManagementRuntimeSupport({
+    fetchData,
+    logger: runtimeLogger,
+    baseUrl: BASE_URL,
+    status: AMP_STATUS,
+    selectPlaylist: $SELECT_PLAYLIST,
+    myPlaylistName: MYPLAYLIST_NAME,
+    document,
+    sanitizeAndNormalizeImportPlaylist: createManagementImportSanitizeSupport({
+      sanitizeAndNormalizeImportPlaylist: sanitizeAndNormalizeImportPlaylistDomain,
+      sanitizeText: sanitizeMediaText,
+      sanitizeDesc: sanitizeMediaDesc,
+      titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+      artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+      descMaxLength: MEDIA_DESC_MAX_LENGTH,
+    }).sanitizeAndNormalizeImportPlaylist,
+    sanitizeText: sanitizeMediaText,
+    sanitizeDesc: sanitizeMediaDesc,
+    titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
+    artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
+    descMaxLength: MEDIA_DESC_MAX_LENGTH,
+    postImportedPlaylist,
+    inArray: sharedInArray,
+    isVolumeInRange: sharedInRange,
+  });
   const managementImportFacade = createManagementImportFacade({
     document,
     baseUrl: BASE_URL,
-    fetchData: async (url) => fetchData(url),
+    fetchData: managementRuntimeSupport.fetchRelativeFilepathData,
     getRuntimeAmbientData,
     isLikelyJsonFile: sharedIsLikelyJsonFile,
     getLocalizedMessage: getRuntimeLocalizedMessage,
@@ -1008,26 +1074,12 @@ const init = function (): void {
     cloudImportSizeLimitBytes: CLOUD_IMPORT_SIZE_LIMIT_BYTES,
     parseImportedPlaylistJson,
     validatePlaylistSchemaContract: validatePlaylistSchemaContractDomain,
-    sanitizeAndNormalizeImportPlaylist: (source, stripPlaylistTemplate) => {
-      return sanitizeAndNormalizeImportPlaylistDomain({
-        source,
-        stripPlaylistTemplate,
-        sanitizeText: sanitizeMediaText,
-        sanitizeDesc: sanitizeMediaDesc,
-        titleMaxLength: MEDIA_TITLE_MAX_LENGTH,
-        artistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
-        descMaxLength: MEDIA_DESC_MAX_LENGTH,
-      });
-    },
+    sanitizeAndNormalizeImportPlaylist: managementRuntimeSupport.sanitizeImportedPlaylist,
     persistImportedCloudPlaylist,
     ensureMyPlaylistOptionFromStorage,
     activateImportedPlaylist,
     myPlaylistName: MYPLAYLIST_NAME,
-    postImportedPlaylist: async (baseUrl, filename, playlist) => postImportedPlaylist({
-      baseUrl,
-      filename,
-      playlist,
-    }),
+    postImportedPlaylist: managementRuntimeSupport.postImportedPlaylist,
     resolveImportedPlaylistPersistResult,
     isObject: sharedIsObject,
     sanitizeText: sanitizeMediaText,
@@ -1043,30 +1095,38 @@ const init = function (): void {
     applyCloudEditRestrictions,
     setValidated,
     updateNotice,
-    fetchData: async (endpointURL: string, method?: string, payload?: Record<string, string>) => {
-      return fetchData(endpointURL, method, payload, 'json', 15000, runtimeLogger);
-    },
-    inArray: (contains: unknown | unknown[], targetArray: unknown[], atLeastOne = false) => {
-      return sharedInArray(contains, targetArray as any[], atLeastOne);
-    },
+    fetchData: managementRuntimeSupport.fetchPlaylistBindingData,
+    inArray: managementRuntimeSupport.inArray,
     snakeToCapital: sharedSnakeToCapital,
     logger: runtimeLogger,
     isLikelyJsonFile: sharedIsLikelyJsonFile,
     getBaseUrl: () => BASE_URL,
   });
+  const managementPlaylistStateSupport = createManagementPlaylistStateSupport({
+    status: AMP_STATUS,
+  });
   const managementPlaylistUiHelpers = createManagementPlaylistUiHelpers({
     playlistUiFacade,
-    getCurrentMediaId: () => AMP_STATUS.current,
-    getFirstMediaId: () => ((AMP_STATUS.media || [])[0]?.amId ?? null),
+    getCurrentMediaId: managementPlaylistStateSupport.getCurrentMediaId,
+    getFirstMediaId: managementPlaylistStateSupport.getFirstMediaId,
     updatePlayStatus,
+  });
+  const managementMediaSupport = createManagementMediaSupport({
+    defaultVolume: DEFAULT_VOLUME,
+    getVolumeOption: volumeOptionSupport.getVolumeOption,
+    normalizeVolume: normalizeAmbientVolume,
+    sanitizeMediaTextInput: (value, maxLength) => sharedSanitizeMediaTextInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
+    sanitizeMediaDescInput: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => sharedSanitizeMediaDescInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
+    sanitizeMediaDescInputLive: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => sharedSanitizeMediaDescInputLive(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
+    syncRangeProgress: syncAmbientRangeProgress,
   });
   const managementMediaBindingsFacade = createManagementMediaBindingsFacade({
     mediaCategorySelect: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
     mediaTitleMaxLength: MEDIA_TITLE_MAX_LENGTH,
     mediaArtistMaxLength: MEDIA_ARTIST_MAX_LENGTH,
     mediaDescMaxLength: MEDIA_DESC_MAX_LENGTH,
-    getDefaultVolume: () => resolveAmbientDefaultVolume(getOption('volume'), DEFAULT_VOLUME),
-    normalizeVolume: (value, fallback = DEFAULT_VOLUME) => normalizeAmbientVolume(value, fallback),
+    getDefaultVolume: managementMediaSupport.getDefaultVolume,
+    normalizeVolume: managementMediaSupport.normalizeVolume,
     canMutateCurrentPlaylist,
     applyCloudEditRestrictions,
     updateNotice,
@@ -1079,12 +1139,12 @@ const init = function (): void {
     hideOptionsModal,
     setValidated,
     sanitizeMediaText,
-    sanitizeMediaTextInput: (value, maxLength) => sharedSanitizeMediaTextInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
-    sanitizeMediaDescInput: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => sharedSanitizeMediaDescInput(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
-    sanitizeMediaDescInputLive: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => sharedSanitizeMediaDescInputLive(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
+    sanitizeMediaTextInput: managementMediaSupport.sanitizeMediaTextInput,
+    sanitizeMediaDescInput: managementMediaSupport.sanitizeMediaDescInput,
+    sanitizeMediaDescInputLive: managementMediaSupport.sanitizeMediaDescInputLive,
     basename: sharedBasename,
     isLikelyMediaFile: sharedIsLikelyMediaFile,
-    syncRangeProgress: (range) => syncAmbientRangeProgress(range, DEFAULT_VOLUME),
+    syncRangeProgress: managementMediaSupport.syncRangeProgress,
     logger: runtimeLogger,
     getMediaItems: managementStateFacade.getMediaItems,
     getAddType: managementStateFacade.getAddType,
@@ -1106,19 +1166,12 @@ const init = function (): void {
   const managementBindingOptionsFacade = createManagementBindingOptionsFacade({
     document,
     mediaVolumeInput: $MEDIA_VOLUME,
-    getVolumeOption: () => getOption('volume'),
+    getVolumeOption: volumeOptionSupport.getVolumeOption,
     defaultVolume: DEFAULT_VOLUME,
     getAddType: managementStateFacade.getAddType,
     setValidated,
     logger,
-    ensureTargetPlaylist: () => {
-      ensureManagementTargetPlaylist({
-        status: AMP_STATUS,
-        selectElement: $SELECT_PLAYLIST,
-        myPlaylistName: MYPLAYLIST_NAME,
-        document,
-      });
-    },
+    ensureTargetPlaylist: managementRuntimeSupport.ensureTargetPlaylist,
     getMediaItems: managementStateFacade.getMediaItems,
     getCategories: managementStateFacade.getCategories,
     setCategories: managementStateFacade.setCategories,
@@ -1128,7 +1181,7 @@ const init = function (): void {
     descMaxLength: MEDIA_DESC_MAX_LENGTH,
     sanitizeMediaText,
     sanitizeMediaDesc,
-    isVolumeInRange: (value) => sharedInRange(value, 0, 100),
+    isVolumeInRange: managementRuntimeSupport.isVolumeInRange,
     generatePlaylistJson: managementStateFacade.generatePlaylistJson,
   });
 
@@ -1144,33 +1197,6 @@ const init = function (): void {
 
   const $INITIAL_ALERT = document.getElementById('alert-notification') as HTMLElement | null;
   dispatchInitialNotice($INITIAL_ALERT, updateNotice, 5000);
-};
-
-// for debugging code
-const execDebug = (): void => {
-  /*
-  const f1 = document.getElementById('youtube-url'),
-        f2 = document.getElementById('media-category'),
-        f3 = document.getElementById('media-title'),
-        f4 = document.getElementById('media-artist'),
-        f5 = document.getElementById('media-desc'),
-        f6 = document.getElementById('media-volume'),
-        f7 = document.getElementById('seek-start'),
-        f8 = document.getElementById('seek-end')
-  f1.value  = 'www.youtube.com/watch?v=gu7T0D50wFk'
-  if (f2.length > 1 && f2.value === '') {
-    f2.selectedIndex = 3
-  }
-  f3.value = 'Allure of the Dark'
-  f4.value = 'MementMori'
-  f5.value = "Illya (God's Curse)"
-  f6.value = 85
-  f8.value = '4:11'
-  // fire!
-  f1.dispatchEvent(new Event('input'))
-  f2.dispatchEvent(new Event('change'))
-  f3.dispatchEvent(new Event('change'))
-  */
 };
 
 // ============================================================================

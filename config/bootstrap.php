@@ -32,6 +32,11 @@ if ( !function_exists( 'amp_load_env_file' ) ) {
                 continue;
             }
 
+            $existing = $_ENV[$name] ?? $_SERVER[$name] ?? getenv( $name );
+            if ( $existing !== false && $existing !== null && $existing !== '' ) {
+                continue;
+            }
+
             if (
                 ( str_starts_with( $value, '"' ) && str_ends_with( $value, '"' ) ) ||
                 ( str_starts_with( $value, "'" ) && str_ends_with( $value, "'" ) )
