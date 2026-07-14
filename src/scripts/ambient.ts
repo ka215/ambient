@@ -115,6 +115,7 @@ import { createMediaEditPlaylistHelpers } from './bootstrap/media-edit-playlist-
 import { createMediaEditRuntimeWiringFacade } from './bootstrap/media-edit-runtime-wiring-facade';
 import { initializeMediaEditRuntimeWiring } from './bootstrap/media-edit-runtime-wiring-init';
 import { createPlayerRuntimeWiringFacade } from './bootstrap/player-runtime-wiring-facade';
+import { createPlayerRuntimeHelpers } from './bootstrap/player-runtime-helpers';
 import { initializeAmbientPlayerRuntimeWiring } from './bootstrap/player-runtime-wiring-init';
 import { initializeManagementRuntime } from './bootstrap/management-runtime-init';
 import { createManagementImportFacade } from './bootstrap/management-import-facade';
@@ -863,6 +864,15 @@ const init = function (): void {
       appBoot.release();
     },
   });
+  const playerRuntimeHelpers = createPlayerRuntimeHelpers({
+    isSeekActive: () => playbackTimers.isSeekActive(),
+    startSeek: (callback, intervalMs) => playbackTimers.startSeek(callback, intervalMs),
+    startFader: (type, callback, intervalMs) => playbackTimers.startFader(type, callback, intervalMs),
+    resolvePlayingState: () => (window as any).YT.PlayerState.PLAYING,
+    setPlayer: (nextPlayer) => {
+      player = nextPlayer;
+    },
+  });
 
   const { updatePlayStatus, playItem } = initializeAmbientPlayerRuntimeWiring(createPlayerRuntimeWiringFacade({
     status: AMP_STATUS,
@@ -889,16 +899,14 @@ const init = function (): void {
     abortPlaybackTimers,
     abortSeeking,
     abortFader,
-    isSeekActive: () => playbackTimers.isSeekActive(),
-    startSeek: (callback, intervalMs) => playbackTimers.startSeek(callback, intervalMs),
-    startFader: (type, callback, intervalMs) => playbackTimers.startFader(type, callback, intervalMs),
+    isSeekActive: playerRuntimeHelpers.isSeekActive,
+    startSeek: playerRuntimeHelpers.startSeek,
+    startFader: playerRuntimeHelpers.startFader,
     emitYouTubeSignal,
     sanitizeTitle: (value: string) => sanitizeMediaText(value, MEDIA_TITLE_MAX_LENGTH),
     sanitizeArtist: (value: string) => sanitizeMediaText(value, MEDIA_ARTIST_MAX_LENGTH),
-    resolvePlayingState: () => (window as any).YT.PlayerState.PLAYING,
-    setPlayer: (nextPlayer) => {
-      player = nextPlayer;
-    },
+    resolvePlayingState: playerRuntimeHelpers.resolvePlayingState,
+    setPlayer: playerRuntimeHelpers.setPlayer,
   }));
 
   const {
