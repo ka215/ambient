@@ -18,7 +18,7 @@ This file lists reusable terminal commands for agents and developers.
 
 - Name: Playwright E2E
 - Command: npm run test:e2e
-- Purpose: Execute the standard E2E matrix for chrome, ipad, and iphone projects.
+- Purpose: Execute the broad E2E matrix for chrome, ipad, and iphone projects against a single `E2E_BASE_URL`. This is a development smoke matrix, not the mixed cloud/local release gate.
 
 - Name: Release Start
 - Command: npm run release:start -- <version>

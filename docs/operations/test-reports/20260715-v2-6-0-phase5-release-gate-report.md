@@ -81,6 +81,31 @@ Result:
   - ipad: 5/5 pass
   - iphone: 5/5 pass
 
+### 5. Standard E2E Matrix Check (Reference Only)
+
+Command:
+
+```powershell
+npm run test:e2e
+```
+
+Result:
+
+- Not used as the Phase 5 release gate
+- Outcome on 2026-07-15:
+  - 69 passed
+  - 40 failed
+  - 107 skipped
+
+Interpretation:
+
+- The failures were not used as a Phase 5 blocker because `test:e2e` runs the full scenario set against a single `baseURL`.
+- `playwright.config.ts` defaults `baseURL` to one environment at a time, while the scenario suite mixes cloud-only and local-only expectations.
+- Representative failure shape:
+  - cloud/local playlist scenarios timed out waiting for playlist options that do not exist under the wrong environment
+  - several mobile failures were downstream effects of the same environment mismatch rather than Phase 5 code regressions
+- Therefore `npm run test:e2e` is currently a broad development matrix, not a valid mixed-environment release gate for v2.6.0.
+
 ## Key Fixes Covered by This Gate
 
 - `.env` loading no longer overrides explicit process env such as `AMP_ENV`.
@@ -91,6 +116,7 @@ Result:
 
 ## Known Residual Notes
 
+- `npm run test:e2e` still mixes cloud/local assumptions under a single `baseURL`; it is useful as a broad smoke matrix but should not be treated as the release gate until the suite is environment-partitioned.
 - `SC-011` still includes scenarios whose stability depends on broader playlist-mode assumptions and environment-specific fixture availability.
 - A further cleanup attempt that pushed `playlist-ui` mutable state access through additional getters was evaluated and then intentionally reverted because it increased verification cost without improving the Phase 5 release gate.
 
