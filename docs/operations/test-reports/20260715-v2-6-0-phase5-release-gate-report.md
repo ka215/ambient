@@ -94,9 +94,30 @@ Result:
 - `SC-011` still includes scenarios whose stability depends on broader playlist-mode assumptions and environment-specific fixture availability.
 - A further cleanup attempt that pushed `playlist-ui` mutable state access through additional getters was evaluated and then intentionally reverted because it increased verification cost without improving the Phase 5 release gate.
 
+## Design-DoD Alignment
+
+Reference DoD source:
+
+- `docs/architecture/design/20260531-v2-6-0-modularization-detailed-design.md`
+
+Phase 5 DoD interpretation used for this release gate:
+
+1. `ambient.ts` is composition root only
+   - Satisfied in practical terms.
+   - Core responsibilities already live in extracted bootstrap/domain/ui/platform/state modules.
+   - Remaining `ambient.ts` code is primarily initialization ordering and late-bound wiring.
+2. Legacy compatibility wrappers removed
+   - Satisfied.
+   - The remaining bridge surface is limited to minimal bootstrap/debug support rather than broad pass-through compatibility layers.
+   - An additional `playlist-ui` getter-based cleanup was intentionally reverted because it increased regression risk without improving the gate.
+3. Full quality gates pass for release candidate
+   - Satisfied for the Phase 5 release-critical pack.
+   - This gate uses the split cloud/local verification set plus dedicated `SC-012` local-media coverage because those directly cover the stabilized execution paths touched by Phase 5 completion work.
+
 ## Release-Gate Judgment
 
 Current judgment:
 
 - Phase 5 release-critical quality gate: satisfied for the split cloud/local verification pack.
+- Phase 5 DoD alignment: satisfied under the release-critical gate interpretation above.
 - Additional `ambient.ts` micro-cleanup is not required for release-gate completion unless a new regression appears.
