@@ -61,15 +61,17 @@ export function createPlaylistUiBindings(options: CreatePlaylistUiBindingsOption
 } {
   const clearPlaylist = (): void => {
     const noMedia = document.getElementById('no-media');
-    const clone = noMedia?.cloneNode(true) as HTMLElement | null;
-    while (options.playlistList.firstChild) {
-      options.playlistList.removeChild(options.playlistList.firstChild);
-    }
-    if (!clone) {
+    const children = Array.from(options.playlistList.children);
+    children.forEach((child) => {
+      if (child !== noMedia) {
+        options.playlistList.removeChild(child);
+      }
+    });
+    if (!noMedia) {
       return;
     }
-    options.playlistList.appendChild(clone);
-    const addBtn = clone.querySelector('#btn-add-media-from-drawer');
+    noMedia.classList.remove('hidden');
+    const addBtn = noMedia.querySelector('#btn-add-media-from-drawer');
     if (addBtn) {
       bindAddMediaTrigger({
         trigger: addBtn,
