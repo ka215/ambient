@@ -106,6 +106,26 @@ Interpretation:
   - several mobile failures were downstream effects of the same environment mismatch rather than Phase 5 code regressions
 - Therefore `npm run test:e2e` is currently a broad development matrix, not a valid mixed-environment release gate for v2.6.0.
 
+### 6. Public-like Verification on v2.6.0 VHOST
+
+Command:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/release-verify-public-e2e.ps1 -BaseUrl https://dev-amp.ka2.org/
+```
+
+Result:
+
+- Pass
+- `SC-016 Public release asset integrity`: pass
+- `SC-017 Public release smoke`: pass
+- `SC-018 Public release toast smoke`: skipped
+
+Interpretation:
+
+- For v2.6.0 pre-release validation, `https://dev-amp.ka2.org/` is the correct public-like target because it already serves the v2.6.0 `ambient.js` / `ambient.css` build.
+- A separate check against `https://amp.ka2.org/` failed earlier because that environment was still serving the v2.5.8 cloud release and therefore did not expose the newer boot-ready DOM contract expected by the current public E2E fixtures.
+
 ## Key Fixes Covered by This Gate
 
 - `.env` loading no longer overrides explicit process env such as `AMP_ENV`.
@@ -113,12 +133,14 @@ Interpretation:
 - Cloud playlist tests no longer depend on hard-coded server playlist names.
 - Local media playback E2E no longer depends on a shared `example.json` fixture existing in assets.
 - Mobile local-media playback checks use fixture setup and interaction paths that match the current runtime behavior.
+- Public-like VHOST delivery resolves the expected manifest-based v2.6.0 assets and reaches boot-ready state under the current fixture contract.
 
 ## Known Residual Notes
 
 - `npm run test:e2e` still mixes cloud/local assumptions under a single `baseURL`; it is useful as a broad smoke matrix but should not be treated as the release gate until the suite is environment-partitioned.
 - `SC-011` still includes scenarios whose stability depends on broader playlist-mode assumptions and environment-specific fixture availability.
 - A further cleanup attempt that pushed `playlist-ui` mutable state access through additional getters was evaluated and then intentionally reverted because it increased verification cost without improving the Phase 5 release gate.
+- `https://amp.ka2.org/` should not be used for v2.6.0 pre-release public verification until that environment is actually updated to the v2.6.0 build.
 
 ## Design-DoD Alignment
 
@@ -146,4 +168,5 @@ Current judgment:
 
 - Phase 5 release-critical quality gate: satisfied for the split cloud/local verification pack.
 - Phase 5 DoD alignment: satisfied under the release-critical gate interpretation above.
+- Public-like verification on the v2.6.0 VHOST target: satisfied.
 - Additional `ambient.ts` micro-cleanup is not required for release-gate completion unless a new regression appears.
