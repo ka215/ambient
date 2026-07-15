@@ -124,6 +124,50 @@ export function bindAmbientPlaylistMode(options: {
     });
   }
 
+  async function commitReorderChanges(): Promise<void> {
+    if (!options.canMutatePlaylist()) {
+      options.updateNotice({
+        type: 'error',
+        message: options.getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.'),
+        delay: 2600,
+      });
+      return;
+    }
+
+    const status = options.getStatus();
+    if (!status.media) {
+      return;
+    }
+
+    const previousMedia = [...status.media];
+    const nextMedia = playlistReorderRuntime.applyChanges();
+    if (!nextMedia) {
+      return;
+    }
+
+    options.setPlaylistModeState('normal');
+    playlistModeRuntime.updateUi();
+    options.updatePlaylist();
+
+    const persistResult = await options.persistCurrentPlaylistMutation();
+    if (!persistResult.ok) {
+      options.setMediaItems(previousMedia);
+      options.updatePlaylist();
+      options.updateNotice({
+        type: 'error',
+        message: persistResult.message || options.getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.'),
+        delay: 2600,
+      });
+      return;
+    }
+
+    options.updateNotice({
+      type: 'success',
+      message: persistResult.message || options.getLocalizedMessage('Playlist saved successfully.', 'Playlist saved successfully.'),
+      delay: 2200,
+    });
+  }
+
   const playlistModeRuntime = createPlaylistModeRuntimeController({
     playlistModeUi: options.playlistModeUi,
     getMode: options.getPlaylistMode,
@@ -169,10 +213,7 @@ export function bindAmbientPlaylistMode(options: {
       const title = options.playlistModeUi.button?.dataset['confirmReorderTitle'] || 'Apply reordered sequence?';
       const body = options.playlistModeUi.button?.dataset['confirmReorderBody'] || 'Apply the current item order to your playlist.';
       playlistConfirmModal.open(title, body, () => {
-        playlistReorderRuntime.applyChanges();
-        options.setPlaylistModeState('normal');
-        playlistModeRuntime.updateUi();
-        options.updatePlaylist();
+        void commitReorderChanges();
       }, () => {
         if (options.getPlaylistMode() === 'reorder') {
           playlistReorderRuntime.restoreInitialOrder();
@@ -213,7 +254,7 @@ export function bindAmbientPlaylistMode(options: {
 
   return {
     closePlaylistModeMenu: () => playlistModeRuntime.closeMenu(),
-    destroyPlaylistSortable: () => playlistReorderRuntime.reset(),
+    destroyPlaylistSortable: () => playlistReorderRuntime.destroySortable(),
     ensurePlaylistSortable: () => {
       if (options.getPlaylistMode() !== 'reorder') {
         playlistReorderRuntime.reset();

@@ -5,6 +5,7 @@ import { readPlaylistItemIdsFromDom } from './playlist-view';
 export interface PlaylistReorderRuntimeController {
   applyChanges(): MediaItem[] | null;
   captureSnapshot(): void;
+  destroySortable(): void;
   ensureSortable(): void;
   getInitialIds(): number[];
   getWorkingIds(): number[];
@@ -115,6 +116,7 @@ export function createPlaylistReorderRuntimeController(options: {
   return {
     applyChanges,
     captureSnapshot,
+    destroySortable,
     ensureSortable,
     getInitialIds: () => [...reorderInitialIds],
     getWorkingIds: () => [...reorderWorkingIds],

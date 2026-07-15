@@ -618,7 +618,7 @@ const init = function (): void {
     document,
     status: AMP_STATUS,
     getOption: (key) => getOption(key as Extract<keyof PlaylistOptions, string>),
-    playlistMode: playlistMode,
+    getPlaylistMode: playlistRuntimeSupport.getPlaylistMode,
     setPlaylistMode: playlistRuntimeSupport.setPlaylistMode,
     deleteSelectedIds,
     getEditSelectedId: playlistRuntimeSupport.getEditSelectedId,

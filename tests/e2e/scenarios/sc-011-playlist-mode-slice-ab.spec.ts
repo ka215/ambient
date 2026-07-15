@@ -264,7 +264,13 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
       expect.stringContaining('slice-ab-3'),
       expect.stringContaining('slice-ab-1'),
     ]);
-    await expect.poll(async () => page.evaluate(() => localStorage.getItem('AmbientMyPlaylist') || '')).toContain('slice-ab-1');
+    await expect.poll(async () => page.evaluate(() => {
+      const raw = localStorage.getItem('AmbientMyPlaylist');
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as Record<string, Array<{ title: string }>>;
+      return (parsed.E2E || []).map((item) => item.title);
+    })).toEqual(['slice-ab-2', 'slice-ab-3', 'slice-ab-1']);
+
   });
 
   test('reorder mode discards working order on cancel (Slice C)', async ({ page, ambientPage }) => {

@@ -20,7 +20,7 @@ export interface CreatePlaylistUiBindingsOptions {
     shuffle?: MediaItem[] | null;
   };
   getOption(key: string): unknown;
-  playlistMode: PlaylistMode;
+  getPlaylistMode(): PlaylistMode;
   setPlaylistMode(mode: PlaylistMode): void;
   deleteSelectedIds: Set<number>;
   getEditSelectedId(): number | null;
@@ -119,7 +119,7 @@ export function createPlaylistUiBindings(options: CreatePlaylistUiBindingsOption
       mediaItems: options.status.media || [],
       categoryId: options.status.ctg,
       currentId: options.status.current,
-      playlistMode: options.playlistMode,
+      playlistMode: options.getPlaylistMode(),
       deleteSelectedIds: options.deleteSelectedIds,
       editSelectedId: options.getEditSelectedId(),
       playlistFormat: (options.getOption('playlist') as string | null | undefined) ?? null,

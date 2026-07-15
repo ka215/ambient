@@ -4,7 +4,7 @@ export interface CreatePlaylistUiRuntimeFacadeOptions {
   document: Document;
   status: InitializePlaylistUiRuntimeOptions['status'];
   getOption: InitializePlaylistUiRuntimeOptions['getOption'];
-  playlistMode: InitializePlaylistUiRuntimeOptions['playlistMode'];
+  getPlaylistMode: InitializePlaylistUiRuntimeOptions['getPlaylistMode'];
   setPlaylistMode: InitializePlaylistUiRuntimeOptions['setPlaylistMode'];
   deleteSelectedIds: InitializePlaylistUiRuntimeOptions['deleteSelectedIds'];
   getEditSelectedId: InitializePlaylistUiRuntimeOptions['getEditSelectedId'];
@@ -38,7 +38,7 @@ export function createPlaylistUiRuntimeFacade(
     document: options.document,
     status: options.status,
     getOption: options.getOption,
-    playlistMode: options.playlistMode,
+    getPlaylistMode: options.getPlaylistMode,
     setPlaylistMode: options.setPlaylistMode,
     deleteSelectedIds: options.deleteSelectedIds,
     getEditSelectedId: options.getEditSelectedId,
