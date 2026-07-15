@@ -122,7 +122,6 @@ export function createViewportRuntimeController(
           enabled,
           toggleInput: options.toggleInput,
           closeDrawers,
-          shouldAutoCloseDrawers: options.state.width < options.state.minFullUIWidth,
           playlistDrawer: options.drawerElements.playlistDrawer,
           settingsDrawer: options.drawerElements.settingsDrawer,
           playlistCloseButton: options.drawerElements.playlistCloseButton,
