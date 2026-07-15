@@ -18,6 +18,10 @@ This file lists reusable terminal commands for agents and developers.
 
 - Name: Playwright E2E
 - Command: npm run test:e2e
+- Purpose: Execute the standard split cloud/local release-verification pack. This is the default E2E command that is safe to use for v2.6.0 release judgment.
+
+- Name: Playwright E2E Matrix
+- Command: npm run test:e2e:matrix
 - Purpose: Execute the broad E2E matrix for chrome, ipad, and iphone projects against a single `E2E_BASE_URL`. This is a development smoke matrix, not the mixed cloud/local release gate.
 
 - Name: Release Start

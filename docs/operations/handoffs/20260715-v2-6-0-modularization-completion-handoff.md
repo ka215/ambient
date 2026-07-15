@@ -104,7 +104,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "& { .\scripts\run-e2e-en
 5. Broad reference-only matrix
 
 ```powershell
-npm run test:e2e
+npm run test:e2e:matrix
 ```
 
 Reference interpretation:
@@ -115,12 +115,13 @@ Reference interpretation:
 
 ## Known Risks
 
-1. `npm run test:e2e` is not yet environment-partitioned
+1. `npm run test:e2e:matrix` is not yet environment-partitioned
 - cloud-only and local-only scenarios still share one `baseURL`
 - full-pack failures should not be interpreted as direct Phase 5 regressions without environment review
 
 2. Some broader scenarios remain outside the completion gate
 - `SC-011` and other fixture-sensitive scenarios can still require separate stabilization work
+- follow-up task is tracked in `docs/operations/testing/20260715-sc-011-fixture-stabilization-followup.md`
 - this is treated as post-completion test-operations work, not modularization incompleteness
 
 3. `ambient.ts` still contains some late-bound wiring

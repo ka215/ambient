@@ -156,6 +156,7 @@ A task is done only when all pass:
   - npm run build
   - npm run typecheck
   - npm run test:e2e
+  - npm run test:e2e:matrix
 - Add project test commands as they are introduced and keep this list updated.
 
 ## 7. About Dual Instruction Files

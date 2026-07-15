@@ -405,7 +405,29 @@ src/scripts/
 
 ---
 
-## 8. 旧 summary から見た主な変化
+## 8. 機能別 Entry Map
+
+`bootstrap/*` のファイル数が多いため、機能追加時の入口を機能別に引けるようにする。
+
+| 機能テーマ | 入口になりやすい bootstrap 群 | あわせて見る主要モジュール |
+|---|---|---|
+| アプリ起動 / boot ready | `bootstrap/app-init.ts`, `bootstrap/app-runtime-bootstrap.ts`, `bootstrap/app-boot.ts` | `platform/ambient-data.ts`, `state/status-watchers.ts`, `src/scripts/ambient.ts` |
+| playlist 読込 / 起動シーケンス | `bootstrap/playlist-startup*.ts`, `bootstrap/playlist-load-*.ts`, `bootstrap/playlist-session*.ts` | `domain/playlist-loader.ts`, `state/playlist-context.ts`, `ui/playlist-view.ts` |
+| playlist 表示 / mode / 並び替え | `bootstrap/playlist-ui*.ts`, `bootstrap/playlist-mode*.ts`, `bootstrap/playlist-runtime*.ts` | `ui/playlist-view.ts`, `ui/playlist-mode-*.ts`, `ui/playlist-reorder-runtime.ts` |
+| player 初期化 / 再生 orchestration | `bootstrap/player-*.ts`, `bootstrap/playback-runtime-init.ts` | `domain/media-playback.ts`, `ui/player/player-shell.ts`, `ui/player/player-runtime.ts` |
+| viewport / drawer / responsive UI | `bootstrap/viewport-*.ts`, `bootstrap/options-surface*.ts` | `ui/viewport.ts`, `ui/viewport-runtime.ts`, `ui/drawers.ts` |
+| オプションモーダル / 設定 UI | `bootstrap/options-modal*.ts`, `bootstrap/app-settings*.ts` | `ui/modals.ts`, `ui/options-modal-bindings.ts`, `ui/settings-bindings.ts` |
+| playlist 管理フォーム | `bootstrap/management-playlist-*.ts`, `bootstrap/management-bindings-init.ts` | `ui/forms/playlist-management.ts`, `domain/playlist-management-actions.ts`, `domain/playlist-management-data.ts` |
+| media 管理フォーム / import | `bootstrap/management-media-*.ts`, `bootstrap/management-import*.ts`, `bootstrap/management-target-playlist.ts` | `ui/forms/media-management.ts`, `domain/media-management-data.ts`, `domain/playlist-import.ts` |
+| media-edit | `bootstrap/media-edit-*.ts` | `domain/media-edit/*`, `ui/media-edit/*`, `ui/player/media-edit-preview.ts` |
+| 通知 / status watcher | `bootstrap/status-watcher*.ts`, `bootstrap/notice-support.ts` | `ui/notifications.ts`, `state/status-watchers.ts` |
+| アプリ全体 control binding | `bootstrap/app-controls*.ts`, `bootstrap/app-control-facades.ts` | `ui/app-controls.ts`, `ui/app-event-handlers.ts`, `ui/player-control-bindings.ts` |
+
+実務上は、まずこの表で「どの bootstrap 群が入口か」を決め、その後に `domain` / `ui` / `state` 側の責務モジュールへ降りていくのが最短です。
+
+---
+
+## 9. 旧 summary から見た主な変化
 
 | 項目 | `v2-system-summary.md` 時点 | v2.6.0 現在 |
 |---|---|---|
@@ -417,20 +439,21 @@ src/scripts/
 
 ---
 
-## 9. 運用上の注意
+## 10. 運用上の注意
 
 1. TypeScript ソース更新後は `npm run build` を実行し、`dist/manifest.json` と `dist/assets/*` を同期すること。
 2. PHP 側から `src/scripts/ambient.js` を直接参照しないこと。現行 runtime entry は `src/scripts/ambient.ts` の manifest 解決である。
-3. `npm run test:e2e` は現状、cloud/local 混在 full gate ではなく、単一 `baseURL` 前提の broad smoke matrix として扱うこと。
-4. release gate は `npm run release:verify:split-e2e` を中心とした split cloud/local pack を基準にすること。
+3. `npm run test:e2e` は現行の標準 release 判定用 E2E であり、split cloud/local pack を実行する。
+4. `npm run test:e2e:matrix` は単一 `baseURL` 前提の broad smoke matrix であり、release gate として扱わないこと。
 
 ---
 
-## 10. 参照ドキュメント
+## 11. 参照ドキュメント
 
 - `docs/architecture/v2-system-summary.md`
 - `docs/architecture/design/20260531-v2-6-0-modularization-detailed-design.md`
 - `docs/operations/test-reports/20260710-v2-6-0-phase3-parity-report.md`
 - `docs/operations/test-reports/20260711-v2-6-0-phase4-media-edit-report.md`
 - `docs/operations/test-reports/20260715-v2-6-0-phase5-release-gate-report.md`
+- `docs/operations/testing/20260715-sc-011-fixture-stabilization-followup.md`
 - `docs/operations/handoffs/20260715-v2-6-0-modularization-completion-handoff.md`

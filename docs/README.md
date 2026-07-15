@@ -46,11 +46,11 @@ Windows + XAMPP での開発を前提に、すぐ動かせる構成です。
 ## 開発コマンド
 
 ```bash
-npm run ts-dev        # TypeScript watch
-npm run ts-build      # TypeScript を dist/ へ出力
-npm run tw-dev        # Tailwind watch
-npm run tw-build      # Tailwind minify build
-npm run test:e2e      # Playwright E2E 実行
+npm run dev           # Vite dev server
+npm run build         # dist/ ビルド
+npm run typecheck     # TypeScript 型検査
+npm run test:e2e      # release 判定用 split E2E
+npm run test:e2e:matrix   # broad smoke matrix
 npm run test:e2e:debug
 ```
 

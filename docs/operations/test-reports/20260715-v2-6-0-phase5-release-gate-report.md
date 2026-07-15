@@ -81,12 +81,12 @@ Result:
   - ipad: 5/5 pass
   - iphone: 5/5 pass
 
-### 5. Standard E2E Matrix Check (Reference Only)
+### 5. Legacy Broad E2E Matrix Check (Reference Only)
 
 Command:
 
 ```powershell
-npm run test:e2e
+npm run test:e2e:matrix
 ```
 
 Result:
@@ -99,12 +99,12 @@ Result:
 
 Interpretation:
 
-- The failures were not used as a Phase 5 blocker because `test:e2e` runs the full scenario set against a single `baseURL`.
+- The failures were not used as a Phase 5 blocker because the broad matrix runs the full scenario set against a single `baseURL`.
 - `playwright.config.ts` defaults `baseURL` to one environment at a time, while the scenario suite mixes cloud-only and local-only expectations.
 - Representative failure shape:
   - cloud/local playlist scenarios timed out waiting for playlist options that do not exist under the wrong environment
   - several mobile failures were downstream effects of the same environment mismatch rather than Phase 5 code regressions
-- Therefore `npm run test:e2e` is currently a broad development matrix, not a valid mixed-environment release gate for v2.6.0.
+- Therefore the legacy broad matrix is not a valid mixed-environment release gate for v2.6.0.
 
 ### 6. Public-like Verification on v2.6.0 VHOST
 
@@ -134,11 +134,12 @@ Interpretation:
 - Local media playback E2E no longer depends on a shared `example.json` fixture existing in assets.
 - Mobile local-media playback checks use fixture setup and interaction paths that match the current runtime behavior.
 - Public-like VHOST delivery resolves the expected manifest-based v2.6.0 assets and reaches boot-ready state under the current fixture contract.
+- The standard `npm run test:e2e` command can now safely point at the split verification pack, while the old mixed matrix remains available as `npm run test:e2e:matrix`.
 
 ## Known Residual Notes
 
-- `npm run test:e2e` still mixes cloud/local assumptions under a single `baseURL`; it is useful as a broad smoke matrix but should not be treated as the release gate until the suite is environment-partitioned.
-- `SC-011` still includes scenarios whose stability depends on broader playlist-mode assumptions and environment-specific fixture availability.
+- `npm run test:e2e:matrix` still mixes cloud/local assumptions under a single `baseURL`; it is useful as a broad smoke matrix but should not be treated as the release gate until the suite is environment-partitioned.
+- `SC-011` still includes scenarios whose stability depends on broader playlist-mode assumptions and environment-specific fixture availability. Follow-up task: `docs/operations/testing/20260715-sc-011-fixture-stabilization-followup.md`
 - A further cleanup attempt that pushed `playlist-ui` mutable state access through additional getters was evaluated and then intentionally reverted because it increased verification cost without improving the Phase 5 release gate.
 - `https://amp.ka2.org/` should not be used for v2.6.0 pre-release public verification until that environment is actually updated to the v2.6.0 build.
 
