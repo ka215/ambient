@@ -23,8 +23,8 @@ v2.0.0 は、実行ランタイムを TypeScript ビルド成果物へ統一し�
 | サーバーサイド | PHP（名前空間・Trait・Singleton パターン） |
 | テンプレートエンジン | PHP インクルードベース（フレームワーク不使用） |
 | フロントエンド CSS | Tailwind CSS v3 + Flowbite v1 |
-| フロントエンド JS | TypeScript（ソース: src/scripts/ambient.ts） |
-| ランタイム配信 | dist/scripts/ambient.js（tsc 出力） |
+| フロントエンド JS | TypeScript（ソース: `src/scripts/ambient.ts`。旧 `src/scripts/ambient.js` は廃止） |
+| ランタイム配信 | dist/assets/ambient.js（Vite 出力） |
 | テスト | Playwright（@playwright/test） |
 | データ形式 | JSON（プレイリスト・翻訳データ） |
 | ビルドツール | npm（tsc, tailwindcss CLI） |
@@ -84,8 +84,9 @@ amp/
 │   ├── images/            メディアカバー画像置き場
 │   └── media/             メディアファイル置き場
 │
-├── dist/                  TypeScript / Tailwind のビルド成果物
-│   └── scripts/           ambient.js ほか型定義・source map
+├── dist/                  Vite / Tailwind のビルド成果物
+│   ├── assets/            ambient.js / ambient.css などの公開アセット
+│   └── manifest.json      Vite manifest（PHP が参照）
 ├── tests/e2e/             Playwright シナリオ・fixture・ユーティリティ
 ├── docs/                  設計・仕様・運用ドキュメント
 └── logs/                  デバッグログ
@@ -104,9 +105,9 @@ amp/
 
 ### 3-2. フロントエンド側
 
-- ソース: src/scripts/ambient.ts
-- ビルド出力: dist/scripts/ambient.js
-- 読み込み: functions.php の amp_footer() で dist/scripts/ambient.js を参照
+- ソース: `src/scripts/ambient.ts`
+- ビルド出力: `dist/assets/ambient.js`
+- 読み込み: `functions.php` の `amp_footer()` / `amp_head()` が Vite manifest の `src/scripts/ambient.ts` entry を参照
 
 ### 3-3. データフロー
 
@@ -174,7 +175,7 @@ v2.0.0 時点の基準実行で 18/18 pass を確認。
 
 | 項目 | v1 | v2.0.0 |
 |---|---|---|
-| フロント実行源 | src/scripts/ambient.js | dist/scripts/ambient.js（TS ビルド成果物） |
+| フロント実行源 | `src/scripts/ambient.js` / 直接 script 読込 | `src/scripts/ambient.ts` → `dist/assets/ambient.js`（Vite ビルド成果物） |
 | 型安全性 | なし | tsc --strict ベース |
 | E2E 基盤 | なし | Playwright 基盤あり |
 | YouTube 待機 | 時間依存寄り | DOM signal + seq ベース待機 |
@@ -183,9 +184,10 @@ v2.0.0 時点の基準実行で 18/18 pass を確認。
 
 ## 7. 運用上の注意
 
-1. TypeScript ソース更新後は npm run ts-build を必ず実行し、dist/scripts/ambient.js を同期する。
-2. E2E 実行時は UI モード差異を避けるため、設定済み viewport を維持する。
-3. Playwright 生成物（test-results/, playwright-report/）は Git 管理対象外。
+1. TypeScript ソース更新後は `npm run build` を必ず実行し、Vite manifest と `dist/assets/ambient.js` を同期する。
+2. PHP テンプレートや helper から `src/scripts/ambient.js` / `dist/scripts/ambient.js` を直接参照しない。
+3. E2E 実行時は UI モード差異を避けるため、設定済み viewport を維持する。
+4. Playwright 生成物（test-results/, playwright-report/）は Git 管理対象外。
 
 ---
 

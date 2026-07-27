@@ -3,7 +3,7 @@ import { expect } from '@playwright/test';
 import { test } from '../fixtures/ambient-page.fixture';
 
 test.describe('SC-016 Public release asset integrity @public-release', () => {
-  test('loads ambient.css and ambient.js with key selectors available', async ({ ambientPage, page, browserName }) => {
+  test('loads manifest-resolved runtime assets with key selectors available', async ({ ambientPage, page, browserName }) => {
     test.skip(browserName !== 'chromium', 'Public release integrity is validated on chromium only.');
 
     await ambientPage.gotoHome();

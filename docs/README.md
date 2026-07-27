@@ -10,7 +10,8 @@ v2.0.0 は、TypeScript 化したランタイム統合とクロスブラウザ E
 ## v2.0.0 の主な変更
 
 - フロントエンド実装を TypeScript 化（`src/scripts/ambient.ts`）
-- 実行スクリプトをビルド成果物へ統一（`dist/scripts/ambient.js`）
+- 実行スクリプトを Vite ビルド成果物へ統一（`dist/assets/ambient.js`）
+- 旧 `src/scripts/ambient.js` ランタイムは廃止し、PHP 側参照も Vite manifest ベースへ統一
 - Playwright E2E の6シナリオ基盤を整備（Chromium/Firefox/WebKit）
 - YouTube ライフサイクルを DOM 属性で観測可能に変更
   - `data-yt-phase`
@@ -45,11 +46,11 @@ Windows + XAMPP での開発を前提に、すぐ動かせる構成です。
 ## 開発コマンド
 
 ```bash
-npm run ts-dev        # TypeScript watch
-npm run ts-build      # TypeScript を dist/ へ出力
-npm run tw-dev        # Tailwind watch
-npm run tw-build      # Tailwind minify build
-npm run test:e2e      # Playwright E2E 実行
+npm run dev           # Vite dev server
+npm run build         # dist/ ビルド
+npm run typecheck     # TypeScript 型検査
+npm run test:e2e      # release 判定用 split E2E
+npm run test:e2e:matrix   # broad smoke matrix
 npm run test:e2e:debug
 ```
 

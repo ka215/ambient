@@ -105,6 +105,26 @@ async function openManagementSection(
   }
 }
 
+async function getServerPlaylistName(page: Page): Promise<string> {
+  const playlistNames = await page.locator('#current-playlist option').evaluateAll((options, myPlaylistName) => {
+    return options
+      .filter((option) => {
+        const nextOption = option as HTMLOptionElement;
+        return !nextOption.disabled
+          && nextOption.value !== ''
+          && nextOption.value !== myPlaylistName
+          && /\.json$/i.test(nextOption.value);
+      })
+      .map((option) => (option as HTMLOptionElement).value);
+  }, MYPLAYLIST_NAME);
+
+  if (playlistNames.length === 0) {
+    throw new Error('No server playlist option is available for cloud playlist switching tests.');
+  }
+
+  return playlistNames[0];
+}
+
 test.describe('SC-010 Cloud MyPlaylist regressions', () => {
   test.beforeEach(async ({ browserName, page }) => {
     test.skip(browserName !== 'chromium', 'Cloud MyPlaylist regressions are validated on chromium only.');
@@ -362,7 +382,8 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
   test('disables media and category creation controls for cloud JSON playlists', async ({ ambientPage, page }) => {
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
-    await ambientPage.selectPlaylist('debug.json');
+    const serverPlaylistName = await getServerPlaylistName(page);
+    await ambientPage.selectPlaylist(serverPlaylistName);
 
     await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
 
@@ -473,11 +494,12 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
     await ambientPage.waitForPlaylistReady();
+    const serverPlaylistName = await getServerPlaylistName(page);
 
     await ambientPage.openSettingsDrawer();
     await expect(page.locator('#current-playlist')).toHaveValue(MYPLAYLIST_NAME);
-    await page.locator('#current-playlist').selectOption('mememori-yt.json');
-    await page.waitForFunction(() => document.querySelectorAll('#playlist-list-group a[data-playlist-item]').length > 0);
+    await page.locator('#current-playlist').selectOption(serverPlaylistName);
+    await ambientPage.waitForPlaylistReady();
     await ambientPage.closeSettingsDrawer();
 
     await ambientPage.openSettingsDrawer();
@@ -504,15 +526,16 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
     await ambientPage.waitForBaseUi();
     await ambientPage.waitForPlaylistReady();
     await ambientPage.openSettingsDrawer();
+    const serverPlaylistName = await getServerPlaylistName(page);
 
-    await page.evaluate((playlistName: string) => {
+    await page.evaluate(({ playlistName, serverPlaylistName }) => {
       const select = document.getElementById('current-playlist') as HTMLSelectElement | null;
       if (!select) return;
-      select.value = 'mememori-yt.json';
+      select.value = serverPlaylistName;
       select.dispatchEvent(new Event('change', { bubbles: true }));
       select.value = playlistName;
       select.dispatchEvent(new Event('change', { bubbles: true }));
-    }, MYPLAYLIST_NAME);
+    }, { playlistName: MYPLAYLIST_NAME, serverPlaylistName });
 
     await expect(page.locator('#current-playlist')).toHaveValue(MYPLAYLIST_NAME);
     await page.waitForTimeout(1500);

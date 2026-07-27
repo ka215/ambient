@@ -8,20 +8,30 @@ export class AmbientPage {
   }
 
   async gotoHome(): Promise<void> {
-    await this.page.goto('./');
+    await this.page.goto('./?e2e=1');
   }
 
   async waitForBaseUi(): Promise<void> {
-    await expect(this.page.locator('#btn-play')).toBeVisible();
-    await expect(this.page.locator('#playlist-list-group')).toBeVisible();
+    await this.page.waitForFunction(() => {
+      const body = document.body;
+      const list = document.getElementById('playlist-list-group');
+      if (!body || !list) return false;
+      const isAppReady = body.getAttribute('data-app-ready') === 'true';
+      const style = window.getComputedStyle(list);
+      const isVisible = style.display !== 'none' && style.visibility !== 'hidden';
+      return isAppReady && isVisible;
+    }, { timeout: 20_000 });
   }
 
   async waitForPlaylistReady(): Promise<void> {
     await this.page.waitForFunction(() => {
+      const body = document.body;
       const list = document.querySelectorAll('#playlist-list-group a[data-playlist-item]').length;
       const noMedia = document.querySelector('#no-media');
       const isNoMediaVisible = !!(noMedia && !noMedia.classList.contains('hidden'));
-      return list > 0 || isNoMediaVisible;
+      const isAppReady = body?.getAttribute('data-app-ready') === 'true';
+      const isPlaylistReady = body?.getAttribute('data-playlist-ready') === 'true';
+      return isAppReady && ((isPlaylistReady && (list > 0 || isNoMediaVisible)) || isNoMediaVisible || list > 0);
     });
   }
 
@@ -95,10 +105,11 @@ export class AmbientPage {
     }
     // Wait until playlist items are visible OR the no-media notice is shown (empty playlist).
     await this.page.waitForFunction(() => {
+      const body = document.body;
       const items = document.querySelectorAll('#playlist-list-group a[data-playlist-item]').length;
       const noMedia = document.querySelector<HTMLElement>('#no-media');
       const isNoMediaVisible = !!(noMedia && !noMedia.classList.contains('hidden'));
-      return items > 0 || isNoMediaVisible;
+      return body?.getAttribute('data-playlist-ready') === 'true' && (items > 0 || isNoMediaVisible);
     });
   }
 
@@ -218,9 +229,15 @@ export class AmbientPage {
   async selectPlaylist(value: string): Promise<void> {
     await this.openSettingsDrawer();
     await this.page.locator('#current-playlist').selectOption(value);
-    // Wait until at least one playlist item is rendered in the DOM
+    // Wait until the playlist is ready, even if it is empty.
     await this.page.waitForFunction(
-      () => document.querySelectorAll('#playlist-list-group a[data-playlist-item]').length > 0,
+      () => {
+        const body = document.body;
+        const itemCount = document.querySelectorAll('#playlist-list-group a[data-playlist-item]').length;
+        const noMedia = document.querySelector<HTMLElement>('#no-media');
+        const isNoMediaVisible = !!(noMedia && !noMedia.classList.contains('hidden'));
+        return body?.getAttribute('data-playlist-ready') === 'true' && (itemCount > 0 || isNoMediaVisible);
+      },
       { timeout: 30_000 }
     );
     // Close the settings drawer so the main UI is accessible

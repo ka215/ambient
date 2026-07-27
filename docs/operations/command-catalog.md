@@ -18,7 +18,11 @@ This file lists reusable terminal commands for agents and developers.
 
 - Name: Playwright E2E
 - Command: npm run test:e2e
-- Purpose: Execute the standard E2E matrix for chrome, ipad, and iphone projects.
+- Purpose: Execute the standard split cloud/local release-verification pack. This is the default E2E command that is safe to use for v2.6.0 release judgment.
+
+- Name: Playwright E2E Matrix
+- Command: npm run test:e2e:matrix
+- Purpose: Execute the broad E2E matrix for chrome, ipad, and iphone projects against a single `E2E_BASE_URL`. This is a development smoke matrix, not the mixed cloud/local release gate.
 
 - Name: Release Start
 - Command: npm run release:start -- <version>
@@ -39,6 +43,18 @@ This file lists reusable terminal commands for agents and developers.
 - Name: Release Public Verification
 - Command: npm run release:verify:public
 - Purpose: Run public-release tagged E2E against production base URL by default (https://amp.ka2.org/).
+
+- Name: Env-Aware Chrome E2E (Cloud)
+- Command: npm run test:e2e:cloud:chrome
+- Purpose: Start a local PHP server with `AMP_ENV=cloud`, point Playwright to `http://127.0.0.1:8088/`, and run chrome E2E.
+
+- Name: Env-Aware Chrome E2E (Local)
+- Command: npm run test:e2e:local:chrome
+- Purpose: Start a local PHP server with `AMP_ENV=local`, point Playwright to `http://127.0.0.1:8087/`, and run chrome E2E.
+
+- Name: Split Release E2E Verification
+- Command: npm run release:verify:split-e2e
+- Purpose: Run the current cloud/local critical-path verification split for release readiness (`SC-010`, `SC-013`, `SC-014`, `SC-020`).
 
 - Name: Release Finish Public Verification Flag
 - Command: npm run release:finish -- <version> -- -RunPublicE2E

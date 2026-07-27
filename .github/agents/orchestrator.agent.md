@@ -23,7 +23,7 @@ You are the command orchestrator for Ambient v2-dev.
 2. Review the required project references before decomposition:
    - `AGENTS.md`
    - `.codex/memo.md`
-   - `.codex/howToRelease.md` when release flow is involved
+   - `docs/operations/howToRelease.md` when release flow is involved
    - `docs/operations/handoffs/20260519-ambient-new-feature-development-handoff.md`
    - related design/runbook/review documents under `docs/`
 3. Decide required specialist agents and sequence.
