@@ -20,7 +20,8 @@ export function handlePlaylistSelectionChange(
   const selectElm = event.target as HTMLSelectElement;
   const oldPlaylist = options.getCurrentPlaylist();
   const newPlaylist = selectElm.value;
-  if (oldPlaylist === newPlaylist) {
+  const previousSelectedPlaylist = selectElm.dataset['ambientSelectedPlaylist'] || oldPlaylist || '';
+  if (oldPlaylist === newPlaylist && previousSelectedPlaylist === newPlaylist) {
     return;
   }
 
@@ -28,6 +29,7 @@ export function handlePlaylistSelectionChange(
   if (playlistMode !== 'normal') {
     if (playlistMode === 'edit' && !options.canDiscardEditMode()) {
       selectElm.value = oldPlaylist || '';
+      selectElm.dataset['ambientSelectedPlaylist'] = oldPlaylist || '';
       return;
     }
     options.clearDeleteSelections();
@@ -40,6 +42,7 @@ export function handlePlaylistSelectionChange(
     options.updatePlaylistModeUi();
   }
 
+  selectElm.dataset['ambientSelectedPlaylist'] = newPlaylist;
   options.loadPlaylist(newPlaylist);
 }
 

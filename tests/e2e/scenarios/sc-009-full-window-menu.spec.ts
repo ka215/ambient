@@ -1,13 +1,22 @@
 import { test, expect } from '../fixtures/ambient-page.fixture';
+import { E2E_PLAYLIST_NAME, installE2ePlaylistFixture, removeE2ePlaylistFixture } from '../utils/playlist-fixtures';
 
 test.describe('SC-009 Full-window and menu-collapse controls', () => {
+  test.beforeEach(() => {
+    installE2ePlaylistFixture();
+  });
+
+  test.afterEach(() => {
+    removeE2ePlaylistFixture();
+  });
+
   test('keeps full-window controls synchronized and preserves drawer operability', async ({ ambientPage, page, browserName }) => {
     test.skip(browserName !== 'chromium', 'This scenario targets desktop bottom-menu and drawer synchronization.');
 
     // Arrange
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
-    await ambientPage.selectPlaylist('mememori-yt.json');
+    await ambientPage.selectPlaylist(E2E_PLAYLIST_NAME);
     await ambientPage.waitForYouTubeApi();
 
     const seqBeforePlay = await ambientPage.getYouTubeSignalSeq();

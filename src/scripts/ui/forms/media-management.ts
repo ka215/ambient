@@ -13,10 +13,11 @@ export interface MediaManagementBindings {
   canMutateCurrentPlaylist(): boolean;
   applyCloudEditRestrictions(): void;
   updateNotice(notification: { type: 'info' | 'success' | 'warning' | 'error'; message: string; delay?: number }): void;
-  addMediaData(payload: [string, string][]): boolean;
+  addMediaData(payload: [string, string][], preferredCategoryId?: number | null): boolean;
   updatePlaylist(): void;
   clearCategory(): void;
   updateCategory(): void;
+  getActiveCategoryId(): number | null;
   syncMediaCategoryField(preferredCategoryId?: number | null): void;
   syncPlaybackAfterMediaAdd(): void;
   persistMediaEditForCurrentPlaylist(workingMedia: unknown[]): Promise<{ ok: boolean; message: string }>;
@@ -69,6 +70,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
     updatePlaylist,
     clearCategory,
     updateCategory,
+    getActiveCategoryId,
     syncMediaCategoryField,
     syncPlaybackAfterMediaAdd,
     persistMediaEditForCurrentPlaylist,
@@ -304,7 +306,14 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
             ? 'media-category-new'
             : 'media-category';
           const preferredCategoryValue = String(formData.get(categoryField) || '').trim();
-          const result = addMediaData(Array.from(formData.entries()) as [string, string][]);
+          const numericPreferredCategory = Number(preferredCategoryValue);
+          const resolvedPreferredCategory = !Number.isNaN(numericPreferredCategory)
+            ? numericPreferredCategory
+            : getActiveCategoryId();
+          const result = addMediaData(
+            Array.from(formData.entries()) as [string, string][],
+            resolvedPreferredCategory
+          );
           logger(result, getMediaItems());
           let persisted = true;
 
@@ -314,7 +323,6 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
           updateCategory();
 
           if (preferredCategoryValue !== '') {
-            const numericPreferredCategory = Number(preferredCategoryValue);
             syncMediaCategoryField(Number.isNaN(numericPreferredCategory) ? null : numericPreferredCategory);
           }
 

@@ -34,6 +34,7 @@ export interface InitializeManagementRuntimeOptions {
     playlistBindings: Omit<
       PlaylistManagementInitBindings,
       'form' | 'elements' | 'resetPlaylistManagementForm' | 'createCategory' | 'downloadPlaylist' | 'importPlaylist'
+      | 'renameCategory' | 'deleteCategory'
     > | null;
   };
 }
@@ -88,6 +89,8 @@ export function initializeManagementRuntime(options: InitializeManagementRuntime
             elements: playlistElements,
             resetPlaylistManagementForm: bindings.resetPlaylistManageForm,
             createCategory: actions.createCategory,
+            renameCategory: actions.renameCategory,
+            deleteCategory: actions.deleteCategory,
             downloadPlaylist: actions.downloadPlaylist,
             importPlaylist: actions.importPlaylist,
           }

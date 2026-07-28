@@ -23,7 +23,7 @@ export function ensureManagementTargetPlaylist(options: EnsureManagementTargetPl
   if (!alreadyExists) {
     const opt = options.document.createElement('option');
     opt.value = options.myPlaylistName;
-    opt.textContent = options.myPlaylistName.replace('.json', '');
+    opt.textContent = options.myPlaylistName.replace(/\.json$/i, '');
     selectElement.appendChild(opt);
   }
 

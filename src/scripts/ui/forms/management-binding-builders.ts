@@ -15,10 +15,11 @@ export interface MediaManagementBindingBuilderOptions {
   canMutateCurrentPlaylist(): boolean;
   applyCloudEditRestrictions(): void;
   updateNotice(notification: { type: 'info' | 'success' | 'warning' | 'error'; message: string; delay?: number }): void;
-  addMediaData(payload: [string, string][]): boolean;
+  addMediaData(payload: [string, string][], preferredCategoryId?: number | null): boolean;
   updatePlaylist(): void;
   clearCategory(): void;
   updateCategory(): void;
+  getActiveCategoryId(): number | null;
   syncMediaCategoryField(preferredCategoryId?: number | null): void;
   syncPlaybackAfterMediaAdd(): void;
   persistMediaEditForCurrentPlaylist(workingMedia: MediaItem[]): Promise<{ ok: boolean; message: string }>;
@@ -53,7 +54,11 @@ export interface PlaylistManagementBindingBuilderOptions {
   isLikelyJsonFile(file: File): boolean;
   getBaseUrl(): string;
   getPlaylistManageFormData(oneData?: string | null): FormDataEntryValue | [string, FormDataEntryValue][] | null;
+  getCategories(): string[];
+  getMediaItems(): MediaItem[];
   createCategory(): { ok: boolean; message: string };
+  renameCategory(categoryIndex: number, categoryName: string): { ok: boolean; message: string };
+  deleteCategory(categoryIndex: number): { ok: boolean; message: string };
   downloadPlaylist(): { ok: boolean; message: string };
   importPlaylist(): Promise<{ ok: boolean; message: string }>;
 }
@@ -78,6 +83,7 @@ export function buildMediaManagementBindings(
     updatePlaylist: options.updatePlaylist,
     clearCategory: options.clearCategory,
     updateCategory: options.updateCategory,
+    getActiveCategoryId: options.getActiveCategoryId,
     syncMediaCategoryField: options.syncMediaCategoryField,
     syncPlaybackAfterMediaAdd: options.syncPlaybackAfterMediaAdd,
     persistMediaEditForCurrentPlaylist: async (workingMedia: unknown[]) => {
@@ -118,7 +124,11 @@ export function buildPlaylistManagementBindings(
     isLikelyJsonFile: options.isLikelyJsonFile,
     getBaseUrl: options.getBaseUrl,
     getPlaylistManageFormData: options.getPlaylistManageFormData,
+    getCategories: options.getCategories,
+    getMediaItems: options.getMediaItems,
     createCategory: options.createCategory,
+    renameCategory: options.renameCategory,
+    deleteCategory: options.deleteCategory,
     downloadPlaylist: options.downloadPlaylist,
     importPlaylist: options.importPlaylist,
   };

@@ -28,7 +28,7 @@ export function createManagementFormBindings(options: {
   generatePlaylistJson: (seekFormat: boolean) => string;
 }): {
   resetMediaManageForm: () => void;
-  addMediaData: (payload: [string, string][]) => boolean;
+  addMediaData: (payload: [string, string][], preferredCategoryId?: number | null) => boolean;
   generatePlaylistJson: (seekFormat: boolean) => string;
   resetPlaylistManageForm: () => void;
 } {
@@ -42,12 +42,13 @@ export function createManagementFormBindings(options: {
     });
   }
 
-  function addMediaData(payload: [string, string][]): boolean {
+  function addMediaData(payload: [string, string][], preferredCategoryId: number | null = null): boolean {
     options.logger('addMediaData::before:', payload, options.getMediaItems().length);
     options.ensureTargetPlaylist();
     const built = buildManagedMediaItem({
       payload,
       categories: options.getCategories(),
+      preferredCategoryId,
       titleMaxLength: options.titleMaxLength,
       artistMaxLength: options.artistMaxLength,
       descMaxLength: options.descMaxLength,

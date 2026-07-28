@@ -79,11 +79,18 @@ export function createPlaylistResumeBindings(options: {
   }
 
   function getSavedPlaylistContext(): PlaylistResumeContext | null {
-    return getSavedPlaylistResumeContext(
+    const context = getSavedPlaylistResumeContext(
       options.sanitizeMediaText,
       options.titleMaxLength,
       options.artistMaxLength
     );
+    if (context?.playlist === 'MyPlaylist.json') {
+      return {
+        ...context,
+        playlist: options.myPlaylistName,
+      };
+    }
+    return context;
   }
 
   function isPlaylistAvailableForResume(playlist: string): boolean {

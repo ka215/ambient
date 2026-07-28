@@ -6,6 +6,7 @@ const AUTO_CATEGORY_NAME = 'New Category';
 export interface BuildMediaItemOptions {
   payload: [string, string][];
   categories: string[];
+  preferredCategoryId?: number | null;
   titleMaxLength: number;
   artistMaxLength: number;
   descMaxLength: number;
@@ -29,6 +30,10 @@ function ensureAutoCategory(categories: string[]): { categories: string[]; categ
   return { categories: nextCategories, categoryIndex };
 }
 
+function isValidCategoryIndex(categories: string[], value: unknown): value is number {
+  return Number.isInteger(value) && Number(value) >= 0 && Number(value) < categories.length;
+}
+
 export function buildManagedMediaItem(options: BuildMediaItemOptions): BuildMediaItemResult {
   const mediaItem: MediaItem = {
     amId: 0,
@@ -44,7 +49,8 @@ export function buildManagedMediaItem(options: BuildMediaItemOptions): BuildMedi
   };
 
   let categories = [...options.categories];
-  let categoryValue = '';
+  let categoryResolved = false;
+  let requestedNewCategoryName: string | null = null;
 
   for (const [key, val] of options.payload) {
     switch (key) {
@@ -55,26 +61,16 @@ export function buildManagedMediaItem(options: BuildMediaItemOptions): BuildMedi
         mediaItem.file = val;
         break;
       case 'category':
-        categoryValue = val;
-        if (val === '') {
-          const resolved = ensureAutoCategory(categories);
-          categories = resolved.categories;
-          mediaItem.catId = resolved.categoryIndex;
-        } else {
-          mediaItem.catId = Number(val);
+        if (val !== '') {
+          const categoryIndex = Number(val);
+          if (isValidCategoryIndex(categories, categoryIndex)) {
+            mediaItem.catId = categoryIndex;
+            categoryResolved = true;
+          }
         }
         break;
       case 'category_new_name': {
-        const newCategoryName = options.sanitizeMediaText(val || '', options.titleMaxLength) || AUTO_CATEGORY_NAME;
-        const nextCategories = [...categories];
-        let newCategoryIndex = nextCategories.indexOf(newCategoryName);
-        if (newCategoryIndex === -1) {
-          nextCategories.push(newCategoryName);
-          newCategoryIndex = nextCategories.length - 1;
-        }
-        categories = nextCategories;
-        mediaItem.catId = newCategoryIndex;
-        categoryValue = String(newCategoryIndex);
+        requestedNewCategoryName = options.sanitizeMediaText(val || '', options.titleMaxLength) || AUTO_CATEGORY_NAME;
         break;
       }
       case 'title':
@@ -104,7 +100,25 @@ export function buildManagedMediaItem(options: BuildMediaItemOptions): BuildMedi
     }
   }
 
-  if (categoryValue === '' && !options.payload.some(([payloadKey]) => payloadKey === 'category')) {
+  const preferredCategoryId = options.preferredCategoryId ?? null;
+  if (!categoryResolved && isValidCategoryIndex(categories, preferredCategoryId)) {
+    mediaItem.catId = preferredCategoryId;
+    categoryResolved = true;
+  }
+
+  if (!categoryResolved && requestedNewCategoryName !== null) {
+    const nextCategories = [...categories];
+    let newCategoryIndex = nextCategories.indexOf(requestedNewCategoryName);
+    if (newCategoryIndex === -1) {
+      nextCategories.push(requestedNewCategoryName);
+      newCategoryIndex = nextCategories.length - 1;
+    }
+    categories = nextCategories;
+    mediaItem.catId = newCategoryIndex;
+    categoryResolved = true;
+  }
+
+  if (!categoryResolved) {
     const resolved = ensureAutoCategory(categories);
     categories = resolved.categories;
     mediaItem.catId = resolved.categoryIndex;

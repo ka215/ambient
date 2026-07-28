@@ -2,6 +2,7 @@ import { expect, Page } from '@playwright/test';
 
 import { test } from '../fixtures/ambient-page.fixture';
 import { getPlaylistItemCount } from '../utils/data-helpers';
+import { E2E_PLAYLIST_NAME, installE2ePlaylistFixture, removeE2ePlaylistFixture } from '../utils/playlist-fixtures';
 
 /**
  * Open #modal-options and expand the specified accordion section.
@@ -73,11 +74,20 @@ async function resetTargetCategoryFilter(page: Page, ambientPage: { openSettings
 }
 
 test.describe('SC-007 Playlist/Media management flow', () => {
+  test.beforeEach(() => {
+    installE2ePlaylistFixture();
+  });
+
+  test.afterEach(() => {
+    removeE2ePlaylistFixture();
+  });
+
   test('adds category and YouTube media from management forms', async ({ ambientPage, page }) => {
     // Arrange
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
-    await ambientPage.selectPlaylist('mememori-yt.json');
+    await expect(page.locator(`#current-playlist option[value="${E2E_PLAYLIST_NAME}"]`)).toHaveText('playlist-for-e2e');
+    await ambientPage.selectPlaylist(E2E_PLAYLIST_NAME);
     await resetTargetCategoryFilter(page, ambientPage);
 
     const uniqueSuffix = Date.now();
@@ -177,7 +187,7 @@ test.describe('SC-007 Playlist/Media management flow', () => {
   test('opens media management from no-media button when a filtered category has no items', async ({ ambientPage, page }) => {
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
-    await ambientPage.selectPlaylist('mememori-yt.json');
+    await ambientPage.selectPlaylist(E2E_PLAYLIST_NAME);
     await resetTargetCategoryFilter(page, ambientPage);
 
     const uniqueSuffix = Date.now();
@@ -270,7 +280,7 @@ test.describe('SC-007 Playlist/Media management flow', () => {
   test('category note link opens playlist management category field', async ({ ambientPage, page }) => {
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
-    await ambientPage.selectPlaylist('mememori-yt.json');
+    await ambientPage.selectPlaylist(E2E_PLAYLIST_NAME);
 
     await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
 
@@ -354,7 +364,7 @@ test.describe('SC-007 Playlist/Media management flow', () => {
 
     await expect(page.locator('#btn-add-media')).toBeEnabled();
     await page.locator('#btn-add-media').click();
-    await expect(page.locator('#modal-options')).toBeHidden();
+    await expect(page.locator('#modal-options')).toHaveClass(/pointer-events-none/);
 
     await page.evaluate(() => {
       const btn = document.querySelector<HTMLElement>('#btn-options');

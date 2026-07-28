@@ -4,9 +4,13 @@ type PlaylistActionOptions =
 export interface CreateManagementPlaylistActionsFacadeOptions {
   document: Document;
   getCategories(): string[];
+  getMediaItems(): import('../types/ambient').MediaItem[];
   persistMyPlaylistIfNeeded(): boolean;
   setCategories(categories: string[]): void;
+  setMediaItems(mediaItems: import('../types/ambient').MediaItem[]): void;
+  resetActiveCategory(): void;
   onCategoryCreated(): void;
+  onCategoriesMutated(): void;
   logger(...args: unknown[]): void;
   getPlaylistName(): string;
   importFileInput: HTMLInputElement | null;
@@ -22,9 +26,13 @@ export function createManagementPlaylistActionsFacade(
 } {
   return {
     getCategories: options.getCategories,
+    getMediaItems: options.getMediaItems,
     persistMyPlaylistIfNeeded: options.persistMyPlaylistIfNeeded,
     setCategories: options.setCategories,
+    setMediaItems: options.setMediaItems,
+    resetActiveCategory: options.resetActiveCategory,
     onCategoryCreated: options.onCategoryCreated,
+    onCategoriesMutated: options.onCategoriesMutated,
     logger: options.logger,
     getPlaylistName: options.getPlaylistName,
     importFileInput: options.importFileInput,

@@ -14,6 +14,7 @@ export interface ManagementPlaylistUiHelpers {
   syncMediaCategoryField(preferredCategoryId?: number | null): void;
   syncPlaybackAfterMediaAdd(): void;
   onCategoryCreated(): void;
+  onCategoriesMutated(): void;
 }
 
 export function createManagementPlaylistUiHelpers(
@@ -49,6 +50,11 @@ export function createManagementPlaylistUiHelpers(
     onCategoryCreated: () => {
       options.playlistUiFacade.clearCategory();
       options.playlistUiFacade.updateCategory();
+    },
+    onCategoriesMutated: () => {
+      options.playlistUiFacade.clearCategory();
+      options.playlistUiFacade.updateCategory();
+      options.playlistUiFacade.updatePlaylist();
     },
   };
 }
