@@ -15,6 +15,8 @@ export interface CreateManagementPlaylistBindingsFacadeOptions {
   logger(...args: unknown[]): void;
   isLikelyJsonFile(file: File): boolean;
   getBaseUrl(): string;
+  getCategories(): string[];
+  getMediaItems(): import('../types/ambient').MediaItem[];
 }
 
 export function createManagementPlaylistBindingsFacade(
@@ -39,5 +41,7 @@ export function createManagementPlaylistBindingsFacade(
       const formData = new FormData(playlistForm);
       return oneData ? formData.get(oneData) : Array.from(formData.entries());
     },
+    getCategories: options.getCategories,
+    getMediaItems: options.getMediaItems,
   } as PlaylistBindings;
 }

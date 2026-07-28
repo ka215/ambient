@@ -2,8 +2,17 @@ import { expect } from '@playwright/test';
 
 import { test } from '../fixtures/ambient-page.fixture';
 import { expectCurrentPlaylistItem } from '../utils/assertions';
+import { E2E_PLAYLIST_NAME, installE2ePlaylistFixture, removeE2ePlaylistFixture } from '../utils/playlist-fixtures';
 
 test.describe('SC-003 Playlist navigation (next/prev)', () => {
+  test.beforeEach(() => {
+    installE2ePlaylistFixture();
+  });
+
+  test.afterEach(() => {
+    removeE2ePlaylistFixture();
+  });
+
   test('moves focus across items via next and previous controls', async ({ ambientPage, page }) => {
     // Arrange
     await ambientPage.gotoHome();
@@ -16,7 +25,7 @@ test.describe('SC-003 Playlist navigation (next/prev)', () => {
       await expect(page.locator('body')).not.toHaveClass(/amp-full-window/);
     }
 
-    await ambientPage.selectPlaylist('mememori-yt.json');
+    await ambientPage.selectPlaylist(E2E_PLAYLIST_NAME);
     await ambientPage.waitForYouTubeApi();
     // Open playlist drawer, click first item to start playback, then close drawer
     const seqBeforePlay = await ambientPage.getYouTubeSignalSeq();

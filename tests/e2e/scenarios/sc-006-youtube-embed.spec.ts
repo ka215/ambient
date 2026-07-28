@@ -33,7 +33,7 @@ test.describe('SC-006 YouTube IFrame embed on track selection', () => {
     // Arrange
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
-    await ambientPage.selectPlaylist('MyPlaylist.json');
+    await ambientPage.selectPlaylist('MyPlaylist');
     await ambientPage.waitForYouTubeApi();
     await ambientPage.openPlaylistDrawer();
     const youtubeItem = await findYoutubePlaylistItem(page);

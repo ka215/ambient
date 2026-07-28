@@ -18,6 +18,7 @@ export interface CreateManagementMediaBindingsFacadeOptions {
   updatePlaylist(): void;
   clearCategory(): void;
   updateCategory(): void;
+  getActiveCategoryId(): number | null;
   syncMediaCategoryField(preferredCategoryId?: number | null): void;
   syncPlaybackAfterMediaAdd(): void;
   persistMediaEditForCurrentPlaylist(workingMedia: MediaItem[]): Promise<{ ok: boolean; message: string }>;
@@ -52,6 +53,7 @@ export function createManagementMediaBindingsFacade(
     updatePlaylist: options.updatePlaylist,
     clearCategory: options.clearCategory,
     updateCategory: options.updateCategory,
+    getActiveCategoryId: options.getActiveCategoryId,
     syncMediaCategoryField: options.syncMediaCategoryField,
     syncPlaybackAfterMediaAdd: options.syncPlaybackAfterMediaAdd,
     persistMediaEditForCurrentPlaylist: options.persistMediaEditForCurrentPlaylist,

@@ -2,7 +2,7 @@ import { Page, expect } from '@playwright/test';
 
 import { test } from '../fixtures/ambient-page.fixture';
 
-const MYPLAYLIST_NAME = 'MyPlaylist.json';
+const MYPLAYLIST_NAME = 'MyPlaylist';
 
 async function openManagementSection(
   page: Page,

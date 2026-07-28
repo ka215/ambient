@@ -2,7 +2,7 @@ import { Page, expect } from '@playwright/test';
 
 import { test } from '../fixtures/ambient-page.fixture';
 
-const MYPLAYLIST_NAME = 'MyPlaylist.json';
+const MYPLAYLIST_NAME = 'MyPlaylist';
 
 type SavedPlaylistContext = {
   playlist: string;
@@ -343,7 +343,8 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
 
     await ambientPage.openSettingsDrawer();
     await expect(page.locator('#current-playlist')).toHaveValue(MYPLAYLIST_NAME);
-    await expect(page.locator('#current-playlist option[value="MyPlaylist.json"]')).toHaveCount(1);
+    await expect(page.locator('#current-playlist option[value="MyPlaylist"]')).toHaveCount(1);
+    await expect(page.locator('#current-playlist option[value="MyPlaylist"]')).toHaveText('MyPlaylist');
     await ambientPage.closeSettingsDrawer();
 
     await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
@@ -402,6 +403,158 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
 
     await expect(page.locator('#category-name')).toBeDisabled();
     await expect(page.locator('#btn-create-category')).toBeDisabled();
+    await expect(page.locator('#category-edit-target')).toBeDisabled();
+    await expect(page.locator('#category-edit-name')).toBeDisabled();
+    await expect(page.locator('#btn-update-category')).toBeDisabled();
+    await expect(page.locator('#btn-delete-category')).toBeDisabled();
+  });
+
+  test('adds media to the selected MyPlaylist category instead of New Category', async ({ ambientPage, page }) => {
+    await seedMyPlaylist(page, buildMyPlaylist({
+      Alpha: [
+        { title: 'alpha-existing', videoid: 'dQw4w9WgXcQ' },
+      ],
+      Beta: [
+        { title: 'beta-existing', videoid: 'gu7T0D50wFk' },
+      ],
+    }));
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.waitForPlaylistReady();
+
+    await ambientPage.openSettingsDrawer();
+    await page.locator('#target-category').selectOption('1');
+    await expect(page.locator('#target-category')).toHaveValue('1');
+    await ambientPage.closeSettingsDrawer();
+
+    await openManagementSection(page, '#collapse-item-heading-playlist button', 'collapse-item-body-playlist');
+    await expect(page.locator('#category-edit-target')).toHaveValue('1');
+    await expect(page.locator('#category-edit-name')).toHaveValue('');
+    await expect(page.locator('#category-edit-media-count-summary')).toBeVisible();
+    await expect(page.locator('#category-edit-media-count')).toHaveText('1');
+    await expect(page.locator('#btn-update-category')).toBeDisabled();
+    await expect(page.locator('#btn-delete-category')).toBeDisabled();
+
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+    await expect(page.locator('#media-category')).toHaveValue('1');
+
+    const mediaTitle = `beta-added-${Date.now()}`;
+    await page.evaluate((title) => {
+      const url = document.getElementById('youtube-url') as HTMLInputElement | null;
+      const titleInput = document.getElementById('media-title') as HTMLInputElement | null;
+      if (url) {
+        url.value = 'https://www.youtube.com/watch?v=3JZ_D3ELwOQ';
+        url.dispatchEvent(new Event('input', { bubbles: true }));
+        url.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (titleInput) {
+        titleInput.value = title;
+        titleInput.dispatchEvent(new Event('input', { bubbles: true }));
+        titleInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }, mediaTitle);
+
+    await expect(page.locator('#btn-add-media')).toBeEnabled();
+    await page.locator('#btn-add-media').click();
+    await expect(page.locator('#modal-options')).toBeHidden();
+
+    await expect.poll(async () => page.evaluate((title) => {
+      const raw = localStorage.getItem('AmbientMyPlaylist');
+      if (!raw) return false;
+      const playlist = JSON.parse(raw);
+      return Array.isArray(playlist.Beta)
+        && playlist.Beta.some((item: { title?: string }) => item.title === title)
+        && playlist['New Category'] === undefined;
+    }, mediaTitle), { timeout: 10_000 }).toBe(true);
+
+    await ambientPage.openPlaylistDrawer();
+    await expect(page.locator('#playlist-list-group a[data-playlist-item]')).toHaveCount(2);
+    await expect(page.locator('#playlist-list-group')).toContainText(mediaTitle);
+  });
+
+  test('renames categories and deletes only empty categories in MyPlaylist', async ({ ambientPage, page }) => {
+    await seedMyPlaylist(page, buildMyPlaylist({
+      Alpha: [
+        { title: 'alpha-edit-source', videoid: 'dQw4w9WgXcQ' },
+      ],
+      Empty: [],
+    }));
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.waitForPlaylistReady();
+    await openManagementSection(page, '#collapse-item-heading-playlist button', 'collapse-item-body-playlist');
+
+    await expect(page.locator('#playlist-management-field-category-edit')).toBeVisible();
+    await expect(page.locator('#category-edit-target option').first()).toHaveText(/カテゴリーの選択|Choose a category/);
+    await expect(page.locator('#category-edit-target')).toHaveValue('');
+    await expect(page.locator('#category-edit-media-count-summary')).toBeHidden();
+    await expect(page.locator('#category-edit-name')).toHaveValue('');
+    await expect(page.locator('#category-edit-name')).toBeDisabled();
+    await expect(page.locator('#category-edit-name')).toHaveAttribute('data-validate', 'false');
+    await expect(page.locator('#note-error-category-edit-name')).toBeHidden();
+
+    await page.locator('#category-edit-target').selectOption('0');
+    await expect(page.locator('#category-edit-name')).toHaveValue('Alpha');
+    await expect(page.locator('#category-edit-media-count')).toHaveText('1');
+    await expect(page.locator('#btn-update-category')).toBeDisabled();
+    await expect(page.locator('#btn-delete-category')).toBeDisabled();
+
+    await page.locator('#category-edit-name').fill('Empty');
+    await page.locator('#category-edit-name').dispatchEvent('input');
+    await page.evaluate(() => {
+      const btn = document.getElementById('btn-update-category') as HTMLButtonElement | null;
+      btn?.removeAttribute('disabled');
+      btn?.click();
+    });
+    await expect(page.locator('#alert-notification')).toContainClass('bg-red-50');
+
+    await page.locator('#category-edit-target').selectOption('0');
+    await page.locator('#category-edit-name').fill('Renamed Alpha');
+    await page.locator('#category-edit-name').dispatchEvent('input');
+    await expect(page.locator('#btn-update-category')).toBeEnabled();
+    await page.locator('#btn-update-category').click();
+    await expect(page.locator('#alert-notification')).toContainClass('bg-green-50');
+
+    await expect.poll(async () => page.evaluate(() => {
+      const raw = localStorage.getItem('AmbientMyPlaylist');
+      if (!raw) return null;
+      const playlist = JSON.parse(raw);
+      return {
+        renamed: Array.isArray(playlist['Renamed Alpha']),
+        oldMissing: playlist.Alpha === undefined,
+        itemTitle: playlist['Renamed Alpha']?.[0]?.title ?? null,
+      };
+    }), { timeout: 10_000 }).toEqual({
+      renamed: true,
+      oldMissing: true,
+      itemTitle: 'alpha-edit-source',
+    });
+
+    await ambientPage.openSettingsDrawer();
+    await expect(page.locator('#target-category')).toHaveValue('-1');
+    await ambientPage.closeSettingsDrawer();
+
+    await openManagementSection(page, '#collapse-item-heading-playlist button', 'collapse-item-body-playlist');
+    await page.locator('#category-edit-target').selectOption({ label: 'Empty' });
+    await expect(page.locator('#category-edit-media-count')).toHaveText('0');
+    await expect(page.locator('#btn-delete-category')).toBeEnabled();
+    await page.locator('#btn-delete-category').click();
+    await expect(page.locator('#alert-notification')).toContainClass('bg-green-50');
+
+    await expect.poll(async () => page.evaluate(() => {
+      const raw = localStorage.getItem('AmbientMyPlaylist');
+      if (!raw) return null;
+      const playlist = JSON.parse(raw);
+      return {
+        emptyMissing: playlist.Empty === undefined,
+        renamedStillExists: Array.isArray(playlist['Renamed Alpha']),
+      };
+    }), { timeout: 10_000 }).toEqual({
+      emptyMissing: true,
+      renamedStillExists: true,
+    });
   });
 
   test('uses playlist option volume for settings and media management defaults', async ({ ambientPage, page }) => {
@@ -503,7 +656,7 @@ test.describe('SC-010 Cloud MyPlaylist regressions', () => {
     await ambientPage.closeSettingsDrawer();
 
     await ambientPage.openSettingsDrawer();
-    await page.locator('#current-playlist').selectOption(MYPLAYLIST_NAME);
+    await page.locator('#current-playlist').selectOption({ value: MYPLAYLIST_NAME });
     await page.waitForFunction(() => document.querySelectorAll('#playlist-list-group a[data-playlist-item]').length === 2);
     await expect(page.locator('#target-category')).toBeEnabled();
     await expect(page.locator('#target-category option')).toHaveCount(2);

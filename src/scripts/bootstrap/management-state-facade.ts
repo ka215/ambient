@@ -5,6 +5,7 @@ export interface CreateManagementStateFacadeOptions {
     addtype?: string | null;
     media: MediaItem[] | null;
     category: string[] | null;
+    ctg: number | null;
     playlist: string | null;
     options: Record<string, unknown> | null;
   };
@@ -18,6 +19,7 @@ export interface ManagementStateFacade {
   getCategories(): string[];
   setCategories(categories: string[]): void;
   setMediaItems(mediaItems: MediaItem[]): void;
+  resetActiveCategory(): void;
   getPlaylistName(): string;
   generatePlaylistJson(seekFormat: boolean): string;
 }
@@ -35,6 +37,9 @@ export function createManagementStateFacade(options: CreateManagementStateFacade
     },
     setMediaItems: (mediaItems) => {
       options.status.media = mediaItems;
+    },
+    resetActiveCategory: () => {
+      options.status.ctg = -1;
     },
     getPlaylistName: () => options.status.playlist || 'playlist.json',
     generatePlaylistJson: (seekFormat) => options.buildPlaylistJson(seekFormat),

@@ -320,6 +320,9 @@ export function resetPlaylistManagementForm(options: ResetPlaylistManagementForm
         default:
           break;
       }
+    } else if (/^select$/i.test(child.nodeName)) {
+      (child as HTMLSelectElement).selectedIndex = 0;
+      eventName = 'change';
     }
     if (eventName) {
       logger('resetPlaylistManageForm:', child, eventName);

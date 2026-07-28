@@ -1,3 +1,25 @@
+import type { MediaItem } from '../types/ambient';
+import type { CategoryMutationReason } from './playlist-management-data';
+
+function resolveCategoryMutationMessage(options: {
+  reason?: CategoryMutationReason;
+  failureMessage: string;
+  duplicateMessage: string;
+  notEmptyMessage: string;
+  requiredMessage: string;
+}): string {
+  switch (options.reason) {
+    case 'duplicate':
+      return options.duplicateMessage;
+    case 'not-empty':
+      return options.notEmptyMessage;
+    case 'empty-name':
+      return options.requiredMessage;
+    default:
+      return options.failureMessage;
+  }
+}
+
 export function createPlaylistCategoryAction(options: {
   form: HTMLFormElement | null;
   categories: string[];
@@ -37,6 +59,112 @@ export function createPlaylistCategoryAction(options: {
   }
 }
 
+export function renamePlaylistCategoryAction(options: {
+  categories: string[];
+  categoryIndex: number;
+  categoryName: string;
+  successMessage: string;
+  failureMessage: string;
+  duplicateMessage: string;
+  requiredMessage: string;
+  renameCategory: (categories: string[], currentIndex: number, nextName: string) => {
+    ok: boolean;
+    categories: string[];
+    reason?: CategoryMutationReason;
+  };
+  persist: () => boolean;
+  onCategoriesUpdated: (categories: string[]) => void;
+  onAfterSuccess: () => void;
+  logger: (...args: unknown[]) => void;
+}): { ok: boolean; message: string } {
+  try {
+    const result = options.renameCategory(options.categories, options.categoryIndex, options.categoryName);
+    if (!result.ok) {
+      return {
+        ok: false,
+        message: resolveCategoryMutationMessage({
+          reason: result.reason,
+          failureMessage: options.failureMessage,
+          duplicateMessage: options.duplicateMessage,
+          notEmptyMessage: options.failureMessage,
+          requiredMessage: options.requiredMessage,
+        }),
+      };
+    }
+
+    options.onCategoriesUpdated(result.categories);
+    options.logger('renameCategory:', options.categoryIndex, options.categoryName, result.categories);
+    const persisted = options.persist();
+    if (persisted) {
+      options.onAfterSuccess();
+    }
+    return {
+      ok: persisted,
+      message: persisted ? options.successMessage : options.failureMessage,
+    };
+  } catch (error) {
+    options.logger('renameCategory: error', error);
+    return {
+      ok: false,
+      message: options.failureMessage,
+    };
+  }
+}
+
+export function deletePlaylistCategoryAction(options: {
+  categories: string[];
+  mediaItems: MediaItem[];
+  categoryIndex: number;
+  successMessage: string;
+  failureMessage: string;
+  notEmptyMessage: string;
+  deleteCategory: (categories: string[], mediaItems: MediaItem[], currentIndex: number) => {
+    ok: boolean;
+    categories: string[];
+    mediaItems?: MediaItem[];
+    reason?: CategoryMutationReason;
+  };
+  persist: () => boolean;
+  onCategoriesUpdated: (categories: string[]) => void;
+  onMediaItemsUpdated: (mediaItems: MediaItem[]) => void;
+  onAfterSuccess: () => void;
+  logger: (...args: unknown[]) => void;
+}): { ok: boolean; message: string } {
+  try {
+    const result = options.deleteCategory(options.categories, options.mediaItems, options.categoryIndex);
+    if (!result.ok) {
+      return {
+        ok: false,
+        message: resolveCategoryMutationMessage({
+          reason: result.reason,
+          failureMessage: options.failureMessage,
+          duplicateMessage: options.failureMessage,
+          notEmptyMessage: options.notEmptyMessage,
+          requiredMessage: options.failureMessage,
+        }),
+      };
+    }
+
+    options.onCategoriesUpdated(result.categories);
+    options.onMediaItemsUpdated(result.mediaItems || options.mediaItems);
+    options.logger('deleteCategory:', options.categoryIndex, result.categories);
+    const persisted = options.persist();
+    if (persisted) {
+      options.onAfterSuccess();
+    }
+    return {
+      ok: persisted,
+      message: persisted ? options.successMessage : options.failureMessage,
+    };
+  } catch (error) {
+    options.logger('deleteCategory: error', error);
+    return {
+      ok: false,
+      message: options.failureMessage,
+    };
+  }
+}
+
 export function downloadPlaylistAction(options: {
   form: HTMLFormElement | null;
   playlistName: string;
@@ -58,7 +186,8 @@ export function downloadPlaylistAction(options: {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = options.playlistName || 'playlist.json';
+  const downloadName = options.playlistName || 'playlist';
+  anchor.download = /\.json$/i.test(downloadName) ? downloadName : `${downloadName}.json`;
   document.body.appendChild(anchor);
   anchor.click();
   document.body.removeChild(anchor);

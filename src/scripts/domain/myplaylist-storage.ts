@@ -3,7 +3,8 @@ import { getLocalItem, MYPLAYLIST_KEY, setLocalItem } from '../platform/storage'
 import { isObject } from '../shared/validation';
 import type { MediaItem } from '../types/ambient';
 
-export const MYPLAYLIST_NAME = 'MyPlaylist.json';
+export const MYPLAYLIST_NAME = 'MyPlaylist';
+export const LEGACY_MYPLAYLIST_NAME = 'MyPlaylist.json';
 
 export type DomainLogger = (...args: unknown[]) => void;
 

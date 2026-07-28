@@ -76,7 +76,7 @@ test.describe('SC-018 Public release toast smoke @public-release', () => {
       return page.evaluate(() => {
         const playlist = document.getElementById('current-playlist') as HTMLSelectElement | null;
         const hasItem = document.querySelectorAll('#playlist-list-group a[data-playlist-item]').length > 0;
-        return (playlist?.value === 'MyPlaylist.json') && hasItem;
+        return (playlist?.value === 'MyPlaylist') && hasItem;
       });
     }, { timeout: 12_000 }).toBeTruthy();
 

@@ -1,8 +1,9 @@
 import { Page, expect } from '@playwright/test';
 
 import { AmbientPage, test } from '../fixtures/ambient-page.fixture';
+import { E2E_PLAYLIST_NAME, installE2ePlaylistFixture, removeE2ePlaylistFixture } from '../utils/playlist-fixtures';
 
-const MYPLAYLIST_NAME = 'MyPlaylist.json';
+const MYPLAYLIST_NAME = 'MyPlaylist';
 
 type SeedItem = {
   title: string;
@@ -119,6 +120,7 @@ async function loadSeededMyPlaylist(page: Page, ambientPage: AmbientPage): Promi
 test.describe('SC-011 Playlist mode Slice A/B', () => {
   test.beforeEach(async ({ browserName, page, ambientPage }) => {
     test.skip(browserName !== 'chromium', 'Slice A/B E2E is validated on chromium only.');
+    installE2ePlaylistFixture();
 
     await seedMyPlaylist(page, [
       { title: 'slice-ab-1', videoid: 'dQw4w9WgXcQ', artist: 'E2E Artist Alpha', desc: 'First item description' },
@@ -132,6 +134,10 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
       const raw = localStorage.getItem('AmbientMyPlaylist');
       return !!raw && raw.includes('slice-ab-1');
     })).toBe(true);
+  });
+
+  test.afterEach(() => {
+    removeE2ePlaylistFixture();
   });
 
   test('places mode button between label and close button, and keeps dropdown width sufficient', async ({ page }) => {
@@ -206,7 +212,7 @@ test.describe('SC-011 Playlist mode Slice A/B', () => {
   });
 
   test('matches JSON playlist operation availability for the current environment', async ({ page, ambientPage }) => {
-    await ambientPage.selectPlaylist('mememori-yt.json');
+    await ambientPage.selectPlaylist(E2E_PLAYLIST_NAME);
     await ambientPage.openPlaylistDrawer();
 
     const isCloud = await page.evaluate(() => Boolean((window as any).AmbientData?.isCloud));

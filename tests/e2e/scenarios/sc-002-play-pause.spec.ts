@@ -1,12 +1,21 @@
 import { test } from '../fixtures/ambient-page.fixture';
 import { expectPausePlaySwapped, expectPlayPauseSwapped } from '../utils/assertions';
+import { E2E_PLAYLIST_NAME, installE2ePlaylistFixture, removeE2ePlaylistFixture } from '../utils/playlist-fixtures';
 
 test.describe('SC-002 Play/pause state toggle', () => {
+  test.beforeEach(() => {
+    installE2ePlaylistFixture();
+  });
+
+  test.afterEach(() => {
+    removeE2ePlaylistFixture();
+  });
+
   test('toggles controls between play and pause', async ({ ambientPage, page }) => {
     // Arrange
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
-    await ambientPage.selectPlaylist('mememori-yt.json');
+    await ambientPage.selectPlaylist(E2E_PLAYLIST_NAME);
     await ambientPage.waitForYouTubeApi();
 
     // Open playlist drawer to access items, click first item, then close drawer

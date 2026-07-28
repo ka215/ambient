@@ -591,7 +591,91 @@
                         </div>
                     </div>
                 </div>
-                <div 
+                <div
+                  id="playlist-management-field-category-edit"
+                  class="mb-8 hidden"
+                >
+                    <h3 class="text-base font-semibold mb-2 -mx-5 px-5 lead-text"><?= __( 'Edit Category' ) ?></h3>
+                    <p class="mb-2 text-gray-500 dark:text-gray-400">
+                        <?= __( 'Edit or delete categories in the currently active playlist.' ) ?><br>
+                        <?= __( 'Only categories without media can be deleted.' ) ?>
+                    </p>
+                    <div class="mb-4">
+                        <label
+                          for="category-edit-target"
+                          class="block mb-2 text-sm font-medium normal-text"
+                        ><?= __( 'Target Category' ) ?></label>
+                        <div class="flex flex-col gap-2 md:flex-row md:items-center">
+                            <select
+                              id="category-edit-target"
+                              name="category_edit_target"
+                              class="border text-sm rounded-lg block w-full md:max-w-[50%] p-2.5 normal-input"
+                              data-placeholder="<?= __( 'Choose a category' ) ?>"
+                            >
+                                <option value="" selected><?= __( 'Choose a category' ) ?></option>
+                            </select>
+                            <p id="category-edit-media-count-summary" class="hidden text-sm leading-10 text-gray-500 dark:text-gray-300 md:self-center">
+                                <?= __( 'Media count' ) ?>:
+                                <span id="category-edit-media-count">0</span>
+                            </p>
+                        </div>
+                    </div>
+                    <div
+                      id="category-edit-fields"
+                      class="hidden"
+                    >
+                        <div class="grid gap-4 mb-4 md:grid-cols-[minmax(0,50%)_auto]">
+                            <div class="min-w-0">
+                                <label
+                                  for="category-edit-name"
+                                  class="block mb-2 text-sm font-medium normal-text"
+                                >
+                                    <span class="required"><?= __( 'Category Name' ) ?></span>
+                                    <span
+                                      id="note-error-category-edit-name"
+                                      class="hidden bg-red-100 text-red-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300"
+                                    ><?= __( 'Category name is required.' ) ?></span>
+                                    <span
+                                      id="note-success-category-edit-name"
+                                      class="hidden bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300 inline-flex items-center"
+                                    ><span class="ui-icon-mask ui-icon-mask--check w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true"></span></span>
+                                </label>
+                                <input
+                                  id="category-edit-name"
+                                  type="text"
+                                  name="category_edit_name"
+                                  class="border text-sm rounded-lg block w-full p-2.5 normal-input"
+                                  placeholder="<?= __( 'New category name' ) ?>"
+                                  disabled
+                                />
+                            </div>
+                            <div class="flex flex-wrap items-end justify-end gap-2">
+                                <button
+                                  id="btn-update-category"
+                                  type="button"
+                                  name="update_category"
+                                  class="min-h-10 whitespace-nowrap text-center font-medium rounded-lg text-sm px-5 py-2.5 mr-0 mb-0 text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+                                  data-message-success="<?= __( 'Category updated successfully.' ) ?>"
+                                  data-message-failure="<?= __( 'Failed to update category.' ) ?>"
+                                  data-message-duplicate="<?= __( 'A category with this name already exists.' ) ?>"
+                                  data-message-required="<?= __( 'Category name is required.' ) ?>"
+                                  disabled
+                                ><?= __( 'Apply Changes' ) ?></button>
+                                <button
+                                  id="btn-delete-category"
+                                  type="button"
+                                  name="delete_category"
+                                  class="min-h-10 whitespace-nowrap text-center font-medium rounded-lg text-sm px-5 py-2.5 mr-0 mb-0 text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800"
+                                  data-message-success="<?= __( 'Category deleted successfully.' ) ?>"
+                                  data-message-failure="<?= __( 'Failed to delete category.' ) ?>"
+                                  data-message-not-empty="<?= __( 'This category contains media and cannot be deleted.' ) ?>"
+                                  disabled
+                                ><?= __( 'Delete' ) ?></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div
                   id="playlist-management-field-download"
                   class="mb-4"
                 >

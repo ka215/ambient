@@ -1101,6 +1101,8 @@ const init = function (): void {
     logger: runtimeLogger,
     isLikelyJsonFile: sharedIsLikelyJsonFile,
     getBaseUrl: () => BASE_URL,
+    getCategories: managementStateFacade.getCategories,
+    getMediaItems: managementStateFacade.getMediaItems,
   });
   const managementPlaylistStateSupport = createManagementPlaylistStateSupport({
     status: AMP_STATUS,
@@ -1133,6 +1135,7 @@ const init = function (): void {
     updatePlaylist: managementPlaylistUiHelpers.updatePlaylist,
     clearCategory: managementPlaylistUiHelpers.clearCategory,
     updateCategory: managementPlaylistUiHelpers.updateCategory,
+    getActiveCategoryId: playlistUiFacade.getActiveCategoryId,
     syncMediaCategoryField: managementPlaylistUiHelpers.syncMediaCategoryField,
     syncPlaybackAfterMediaAdd: managementPlaylistUiHelpers.syncPlaybackAfterMediaAdd,
     persistMediaEditForCurrentPlaylist: mediaEditFacade.persistCurrentPlaylist,
@@ -1153,9 +1156,13 @@ const init = function (): void {
   const managementPlaylistActionsFacade = createManagementPlaylistActionsFacade({
     document,
     getCategories: managementStateFacade.getCategories,
+    getMediaItems: managementStateFacade.getMediaItems,
     persistMyPlaylistIfNeeded,
     setCategories: managementStateFacade.setCategories,
+    setMediaItems: managementStateFacade.setMediaItems,
+    resetActiveCategory: managementStateFacade.resetActiveCategory,
     onCategoryCreated: managementPlaylistUiHelpers.onCategoryCreated,
+    onCategoriesMutated: managementPlaylistUiHelpers.onCategoriesMutated,
     logger,
     getPlaylistName: managementStateFacade.getPlaylistName,
     importFileInput: document.getElementById('playlist-import-file') as HTMLInputElement | null,

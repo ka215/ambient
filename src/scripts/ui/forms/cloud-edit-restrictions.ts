@@ -22,6 +22,10 @@ export function applyCloudEditRestrictionsView(options: CloudEditRestrictionsOpt
   const categoryControlIds = [
     'category-name',
     'btn-create-category',
+    'category-edit-target',
+    'category-edit-name',
+    'btn-update-category',
+    'btn-delete-category',
   ];
   const setReadonlyState = (ids: string[]): void => {
     ids.forEach((id) => {
@@ -45,9 +49,11 @@ export function applyCloudEditRestrictionsView(options: CloudEditRestrictionsOpt
   if (!options.canMutatePlaylist) {
     options.mediaForm?.classList.add('opacity-50');
     options.playlistForm?.querySelector('#playlist-management-field-category')?.classList.add('opacity-50');
+    options.playlistForm?.querySelector('#playlist-management-field-category-edit')?.classList.add('opacity-50');
     return;
   }
 
   options.mediaForm?.classList.remove('opacity-50');
   options.playlistForm?.querySelector('#playlist-management-field-category')?.classList.remove('opacity-50');
+  options.playlistForm?.querySelector('#playlist-management-field-category-edit')?.classList.remove('opacity-50');
 }

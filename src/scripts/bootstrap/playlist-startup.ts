@@ -52,7 +52,7 @@ export function ensureMyPlaylistOptionFromStorage(options: EnsureMyPlaylistOptio
 
   const option = document.createElement('option');
   option.value = options.myPlaylistName;
-  option.textContent = options.myPlaylistName.replace('.json', '');
+  option.textContent = options.myPlaylistName.replace(/\.json$/i, '');
   selectElement.appendChild(option);
   return true;
 }

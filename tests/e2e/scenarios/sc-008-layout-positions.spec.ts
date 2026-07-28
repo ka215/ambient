@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { test, expect } from '../fixtures/ambient-page.fixture';
+import { E2E_PLAYLIST_NAME, installE2ePlaylistFixture, removeE2ePlaylistFixture } from '../utils/playlist-fixtures';
 
 function ensureSnapshotDir(): string {
   const dir = path.resolve(process.cwd(), 'logs', 'playwright-snapshots');
@@ -10,6 +11,14 @@ function ensureSnapshotDir(): string {
 }
 
 test.describe('SC-008 Layout positioning checks', () => {
+  test.beforeEach(() => {
+    installE2ePlaylistFixture();
+  });
+
+  test.afterEach(() => {
+    removeE2ePlaylistFixture();
+  });
+
   test('carousel, bottom menu, and drawer toggle keep expected positions', async ({ ambientPage, page }) => {
     const snapshotDir = ensureSnapshotDir();
     const isMobileViewport = (page.viewportSize()?.width ?? 1400) < 1282;
@@ -31,7 +40,7 @@ test.describe('SC-008 Layout positioning checks', () => {
 
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();
-    await ambientPage.selectPlaylist('mememori-yt.json');
+    await ambientPage.selectPlaylist(E2E_PLAYLIST_NAME);
 
     await ambientPage.openPlaylistDrawer();
     await page.locator('#playlist-list-group a[data-playlist-item]').first().click();

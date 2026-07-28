@@ -29,7 +29,7 @@
             <select id="current-playlist" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
                 <option disabled selected><?= __( 'Choose a playlist' ) ?></option>
 <?php if ( !empty( $this->playlists ) ): foreach ( $this->playlists as $filename => $filepath ): ?>
-                <option value="<?= $filename ?>"<?php if ( count( $this->playlists ) == 1 ): ?> selected<?php endif; ?>><?= $filename ?></option>
+                <option value="<?= $filename ?>"<?php if ( count( $this->playlists ) == 1 ): ?> selected<?php endif; ?>><?= preg_replace( '/\.json$/i', '', $filename ) ?></option>
 <?php endforeach; endif; ?>
             </select>
         </div>
