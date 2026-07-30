@@ -10,6 +10,7 @@
     "ts-build": "tsc --noEmit",
     "validate:playlists": "node ./scripts/validate-playlists.cjs",
     "check:i18n": "node ./scripts/check-i18n-coverage.cjs",
+    "test:youtube-metadata-api": "node ./scripts/test-youtube-metadata-api.cjs",
     "release:prepare": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/release-prepare.ps1",
     "release:start": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/release-start.ps1",
     "release:finish": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/release-finish.ps1",

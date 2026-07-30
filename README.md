@@ -91,6 +91,11 @@ After cloning, copy `.env.example` to `.env` and adjust the environment-specific
 - `ASSET_MODE` - `build` for built assets, `dev` for Vite dev server assets
 - `VITE_DEV_SERVER_URL` - Vite dev asset URL used only in development mode
 - `VITE_MEDIA_EDIT_DURATION_SYNC_TIMEOUT_MS` - timeout for media-edit duration synchronization
+- `YOUTUBE_DATA_API_KEY` - YouTube Data API key for metadata assistance during YouTube media registration; leave empty to disable
+- `YOUTUBE_METADATA_MONTHLY_LIMIT` - monthly request-count limit for metadata assistance, default `10000`
+- `YOUTUBE_METADATA_ALLOW_OVER_LIMIT` - continue metadata API calls after the monthly limit, default `false`
+- `YOUTUBE_METADATA_COUNTER_PATH` - server-side JSON usage counter path, default `logs/youtube-metadata-usage.json`; production deployments should place it above the document root
+- `YOUTUBE_METADATA_TIMEOUT_MS` - server-side timeout for YouTube metadata requests, default `5000`
 
 Alternatively, you can download the ZIP files from each release version of [Ambient Release Packages](https://github.com/ka215/ambient/releases) and unzip them to the desired installation location.
 

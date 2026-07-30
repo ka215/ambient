@@ -36,6 +36,7 @@ import {
   hasPlaylist as platformHasPlaylist,
 } from './platform/ambient-data';
 import { fetchData } from './platform/fetch-data';
+import { createYouTubeMetadataClient } from './platform/youtube-metadata-api';
 import {
   USER_DATA_APP_KEY,
 } from './platform/storage';
@@ -257,7 +258,7 @@ const init = function (): void {
   // ============================================================================
   const MEDIA_TITLE_MAX_LENGTH = 100;
   const MEDIA_ARTIST_MAX_LENGTH = 100;
-  const MEDIA_DESC_MAX_LENGTH = 500;
+  const MEDIA_DESC_MAX_LENGTH = 1000;
   const CLOUD_IMPORT_SIZE_LIMIT_BYTES = {
     mobile: 1 * 1024 * 1024,
     tablet: 2 * 1024 * 1024,
@@ -1122,6 +1123,11 @@ const init = function (): void {
     sanitizeMediaDescInputLive: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => sharedSanitizeMediaDescInputLive(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
     syncRangeProgress: syncAmbientRangeProgress,
   });
+  const youtubeMetadataClient = createYouTubeMetadataClient({
+    baseUrl: BASE_URL,
+    fetchData,
+    logger: runtimeLogger,
+  });
   const managementMediaBindingsFacade = createManagementMediaBindingsFacade({
     mediaCategorySelect: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
     mediaTitleMaxLength: MEDIA_TITLE_MAX_LENGTH,
@@ -1152,6 +1158,9 @@ const init = function (): void {
     getMediaItems: managementStateFacade.getMediaItems,
     getAddType: managementStateFacade.getAddType,
     setAddType: managementStateFacade.setAddType,
+    isYouTubeMetadataEnabled: () => getRuntimeAmbientData()?.youtubeMetadata?.enabled === true,
+    fetchYouTubeMetadata: youtubeMetadataClient.fetchMetadata,
+    getLocalizedMessage: getRuntimeLocalizedMessage,
   });
   const managementPlaylistActionsFacade = createManagementPlaylistActionsFacade({
     document,

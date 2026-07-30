@@ -1,4 +1,5 @@
 import type { MediaItem } from '../../types/ambient';
+import type { YouTubeMetadataPayload } from '../../types/ambient';
 import type { MediaManagementBindings } from './media-management';
 import type { PlaylistManagementBindings } from './playlist-management';
 
@@ -37,6 +38,9 @@ export interface MediaManagementBindingBuilderOptions {
   getMediaItems(): MediaItem[];
   getAddType(): string | null | undefined;
   setAddType(nextType: string): void;
+  isYouTubeMetadataEnabled(): boolean;
+  fetchYouTubeMetadata(videoId: string): Promise<{ ok: boolean; data?: YouTubeMetadataPayload; message?: string; reason?: string }>;
+  getLocalizedMessage(key: string, fallback?: string): string;
 }
 
 export interface PlaylistManagementBindingBuilderOptions {
@@ -103,6 +107,9 @@ export function buildMediaManagementBindings(
     getMediaItems: options.getMediaItems,
     getAddType: options.getAddType,
     setAddType: options.setAddType,
+    isYouTubeMetadataEnabled: options.isYouTubeMetadataEnabled,
+    fetchYouTubeMetadata: options.fetchYouTubeMetadata,
+    getLocalizedMessage: options.getLocalizedMessage,
   };
 }
 

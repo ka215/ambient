@@ -13,6 +13,9 @@ git branch --show-current
 現在のブランチが feature 系でない場合は、そのまま作業を進めず、警告を出すか、必要な feature ブランチへ切り替えてから続行します。
 例外がある場合でも、この確認だけは毎回行います。
 
+feature / fix ブランチで通常実装を行う段階では、`package.json` の `version` は更新しません。
+バージョン更新はリリース開始時に `npm run release:start -- X.Y.Z` が実施するため、実装・検証中に手動で `npm version` や `package.json` の version 編集を行わないでください。
+
 ## 標準フロー（推奨）
 
 前提:

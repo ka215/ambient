@@ -98,4 +98,22 @@ if ( !function_exists( 'amp_resolve_dir' ) ) {
     }
 }
 
+if ( !function_exists( 'amp_resolve_path' ) ) {
+    /**
+     * Resolve absolute file path from env value or relative default.
+     */
+    function amp_resolve_path( string $path, string $root_path ): string {
+        $normalized = trim( str_replace( '\\', '/', $path ) );
+        if ( $normalized === '' ) {
+            $normalized = './';
+        }
+
+        $is_windows_absolute = (bool)preg_match( '/^[A-Za-z]:\//', $normalized );
+        $is_absolute = $is_windows_absolute || str_starts_with( $normalized, '/' );
+        $resolved = $is_absolute ? $normalized : $root_path . ltrim( $normalized, './' );
+
+        return str_replace( '\\', '/', $resolved );
+    }
+}
+
 amp_load_env_file( dirname( __DIR__ ) . '/.env' );

@@ -316,6 +316,199 @@ test.describe('SC-007 Playlist/Media management flow', () => {
     await expect(page.locator('#media-title')).toHaveClass(/success-input/);
   });
 
+  test('keeps YouTube metadata assistance hidden when API key is not configured', async ({ ambientPage, page }) => {
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+    await expect(page.locator('#youtube-metadata-assist')).toBeHidden();
+
+    await page.evaluate(() => {
+      const input = document.getElementById('youtube-url') as HTMLInputElement | null;
+      if (!input) return;
+      input.value = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    await expect(page.locator('#youtube-videoid')).toHaveValue('dQw4w9WgXcQ');
+    await expect(page.locator('#youtube-metadata-assist')).toBeHidden();
+  });
+
+  test('fetches YouTube metadata suggestions and applies them without overwriting manual title', async ({ ambientPage, page }) => {
+    await page.route('**/youtube-metadata/dQw4w9WgXcQ', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          state: 'ok',
+          code: 200,
+          data: {
+            videoId: 'dQw4w9WgXcQ',
+            title: 'Mock YouTube Title',
+            artist: 'Mock Channel',
+            desc: 'Mock description from YouTube Data API',
+            source: 'youtube-data-api',
+            usage: {
+              month: '2026-07',
+              count: 1,
+              limit: 10000,
+              limited: false,
+            },
+          },
+        }),
+      });
+    });
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await page.evaluate(() => {
+      (window as any).AmbientData = {
+        ...(window as any).AmbientData,
+        youtubeMetadata: {
+          enabled: true,
+          monthlyLimit: 10000,
+          allowOverLimit: false,
+        },
+      };
+    });
+
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+    await page.evaluate(() => {
+      const title = document.getElementById('media-title') as HTMLInputElement | null;
+      const input = document.getElementById('youtube-url') as HTMLInputElement | null;
+      if (title) {
+        title.value = 'Manual Title';
+        title.dispatchEvent(new Event('input', { bubbles: true }));
+        title.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (input) {
+        input.value = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    await expect(page.locator('#youtube-videoid')).toHaveValue('dQw4w9WgXcQ');
+    await expect(page.locator('#youtube-metadata-status')).toContainText(/metadata|メタデータ|Metadaten|metadatos|metadonnees|metadati/i);
+    await expect(page.locator('#media-title')).toHaveValue('Manual Title');
+    await expect(page.locator('#youtube-metadata-title-suggestion')).toHaveText('Mock YouTube Title');
+    await expect(page.locator('#youtube-metadata-artist-suggestion')).toHaveText('Mock Channel');
+
+    await page.locator('#btn-apply-youtube-metadata-artist').click();
+    await page.locator('#btn-apply-youtube-metadata-desc').click();
+    await expect(page.locator('#media-artist')).toHaveValue('Mock Channel');
+    await expect(page.locator('#media-desc')).toHaveValue('Mock description from YouTube Data API');
+  });
+
+  test('shows non-blocking YouTube metadata monthly limit errors', async ({ ambientPage, page }) => {
+    await page.route('**/youtube-metadata/dQw4w9WgXcQ', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          state: 'error',
+          code: 429,
+          data: {
+            message: 'YouTube metadata monthly limit has been reached.',
+            reason: 'quota-exceeded',
+            usage: {
+              month: '2026-07',
+              count: 2,
+              limit: 2,
+              limited: true,
+            },
+          },
+        }),
+      });
+    });
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await page.evaluate(() => {
+      (window as any).AmbientData = {
+        ...(window as any).AmbientData,
+        youtubeMetadata: {
+          enabled: true,
+          monthlyLimit: 2,
+          allowOverLimit: false,
+        },
+      };
+    });
+
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+    await page.evaluate(() => {
+      const input = document.getElementById('youtube-url') as HTMLInputElement | null;
+      const title = document.getElementById('media-title') as HTMLInputElement | null;
+      if (input) {
+        input.value = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (title) {
+        title.value = 'Manual fallback title';
+        title.dispatchEvent(new Event('input', { bubbles: true }));
+        title.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    await expect(page.locator('#youtube-metadata-status')).toContainText('YouTube metadata monthly limit has been reached.');
+    await expect(page.locator('#youtube-metadata-suggestions')).toBeHidden();
+    await expect(page.locator('#media-title')).toHaveValue('Manual fallback title');
+    await expect(page.locator('#media-title')).toHaveAttribute('data-validate', 'true');
+  });
+
+  test('shows non-blocking YouTube metadata fetch errors', async ({ ambientPage, page }) => {
+    await page.route('**/youtube-metadata/dQw4w9WgXcQ', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          state: 'error',
+          code: 502,
+          data: {
+            message: 'YouTube metadata could not be fetched.',
+            reason: 'upstream-error',
+          },
+        }),
+      });
+    });
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await page.evaluate(() => {
+      (window as any).AmbientData = {
+        ...(window as any).AmbientData,
+        youtubeMetadata: {
+          enabled: true,
+          monthlyLimit: 10000,
+          allowOverLimit: false,
+        },
+      };
+    });
+
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+    await page.evaluate(() => {
+      const input = document.getElementById('youtube-url') as HTMLInputElement | null;
+      const title = document.getElementById('media-title') as HTMLInputElement | null;
+      if (input) {
+        input.value = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (title) {
+        title.value = 'Manual fallback title';
+        title.dispatchEvent(new Event('input', { bubbles: true }));
+        title.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    await expect(page.locator('#youtube-metadata-status')).toContainText('YouTube metadata could not be fetched.');
+    await expect(page.locator('#youtube-metadata-suggestions')).toBeHidden();
+    await expect(page.locator('#media-title')).toHaveValue('Manual fallback title');
+    await expect(page.locator('#media-title')).toHaveAttribute('data-validate', 'true');
+  });
+
   test('does not close options modal when dragging from inside to backdrop', async ({ ambientPage, page }) => {
     await ambientPage.gotoHome();
     await ambientPage.waitForBaseUi();

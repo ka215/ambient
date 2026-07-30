@@ -114,6 +114,289 @@ trait api {
     }
 
     /**
+     * This is an API endpoint for obtaining YouTube video metadata without exposing the API key.
+     *
+     * @param string $video_id
+     * @return void
+     */
+    private function get_youtube_metadata( string $video_id ): void {
+        $video_id = trim( $video_id );
+        if ( preg_match( '/^[A-Za-z0-9_-]{6,32}$/', $video_id ) !== 1 ) {
+            $this->set_youtube_metadata_error( 400, 'invalid-video-id', $this->__( 'Invalid YouTube video ID.' ) );
+            return;
+        }
+
+        $api_key = trim( (string)amp_env( 'YOUTUBE_DATA_API_KEY', '' ) );
+        if ( $api_key === '' ) {
+            $this->set_youtube_metadata_error( 403, 'not-configured', $this->__( 'YouTube metadata assistance is not configured.' ) );
+            return;
+        }
+
+        $usage = $this->read_youtube_metadata_usage();
+        if ( $usage === null ) {
+            $this->set_youtube_metadata_error( 500, 'counter-error', $this->__( 'YouTube metadata usage counter could not be read.' ) );
+            return;
+        }
+
+        $limit = $this->get_youtube_metadata_monthly_limit();
+        $allow_over_limit = amp_env_bool( 'YOUTUBE_METADATA_ALLOW_OVER_LIMIT', false );
+        $limited = $limit !== null && $usage['count'] >= $limit;
+        if ( $limited && !$allow_over_limit ) {
+            $usage['limited'] = true;
+            $this->set_youtube_metadata_error(
+                429,
+                'quota-exceeded',
+                $this->__( 'YouTube metadata monthly limit has been reached.' ),
+                $usage
+            );
+            return;
+        }
+
+        $metadata = $this->request_youtube_metadata_from_api( $video_id, $api_key );
+        if ( $metadata['ok'] !== true ) {
+            $reason = isset( $metadata['reason'] ) && is_string( $metadata['reason'] )
+                ? $metadata['reason']
+                : 'upstream-error';
+            $code = $reason === 'not-found' ? 404 : 502;
+            $this->set_youtube_metadata_error(
+                $code,
+                $reason,
+                $reason === 'not-found'
+                    ? $this->__( 'YouTube metadata was not found.' )
+                    : $this->__( 'YouTube metadata could not be fetched.' )
+            );
+            return;
+        }
+
+        $next_usage = $this->increment_youtube_metadata_usage();
+        if ( $next_usage === null ) {
+            $this->set_youtube_metadata_error( 500, 'counter-error', $this->__( 'YouTube metadata usage counter could not be updated.' ) );
+            return;
+        }
+
+        $next_usage['limited'] = $limit !== null && $next_usage['count'] >= $limit;
+        $this->api_response = [
+            'state' => 'ok',
+            'code'  => 200,
+            'data'  => [
+                'videoId' => $video_id,
+                'title' => $this->sanitize_text( (string)$metadata['title'], 100 ),
+                'artist' => $this->sanitize_text( (string)$metadata['artist'], 100 ),
+                'desc' => $this->sanitize_text( (string)$metadata['desc'], 1000, true ),
+                'source' => 'youtube-data-api',
+                'usage' => $next_usage,
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed>|null $usage
+     */
+    private function set_youtube_metadata_error( int $code, string $reason, string $message, ?array $usage = null ): void {
+        $data = [
+            'message' => $message,
+            'reason' => $reason,
+        ];
+        if ( $usage !== null ) {
+            $data['usage'] = $usage;
+        }
+        $this->api_response = [
+            'state' => 'error',
+            'code'  => $code,
+            'data'  => $data,
+        ];
+    }
+
+    private function get_youtube_metadata_monthly_limit(): ?int {
+        $raw_limit = amp_env( 'YOUTUBE_METADATA_MONTHLY_LIMIT', '10000' );
+        if ( $raw_limit !== null && strtolower( trim( $raw_limit ) ) === 'unlimited' ) {
+            return null;
+        }
+        $limit = is_numeric( $raw_limit ) ? (int)$raw_limit : 10000;
+        return $limit > 0 ? $limit : 10000;
+    }
+
+    private function get_youtube_metadata_timeout_seconds(): int {
+        $timeout_ms = amp_env( 'YOUTUBE_METADATA_TIMEOUT_MS', '5000' );
+        $timeout = is_numeric( $timeout_ms ) ? (int)$timeout_ms : 5000;
+        $timeout = max( 1000, min( 15000, $timeout ) );
+        return (int)ceil( $timeout / 1000 );
+    }
+
+    private function get_youtube_metadata_counter_path(): string {
+        return amp_resolve_path(
+            (string)amp_env( 'YOUTUBE_METADATA_COUNTER_PATH', 'logs/youtube-metadata-usage.json' ),
+            APP_ROOT
+        );
+    }
+
+    private function get_youtube_metadata_month_key(): string {
+        return ( new \DateTimeImmutable( 'now' ) )->format( 'Y-m' );
+    }
+
+    /**
+     * @return array{month:string,count:int,limit:int|null,limited:bool}|null
+     */
+    private function read_youtube_metadata_usage(): ?array {
+        $counter = $this->read_youtube_metadata_counter();
+        if ( $counter === null ) {
+            return null;
+        }
+        $month = $this->get_youtube_metadata_month_key();
+        $count = 0;
+        if (
+            isset( $counter['months'][$month] ) &&
+            is_array( $counter['months'][$month] ) &&
+            isset( $counter['months'][$month]['youtubeMetadataRequests'] ) &&
+            is_numeric( $counter['months'][$month]['youtubeMetadataRequests'] )
+        ) {
+            $count = max( 0, (int)$counter['months'][$month]['youtubeMetadataRequests'] );
+        }
+        $limit = $this->get_youtube_metadata_monthly_limit();
+        return [
+            'month' => $month,
+            'count' => $count,
+            'limit' => $limit,
+            'limited' => $limit !== null && $count >= $limit,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function read_youtube_metadata_counter(): ?array {
+        $path = $this->get_youtube_metadata_counter_path();
+        if ( !file_exists( $path ) ) {
+            return [
+                'version' => 1,
+                'months' => [],
+            ];
+        }
+        if ( !is_readable( $path ) ) {
+            return null;
+        }
+        $raw = file_get_contents( $path );
+        if ( $raw === false || trim( $raw ) === '' ) {
+            return [
+                'version' => 1,
+                'months' => [],
+            ];
+        }
+        $decoded = json_decode( $raw, true );
+        if ( json_last_error() !== JSON_ERROR_NONE || !is_array( $decoded ) ) {
+            return null;
+        }
+        if ( !isset( $decoded['months'] ) || !is_array( $decoded['months'] ) ) {
+            $decoded['months'] = [];
+        }
+        $decoded['version'] = 1;
+        return $decoded;
+    }
+
+    /**
+     * @return array{month:string,count:int,limit:int|null,limited:bool}|null
+     */
+    private function increment_youtube_metadata_usage(): ?array {
+        $counter = $this->read_youtube_metadata_counter();
+        if ( $counter === null ) {
+            return null;
+        }
+
+        $month = $this->get_youtube_metadata_month_key();
+        if ( !isset( $counter['months'][$month] ) || !is_array( $counter['months'][$month] ) ) {
+            $counter['months'][$month] = [
+                'youtubeMetadataRequests' => 0,
+            ];
+        }
+        $current_count = isset( $counter['months'][$month]['youtubeMetadataRequests'] ) && is_numeric( $counter['months'][$month]['youtubeMetadataRequests'] )
+            ? (int)$counter['months'][$month]['youtubeMetadataRequests']
+            : 0;
+        $counter['months'][$month]['youtubeMetadataRequests'] = max( 0, $current_count ) + 1;
+        $counter['months'][$month]['updatedAt'] = ( new \DateTimeImmutable( 'now' ) )->format( DATE_ATOM );
+
+        $path = $this->get_youtube_metadata_counter_path();
+        $dir = dirname( $path );
+        if ( !is_dir( $dir ) && !@mkdir( $dir, 0755, true ) ) {
+            return null;
+        }
+
+        $json = json_encode( $counter, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+        if ( $json === false || @file_put_contents( $path, $json . "\n", LOCK_EX ) === false ) {
+            return null;
+        }
+
+        return $this->read_youtube_metadata_usage();
+    }
+
+    /**
+     * @return array{ok:bool,title?:string,artist?:string,desc?:string,reason?:string}
+     */
+    private function request_youtube_metadata_from_api( string $video_id, string $api_key ): array {
+        $query = http_build_query( [
+            'part' => 'snippet',
+            'id' => $video_id,
+            'key' => $api_key,
+        ] );
+        $url = 'https://www.googleapis.com/youtube/v3/videos?' . $query;
+        $timeout = $this->get_youtube_metadata_timeout_seconds();
+        $body = false;
+
+        if ( function_exists( 'curl_init' ) ) {
+            $ch = curl_init( $url );
+            if ( $ch !== false ) {
+                curl_setopt_array( $ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_CONNECTTIMEOUT => $timeout,
+                    CURLOPT_TIMEOUT => $timeout,
+                    CURLOPT_FOLLOWLOCATION => false,
+                    CURLOPT_USERAGENT => 'Ambient/' . $this->get_version(),
+                ] );
+                $body = curl_exec( $ch );
+                $http_code = (int)curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+                curl_close( $ch );
+                if ( $body === false || $http_code < 200 || $http_code >= 300 ) {
+                    return [ 'ok' => false, 'reason' => 'upstream-error' ];
+                }
+            }
+        } else {
+            $context = stream_context_create( [
+                'http' => [
+                    'method' => 'GET',
+                    'timeout' => $timeout,
+                    'ignore_errors' => true,
+                    'header' => "User-Agent: Ambient/" . $this->get_version() . "\r\n",
+                ],
+            ] );
+            $body = @file_get_contents( $url, false, $context );
+            if ( $body === false ) {
+                return [ 'ok' => false, 'reason' => 'upstream-error' ];
+            }
+        }
+
+        $decoded = json_decode( (string)$body, true );
+        if ( json_last_error() !== JSON_ERROR_NONE || !is_array( $decoded ) ) {
+            return [ 'ok' => false, 'reason' => 'upstream-error' ];
+        }
+        if ( isset( $decoded['error'] ) ) {
+            return [ 'ok' => false, 'reason' => 'upstream-error' ];
+        }
+        if ( empty( $decoded['items'] ) || !is_array( $decoded['items'] ) ) {
+            return [ 'ok' => false, 'reason' => 'not-found' ];
+        }
+        $snippet = $decoded['items'][0]['snippet'] ?? null;
+        if ( !is_array( $snippet ) ) {
+            return [ 'ok' => false, 'reason' => 'upstream-error' ];
+        }
+
+        return [
+            'ok' => true,
+            'title' => is_string( $snippet['title'] ?? null ) ? $snippet['title'] : '',
+            'artist' => is_string( $snippet['channelTitle'] ?? null ) ? $snippet['channelTitle'] : '',
+            'desc' => is_string( $snippet['description'] ?? null ) ? $snippet['description'] : '',
+        ];
+    }
+
+    /**
      * Normalize empty, malformed, or legacy playlist payloads into a safe category map.
      *
      * @param mixed $playlist_data
@@ -973,7 +1256,7 @@ trait api {
             $normalized['artist'] = $artist;
         }
 
-        $desc = $this->sanitize_text( (string)( $item['desc'] ?? '' ), 500, true );
+        $desc = $this->sanitize_text( (string)( $item['desc'] ?? '' ), 1000, true );
         if ( $desc !== '' ) {
             $normalized['desc'] = $desc;
         }

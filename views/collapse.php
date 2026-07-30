@@ -103,6 +103,50 @@
                         />
                     </div>
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400"><?= __( 'Copy and paste full text of the YouTube video URL includes schema.' ) ?></p>
+                    <div
+                      id="youtube-metadata-assist"
+                      class="hidden mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm dark:border-gray-600 dark:bg-gray-800"
+                      data-state="idle"
+                    >
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <p id="youtube-metadata-status" class="text-sm text-gray-600 dark:text-gray-300"></p>
+                            <div class="flex flex-wrap justify-end gap-2">
+                                <button
+                                  id="btn-apply-youtube-metadata-all"
+                                  type="button"
+                                  class="hidden px-2.5 py-1.5 text-xs font-medium text-white bg-blue-700 rounded-lg hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-blue-600 dark:hover:bg-blue-700"
+                                ><?= __( 'Apply all suggestions' ) ?></button>
+                                <button
+                                  id="btn-dismiss-youtube-metadata"
+                                  type="button"
+                                  class="hidden px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:bg-gray-700 dark:text-gray-100 dark:border-gray-500 dark:hover:bg-gray-600"
+                                ><?= __( 'Dismiss' ) ?></button>
+                            </div>
+                        </div>
+                        <div id="youtube-metadata-suggestions" class="hidden mt-3 space-y-2">
+                            <div class="flex items-start justify-between gap-3">
+                                <p class="min-w-0">
+                                    <span class="block text-xs font-medium text-gray-500 dark:text-gray-400"><?= __( 'Title' ) ?></span>
+                                    <span id="youtube-metadata-title-suggestion" class="block truncate text-gray-900 dark:text-gray-100"></span>
+                                </p>
+                                <button id="btn-apply-youtube-metadata-title" type="button" class="shrink-0 px-2 py-1 text-xs font-medium text-blue-700 border border-blue-700 rounded-lg hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-blue-300 dark:border-blue-400 dark:hover:bg-gray-700"><?= __( 'Apply title' ) ?></button>
+                            </div>
+                            <div class="flex items-start justify-between gap-3">
+                                <p class="min-w-0">
+                                    <span class="block text-xs font-medium text-gray-500 dark:text-gray-400"><?= __( 'Artist' ) ?></span>
+                                    <span id="youtube-metadata-artist-suggestion" class="block truncate text-gray-900 dark:text-gray-100"></span>
+                                </p>
+                                <button id="btn-apply-youtube-metadata-artist" type="button" class="shrink-0 px-2 py-1 text-xs font-medium text-blue-700 border border-blue-700 rounded-lg hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-blue-300 dark:border-blue-400 dark:hover:bg-gray-700"><?= __( 'Apply artist' ) ?></button>
+                            </div>
+                            <div class="flex items-start justify-between gap-3">
+                                <p class="min-w-0">
+                                    <span class="block text-xs font-medium text-gray-500 dark:text-gray-400"><?= __( 'Description' ) ?></span>
+                                    <span id="youtube-metadata-desc-suggestion" class="block max-h-16 overflow-hidden text-gray-900 dark:text-gray-100"></span>
+                                </p>
+                                <button id="btn-apply-youtube-metadata-desc" type="button" class="shrink-0 px-2 py-1 text-xs font-medium text-blue-700 border border-blue-700 rounded-lg hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-blue-300 dark:border-blue-400 dark:hover:bg-gray-700"><?= __( 'Apply description' ) ?></button>
+                            </div>
+                        </div>
+                    </div>
                     <input id="youtube-videoid" type="hidden" name="youtube_videoid" value="" />
                 </div>
                 <div 
@@ -269,7 +313,7 @@
                           name="desc"
                           class="border text-sm rounded-lg block w-full p-2.5 normal-input"
                           placeholder="<?= __( 'Subtitle or description of media' ) ?>"
-                          maxlength="500"
+                          maxlength="1000"
                         />
                     </div>
                     <div

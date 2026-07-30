@@ -99,6 +99,11 @@ interface AmbientData {
     [key: string]: string | undefined;
   };
   isCloud?: boolean;
+  youtubeMetadata?: {
+    enabled: boolean;
+    monthlyLimit: number | null;
+    allowOverLimit: boolean;
+  };
   [key: string]: any;
 }
 
