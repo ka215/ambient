@@ -48,7 +48,14 @@ Without further ado, I went ahead and created a web browser-based player that co
 
 I named it "Ambient".
 
-![Ambient Media Player](https://ka2.org/assets/2023/10/Ambient_Media_Player_03.jpg)
+<p align="center">
+  <video src="https://github.com/user-attachments/assets/b6c80318-9261-45eb-9514-f60ad82e33f9" loop muted autoplay playsinline></video>
+  <small>
+
+**CREDITS:** CHARGE - Blender Open Movie (Provided by Blender Studio) &middot; Pexels Video ([pexels.com/video](https://pexels.com/video)) &middot; TheFatRat - [Unity](https://www.youtube.com/watch?v=n8X9_MgEdCg) &middot; 4K Nature Video by [NASA] &middot; YouTube Video by [Scott Buckley], [Trackistador] (CC BY 4.0)
+
+  </small>
+</p>
 
 I am personally very satisfied with the outcome of this media player.
 

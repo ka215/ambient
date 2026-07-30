@@ -1,0 +1,66 @@
+{
+  "Ambient Demo Mix": [
+    {
+      "title": "CHARGE - Blender Open Movie",
+      "artist": "Blender Studio",
+      "desc": "YouTube media fixture. Override with AMP_DEMO_YOUTUBE_VIDEO_ID.",
+      "videoid": "UXqq0ZvbOnk",
+      "start": 5,
+      "end": 45,
+      "fadein": 3,
+      "fadeout": 4
+    },
+    {
+      "title": "Demo local video",
+      "artist": "Ambient Demo",
+      "desc": "Local video fixture. Override with AMP_DEMO_LOCAL_VIDEO_PATH.",
+      "file": "pexels-18756591.mp4",
+      "image": "video-thumb-1.jpg",
+      "start": 0,
+      "end": 30,
+      "fadein": 2,
+      "fadeout": 3
+    },
+    {
+      "title": "Demo local audio",
+      "artist": "Ambient Demo",
+      "desc": "Local audio fixture. Override with AMP_DEMO_LOCAL_AUDIO_PATH.",
+      "file": "209_BPM80.mp3",
+      "start": 0,
+      "end": 30,
+      "fadein": 2,
+      "fadeout": 3
+    },
+    {
+      "title": "Unity",
+      "artist": "TheFatRat",
+      "desc": "",
+      "videoid": "n8X9_MgEdCg"
+    },
+    {
+      "title": "Artemis II to the Moon: Launch to Splashdown",
+      "artist": "NASA",
+      "desc": "The Artemis II mission, slated to launch early 2026, will fly four astronauts around the Moon.",
+      "videoid": "Ke6XX8FHOHM"
+    },
+    {
+      "title": "With These Hands",
+      "artist": "Scott Buckley",
+      "desc": "Emotional Neoclassical CC-BY",
+      "videoid": "yXyPtNTVWKc"
+    },
+    {
+      "title": "WinnieTheMoog - Ambient Corporate",
+      "artist": "Trackistador",
+      "desc": "",
+      "videoid": "WgGOeAE_gc0"
+    }
+  ],
+  "options": {
+    "dark": false,
+    "seek": true,
+    "shuffle": false,
+    "fader": true,
+    "volume": 50
+  }
+}

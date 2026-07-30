@@ -38,7 +38,8 @@ Ambient Media Player（以下 AMP）の最大価値である「YouTube の動画
 
 - デモシナリオ更新作業は `demo` ブランチから作業ブランチを作成して行う
 - 作業ブランチ名は取り込み元バージョンを含める
-- 例: `demo/v2.6.0`, `demo/v2.6.1`
+- `demo/*` は `refs/heads/demo` と衝突するため使用しない
+- 例: `feature/demo-v2.6.0`, `feature/demo-v2.6.1`
 
 ## 5. 動画仕様
 
@@ -95,6 +96,7 @@ Ambient Media Player（以下 AMP）の最大価値である「YouTube の動画
 - YouTube URL 登録操作
 - ローカルファイル登録操作、またはデモ用 fixture による登録済み状態の提示
 - YouTube とローカルメディアが同一プレイリストに混在している状態
+- 新規追加した YouTube メディアを実際にプレイリストへ反映する状態
 
 説明:
 - AMP の最大の特長は、YouTube 動画と PC に保存されているメディアを同じプレイリストに混在させられる点であることを伝える
@@ -106,6 +108,22 @@ Ambient Media Player（以下 AMP）の最大価値である「YouTube の動画
 - デモ用 YouTube 動画 ID とローカルメディア素材は外部資材として別管理する
 - シナリオ作成時には、必要に応じて環境変数で外部資材を指定できるようにする
 - 環境変数が未指定の場合は、動作確認用のダミー値を使う
+
+### 6.2.1 フルWindow再生デモ
+
+画面:
+- 新規追加した YouTube メディアの再生
+- フルWindow表示
+- 下部メニュー最小化
+- 下部メニュー復帰
+- 左ドロワー再表示
+
+説明:
+- 通常の管理画面から追加した YouTube メディアを、そのまま映像主体のフルWindow表示へ切り替えられることを伝える
+
+実装上の方針:
+- 初期デモ用 YouTube、ローカルメディア再生の後に、新規追加した YouTube メディアを再生する
+- フルWindow表示と下部メニュー最小化/復帰を見せた後、左ドロワーから Media Edit へ自然につなげる
 
 ### 6.3 コア機能2: 細かな再生・演出設定: 1:15 - 2:00
 
@@ -184,8 +202,10 @@ playwright.demo.config.ts
 - `timeout` は `240_000` 程度
 - `recordVideo.dir` は `artifacts/demo/videos`
 - `E2E_BASE_URL` で対象環境を切り替え可能にする
-- `AMP_DEMO_YOUTUBE_VIDEO_ID` などの環境変数でデモ用 YouTube 動画 ID を差し替え可能にする
+- `AMP_DEMO_YOUTUBE_VIDEO_ID` などの環境変数で初期デモ用 YouTube 動画 ID を差し替え可能にする
+- `AMP_DEMO_EXTRA_YOUTUBE_VIDEO_ID` / `AMP_DEMO_EXTRA_YOUTUBE_TITLE` で、新規追加シーン用 YouTube メディアを差し替え可能にする
 - `AMP_DEMO_LOCAL_VIDEO_PATH` / `AMP_DEMO_LOCAL_AUDIO_PATH` などの環境変数でデモ用ローカルメディア素材を差し替え可能にする
+- 環境変数のひな形として `.env.demo` を提供し、ローカルでは `.env` にコピーして値をカスタマイズできるようにする
 
 ### 7.3 録画安定化
 
@@ -215,7 +235,7 @@ WebM から MP4 への変換は ffmpeg を前提とする。
 想定コマンド:
 
 ```powershell
-ffmpeg -i input.webm -c:v libx264 -pix_fmt yuv420p -movflags +faststart output.mp4
+ffmpeg -i input.webm -r 60 -filter:v "minterpolate=fps=60:mi_mode=mci" -c:v libx264 -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart output.mp4
 ```
 
 変換スクリプトの要件:
@@ -297,7 +317,7 @@ artifacts/demo/
 
 ## 11. 受入条件
 
-- `demo` または `demo/vX.Y.Z` ブランチ上で録画シナリオを実行できる
+- `demo` または `feature/demo-vX.Y.Z` ブランチ上で録画シナリオを実行できる
 - `npm run demo:record` で WebM が生成される
 - `npm run demo:mp4` で MP4 へ変換できる
 - 生成動画の長さが 2分30秒から3分以内である

@@ -22,7 +22,9 @@
     "test:e2e:local:chrome": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/run-e2e-env.ps1 -AmpEnv local -Port 8087 -PlaywrightArgs --project=chrome",
     "test:e2e:prod": "npm run test:e2e:public",
     "test:e2e:all": "playwright test",
-    "test:e2e:debug": "playwright test --project=chrome --headed --debug"
+    "test:e2e:debug": "playwright test --project=chrome --headed --debug",
+    "demo:record": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/demo/run-demo.ps1",
+    "demo:mp4": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/demo/convert-demo-to-mp4.ps1"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
