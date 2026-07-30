@@ -1,4 +1,5 @@
 import { bindFileDropzone, setFileDropzoneState } from './file-dropzone';
+import type { YouTubeMetadataPayload } from '../../types/ambient';
 
 export interface MediaManagementBindings {
   form: HTMLFormElement | null;
@@ -35,6 +36,9 @@ export interface MediaManagementBindings {
   getMediaItems(): unknown[];
   getAddType(): string | null | undefined;
   setAddType(nextType: string): void;
+  isYouTubeMetadataEnabled(): boolean;
+  fetchYouTubeMetadata(videoId: string): Promise<{ ok: boolean; data?: YouTubeMetadataPayload; message?: string; reason?: string }>;
+  getLocalizedMessage(key: string, fallback?: string): string;
 }
 
 function observeValidationMutations(
@@ -88,11 +92,169 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
     getMediaItems,
     getAddType,
     setAddType,
+    isYouTubeMetadataEnabled,
+    fetchYouTubeMetadata,
+    getLocalizedMessage,
   } = bindings;
 
   if (!form) {
     return;
   }
+
+  const youtubeMetadataAssist = document.getElementById('youtube-metadata-assist') as HTMLElement | null;
+  const youtubeMetadataStatus = document.getElementById('youtube-metadata-status') as HTMLElement | null;
+  const youtubeMetadataSuggestions = document.getElementById('youtube-metadata-suggestions') as HTMLElement | null;
+  const youtubeMetadataTitle = document.getElementById('youtube-metadata-title-suggestion') as HTMLElement | null;
+  const youtubeMetadataArtist = document.getElementById('youtube-metadata-artist-suggestion') as HTMLElement | null;
+  const youtubeMetadataDesc = document.getElementById('youtube-metadata-desc-suggestion') as HTMLElement | null;
+  const buttonApplyMetadataAll = document.getElementById('btn-apply-youtube-metadata-all') as HTMLButtonElement | null;
+  const buttonApplyMetadataTitle = document.getElementById('btn-apply-youtube-metadata-title') as HTMLButtonElement | null;
+  const buttonApplyMetadataArtist = document.getElementById('btn-apply-youtube-metadata-artist') as HTMLButtonElement | null;
+  const buttonApplyMetadataDesc = document.getElementById('btn-apply-youtube-metadata-desc') as HTMLButtonElement | null;
+  const buttonDismissMetadata = document.getElementById('btn-dismiss-youtube-metadata') as HTMLButtonElement | null;
+  const titleField = document.getElementById('media-title') as HTMLInputElement | null;
+  const artistField = document.getElementById('media-artist') as HTMLInputElement | null;
+  const descField = document.getElementById('media-desc') as HTMLInputElement | HTMLTextAreaElement | null;
+  const videoIdField = document.getElementById('youtube-videoid') as HTMLInputElement | null;
+
+  let metadataDebounceId: ReturnType<typeof setTimeout> | null = null;
+  let metadataRequestSeq = 0;
+  let latestMetadata: YouTubeMetadataPayload | null = null;
+  const lastAppliedMetadata = {
+    title: '',
+    artist: '',
+    desc: '',
+  };
+
+  const setMetadataAssistVisible = (visible: boolean): void => {
+    youtubeMetadataAssist?.classList.toggle('hidden', !visible);
+  };
+
+  const setMetadataState = (
+    state: 'idle' | 'loading' | 'suggested' | 'applied' | 'failed' | 'limited',
+    message = ''
+  ): void => {
+    if (!youtubeMetadataAssist) {
+      return;
+    }
+    youtubeMetadataAssist.dataset['state'] = state;
+    setMetadataAssistVisible(state !== 'idle');
+    if (youtubeMetadataStatus) {
+      youtubeMetadataStatus.textContent = message;
+      youtubeMetadataStatus.classList.toggle('text-red-600', state === 'failed' || state === 'limited');
+      youtubeMetadataStatus.classList.toggle('dark:text-red-400', state === 'failed' || state === 'limited');
+    }
+    const hasSuggestions = state === 'suggested' || state === 'applied';
+    youtubeMetadataSuggestions?.classList.toggle('hidden', !hasSuggestions);
+    buttonApplyMetadataAll?.classList.toggle('hidden', !hasSuggestions);
+    buttonDismissMetadata?.classList.toggle('hidden', !hasSuggestions && state !== 'failed' && state !== 'limited');
+  };
+
+  const clearMetadataSuggestions = (): void => {
+    metadataRequestSeq++;
+    latestMetadata = null;
+    if (metadataDebounceId) {
+      clearTimeout(metadataDebounceId);
+      metadataDebounceId = null;
+    }
+    setMetadataState('idle');
+  };
+
+  const renderMetadataSuggestions = (metadata: YouTubeMetadataPayload): void => {
+    latestMetadata = metadata;
+    if (youtubeMetadataTitle) youtubeMetadataTitle.textContent = metadata.title;
+    if (youtubeMetadataArtist) youtubeMetadataArtist.textContent = metadata.artist;
+    if (youtubeMetadataDesc) youtubeMetadataDesc.textContent = metadata.desc;
+    setMetadataState('suggested', getLocalizedMessage('YouTube metadata found.', 'YouTube metadata found.'));
+  };
+
+  const applyTextFieldValue = (
+    field: HTMLInputElement | HTMLTextAreaElement | null,
+    value: string,
+    maxLength: number,
+    sanitizer: (value: string, maxLength: number) => string
+  ): string => {
+    if (!field) {
+      return '';
+    }
+    const sanitizedValue = sanitizer(value, maxLength);
+    field.value = sanitizedValue;
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+    return sanitizedValue;
+  };
+
+  const applyMetadataField = (fieldName: 'title' | 'artist' | 'desc'): void => {
+    if (!latestMetadata) {
+      return;
+    }
+    if (fieldName === 'title') {
+      lastAppliedMetadata.title = applyTextFieldValue(titleField, latestMetadata.title, mediaTitleMaxLength, sanitizeMediaTextInput);
+      if (titleField) setValidated(titleField, titleField.value.trim() !== '');
+    } else if (fieldName === 'artist') {
+      lastAppliedMetadata.artist = applyTextFieldValue(artistField, latestMetadata.artist, mediaArtistMaxLength, sanitizeMediaTextInput);
+    } else {
+      lastAppliedMetadata.desc = applyTextFieldValue(descField, latestMetadata.desc, mediaDescMaxLength, sanitizeMediaDescInputLive);
+    }
+    setMetadataState('applied', getLocalizedMessage('YouTube metadata applied.', 'YouTube metadata applied.'));
+  };
+
+  const applyTitleIfSafe = (): void => {
+    if (!titleField) {
+      return;
+    }
+    const currentTitle = titleField.value.trim();
+    if (currentTitle !== '' && currentTitle !== lastAppliedMetadata.title) {
+      return;
+    }
+    applyMetadataField('title');
+    setMetadataState('suggested', getLocalizedMessage('YouTube metadata found.', 'YouTube metadata found.'));
+  };
+
+  const scheduleYouTubeMetadataFetch = (videoId: string): void => {
+    if (!isYouTubeMetadataEnabled() || !canMutateCurrentPlaylist()) {
+      clearMetadataSuggestions();
+      return;
+    }
+    if (metadataDebounceId) {
+      clearTimeout(metadataDebounceId);
+    }
+    metadataDebounceId = setTimeout(async () => {
+      const requestSeq = ++metadataRequestSeq;
+      const activeVideoId = videoIdField?.value || '';
+      if (activeVideoId !== videoId) {
+        return;
+      }
+      setMetadataState('loading', getLocalizedMessage('Fetching YouTube metadata...', 'Fetching YouTube metadata...'));
+      const result = await fetchYouTubeMetadata(videoId);
+      if (requestSeq !== metadataRequestSeq || (videoIdField?.value || '') !== videoId) {
+        return;
+      }
+      if (!result.ok || !result.data) {
+        const isLimited = result.reason === 'quota-exceeded';
+        setMetadataState(
+          isLimited ? 'limited' : 'failed',
+          result.message || getLocalizedMessage(
+            isLimited ? 'YouTube metadata monthly limit has been reached.' : 'YouTube metadata could not be fetched.',
+            isLimited ? 'YouTube metadata monthly limit has been reached.' : 'YouTube metadata could not be fetched.'
+          )
+        );
+        return;
+      }
+      renderMetadataSuggestions(result.data);
+      applyTitleIfSafe();
+    }, 500);
+  };
+
+  buttonApplyMetadataAll?.addEventListener('click', () => {
+    applyMetadataField('title');
+    applyMetadataField('artist');
+    applyMetadataField('desc');
+  });
+  buttonApplyMetadataTitle?.addEventListener('click', () => applyMetadataField('title'));
+  buttonApplyMetadataArtist?.addEventListener('click', () => applyMetadataField('artist'));
+  buttonApplyMetadataDesc?.addEventListener('click', () => applyMetadataField('desc'));
+  buttonDismissMetadata?.addEventListener('click', () => clearMetadataSuggestions());
 
   elements.forEach((elm) => {
     const mediaUrlField = document.getElementById('media-management-field-media-url');
@@ -116,6 +278,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
           } else {
             mediaUrlField?.classList.add('hidden');
             mediaFilesField?.classList.remove('hidden');
+            clearMetadataSuggestions();
           }
           setAddType(target.value);
           if (prevType !== target.value) {
@@ -131,6 +294,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
           if (value.length < minLength) {
             setValidated(elm, null);
             if (inputVideoId) inputVideoId.value = '';
+            clearMetadataSuggestions();
             return;
           }
           try {
@@ -148,9 +312,11 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
             }
             setValidated(elm, true);
             if (inputVideoId) inputVideoId.value = videoid;
+            scheduleYouTubeMetadataFetch(videoid);
           } catch (err) {
             logger('error', err, 'force');
             setValidated(elm, false);
+            clearMetadataSuggestions();
           }
         });
         break;

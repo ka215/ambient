@@ -2,7 +2,7 @@ import type { MediaItem } from '../types/ambient';
 
 export interface CreateAppSettingsHelpersOptions {
   shufflePlaylist(): MediaItem[];
-  persistMyPlaylistIfNeeded(): void;
+  persistCurrentPlaylistSettings(): void;
   normalizeVolume(value: unknown): number;
   syncRangeProgress(range: HTMLInputElement | null): void;
   isDarkModeEnabled(): boolean;
@@ -10,7 +10,7 @@ export interface CreateAppSettingsHelpersOptions {
 
 export interface AppSettingsHelpers {
   shufflePlaylist(): MediaItem[];
-  persistMyPlaylistIfNeeded(): void;
+  persistCurrentPlaylistSettings(): void;
   normalizeVolume(value: unknown): number;
   syncRangeProgress(range: HTMLInputElement | null): void;
   isDarkModeEnabled(): boolean;
@@ -21,7 +21,7 @@ export function createAppSettingsHelpers(
 ): AppSettingsHelpers {
   return {
     shufflePlaylist: options.shufflePlaylist,
-    persistMyPlaylistIfNeeded: options.persistMyPlaylistIfNeeded,
+    persistCurrentPlaylistSettings: options.persistCurrentPlaylistSettings,
     normalizeVolume: options.normalizeVolume,
     syncRangeProgress: options.syncRangeProgress,
     isDarkModeEnabled: options.isDarkModeEnabled,

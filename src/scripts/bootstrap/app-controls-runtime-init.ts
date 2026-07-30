@@ -86,7 +86,7 @@ export interface InitializeAppControlsRuntimeOptions {
   settings: {
     volumeRange: HTMLInputElement | null;
     shufflePlaylist(): MediaItem[];
-    persistMyPlaylistIfNeeded(): void;
+    persistCurrentPlaylistSettings(): void;
     normalizeVolume(value: unknown): number;
     syncRangeProgress(range: HTMLInputElement | null): void;
     isDarkModeEnabled(): boolean;
@@ -175,7 +175,7 @@ export function initializeAppControlsRuntime(options: InitializeAppControlsRunti
       volumeRange: options.settings.volumeRange,
       status: options.status,
       shufflePlaylist: options.settings.shufflePlaylist,
-      persistMyPlaylistIfNeeded: options.settings.persistMyPlaylistIfNeeded,
+      persistCurrentPlaylistSettings: options.settings.persistCurrentPlaylistSettings,
       normalizeVolume: options.settings.normalizeVolume,
       syncRangeProgress: options.settings.syncRangeProgress,
       getDefaultVolumeDisplay: () => options.document.getElementById('default-volume-value') as HTMLElement | null,

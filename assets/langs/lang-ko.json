@@ -264,5 +264,20 @@
     "Failed to delete thumbnail image.": "Failed to delete thumbnail image.",
     "mediaLoadFailedPrefix": "Media could not be loaded: ",
     "Only categories without media can be deleted.": "미디어가 없는 카테고리만 삭제할 수 있습니다.",
-    "Apply Changes": "변경 사항 적용"
+    "Apply Changes": "변경 사항 적용",
+    "YouTube metadata usage counter could not be read.": "YouTube 메타데이터 사용 카운터를 읽을 수 없습니다.",
+    "YouTube metadata monthly limit has been reached.": "YouTube 메타데이터 월간 한도에 도달했습니다.",
+    "Apply description": "설명 적용",
+    "Apply title": "제목 적용",
+    "YouTube metadata usage counter could not be updated.": "YouTube 메타데이터 사용 카운터를 업데이트할 수 없습니다.",
+    "Fetching YouTube metadata...": "YouTube 메타데이터를 가져오는 중...",
+    "YouTube metadata was not found.": "YouTube 메타데이터를 찾을 수 없습니다.",
+    "Invalid YouTube video ID.": "YouTube 동영상 ID가 올바르지 않습니다.",
+    "(max 1000 chars)": "(최대 1000자)",
+    "YouTube metadata assistance is not configured.": "YouTube 메타데이터 보조 기능이 설정되어 있지 않습니다.",
+    "YouTube metadata found.": "YouTube 메타데이터를 찾았습니다.",
+    "Apply all suggestions": "모든 제안 적용",
+    "YouTube metadata could not be fetched.": "YouTube 메타데이터를 가져올 수 없습니다.",
+    "Apply artist": "아티스트 적용",
+    "YouTube metadata applied.": "YouTube 메타데이터를 적용했습니다."
 }

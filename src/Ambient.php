@@ -92,6 +92,7 @@ class Ambient {
 
             return $messages;
         };
+        $youtube_metadata_capability = $this->get_youtube_metadata_capability();
 
         if ( empty( $this->playlists ) ) {
             $this->set_warn( $this->__( 'Playlist not found. Please create a new playlist.' ) );
@@ -99,6 +100,7 @@ class Ambient {
             $this->set_localize_script( 'AmbientData', [
                 'isCloud' => $this->is_cloud(),
                 'messages' => $build_frontend_messages(),
+                'youtubeMetadata' => $youtube_metadata_capability,
             ] );
         } else {
             // Pass all playlist data to JavaScript of view.
@@ -113,6 +115,7 @@ class Ambient {
                 'isCloud'   => $this->is_cloud(),
                 'mediaDir'  => str_replace( $app_root_normalized, './', str_replace( '\\', '/', MEDIA_DIR ) ),
                 'messages'  => $build_frontend_messages(),
+                'youtubeMetadata' => $youtube_metadata_capability,
             ];
             if ( count( $this->playlists ) > 1 ) {
                 // If there are multiple playlists, prompt you to select a playlist.
@@ -192,6 +195,12 @@ class Ambient {
                 $_route = "Retrieve media filepath \"{$pathinfo_basename}\"";
                 $args[] = $pathinfo_basename;
                 break;
+            case 'get:youtube-metadata':
+                $method = 'get_youtube_metadata';
+                $video_id = $params[0] ?? '';
+                $_route = "Retrieve YouTube metadata \"{$video_id}\"";
+                $args[] = $video_id;
+                break;
             case 'post:playlist':
                 $method = 'upsert_playlist';
                 $_route = "Add item to playlist \"{$params[0]}\"";
@@ -235,6 +244,26 @@ class Ambient {
         if ( $this->api_response ) {
             $this->return_response();
         }
+    }
+
+    /**
+     * Build public YouTube metadata capability for frontend.
+     *
+     * @return array<string, bool|int|null>
+     */
+    private function get_youtube_metadata_capability(): array {
+        $api_key = trim( (string)amp_env( 'YOUTUBE_DATA_API_KEY', '' ) );
+        $limit_value = amp_env( 'YOUTUBE_METADATA_MONTHLY_LIMIT', '10000' );
+        $limit = is_numeric( $limit_value ) ? (int)$limit_value : 10000;
+        if ( $limit < 1 ) {
+            $limit = 10000;
+        }
+
+        return [
+            'enabled' => $api_key !== '',
+            'monthlyLimit' => $limit,
+            'allowOverLimit' => amp_env_bool( 'YOUTUBE_METADATA_ALLOW_OVER_LIMIT', false ),
+        ];
     }
 
     /**

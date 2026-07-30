@@ -36,6 +36,7 @@ import {
   hasPlaylist as platformHasPlaylist,
 } from './platform/ambient-data';
 import { fetchData } from './platform/fetch-data';
+import { createYouTubeMetadataClient } from './platform/youtube-metadata-api';
 import {
   USER_DATA_APP_KEY,
 } from './platform/storage';
@@ -257,7 +258,7 @@ const init = function (): void {
   // ============================================================================
   const MEDIA_TITLE_MAX_LENGTH = 100;
   const MEDIA_ARTIST_MAX_LENGTH = 100;
-  const MEDIA_DESC_MAX_LENGTH = 500;
+  const MEDIA_DESC_MAX_LENGTH = 1000;
   const CLOUD_IMPORT_SIZE_LIMIT_BYTES = {
     mobile: 1 * 1024 * 1024,
     tablet: 2 * 1024 * 1024,
@@ -425,6 +426,9 @@ const init = function (): void {
     writeMyPlaylistJson,
     logger: runtimeLogger,
   }));
+  let persistCurrentPlaylistSettings = (): void => {
+    void persistMyPlaylistIfNeeded();
+  };
 
   const viewportRuntime = initializeViewportRuntimeWiring(createViewportRuntimeWiringFacade({
     body: $BODY,
@@ -439,7 +443,7 @@ const init = function (): void {
     buttonWindowFull: $BUTTON_WINDOW_FULL,
     mediaCaption: $MEDIA_CAPTION,
     status: AMP_STATUS,
-    persistMyPlaylistIfNeeded,
+    persistCurrentPlaylistSettings: () => persistCurrentPlaylistSettings(),
     getPlayer: playerStateSupport.getPlayer,
   }));
 
@@ -529,6 +533,27 @@ const init = function (): void {
     confirm: mediaEditRuntimeSupport.confirm,
   }));
   const mediaEditFacade = createMediaEditRuntimeFacade(mediaEditRuntime);
+  persistCurrentPlaylistSettings = (): void => {
+    void mediaEditFacade.persistCurrentPlaylist(AMP_STATUS.media || [])
+      .then((result) => {
+        if (result.ok) {
+          return;
+        }
+        updateNotice({
+          type: 'error',
+          message: result.message || getRuntimeLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.'),
+          delay: 2400,
+        });
+      })
+      .catch((error) => {
+        runtimeLogger('persistCurrentPlaylistSettings', error, 'force');
+        updateNotice({
+          type: 'error',
+          message: getRuntimeLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.'),
+          delay: 2400,
+        });
+      });
+  };
 
   // Playlist operation mode UI (v2.2.0 Slice A)
   const $BUTTON_PLAYLIST_MODE = document.getElementById('btn-playlist-mode') as HTMLButtonElement | null;
@@ -743,13 +768,13 @@ const init = function (): void {
   const appSettingsSupport = createAppSettingsSupport({
     status: AMP_STATUS,
     defaultVolume: DEFAULT_VOLUME,
-    persistMyPlaylistIfNeeded,
+    persistCurrentPlaylistSettings,
     normalizeVolume: normalizeAmbientVolume,
     syncRangeProgress: syncAmbientRangeProgress,
   });
   const appSettingsHelpers = createAppSettingsHelpers({
     shufflePlaylist: appSettingsSupport.shufflePlaylist,
-    persistMyPlaylistIfNeeded: appSettingsSupport.persistMyPlaylistIfNeeded,
+    persistCurrentPlaylistSettings: appSettingsSupport.persistCurrentPlaylistSettings,
     normalizeVolume: appSettingsSupport.normalizeVolume,
     syncRangeProgress: appSettingsSupport.syncRangeProgress,
     isDarkModeEnabled: appSettingsSupport.isDarkModeEnabled,
@@ -854,7 +879,7 @@ const init = function (): void {
       darkModeToggleRoot: $TOGGLE_DARKMODE,
       volumeRange: $RANGE_VOLUME,
       shufflePlaylist: appSettingsHelpers.shufflePlaylist,
-      persistMyPlaylistIfNeeded: appSettingsHelpers.persistMyPlaylistIfNeeded,
+      persistCurrentPlaylistSettings: appSettingsHelpers.persistCurrentPlaylistSettings,
       normalizeVolume: appSettingsHelpers.normalizeVolume,
       syncRangeProgress: appSettingsHelpers.syncRangeProgress,
       isDarkModeEnabled: appSettingsHelpers.isDarkModeEnabled,
@@ -1122,6 +1147,11 @@ const init = function (): void {
     sanitizeMediaDescInputLive: (value, maxLength = MEDIA_DESC_MAX_LENGTH) => sharedSanitizeMediaDescInputLive(value, maxLength, DISALLOWED_CONTROL_CHARS_RE),
     syncRangeProgress: syncAmbientRangeProgress,
   });
+  const youtubeMetadataClient = createYouTubeMetadataClient({
+    baseUrl: BASE_URL,
+    fetchData,
+    logger: runtimeLogger,
+  });
   const managementMediaBindingsFacade = createManagementMediaBindingsFacade({
     mediaCategorySelect: isElement($MEDIA_CATEGORY_SELECT) ? $MEDIA_CATEGORY_SELECT : null,
     mediaTitleMaxLength: MEDIA_TITLE_MAX_LENGTH,
@@ -1152,6 +1182,9 @@ const init = function (): void {
     getMediaItems: managementStateFacade.getMediaItems,
     getAddType: managementStateFacade.getAddType,
     setAddType: managementStateFacade.setAddType,
+    isYouTubeMetadataEnabled: () => getRuntimeAmbientData()?.youtubeMetadata?.enabled === true,
+    fetchYouTubeMetadata: youtubeMetadataClient.fetchMetadata,
+    getLocalizedMessage: getRuntimeLocalizedMessage,
   });
   const managementPlaylistActionsFacade = createManagementPlaylistActionsFacade({
     document,

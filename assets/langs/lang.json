@@ -264,5 +264,20 @@
     "Version:": "",
     "Menu Minimize": "",
     "Only categories without media can be deleted.": "",
-    "Apply Changes": ""
+    "Apply Changes": "",
+    "YouTube metadata usage counter could not be read.": "",
+    "YouTube metadata monthly limit has been reached.": "",
+    "Apply description": "",
+    "Apply title": "",
+    "YouTube metadata usage counter could not be updated.": "",
+    "Fetching YouTube metadata...": "",
+    "YouTube metadata was not found.": "",
+    "Invalid YouTube video ID.": "",
+    "(max 1000 chars)": "",
+    "YouTube metadata assistance is not configured.": "",
+    "YouTube metadata found.": "",
+    "Apply all suggestions": "",
+    "YouTube metadata could not be fetched.": "",
+    "Apply artist": "",
+    "YouTube metadata applied.": ""
 }

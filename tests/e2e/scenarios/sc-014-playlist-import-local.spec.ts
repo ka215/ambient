@@ -1,6 +1,30 @@
+import { readFileSync } from 'node:fs';
+
 import { Page, expect } from '@playwright/test';
 
 import { test } from '../fixtures/ambient-page.fixture';
+import {
+  E2E_PLAYLIST_ASSET_PATH,
+  E2E_PLAYLIST_NAME,
+  installE2ePlaylistFixture,
+  removeE2ePlaylistFixture,
+} from '../utils/playlist-fixtures';
+
+function readE2ePlaylistOptions(): Record<string, unknown> {
+  const playlistJson = JSON.parse(readFileSync(E2E_PLAYLIST_ASSET_PATH, 'utf8')) as Record<string, unknown>;
+  return (playlistJson['options'] as Record<string, unknown> | undefined) || {};
+}
+
+async function setSettingsToggle(page: Page, id: string, checked: boolean): Promise<void> {
+  await page.evaluate(({ id: toggleId, checked: nextChecked }) => {
+    const input = document.querySelector<HTMLInputElement>(`#${toggleId} input[type="checkbox"]`);
+    if (!input) {
+      throw new Error(`${toggleId} toggle not found`);
+    }
+    input.checked = nextChecked;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }, { id, checked });
+}
 
 async function openManagementSection(
   page: Page,
@@ -110,5 +134,61 @@ test.describe('SC-014 Local playlist import', () => {
     await page.locator('#btn-import-playlist').click();
 
     await expect(page.locator('#alert-notification')).toContainClass('bg-red-50');
+  });
+});
+
+test.describe('SC-014 Local playlist settings persistence', () => {
+  test.beforeEach(async ({ browserName }) => {
+    test.skip(browserName !== 'chromium', 'Local playlist settings persistence is validated on chromium only.');
+    installE2ePlaylistFixture();
+  });
+
+  test.afterEach(() => {
+    removeE2ePlaylistFixture();
+  });
+
+  test('persists right drawer settings into the selected local json playlist options', async ({ ambientPage, page }) => {
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.selectPlaylist(E2E_PLAYLIST_NAME);
+
+    const isCloud = await page.evaluate(() => !!(window as any).AmbientData?.isCloud);
+    test.skip(isCloud, 'This scenario is for local mode only.');
+
+    await ambientPage.openSettingsDrawer();
+
+    await setSettingsToggle(page, 'toggle-randomly', true);
+    await expect.poll(() => readE2ePlaylistOptions()['random'], { timeout: 10_000 }).toBe(true);
+
+    await setSettingsToggle(page, 'toggle-seekplay', true);
+    await expect.poll(() => readE2ePlaylistOptions()['seek'], { timeout: 10_000 }).toBe(true);
+
+    await setSettingsToggle(page, 'toggle-window-full', true);
+    await expect.poll(() => readE2ePlaylistOptions()['fullwindow'], { timeout: 10_000 }).toBe(true);
+
+    await page.evaluate(() => {
+      const volume = document.getElementById('default-volume') as HTMLInputElement | null;
+      if (!volume) {
+        throw new Error('default-volume range not found');
+      }
+      volume.value = '73';
+      volume.dispatchEvent(new Event('input', { bubbles: true }));
+      volume.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    await expect.poll(() => {
+      const playlistOptions = readE2ePlaylistOptions();
+      return {
+        random: playlistOptions?.['random'],
+        seek: playlistOptions?.['seek'],
+        fullwindow: playlistOptions?.['fullwindow'],
+        volume: playlistOptions?.['volume'],
+      };
+    }, { timeout: 10_000 }).toEqual({
+      random: true,
+      seek: true,
+      fullwindow: true,
+      volume: 73,
+    });
   });
 });

@@ -4,14 +4,14 @@ import { isAmbientDarkModeEnabled } from './display-runtime';
 export interface CreateAppSettingsSupportOptions {
   status: AMP_STATUS;
   defaultVolume: number;
-  persistMyPlaylistIfNeeded(): void;
+  persistCurrentPlaylistSettings(): void;
   normalizeVolume(value: unknown, fallback?: number): number;
   syncRangeProgress(range: HTMLInputElement | null, defaultVolume: number): void;
 }
 
 export interface AppSettingsSupport {
   shufflePlaylist(): MediaItem[];
-  persistMyPlaylistIfNeeded(): void;
+  persistCurrentPlaylistSettings(): void;
   normalizeVolume(value: unknown): number;
   syncRangeProgress(range: HTMLInputElement | null): void;
   isDarkModeEnabled(): boolean;
@@ -26,7 +26,7 @@ export function createAppSettingsSupport(
       categoryId: options.status.ctg,
       shuffleEnabled: true,
     }),
-    persistMyPlaylistIfNeeded: options.persistMyPlaylistIfNeeded,
+    persistCurrentPlaylistSettings: options.persistCurrentPlaylistSettings,
     normalizeVolume: (value) => options.normalizeVolume(value, options.defaultVolume),
     syncRangeProgress: (range) => options.syncRangeProgress(range, options.defaultVolume),
     isDarkModeEnabled: () => isAmbientDarkModeEnabled({ playlistOptions: options.status.options }),

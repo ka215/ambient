@@ -13,7 +13,7 @@ export interface CreateViewportRuntimeWiringFacadeOptions {
   buttonWindowFull: HTMLButtonElement | null;
   mediaCaption: HTMLElement;
   status: InitializeViewportRuntimeWiringOptions['status'];
-  persistMyPlaylistIfNeeded: InitializeViewportRuntimeWiringOptions['persistMyPlaylistIfNeeded'];
+  persistCurrentPlaylistSettings: InitializeViewportRuntimeWiringOptions['persistCurrentPlaylistSettings'];
   getPlayer: InitializeViewportRuntimeWiringOptions['getPlayer'];
 }
 
@@ -33,7 +33,7 @@ export function createViewportRuntimeWiringFacade(
     buttonWindowFull: options.buttonWindowFull,
     mediaCaption: options.mediaCaption,
     status: options.status,
-    persistMyPlaylistIfNeeded: options.persistMyPlaylistIfNeeded,
+    persistCurrentPlaylistSettings: options.persistCurrentPlaylistSettings,
     getPlayer: options.getPlayer,
   };
 }

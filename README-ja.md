@@ -69,8 +69,15 @@ Ambient は現在、以下の設定を `.env` から読み込みます。
 - `DEBUG_MODE`: ブラウザおよび PHP のデバッグログ出力の有効/無効
 - `ASSETS_DIR`: プロジェクトルートからのアセットディレクトリ
 - `LOGS_DIR`: プロジェクトルートからのログディレクトリ
+- `AMP_ENV`: `local` ならローカルPC版、`cloud` ならクラウド/デモ環境版
 - `ASSET_MODE`: `build` ならビルド済み asset、`dev` なら Vite dev server を使用
 - `VITE_DEV_SERVER_URL`: 開発モード時に使用する Vite asset URL
+- `VITE_MEDIA_EDIT_DURATION_SYNC_TIMEOUT_MS`: メディア編集時の duration 同期タイムアウト
+- `YOUTUBE_DATA_API_KEY`: YouTube メディア登録時のメタデータ補完に使う YouTube Data API キー。空なら無効
+- `YOUTUBE_METADATA_MONTHLY_LIMIT`: メタデータ補完の月次リクエスト数上限。既定値は `10000`
+- `YOUTUBE_METADATA_ALLOW_OVER_LIMIT`: 月次上限超過後も API 呼び出しを継続するか。既定値は `false`
+- `YOUTUBE_METADATA_COUNTER_PATH`: サーバ側の利用回数カウンター JSON パス。既定値は `logs/youtube-metadata-usage.json`。本番運用ではドキュメントルート外を推奨
+- `YOUTUBE_METADATA_TIMEOUT_MS`: YouTube メタデータ取得のサーバ側タイムアウト。既定値は `5000`
 
 リリースページの ZIP を展開して導入する方法でも問題ありません。
 

@@ -264,5 +264,20 @@
     "Failed to delete thumbnail image.": "Failed to delete thumbnail image.",
     "mediaLoadFailedPrefix": "Media could not be loaded: ",
     "Only categories without media can be deleted.": "Solo se pueden eliminar las categorías sin medios.",
-    "Apply Changes": "Aplicar cambios"
+    "Apply Changes": "Aplicar cambios",
+    "YouTube metadata usage counter could not be read.": "No se pudo leer el contador de uso de metadatos de YouTube.",
+    "YouTube metadata monthly limit has been reached.": "Se alcanzo el limite mensual de metadatos de YouTube.",
+    "Apply description": "Aplicar descripcion",
+    "Apply title": "Aplicar titulo",
+    "YouTube metadata usage counter could not be updated.": "No se pudo actualizar el contador de uso de metadatos de YouTube.",
+    "Fetching YouTube metadata...": "Obteniendo metadatos de YouTube...",
+    "YouTube metadata was not found.": "No se encontraron metadatos de YouTube.",
+    "Invalid YouTube video ID.": "ID de video de YouTube no valido.",
+    "(max 1000 chars)": "(max. 1000 caracteres)",
+    "YouTube metadata assistance is not configured.": "La asistencia de metadatos de YouTube no esta configurada.",
+    "YouTube metadata found.": "Metadatos de YouTube encontrados.",
+    "Apply all suggestions": "Aplicar todas las sugerencias",
+    "YouTube metadata could not be fetched.": "No se pudieron obtener los metadatos de YouTube.",
+    "Apply artist": "Aplicar artista",
+    "YouTube metadata applied.": "Metadatos de YouTube aplicados."
 }

@@ -9,6 +9,7 @@ The orchestrator is the only user-facing agent. All specialist agents are subage
 - Single entrypoint: users talk only with the orchestrator.
 - Every handoff must include: objective, constraints, inputs, acceptance criteria, due scope.
 - Every output must include: summary, changed files, validation result, open risks.
+- Version bump policy: do not update `package.json` version during feature or fix implementation. Version changes are performed only by the release workflow, specifically `npm run release:start -- X.Y.Z`, unless the user explicitly requests a manual version edit.
 
 ## 1. Agent Roles
 

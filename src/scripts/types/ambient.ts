@@ -57,6 +57,28 @@ export interface PlaylistData {
   };
 }
 
+export interface YouTubeMetadataCapability {
+  enabled: boolean;
+  monthlyLimit: number | null;
+  allowOverLimit: boolean;
+}
+
+export interface YouTubeMetadataUsage {
+  month: string;
+  count: number;
+  limit: number | null;
+  limited: boolean;
+}
+
+export interface YouTubeMetadataPayload {
+  videoId: string;
+  title: string;
+  artist: string;
+  desc: string;
+  source?: 'youtube-data-api';
+  usage?: YouTubeMetadataUsage;
+}
+
 /**
  * Player state object that tracks current playback status
  * Properties with watchers (via Object.defineProperty) are watched for changes
@@ -112,6 +134,7 @@ export interface AmbientDataGlobal {
   };
   imageDir?: string;         // Base directory for images (relative URL)
   mediaDir?: string;         // Base directory for local media files (relative URL)
+  youtubeMetadata?: YouTubeMetadataCapability;
   [key: string]: any;        // Allow additional properties
 }
 

@@ -246,13 +246,13 @@
                     <div class="md:col-span-2">
                         <label for="modal-media-edit-description" class="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
                             <span><?= __( 'Description' ) ?></span>
-                            <span class="text-xs font-normal text-gray-500 dark:text-gray-400"><?= __( '(max 500 chars)' ) ?></span>
+                            <span class="text-xs font-normal text-gray-500 dark:text-gray-400"><?= __( '(max 1000 chars)' ) ?></span>
                         </label>
                         <textarea
                           id="modal-media-edit-description"
                           rows="5"
                           class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-500 dark:bg-gray-800 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-900"
-                          maxlength="500"
+                          maxlength="1000"
                         ></textarea>
                     </div>
                     <div>

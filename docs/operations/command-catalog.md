@@ -27,6 +27,7 @@ This file lists reusable terminal commands for agents and developers.
 - Name: Release Start
 - Command: npm run release:start -- <version>
 - Purpose: Start a release branch with i18n, typecheck, build, and dist drift checks before version bumping.
+  Feature/fix implementation branches must not update `package.json` version manually; this command owns the version bump.
 
 - Name: Release Prepare
 - Command: npm run release:prepare -- <version>
