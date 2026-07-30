@@ -426,6 +426,9 @@ const init = function (): void {
     writeMyPlaylistJson,
     logger: runtimeLogger,
   }));
+  let persistCurrentPlaylistSettings = (): void => {
+    void persistMyPlaylistIfNeeded();
+  };
 
   const viewportRuntime = initializeViewportRuntimeWiring(createViewportRuntimeWiringFacade({
     body: $BODY,
@@ -440,7 +443,7 @@ const init = function (): void {
     buttonWindowFull: $BUTTON_WINDOW_FULL,
     mediaCaption: $MEDIA_CAPTION,
     status: AMP_STATUS,
-    persistMyPlaylistIfNeeded,
+    persistCurrentPlaylistSettings: () => persistCurrentPlaylistSettings(),
     getPlayer: playerStateSupport.getPlayer,
   }));
 
@@ -530,6 +533,27 @@ const init = function (): void {
     confirm: mediaEditRuntimeSupport.confirm,
   }));
   const mediaEditFacade = createMediaEditRuntimeFacade(mediaEditRuntime);
+  persistCurrentPlaylistSettings = (): void => {
+    void mediaEditFacade.persistCurrentPlaylist(AMP_STATUS.media || [])
+      .then((result) => {
+        if (result.ok) {
+          return;
+        }
+        updateNotice({
+          type: 'error',
+          message: result.message || getRuntimeLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.'),
+          delay: 2400,
+        });
+      })
+      .catch((error) => {
+        runtimeLogger('persistCurrentPlaylistSettings', error, 'force');
+        updateNotice({
+          type: 'error',
+          message: getRuntimeLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.'),
+          delay: 2400,
+        });
+      });
+  };
 
   // Playlist operation mode UI (v2.2.0 Slice A)
   const $BUTTON_PLAYLIST_MODE = document.getElementById('btn-playlist-mode') as HTMLButtonElement | null;
@@ -744,13 +768,13 @@ const init = function (): void {
   const appSettingsSupport = createAppSettingsSupport({
     status: AMP_STATUS,
     defaultVolume: DEFAULT_VOLUME,
-    persistMyPlaylistIfNeeded,
+    persistCurrentPlaylistSettings,
     normalizeVolume: normalizeAmbientVolume,
     syncRangeProgress: syncAmbientRangeProgress,
   });
   const appSettingsHelpers = createAppSettingsHelpers({
     shufflePlaylist: appSettingsSupport.shufflePlaylist,
-    persistMyPlaylistIfNeeded: appSettingsSupport.persistMyPlaylistIfNeeded,
+    persistCurrentPlaylistSettings: appSettingsSupport.persistCurrentPlaylistSettings,
     normalizeVolume: appSettingsSupport.normalizeVolume,
     syncRangeProgress: appSettingsSupport.syncRangeProgress,
     isDarkModeEnabled: appSettingsSupport.isDarkModeEnabled,
@@ -855,7 +879,7 @@ const init = function (): void {
       darkModeToggleRoot: $TOGGLE_DARKMODE,
       volumeRange: $RANGE_VOLUME,
       shufflePlaylist: appSettingsHelpers.shufflePlaylist,
-      persistMyPlaylistIfNeeded: appSettingsHelpers.persistMyPlaylistIfNeeded,
+      persistCurrentPlaylistSettings: appSettingsHelpers.persistCurrentPlaylistSettings,
       normalizeVolume: appSettingsHelpers.normalizeVolume,
       syncRangeProgress: appSettingsHelpers.syncRangeProgress,
       isDarkModeEnabled: appSettingsHelpers.isDarkModeEnabled,

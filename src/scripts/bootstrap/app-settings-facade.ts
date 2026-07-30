@@ -14,7 +14,7 @@ export interface CreateAmbientAppSettingsFacadeOptions {
   darkModeToggleRoot: HTMLElement | null;
   volumeRange: HTMLInputElement | null;
   shufflePlaylist(): InitializeAppControlsRuntimeOptions['settings']['shufflePlaylist'] extends () => infer TResult ? TResult : never;
-  persistMyPlaylistIfNeeded(): void;
+  persistCurrentPlaylistSettings(): void;
   normalizeVolume(value: unknown): number;
   syncRangeProgress(range: HTMLInputElement | null): void;
   isDarkModeEnabled(): boolean;
@@ -36,7 +36,7 @@ export function createAmbientAppSettingsFacade(
     settings: {
       volumeRange: options.volumeRange,
       shufflePlaylist: options.shufflePlaylist,
-      persistMyPlaylistIfNeeded: options.persistMyPlaylistIfNeeded,
+      persistCurrentPlaylistSettings: options.persistCurrentPlaylistSettings,
       normalizeVolume: options.normalizeVolume,
       syncRangeProgress: options.syncRangeProgress,
       isDarkModeEnabled: options.isDarkModeEnabled,

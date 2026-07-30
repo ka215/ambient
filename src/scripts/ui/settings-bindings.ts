@@ -19,7 +19,7 @@ export function bindAmbientSettingsControls(options: {
     options: Record<string, unknown> | null;
   };
   shufflePlaylist(): MediaItem[];
-  persistMyPlaylistIfNeeded(): void;
+  persistCurrentPlaylistSettings(): void;
   normalizeVolume(value: unknown): number;
   syncRangeProgress(range: HTMLInputElement | null): void;
   getDefaultVolumeDisplay(): HTMLElement | null;
@@ -38,20 +38,23 @@ export function bindAmbientSettingsControls(options: {
       options.status.loop = (evt.target as HTMLInputElement).checked;
     },
     onRandomlyChange: (evt: Event) => {
-      options.status.order = (evt.target as HTMLInputElement).checked ? 'random' : 'normal';
+      const enabled = (evt.target as HTMLInputElement).checked;
+      options.status.order = enabled ? 'random' : 'normal';
+      setPlaylistOption(options.status, 'random', enabled);
+      options.persistCurrentPlaylistSettings();
     },
     onShuffleChange: (evt: Event) => {
       setPlaylistOption(options.status, 'shuffle', (evt.target as HTMLInputElement).checked);
       options.status.shuffle = options.shufflePlaylist();
-      options.persistMyPlaylistIfNeeded();
+      options.persistCurrentPlaylistSettings();
     },
     onSeekplayChange: (evt: Event) => {
       setPlaylistOption(options.status, 'seek', (evt.target as HTMLInputElement).checked);
-      options.persistMyPlaylistIfNeeded();
+      options.persistCurrentPlaylistSettings();
     },
     onFaderChange: (evt: Event) => {
       setPlaylistOption(options.status, 'fader', (evt.target as HTMLInputElement).checked);
-      options.persistMyPlaylistIfNeeded();
+      options.persistCurrentPlaylistSettings();
     },
     onDarkmodeChange: (evt: Event) => {
       setPlaylistOption(options.status, 'dark', (evt.target as HTMLInputElement).checked);
@@ -64,7 +67,7 @@ export function bindAmbientSettingsControls(options: {
           setStyles: options.setStyles,
         });
       }, 200);
-      options.persistMyPlaylistIfNeeded();
+      options.persistCurrentPlaylistSettings();
     },
     onVolumeInput: (evt: Event) => {
       const currentVolume = options.normalizeVolume((evt.target as HTMLInputElement).value);
@@ -85,7 +88,7 @@ export function bindAmbientSettingsControls(options: {
       });
       options.status.volume = currentVolume;
       setPlaylistOption(options.status, 'volume', currentVolume);
-      options.persistMyPlaylistIfNeeded();
+      options.persistCurrentPlaylistSettings();
     },
   });
 }

@@ -20,7 +20,7 @@ export interface InitializeViewportRuntimeWiringOptions {
   status: {
     options: Record<string, unknown> | null;
   };
-  persistMyPlaylistIfNeeded(): boolean;
+  persistCurrentPlaylistSettings(): void;
   getPlayer(): unknown;
 }
 
@@ -65,7 +65,7 @@ export function initializeViewportRuntimeWiring(options: InitializeViewportRunti
     setTimer: (handler, delay) => window.setTimeout(handler, delay),
     persistFullWindowOption: (enabled) => {
       setPlaylistOption(options.status, 'fullwindow', enabled);
-      options.persistMyPlaylistIfNeeded();
+      options.persistCurrentPlaylistSettings();
     },
     syncFullWindowButtonState: (enabled) => {
       syncWindowFullButtonState(options.buttonWindowFull, enabled);

@@ -64,8 +64,8 @@ function validateSanitizePolicy(data) {
       if (typeof item.artist === 'string' && item.artist.length > 100) {
         errors.push('/' + category + '/' + index + '/artist exceeds 100 chars');
       }
-      if (typeof item.desc === 'string' && item.desc.length > 500) {
-        errors.push('/' + category + '/' + index + '/desc exceeds 500 chars');
+      if (typeof item.desc === 'string' && item.desc.length > 1000) {
+        errors.push('/' + category + '/' + index + '/desc exceeds 1000 chars');
       }
       ['file', 'image', 'thumb'].forEach((key) => {
         if (Object.prototype.hasOwnProperty.call(item, key) && hasUnsafeScheme(item[key])) {
