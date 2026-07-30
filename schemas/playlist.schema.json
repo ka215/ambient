@@ -7,10 +7,22 @@
     "options": {
       "type": "object",
       "properties": {
-        "autoplay": { "type": "boolean" },
+        "autoplay": {
+          "oneOf": [
+            { "type": "boolean" },
+            { "type": "number" }
+          ]
+        },
+        "controls": {
+          "oneOf": [
+            { "type": "boolean" },
+            { "type": "number" }
+          ]
+        },
         "random": { "type": "boolean" },
         "shuffle": { "type": "boolean" },
         "seek": { "type": "boolean" },
+        "fullwindow": { "type": "boolean" },
         "volume": {
           "oneOf": [
             { "type": "number", "minimum": 0 },
@@ -23,8 +35,25 @@
         "background": { "type": "string" },
         "caption": { "type": "string" },
         "playlist": { "type": "string" },
-        "fs": { "type": "boolean" },
-        "cc": { "type": "boolean" }
+        "fs": {
+          "oneOf": [
+            { "type": "boolean" },
+            { "type": "number" }
+          ]
+        },
+        "cc": { "type": "boolean" },
+        "cc_load_policy": {
+          "oneOf": [
+            { "type": "boolean" },
+            { "type": "number" }
+          ]
+        },
+        "rel": {
+          "oneOf": [
+            { "type": "boolean" },
+            { "type": "number" }
+          ]
+        }
       },
       "additionalProperties": true
     }
@@ -51,6 +80,13 @@
         "artist": { "type": "string" },
         "image": { "type": "string" },
         "thumb": { "type": "string" },
+        "controls": {
+          "oneOf": [
+            { "type": "boolean" },
+            { "type": "string" },
+            { "type": "integer" }
+          ]
+        },
         "volume": {
           "oneOf": [
             { "type": "number", "minimum": 0 },
@@ -60,28 +96,24 @@
         },
         "start": {
           "oneOf": [
-            { "type": "integer", "minimum": 0 },
             { "type": "number", "minimum": 0 },
             { "type": "string" }
           ]
         },
         "end": {
           "oneOf": [
-            { "type": "integer", "minimum": 0 },
             { "type": "number", "minimum": 0 },
             { "type": "string" }
           ]
         },
         "fadein": {
           "oneOf": [
-            { "type": "integer", "minimum": 0 },
             { "type": "number", "minimum": 0 },
             { "type": "string" }
           ]
         },
         "fadeout": {
           "oneOf": [
-            { "type": "integer", "minimum": 0 },
             { "type": "number", "minimum": 0 },
             { "type": "string" }
           ]

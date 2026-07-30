@@ -49,15 +49,11 @@ Without further ado, I went ahead and created a web browser-based player that co
 I named it "Ambient".
 
 <p align="center">
-  <video src="https://github.com/user-attachments/assets/b6c80318-9261-45eb-9514-f60ad82e33f9" loop muted autoplay playsinline></video>
-  <small>
-
-**CREDITS:** CHARGE - Blender Open Movie (Provided by Blender Studio) &middot; Pexels Video ([pexels.com/video](https://pexels.com/video)) &middot; TheFatRat - [Unity](https://www.youtube.com/watch?v=n8X9_MgEdCg) &middot; 4K Nature Video by [NASA] &middot; YouTube Video by [Scott Buckley], [Trackistador] (CC BY 4.0)
-
-  </small>
+  <video src="https://github.com/user-attachments/assets/b6c80318-9261-45eb-9514-f60ad82e33f9" controls muted></video><br />
+  <sub><strong>CREDITS:</strong> CHARGE - Blender Open Movie (Provided by Blender Studio) &middot; Pexels Video (<a href="https://pexels.com/video">pexels.com/video</a>) &middot; TheFatRat - <a href="https://www.youtube.com/watch?v=n8X9_MgEdCg">Unity</a> &middot; 4K Nature Video by NASA &middot; YouTube Video by Scott Buckley, Trackistador (CC BY 4.0)</sub>
 </p>
 
-I am personally very satisfied with the outcome of this media player.
+<br>
 
 Also, I offer a cloud version for demonstration purposes, so please try it out below:
 
@@ -65,15 +61,16 @@ Also, I offer a cloud version for demonstration purposes, so please try it out b
 
 ## Environment
 
-In essence, "Ambient" is a web application, so it can be accessed and utilized simply through a web browser. The true power of "Ambient" is unleashed when installed in a local PC environment, where it can be used as a hybrid media player capable of playing both YouTube media and PC-based media. Fundamentally, "Ambient" searches for local media files based on relative paths in the deployed environment, which means it cannot play media files that do not exist in the installed environment. On the other hand, for YouTube media, it can reference the media via URL using the "YouTube Iframe Player API," thus not being particularly dependent on the installation environment.
+Ambient is a PHP-based web application with a TypeScript frontend. It runs in a regular browser and can be deployed either as a local player or as a cloud/self-hosted demo.
 
-For this reason, the cloud version released for demonstration purposes does not store any media on the host web server, making it a media player that can only play and manage YouTube media.
+- In local mode (`AMP_ENV=local`), Ambient can play YouTube media and local media files that are reachable from the configured asset directory. Playlist changes, category changes, local media additions, playlist import, and media edits are persisted to JSON files under `assets/`.
+- In cloud mode (`AMP_ENV=cloud`), built-in playlists are treated as read-only. User-added media and imported playlists are stored as `MyPlaylist` in browser storage, and local media file selection/symbolic-link creation is disabled.
 
-Now, to run the main feature, "Ambient," you'll need to prepare the PHP execution environment and set up a web server (Apache etc.) environment on your local PC so that you can access it via a web browser. Well, the easiest way to go about it would be to install "XAMPP" for Windows machines or "MAMP" for Mac. If you have the know-how, setting up a virtual environment with Docker or WSL is also an option, and you can use not only Apache but also Nginx for the web server (it will work as long as you configure URL rewriting).
+To run Ambient locally, prepare a PHP runtime and a web server such as Apache, Nginx, XAMPP, MAMP, Docker, or WSL. The application expects browser access through the web server, not direct file opening.
 
-As for the PHP version, PHP 8.4 or later is recommended. I currently develop and verify Ambient on PHP 8.4.2 locally and PHP 8.5 on the cloud runtime.
+PHP 8.4 or later is recommended. Ambient v2.6.1 is developed with the Vite asset pipeline and verified with the current browser versions used by the Playwright test matrix.
 
-Furthermore, the JavaScript and CSS installation packages have already been deployed, so there shouldn't be any issues with running it on the latest browsers.
+The release package includes built frontend assets, so Node.js is required only when developing or rebuilding the frontend.
 
 ## Installation
 
@@ -90,8 +87,10 @@ After cloning, copy `.env.example` to `.env` and adjust the environment-specific
 - `DEBUG_MODE` - enable or disable debug logging in browser and PHP output
 - `ASSETS_DIR` - asset directory path relative to the project root
 - `LOGS_DIR` - log directory path relative to the project root
+- `AMP_ENV` - `local` for a local PC installation, `cloud` for cloud/self-hosted demo mode
 - `ASSET_MODE` - `build` for built assets, `dev` for Vite dev server assets
 - `VITE_DEV_SERVER_URL` - Vite dev asset URL used only in development mode
+- `VITE_MEDIA_EDIT_DURATION_SYNC_TIMEOUT_MS` - timeout for media-edit duration synchronization
 
 Alternatively, you can download the ZIP files from each release version of [Ambient Release Packages](https://github.com/ka215/ambient/releases) and unzip them to the desired installation location.
 
@@ -105,6 +104,12 @@ Ambient now uses Vite as its asset pipeline.
   - `npm run typecheck`
 - Production-style build:
   - `npm run build`
+- Playlist schema validation:
+  - `npm run validate:playlists`
+- Localization coverage check:
+  - `npm run check:i18n`
+- E2E verification:
+  - `npm run test:e2e`
 
 For local development behind Apache reverse proxy, set:
 
@@ -126,9 +131,11 @@ Detailed operational instructions:
 
 ## Creating Playlists
 
-Next, you'll need to create playlists for media playback in "Ambient." When initially installed, an empty playlist is bundled as a template for creating your own playlists. The playlists are stored in the assets folder within the "Ambient" installation directory. It's possible to create multiple playlists, so it's advisable to copy the template `assets/PlayList.json` for your use.
+Ambient playlists are JSON files placed directly under the configured assets directory, usually `assets/`. Ambient automatically discovers `*.json` files there, excluding localization files such as `lang.json` and `lang-ja.json`.
 
-The format of the playlist is in JSON, and the JSON Schema can be found at [https://ka2.org/schemas/ambient.json](https://ka2.org/schemas/ambient.json).
+The bundled template is `assets/PlayList.json`. If no playlist exists in local mode, Ambient creates a minimal `PlayList.json` automatically. Multiple playlist files can be used side by side, and the active playlist can be selected from the Settings drawer.
+
+The playlist contract is maintained in [schemas/playlist.schema.json](schemas/playlist.schema.json), with the schema ID `https://ka2.org/schemas/ambient-playlist-v2.schema.json`.
 
 To make it easier to understand beyond just the schema definition, here's an example of an actual playlist:
 
@@ -175,7 +182,10 @@ To make it easier to understand beyond just the schema definition, here's an exa
     "options": {
         "autoplay":   true,
         "random":     true,
+        "shuffle":    false,
         "seek":       true,
+        "fader":      true,
+        "volume":     70,
         "dark":       false
     }
 }
@@ -191,11 +201,12 @@ Here's a brief explanation of the playlist settings. Firstly, the root object's 
 | desc | string | Description or subtitle of the media to be played. This will be used in the output of the Ambient caption section, for example. |
 | artist | string | Artist name of the media to be played. This will be used in the output of the Ambient caption section, for example. |
 | image | string | File path of the thumbnail image for the media. It should be specified as a relative path from the `assets/images` folder under the Ambient installation directory. If there is no image file at the specified path, the thumbnail will not be displayed. For media from YouTube videos, the thumbnail will be automatically obtained from YouTube, so this is specifically for specifying thumbnails for local media files. |
-| volume | integer | Added since version 1.1.0. Specify the initial volume when playing media in the range of 0 to 100. The default value when omitted is 100, but it is depend on the optional volume setting. Note that the volume set on the media side has priority over the volume setting in the options. |
+| thumb | string | Thumbnail file name generated or resolved by Ambient. You normally do not need to write this manually. |
+| volume | number/string/null | Specify the initial volume for this media in the range of 0 to 100. A media-level value takes priority over the playlist-level `options.volume`. |
 | start | string/integer | Start time of the media playback (in seconds). If "Seek and play" is enabled as an option, the media with this specified time will seek to the specified seconds before starting playback. It can be specified as an integer value in seconds or in the `H:MM:SS` format. |
 | end | string/integer | End time of the media playback (in seconds). If "Seek and play" is enabled as an option, the media with this specified time will stop playing when the specified number of seconds has elapsed. It can be specified as an integer value in seconds or in the `H:MM:SS` format. |
-| fadein | integer/float | Specifies the time in seconds before the volume fades in. If a seek time for the start of playback is set, a fade-in will be performed for the set number of seconds from the start of playback. |
-| fadeout | integer/float | Specify the duration in seconds for the volume to fade out. If a seek time for the end of playback has set, the fadeout will start after the set number of seconds from the end of playback. |
+| fadein | string/integer/float | Specifies the fade-in duration in seconds. It is applied when the pseudo fader option is enabled. |
+| fadeout | string/integer/float | Specifies the fade-out duration in seconds. It is applied when the pseudo fader option is enabled. |
 | fs | integer/boolean | You can switch the display from embedded player display to full screen mode for each playback media. For YouTube videos, a full screen button will be added to the player. In the case of an HTML player, you can switch the display by clicking on the playback area. |
 | cc | integer/boolean | If the media supports subtitles, you can toggle subtitle display. This feature is only valid for YouTube videos. |
 
@@ -205,18 +216,21 @@ Next, let's explain the data structure of the "options" property for the initial
 
 | Property | Value Type | Default Value | Description |
 |:--------:|:----------:|:-------------:|:------------|
-| autoplay | boolean | true | Flag for autoplay. Currently, only `true` is valid. |
+| autoplay | boolean/number | true | Enable autoplay when the selected media is loaded. Browser autoplay policies may still require a user gesture. |
+| controls | boolean/number | true | Show or hide the embedded player controls where the player type supports it. |
 | random | boolean | false | Flag for randomly play. It can be changed on the Ambient settings. |
-| shuffle | boolean | false | Flag for shuffle play. It can be changed on the Ambient settings. Added since version 1.1.0. |
+| shuffle | boolean | false | Flag for shuffle play. It can be changed on the Ambient settings. |
 | seek | boolean | false | Flag to enable seeking playback (seek and play). It can be changed on the Ambient settings. |
 | volume | integer | 100 | Specifies the initial volume at which media in the playlist is played. Even if you change the volume of each player during playback, it will be initialized to this initial volume when you switch the playback media. Additionally, if there is a volume setting on each media side, that volume will take priority. |
-| fader | boolean | false | Flag for whether to perform volume pseudo-fader processing for played media. This setting was added since version 1.2.0. Please refer to the separate section for details on the fade in/fade out mechanism using pseudo faders. |
+| fader | boolean | false | Flag for whether to perform volume pseudo-fader processing for played media. |
 | dark | boolean | false | Flag to enable dark mode for the Ambient UI. It can be changed on the Ambient settings. |
+| fullwindow | boolean | false | Expand the player area to fit the browser window. It can be changed from the bottom menu or settings. |
 | background | string | - | File path for displaying a background image in the Ambient UI. It should be specified as a relative path from the `assets/images` folder under the Ambient installation directory. |
 | caption | string | `%artist% - %title% - %desc%` | Format for displaying media data in the caption section of Ambient. Use `%<Property Name>%` placeholders to refer to the property values defined in the media data. It is also possible to markup with HTML tags. |
 | playlist | string | `%artist% - %title%` | Format for displaying media data in the playlist (left drawer) of Ambient. Use `%<Property Name>%` placeholders to refer to the property values defined in the media data. It is also possible to markup with HTML tags. |
 | fs | boolean | false | You can switch from embedded player view to full screen view for all media in your playlist. For information on how to switch the display, please refer to the explanation for the same item in Media Data. |
-| cc | boolean | false | Enable toggle subtitle display for all media in the playlist. However, the only media that supports this feature are YouTube videos with subtitles set. |
+| cc_load_policy | boolean/number | 0 | YouTube caption loading policy. This only affects YouTube videos with captions. |
+| rel | boolean/number | 0 | YouTube related-video option passed to the embedded player. |
 
 If there are no changes to the default values for the "options" property, it can be omitted.
 
@@ -224,14 +238,14 @@ If there are no changes to the default values for the "options" property, it can
 
 If all the media set in the playlist is from YouTube, you can skip this phase.
 
-If you intend to play local PC media, you need to place the playback media and image files in the Ambient asset directory. The process for installing asset files is as follows:
+If you intend to play local PC media, the media and image files must be reachable from the Ambient asset directory.
 
-- Playback media files: Located in the `assets/media` folder directly under the Ambient installation directory.
-- Various image files: Located in the `assets/images` folder directly under the Ambient installation directory.
+- Playback media files: `assets/media`
+- Image and thumbnail files: `assets/images`
 
-However, moving local PC media files can be cumbersome, and it can create discrepancies with the reference points of other media players. On the other hand, copying would unnecessarily occupy storage space on your PC. Therefore, it is recommended to create symbolic links to the folder where the media files are originally located within the `assets/media` directory.
+Playlist `file` values are written relative to `assets/media`, and playlist `image` values are written relative to `assets/images`. For YouTube media, Ambient can use the YouTube thumbnail automatically, so custom image files are mainly for local media or custom thumbnails.
 
-It's worth noting that Ambient doesn't support Windows shortcuts, so creating symbolic links is necessary. Here's an example of creating a symbolic link:
+Moving or copying large media collections into the Ambient directory is often inconvenient. In local mode, you can either create symbolic links yourself or use the "Create Symbolic Link" tool in Playlist Management. Windows shortcuts are not treated as media directories.
 
 **For Windows**
 
@@ -253,112 +267,60 @@ ln -s nzk /Users/YourUserName/Music/BEST\ OF\ VOCAL\ WORKS\ [nZk]
 to register the path to the folder where the local PC media is stored as a symbolic link (if the folder name contains spaces, escape them with a backslash).
 2. Update the file path specification of the file property in the playlist JSON media data to use the path via the symbolic link, for example, `nzk/friends.aac`.
 
-In version 1.1.0 of Ambient, the ability to mount an existing media directory on the Ambient side via a symbolic link was added to the "Options" menu.
-We recommend using this feature when creating symbolic links.
+In cloud mode, local media selection, thumbnail upload/removal, and symbolic-link creation are disabled because the remote host cannot access files on your PC.
 
 ### Loading the Playlist on the Ambient Side
 
-Ambient automatically searches for JSON files within the assets on startup and loads valid playlists. When you update the playlist, you can reload the playlist by restarting Ambient (execute "Refresh" from the bottom menu).
+Ambient automatically searches for playlist JSON files within the assets directory on startup. After editing a playlist file directly, use "Refresh" from the bottom menu or reload the page.
 
-After that, you simply need to open the "Settings" menu (right drawer) and select the playlist you want to load.
+Open the Settings drawer and select the playlist you want to load. Ambient remembers the previous playlist/category/media context in browser storage and tries to resume it on the next visit when the playlist is still available.
 
-Once you select the playlist you want to play, you can choose categories within the playlist. By default, all media belonging to each category is selected for playback, but you can also filter the media for each category.
+Once a playlist is loaded, you can choose a target category. The default "All categories" view plays media across the playlist, while a selected category limits playback to that category.
 
 ### Playing Media in Ambient
 
-Once the playlist is loaded, the play button in the bottom menu becomes active, and clicking it starts playback.
+Once a playlist is loaded, the bottom play button becomes active. Playback can be controlled from the bottom menu, the embedded YouTube player, or the HTML audio/video player, and Ambient keeps the play/pause state synchronized.
 
-![Ambient UI](https://ka2.org/assets/2023/10/Ambient_Media_Player_UI.jpg)
+The left Playlist drawer is the main navigation surface for media items. In normal mode, selecting an item starts playback. The playlist mode menu also provides delete and reorder workflows where the current environment allows playlist mutation.
 
-① In general, media playback can be controlled using the play/pause button in the bottom menu. Of course, control is also possible through the embedded YouTube player or HTML media player's playback controls, and this control is synchronized with the play/pause button in the bottom menu.
+The carousel controls show the previous and next playback candidates with thumbnails. They let you move through the current playback order, including random or shuffle order when those options are enabled.
 
-② By opening the playlist menu (left drawer) and clicking on the media you want to play, you can play any desired media.
+The Settings drawer controls playlist selection, category filtering, loop/random/shuffle/seek/fader/dark-mode options, full-window playback, default volume, and language selection. The Options menu contains management tools for adding media, managing categories, exporting/importing playlists, and local-only symbolic-link creation.
 
-③ The left and right arrow buttons displaying the thumbnails of the media allow you to specify the previously played media or the candidate media to be played next.
+Media Edit is available from supported playlist items. It can update title, artist, description, volume, seek timing, fade timing, category assignment, and local thumbnails. In cloud mode, edits are limited to the browser-stored `MyPlaylist`; built-in cloud playlists remain read-only.
 
 ## Compatibility
 
-As of October 20, 2023, the compatibility status for browsers and media file playback is as follows:
+Ambient depends on modern browser features, JavaScript, the YouTube IFrame Player API, and native HTML5 `<audio>` / `<video>` playback.
 
 ### Browsers
 
-Verified working browsers:
+The automated E2E matrix currently targets Chromium desktop and responsive iPad/iPhone profiles through Playwright. Manual browser compatibility depends on each browser's current support for YouTube embeds, media codecs, local file playback through the web server, and required JavaScript APIs.
 
-| Chrome(>=^118) | Firefox(>=^118) | Edge(>=^118) | Safari(>=^16) | Opera(>=^103) |
-|:--------------:|:---------------:|:------------:|:-------------:|:-------------:|
-| Ok | Ok | Ok | Ok | Ok |
-
-It does not work on older browsers that do not support the HTML5 `<audio>` and `<video>` tags or on browsers where JavaScript is not enabled.
+Older browsers, browsers with JavaScript disabled, or browsers that block embedded YouTube playback or required codecs are not supported.
 
 ### Media File Formats
 
-With "Ambient," all publicly available YouTube videos can be played. On the other hand, for media file formats on the local PC, it adheres to the media playable by the HTML5 `<audio>` and `<video>` tags. The compatibility for common media file formats is summarized below.
+YouTube playback is handled by the YouTube IFrame Player API, so availability follows YouTube's own embed restrictions and the video's publication settings.
 
-| MP3(.mp3) | WAVE(.wav) | MP4(.mp4) | AAC(.aac) | WEBM(.webm) | OGG(.ogg) | M4A(.m4a) | WMA(.wma) |
-|:---------:|:----------:|:---------:|:---------:|:-----------:|:---------:|:---------:|:---------:|
-| Ok        | Ok         | Ok        | Ok        | Ok          | Ok        | ✕        | ✕        |
-
-Compatibility with other media file formats not listed above has not been checked, so it is unclear, but there are likely other playable media formats as well. There is a considerable number of media file formats in the world, including minor video and audio files, so we have not been able to check them all. Additionally, the ability to play media formats may change depending on the status of the playback codecs installed on the PC.
+Local media playback follows the browser's native HTML5 media support and the codecs installed or available on the host environment. Common formats such as MP3, WAV, MP4, AAC, WebM, and OGG may work in modern browsers, but support varies by browser and OS. If a local file does not play, verify the file path, MIME handling by the web server, and browser codec support.
 
 ## Localization
 
-Ambient supports the localization of its user interface (UI). By placing a translation definition file, lang.json, directly under the assets folder, it is possible to switch the UI from the default English to another languages. As a sample, the translation definition file for German localization is presented below.
+Ambient localizes UI text through JSON dictionaries under `assets/langs/`.
 
-```json
-{
-    "$language": "Deutsch",
-    "Ambient Media Player": "",
-    "Get choose your playlist you want to play from the settings menu.": "Wählen Sie im Einstellungsmenü die Playlist aus, die Sie abspielen möchten.",
-    "Notify": "Benachrichtigen",
-    "Dismiss": "Schließen",
-    "Previous Item": "Frühere Medien",
-    "Next Item": "Nächste Medien",
-    "Watch on YouTube": "Auf YouTube ansehen",
-    "Playlist": "Wiedergabeliste",
-    "Refresh": "Neu laden",
-    "Play": "Wiedergabe",
-    "Pause": "Pause",
-    "Settings": "Einstellung",
-    "Options": "Optionen",
-    "Close Playlist": "Wiedergabeliste schließen",
-    "No media available.": "Keine Medien verfügbar.",
-    "Close Settings": "Einstellungen schließen",
-    "Current Playlist": "Aktuelle Wiedergabeliste",
-    "Choose a playlist": "Wählen Sie eine Wiedergabeliste aus",
-    "Target Category": "Zielkategorie",
-    "All categories": "Alle Kategorien",
-    "Randomly play": "Zufällige Wiedergabe",
-    "Seek and play": "Suchen und wiedergabe",
-    "Dark mode": "Dunkler Modus",
-    "Close options": "Optionen schließen",
-    "Media Management": "Medienverwaltung",
-    "Add media to the currently active playlist.": "",
-    "Media you add is lost when you switch playlists or end your application session.": "",
-    "If you want the additional media to be permanent, you will need to download the playlist after adding the media.": "",
-    "Add New Media": "",
-    "Playlist Creator": "Wiedergabelisten-Erstellung",
-    "It is expected to be implemented in the near future.": "",
-    "Please look forward to it.": "",
-    "Report an issue": "Ein Problem melden",
-    "Ambient development code is managed in a github repository.": "",
-    "To report bugs or problems, please raise an issue on github.": "",
-    "Before reporting a problem, please check to see if a similar issue has already been submitted.": "",
-    "Check out and submit issues.": "",
-    "About Ambient": "Über Ambient",
-    "Ambient is an open source media player that allows you to seamlessly mix and play media published on YouTube and media stored on your local PC.": "",
-    "Additionally, since Ambient is designed as a web application, anyone can use it by accessing the application's pages with a common web browser.": "",
-    "However, if you want to use Ambient on your local PC, you will need to prepare a PHP execution environment and launch your application onto that environment.": "",
-    "Learn more about the technology Ambient uses below:": "",
-    "YouTube IFrame Player API": "",
-    "tailwindcss": "",
-    "Flowbite": "",
-    "Version:": "",
-    "(user setup)": ""
-}
+- `assets/langs/lang.json` is the origin dictionary. Its keys are the source strings used by PHP and TypeScript UI code.
+- `assets/langs/lang-{langCode}.json` provides a translated dictionary, for example `lang-ja.json`, `lang-de.json`, or `lang-fr.json`.
+- Each dictionary may include `$language` to control the display name shown in the Settings drawer.
+- Missing or empty translations fall back to the original source text.
+- The selected language is stored in the `lang` browser cookie and can be changed from the Settings drawer.
+- Legacy files directly under `assets/`, such as `assets/lang-ja.json`, are still detected for backward compatibility, but `assets/langs/` takes priority.
+
+When adding or updating translations, keep the key set aligned with `assets/langs/lang.json` and run:
+
+```bash
+npm run check:i18n
 ```
-
-By overwriting the contents of the bundled `assets/langs/lang.json` in Ambient with the above content, most of the major UI elements will be localized into German. Regarding the translation definition file, it is possible to manage it by separating the files with suffix support, such as having a German translation definition as `lang-de.json`.
-Since version 1.2.0, we can now switch the language from the settings menu. The translation file for the language you want to switch to should be placed as `lang-{langCode}.json` under the `assets/langs` directory. Legacy `assets/lang-{langCode}.json` is still supported for backward compatibility.
 
 ## References
 
@@ -367,6 +329,9 @@ I appreciate the technology employed in the development of Ambient and respect i
 * [YouTube Player API Reference](https://developers.google.com/youtube/iframe_api_reference)
 * [tailwindcss](https://tailwindcss.com/docs/installation)
 * [Flowbite](https://flowbite.com/docs/getting-started/introduction/)
+* [Vite](https://vite.dev/)
+* [TypeScript](https://www.typescriptlang.org/)
+* [Playwright](https://playwright.dev/)
 * [M+FONTS](https://mplusfonts.github.io/)
 
 In my blog article, I introduce specific ways to use Ambient.
@@ -376,8 +341,9 @@ In my blog article, I introduce specific ways to use Ambient.
 
 ## Finally
 
-Please note that the only API used by "Ambient" is the IFrame Player API, and is excluded from the API clients specified by YouTube. As such, they are exempt from the terms of the Developer Policy.
-"Ambient" is released as an open-source project under the [MIT License](https://github.com/ka215/ambient/blob/main/LICENSE). Additionally, all resources are publicly available on GitHub, so if you are interested, please give it a try.
+Ambient uses the YouTube IFrame Player API for YouTube playback. If you deploy or modify Ambient, review the current YouTube API Services terms and embedded player requirements for your own use case.
+
+Ambient is released as an open-source project under the [MIT License](https://github.com/ka215/ambient/blob/main/LICENSE). Additionally, all resources are publicly available on GitHub, so if you are interested, please give it a try.
 
 [https://github.com/ka215/ambient](https://github.com/ka215/ambient)
 
