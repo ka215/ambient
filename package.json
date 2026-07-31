@@ -39,6 +39,7 @@
     "vite": "^6.4.1"
   },
   "dependencies": {
+    "music-metadata": "^11.14.0",
     "sortablejs": "^1.15.7"
   }
 }

@@ -1,9 +1,180 @@
 {
+  "_AbstractID3Parser.js": {
+    "file": "assets/AbstractID3Parser.js",
+    "name": "AbstractID3Parser",
+    "imports": [
+      "_core.js",
+      "_ID3v2Parser.js"
+    ]
+  },
+  "_FlacParser.js": {
+    "file": "assets/FlacParser.js",
+    "name": "FlacParser",
+    "isDynamicEntry": true,
+    "imports": [
+      "_core.js",
+      "_AbstractID3Parser.js"
+    ]
+  },
+  "_ID3v2Parser.js": {
+    "file": "assets/ID3v2Parser.js",
+    "name": "ID3v2Parser",
+    "imports": [
+      "_core.js"
+    ]
+  },
+  "_core.js": {
+    "file": "assets/core.js",
+    "name": "core",
+    "isDynamicEntry": true,
+    "imports": [
+      "src/scripts/ambient.ts"
+    ],
+    "dynamicImports": [
+      "node_modules/music-metadata/lib/mpeg/MpegParser.js",
+      "node_modules/music-metadata/lib/asf/AsfParser.js",
+      "node_modules/music-metadata/lib/dsdiff/DsdiffParser.js",
+      "node_modules/music-metadata/lib/aiff/AiffParser.js",
+      "node_modules/music-metadata/lib/dsf/DsfParser.js",
+      "_FlacParser.js",
+      "node_modules/music-metadata/lib/matroska/MatroskaParser.js",
+      "node_modules/music-metadata/lib/mp4/MP4Parser.js",
+      "node_modules/music-metadata/lib/musepack/MusepackParser.js",
+      "node_modules/music-metadata/lib/ogg/OggParser.js",
+      "node_modules/music-metadata/lib/wavpack/WavPackParser.js",
+      "node_modules/music-metadata/lib/wav/WaveParser.js"
+    ]
+  },
+  "node_modules/music-metadata/lib/aiff/AiffParser.js": {
+    "file": "assets/AiffParser.js",
+    "name": "AiffParser",
+    "src": "node_modules/music-metadata/lib/aiff/AiffParser.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_core.js",
+      "_ID3v2Parser.js",
+      "src/scripts/ambient.ts"
+    ]
+  },
+  "node_modules/music-metadata/lib/asf/AsfParser.js": {
+    "file": "assets/AsfParser.js",
+    "name": "AsfParser",
+    "src": "node_modules/music-metadata/lib/asf/AsfParser.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_core.js",
+      "src/scripts/ambient.ts"
+    ]
+  },
+  "node_modules/music-metadata/lib/dsdiff/DsdiffParser.js": {
+    "file": "assets/DsdiffParser.js",
+    "name": "DsdiffParser",
+    "src": "node_modules/music-metadata/lib/dsdiff/DsdiffParser.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_core.js",
+      "_ID3v2Parser.js",
+      "src/scripts/ambient.ts"
+    ]
+  },
+  "node_modules/music-metadata/lib/dsf/DsfParser.js": {
+    "file": "assets/DsfParser.js",
+    "name": "DsfParser",
+    "src": "node_modules/music-metadata/lib/dsf/DsfParser.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_core.js",
+      "_AbstractID3Parser.js",
+      "_ID3v2Parser.js",
+      "src/scripts/ambient.ts"
+    ]
+  },
+  "node_modules/music-metadata/lib/matroska/MatroskaParser.js": {
+    "file": "assets/MatroskaParser.js",
+    "name": "MatroskaParser",
+    "src": "node_modules/music-metadata/lib/matroska/MatroskaParser.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_core.js",
+      "src/scripts/ambient.ts"
+    ]
+  },
+  "node_modules/music-metadata/lib/mp4/MP4Parser.js": {
+    "file": "assets/MP4Parser.js",
+    "name": "MP4Parser",
+    "src": "node_modules/music-metadata/lib/mp4/MP4Parser.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_core.js",
+      "src/scripts/ambient.ts"
+    ]
+  },
+  "node_modules/music-metadata/lib/mpeg/MpegParser.js": {
+    "file": "assets/MpegParser.js",
+    "name": "MpegParser",
+    "src": "node_modules/music-metadata/lib/mpeg/MpegParser.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_core.js",
+      "_AbstractID3Parser.js",
+      "src/scripts/ambient.ts",
+      "_ID3v2Parser.js"
+    ]
+  },
+  "node_modules/music-metadata/lib/musepack/MusepackParser.js": {
+    "file": "assets/MusepackParser.js",
+    "name": "MusepackParser",
+    "src": "node_modules/music-metadata/lib/musepack/MusepackParser.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_core.js",
+      "_AbstractID3Parser.js",
+      "src/scripts/ambient.ts",
+      "_ID3v2Parser.js"
+    ]
+  },
+  "node_modules/music-metadata/lib/ogg/OggParser.js": {
+    "file": "assets/OggParser.js",
+    "name": "OggParser",
+    "src": "node_modules/music-metadata/lib/ogg/OggParser.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_core.js",
+      "_FlacParser.js",
+      "src/scripts/ambient.ts",
+      "_AbstractID3Parser.js",
+      "_ID3v2Parser.js"
+    ]
+  },
+  "node_modules/music-metadata/lib/wav/WaveParser.js": {
+    "file": "assets/WaveParser.js",
+    "name": "WaveParser",
+    "src": "node_modules/music-metadata/lib/wav/WaveParser.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_core.js",
+      "_ID3v2Parser.js",
+      "src/scripts/ambient.ts"
+    ]
+  },
+  "node_modules/music-metadata/lib/wavpack/WavPackParser.js": {
+    "file": "assets/WavPackParser.js",
+    "name": "WavPackParser",
+    "src": "node_modules/music-metadata/lib/wavpack/WavPackParser.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_core.js",
+      "src/scripts/ambient.ts"
+    ]
+  },
   "src/scripts/ambient.ts": {
     "file": "assets/ambient.js",
     "name": "ambient",
     "src": "src/scripts/ambient.ts",
     "isEntry": true,
+    "dynamicImports": [
+      "_core.js"
+    ],
     "css": [
       "assets/ambient.css"
     ],

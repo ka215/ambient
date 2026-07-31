@@ -228,6 +228,35 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
     );
   };
 
+  const applyLocalMetadataTextIfSafe = (
+    fieldName: 'artist' | 'desc',
+    field: HTMLInputElement | HTMLTextAreaElement | null,
+    metadataValue: string,
+    lastAppliedValue: string
+  ): void => {
+    if (!field || metadataValue.trim() === '') {
+      return;
+    }
+    const currentValue = field.value.trim();
+    if (currentValue !== '' && currentValue !== lastAppliedValue) {
+      return;
+    }
+    applyMetadataField(fieldName);
+  };
+
+  const applyLocalMetadataIfSafe = (): void => {
+    if (!latestMetadata) {
+      return;
+    }
+    applyTitleIfSafe();
+    applyLocalMetadataTextIfSafe('artist', artistField, latestMetadata.artist, lastAppliedMetadata.artist);
+    applyLocalMetadataTextIfSafe('desc', descField, latestMetadata.desc, lastAppliedMetadata.desc);
+    setMetadataState(
+      'suggested',
+      getLocalizedMessage('Local media metadata found.', 'Local media metadata found.')
+    );
+  };
+
   const scheduleYouTubeMetadataFetch = (videoId: string): void => {
     if (!isYouTubeMetadataEnabled() || !canMutateCurrentPlaylist()) {
       clearMetadataSuggestions();
@@ -280,7 +309,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
       lastAppliedMetadata.title = fallbackTitle;
     }
     renderMetadataSuggestions(result.data);
-    applyTitleIfSafe();
+    applyLocalMetadataIfSafe();
   };
 
   buttonApplyMetadataAll?.addEventListener('click', () => {
