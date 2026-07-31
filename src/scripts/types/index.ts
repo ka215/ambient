@@ -22,6 +22,7 @@ interface MediaItem {
   end?: number | string;
   controls?: boolean | string;
   fs?: boolean | string;
+  disablekb?: boolean | string;
   cc?: boolean | string;
   fadeout?: number | string;
   fadein?: number | string;
@@ -137,6 +138,9 @@ interface YTPlayerOptions {
     controls?: number;
     fs?: number;
     cc_load_policy?: number;
+    disablekb?: number;
+    playsinline?: number;
+    cc_lang_pref?: string;
     rel?: number;
     start?: string;
     end?: string;

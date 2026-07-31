@@ -28,6 +28,16 @@ export function applyMediaEditDraftToFormView(options: {
   descriptionInput: HTMLTextAreaElement | null;
   volumeInput: HTMLInputElement | null;
   volumeDisplay: HTMLElement | null;
+  youtubeAdvancedSection: HTMLElement | null;
+  youtubeAdvancedPanel: HTMLElement | null;
+  youtubeCcOverride: HTMLInputElement | null;
+  youtubeCcValue: HTMLInputElement | null;
+  youtubeFsOverride: HTMLInputElement | null;
+  youtubeFsValue: HTMLInputElement | null;
+  youtubeControlsOverride: HTMLInputElement | null;
+  youtubeControlsValue: HTMLInputElement | null;
+  youtubeDisablekbOverride: HTMLInputElement | null;
+  youtubeDisablekbValue: HTMLInputElement | null;
   thumbnailName: HTMLElement | null;
   thumbnailPreview: HTMLImageElement | null;
   thumbnailSection: HTMLElement | null;
@@ -68,6 +78,33 @@ export function applyMediaEditDraftToFormView(options: {
       display: options.volumeDisplay,
     });
   }
+
+  const isYouTubeItem = !!options.activeItem?.videoid && String(options.activeItem.videoid).trim() !== '';
+  options.youtubeAdvancedSection?.classList.toggle('hidden', !isYouTubeItem);
+  if (!isYouTubeItem) {
+    options.youtubeAdvancedPanel?.classList.add('hidden');
+  }
+
+  const syncAdvancedSetting = (
+    overrideInput: HTMLInputElement | null,
+    valueInput: HTMLInputElement | null,
+    overrideValue: boolean,
+    settingValue: boolean
+  ): void => {
+    if (overrideInput) {
+      overrideInput.checked = overrideValue;
+    }
+    if (valueInput) {
+      valueInput.checked = settingValue;
+      valueInput.disabled = !overrideValue;
+      valueInput.setAttribute('aria-disabled', String(!overrideValue));
+    }
+  };
+
+  syncAdvancedSetting(options.youtubeCcOverride, options.youtubeCcValue, options.draft.youtubeCcOverride, options.draft.youtubeCc);
+  syncAdvancedSetting(options.youtubeFsOverride, options.youtubeFsValue, options.draft.youtubeFsOverride, options.draft.youtubeFs);
+  syncAdvancedSetting(options.youtubeControlsOverride, options.youtubeControlsValue, options.draft.youtubeControlsOverride, options.draft.youtubeControls);
+  syncAdvancedSetting(options.youtubeDisablekbOverride, options.youtubeDisablekbValue, options.draft.youtubeDisablekbOverride, options.draft.youtubeDisablekb);
 
   if (options.thumbnailName) {
     options.thumbnailName.textContent = options.draft.thumbnailMode === 'upload'

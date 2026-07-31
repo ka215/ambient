@@ -1298,7 +1298,7 @@ trait api {
             }
         }
 
-        foreach ( [ 'fs', 'cc' ] as $key ) {
+        foreach ( [ 'fs', 'cc', 'controls', 'disablekb' ] as $key ) {
             if ( array_key_exists( $key, $item ) ) {
                 $bool_value = $this->normalize_boolish( $item[$key] );
                 if ( $bool_value !== null ) {

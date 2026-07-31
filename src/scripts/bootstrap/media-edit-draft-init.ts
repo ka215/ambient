@@ -90,6 +90,16 @@ export function createMediaEditDraftFormApplier(options: {
   descriptionInput: HTMLTextAreaElement | null;
   volumeInput: HTMLInputElement | null;
   volumeDisplay: HTMLElement | null;
+  youtubeAdvancedSection: HTMLElement | null;
+  youtubeAdvancedPanel: HTMLElement | null;
+  youtubeCcOverride: HTMLInputElement | null;
+  youtubeCcValue: HTMLInputElement | null;
+  youtubeFsOverride: HTMLInputElement | null;
+  youtubeFsValue: HTMLInputElement | null;
+  youtubeControlsOverride: HTMLInputElement | null;
+  youtubeControlsValue: HTMLInputElement | null;
+  youtubeDisablekbOverride: HTMLInputElement | null;
+  youtubeDisablekbValue: HTMLInputElement | null;
   thumbnailName: HTMLElement | null;
   thumbnailPreview: HTMLImageElement | null;
   thumbnailSection: HTMLElement | null;
@@ -124,6 +134,16 @@ export function createMediaEditDraftFormApplier(options: {
       descriptionInput: options.descriptionInput,
       volumeInput: options.volumeInput,
       volumeDisplay: options.volumeDisplay,
+      youtubeAdvancedSection: options.youtubeAdvancedSection,
+      youtubeAdvancedPanel: options.youtubeAdvancedPanel,
+      youtubeCcOverride: options.youtubeCcOverride,
+      youtubeCcValue: options.youtubeCcValue,
+      youtubeFsOverride: options.youtubeFsOverride,
+      youtubeFsValue: options.youtubeFsValue,
+      youtubeControlsOverride: options.youtubeControlsOverride,
+      youtubeControlsValue: options.youtubeControlsValue,
+      youtubeDisablekbOverride: options.youtubeDisablekbOverride,
+      youtubeDisablekbValue: options.youtubeDisablekbValue,
       thumbnailName: options.thumbnailName,
       thumbnailPreview: options.thumbnailPreview,
       thumbnailSection: options.thumbnailSection,

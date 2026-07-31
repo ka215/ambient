@@ -44,6 +44,34 @@ export interface InitializeMediaEditControlsRuntimeOptions {
 }
 
 export function initializeMediaEditControlsRuntime(options: InitializeMediaEditControlsRuntimeOptions): void {
+  const syncYouTubeAdvancedSettingAvailability = (): void => {
+    const pairs = [
+      [options.elements.youtubeCcOverride, options.elements.youtubeCcValue],
+      [options.elements.youtubeFsOverride, options.elements.youtubeFsValue],
+      [options.elements.youtubeControlsOverride, options.elements.youtubeControlsValue],
+      [options.elements.youtubeDisablekbOverride, options.elements.youtubeDisablekbValue],
+    ] as Array<[HTMLInputElement | null, HTMLInputElement | null]>;
+    pairs.forEach(([overrideInput, valueInput]) => {
+      if (!valueInput) {
+        return;
+      }
+      const enabled = overrideInput?.checked === true;
+      valueInput.disabled = !enabled;
+      valueInput.setAttribute('aria-disabled', String(!enabled));
+    });
+  };
+
+  options.elements.youtubeAdvancedToggle?.addEventListener('click', () => {
+    const panel = options.elements.youtubeAdvancedPanel;
+    const button = options.elements.youtubeAdvancedToggle;
+    if (!panel || !button) {
+      return;
+    }
+    const nextExpanded = panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', !nextExpanded);
+    button.setAttribute('aria-expanded', String(nextExpanded));
+  });
+
   initializeMediaEditControls({
     primary: {
       closeButton: options.elements.closeButton,
@@ -77,6 +105,14 @@ export function initializeMediaEditControlsRuntime(options: InitializeMediaEditC
         options.elements.titleInput,
         options.elements.artistInput,
         options.elements.descriptionInput,
+        options.elements.youtubeCcOverride,
+        options.elements.youtubeCcValue,
+        options.elements.youtubeFsOverride,
+        options.elements.youtubeFsValue,
+        options.elements.youtubeControlsOverride,
+        options.elements.youtubeControlsValue,
+        options.elements.youtubeDisablekbOverride,
+        options.elements.youtubeDisablekbValue,
       ],
       volumeInput: options.elements.volumeInput,
       timingFields: [
@@ -87,10 +123,12 @@ export function initializeMediaEditControlsRuntime(options: InitializeMediaEditC
       ],
       timingStepperButtons: document.querySelectorAll('.media-edit-timing-stepper-btn'),
       onDraftFieldInput: () => {
+        syncYouTubeAdvancedSettingAvailability();
         options.syncDraftStateFromForm();
         options.validateAndRenderDraftFromForm();
       },
       onDraftFieldChange: () => {
+        syncYouTubeAdvancedSettingAvailability();
         options.syncDraftStateFromForm();
         options.validateAndRenderDraftFromForm();
       },

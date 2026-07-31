@@ -11,6 +11,9 @@ export interface YTPlayerOptions {
   controls?: number;      // 0 = no controls, 1 = controls
   fs?: number;            // 0 = no fullscreen, 1 = allow fullscreen
   cc_load_policy?: number; // 0 = auto, 1 = always show captions
+  cc_lang_pref?: string;  // ISO 639-1 caption language preference
+  disablekb?: number;     // 0 = keyboard enabled, 1 = keyboard disabled
+  playsinline?: number;   // 1 = inline playback on iOS
   rel?: number;           // 0 = no related videos, 1 = show related
   start?: number;         // Start time in seconds
   end?: number;           // End time in seconds

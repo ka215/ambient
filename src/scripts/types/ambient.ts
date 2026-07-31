@@ -24,6 +24,7 @@ export interface MediaItem {
   controls?: boolean | string; // Show/hide player controls
   fs?: boolean | string;    // Allow fullscreen
   cc?: boolean | string;    // Closed captions policy
+  disablekb?: boolean | string; // Disable YouTube keyboard controls
 }
 
 /**

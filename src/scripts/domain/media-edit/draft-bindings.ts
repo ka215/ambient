@@ -47,6 +47,14 @@ export function createMediaEditDraftBindings(options: {
     seekEnd: string | undefined;
     fadeInEnd: string | undefined;
     fadeOutStart: string | undefined;
+    youtubeCcOverride: boolean | undefined;
+    youtubeCc: boolean | undefined;
+    youtubeFsOverride: boolean | undefined;
+    youtubeFs: boolean | undefined;
+    youtubeControlsOverride: boolean | undefined;
+    youtubeControls: boolean | undefined;
+    youtubeDisablekbOverride: boolean | undefined;
+    youtubeDisablekb: boolean | undefined;
   };
 }): {
   getMediaEditDraftKey: (mediaItem: MediaItem) => string;
@@ -85,6 +93,14 @@ export function createMediaEditDraftBindings(options: {
           seekEnd: source['seekEnd'],
           fadeInEnd: source['fadeInEnd'],
           fadeOutStart: source['fadeOutStart'],
+          youtubeCcOverride: source['youtubeCcOverride'],
+          youtubeCc: source['youtubeCc'],
+          youtubeFsOverride: source['youtubeFsOverride'],
+          youtubeFs: source['youtubeFs'],
+          youtubeControlsOverride: source['youtubeControlsOverride'],
+          youtubeControls: source['youtubeControls'],
+          youtubeDisablekbOverride: source['youtubeDisablekbOverride'],
+          youtubeDisablekb: source['youtubeDisablekb'],
         });
       },
     });
