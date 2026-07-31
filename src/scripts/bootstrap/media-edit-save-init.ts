@@ -49,6 +49,8 @@ export interface InitializeMediaEditSaveRuntimeOptions {
   validateDraft(): { valid: boolean };
   setSaveButtonDisabled(disabled: boolean): void;
   applyDraftToMediaItem(item: MediaItem, draft: MediaEditDraft): MediaItem;
+  canMutateCurrentPlaylist(): boolean;
+  applyEditRestrictions(): void;
 }
 
 export function initializeMediaEditSaveRuntime(options: InitializeMediaEditSaveRuntimeOptions): {
@@ -162,6 +164,8 @@ export function initializeMediaEditSaveRuntime(options: InitializeMediaEditSaveR
     setSaveButtonDisabled: options.setSaveButtonDisabled,
     setSaveBusyState: setMediaEditSaveBusyState,
     updateNotice: options.updateNotice,
+    canMutateCurrentPlaylist: options.canMutateCurrentPlaylist,
+    applyEditRestrictions: options.applyEditRestrictions,
     applyDraftToMediaItem: options.applyDraftToMediaItem,
     uploadThumbnail: uploadMediaEditThumbnailIfNeeded,
     deleteThumbnail: deleteMediaEditThumbnailIfNeeded,

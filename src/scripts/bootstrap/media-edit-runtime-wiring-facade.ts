@@ -34,6 +34,8 @@ export interface CreateMediaEditRuntimeWiringFacadeOptions {
   syncMediaCategoryField: InitializeMediaEditRuntimeWiringOptions['syncMediaCategoryField'];
   getActiveCategoryId: InitializeMediaEditRuntimeWiringOptions['getActiveCategoryId'];
   updatePlaylist: InitializeMediaEditRuntimeWiringOptions['updatePlaylist'];
+  canMutateCurrentPlaylist: InitializeMediaEditRuntimeWiringOptions['canMutateCurrentPlaylist'];
+  applyEditRestrictions: InitializeMediaEditRuntimeWiringOptions['applyEditRestrictions'];
   confirm: InitializeMediaEditRuntimeWiringOptions['confirm'];
 }
 
@@ -74,6 +76,8 @@ export function createMediaEditRuntimeWiringFacade(
     syncMediaCategoryField: options.syncMediaCategoryField,
     getActiveCategoryId: options.getActiveCategoryId,
     updatePlaylist: options.updatePlaylist,
+    canMutateCurrentPlaylist: options.canMutateCurrentPlaylist,
+    applyEditRestrictions: options.applyEditRestrictions,
     confirm: options.confirm,
   };
 }

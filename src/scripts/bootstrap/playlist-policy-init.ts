@@ -1,8 +1,8 @@
 import { applyCloudEditRestrictionsView } from '../ui/forms/cloud-edit-restrictions';
 
 export interface InitializePlaylistPolicyOptions {
-  getAmbientData(): { isCloud?: boolean } | null | undefined;
-  getRuntimeAmbientData(): { isCloud?: boolean } | null | undefined;
+  getAmbientData(): { isCloud?: boolean; playlists?: Record<string, unknown> } | null | undefined;
+  getRuntimeAmbientData(): { isCloud?: boolean; playlists?: Record<string, unknown> } | null | undefined;
   getCurrentPlaylist(): string | null;
   myPlaylistName: string;
   mediaForm: HTMLFormElement | null;
@@ -15,16 +15,19 @@ export function initializePlaylistPolicy(options: InitializePlaylistPolicyOption
   applyCloudEditRestrictions(): void;
 } {
   const canMutateCurrentPlaylist = (): boolean => {
-    const ambientData = options.getAmbientData();
+    const ambientData = options.getRuntimeAmbientData() || options.getAmbientData();
+    const currentPlaylist = options.getCurrentPlaylist();
     if (ambientData?.isCloud === true) {
-      return options.getCurrentPlaylist() === options.myPlaylistName || !options.getCurrentPlaylist();
+      return currentPlaylist === options.myPlaylistName || !currentPlaylist;
     }
-    return true;
+    if (!currentPlaylist) {
+      return false;
+    }
+    const playlists = ambientData?.playlists;
+    return !!playlists && Object.prototype.hasOwnProperty.call(playlists, currentPlaylist);
   };
 
   const applyCloudEditRestrictions = (): void => {
-    const ambientData = options.getRuntimeAmbientData();
-    if (!ambientData?.isCloud) return;
     applyCloudEditRestrictionsView({
       canMutatePlaylist: canMutateCurrentPlaylist(),
       mediaForm: options.mediaForm,

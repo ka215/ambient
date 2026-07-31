@@ -61,6 +61,8 @@ export interface InitializeMediaEditRuntimeWiringOptions {
   syncMediaCategoryField(preferredCategoryId?: number | null): void;
   getActiveCategoryId(): number | null;
   updatePlaylist(): void;
+  canMutateCurrentPlaylist(): boolean;
+  applyEditRestrictions(): void;
   confirm(message: string): boolean;
 }
 
@@ -124,6 +126,8 @@ export function initializeMediaEditRuntimeWiring(options: InitializeMediaEditRun
     syncMediaCategoryField: options.syncMediaCategoryField,
     getActiveCategoryId: options.getActiveCategoryId,
     updatePlaylist: options.updatePlaylist,
+    canMutateCurrentPlaylist: options.canMutateCurrentPlaylist,
+    applyEditRestrictions: options.applyEditRestrictions,
     confirm: options.confirm,
   });
 }

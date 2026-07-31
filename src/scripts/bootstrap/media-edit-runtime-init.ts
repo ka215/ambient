@@ -92,6 +92,8 @@ export interface InitializeMediaEditRuntimeOptions {
   syncMediaCategoryField: (preferredCategoryId?: number | null) => void;
   getActiveCategoryId: () => number | null;
   updatePlaylist: () => void;
+  canMutateCurrentPlaylist: () => boolean;
+  applyEditRestrictions: () => void;
   confirm: (message: string) => boolean;
 }
 
@@ -340,6 +342,8 @@ export function initializeMediaEditRuntime(options: InitializeMediaEditRuntimeOp
     readDraftFromForm: draftBindings.readMediaEditDraftFromForm,
     validateDraft: uiBindings.validateAndRenderMediaEditDraftFromForm,
     setSaveButtonDisabled: uiBindings.setMediaEditSaveButtonDisabled,
+    canMutateCurrentPlaylist: options.canMutateCurrentPlaylist,
+    applyEditRestrictions: options.applyEditRestrictions,
     applyDraftToMediaItem,
   });
 
@@ -371,6 +375,9 @@ export function initializeMediaEditRuntime(options: InitializeMediaEditRuntimeOp
     startDurationSyncWait: mediaEditDurationSync.startIfNeeded,
     getActiveItem: () => mediaEditActiveItem,
     getDraftKey: draftBindings.getMediaEditDraftKey,
+    canMutateCurrentPlaylist: options.canMutateCurrentPlaylist,
+    applyEditRestrictions: options.applyEditRestrictions,
+    updateNotice: options.updateNotice,
     hasUnsavedDraft: draftBindings.isActiveMediaEditUnsaved,
     isDirty: () => mediaEditIsDirty,
     discardDraft: draftBindings.discardActiveMediaEditDraft,

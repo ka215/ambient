@@ -530,6 +530,8 @@ const init = function (): void {
     syncMediaCategoryField: mediaEditPlaylistHelpers.syncMediaCategoryField,
     getActiveCategoryId: mediaEditPlaylistHelpers.getActiveCategoryId,
     updatePlaylist: mediaEditPlaylistHelpers.updatePlaylist,
+    canMutateCurrentPlaylist,
+    applyEditRestrictions: applyCloudEditRestrictions,
     confirm: mediaEditRuntimeSupport.confirm,
   }));
   const mediaEditFacade = createMediaEditRuntimeFacade(mediaEditRuntime);
