@@ -887,6 +887,9 @@
             <p class="mb-2 text-gray-500 dark:text-gray-400"><?= __( 'Learn more about the technology Ambient uses below:' ) ?></p>
             <ul class="mb-2 pl-5 text-gray-500 list-disc dark:text-gray-400">
                 <li><a href="https://developers.google.com/youtube/iframe_api_reference" target="_blank" rel="nofollow" class="text-blue-600 dark:text-blue-500 hover:underline"><?= __( 'YouTube IFrame Player API' ) ?></a></li>
+                <?php if ( $this->is_youtube_metadata_enabled() ) : ?>
+                <li><a href="https://developers.google.com/youtube/v3" target="_blank" rel="nofollow" class="text-blue-600 dark:text-blue-500 hover:underline"><?= __( 'YouTube Data API' ) ?></a></li>
+                <?php endif; ?>
                 <li><a href="https://tailwindcss.com/" target="_blank" rel="nofollow" class="text-blue-600 dark:text-blue-500 hover:underline"><?= __( 'tailwindcss' ) ?></a></li>
                 <li><a href="https://flowbite.com/" target="_blank" rel="nofollow" class="text-blue-600 dark:text-blue-500 hover:underline"><?= __( 'Flowbite' ) ?></a></li>
             </ul>

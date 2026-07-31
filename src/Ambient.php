@@ -266,6 +266,11 @@ class Ambient {
         ];
     }
 
+    public function is_youtube_metadata_enabled(): bool {
+        $capability = $this->get_youtube_metadata_capability();
+        return ( $capability['enabled'] ?? false ) === true;
+    }
+
     /**
      * Error handling for this class.
      * 
