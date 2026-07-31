@@ -286,5 +286,8 @@
     "Apply all suggestions": "候補をすべて適用",
     "YouTube metadata could not be fetched.": "YouTube メタデータを取得できませんでした。",
     "Apply artist": "アーティスト名を適用",
-    "YouTube metadata applied.": "YouTube メタデータを適用しました。"
+    "YouTube metadata applied.": "YouTube メタデータを適用しました。",
+    "Local media metadata found.": "ローカルメディアのメタデータが見つかりました。",
+    "Local media metadata applied.": "ローカルメディアのメタデータを適用しました。",
+    "Reading local media metadata...": "ローカルメディアのメタデータを読み込んでいます..."
 }

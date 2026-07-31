@@ -1,4 +1,5 @@
 import { bindFileDropzone, setFileDropzoneState } from './file-dropzone';
+import { extractLocalMediaMetadata } from '../../platform/local-media-metadata';
 import type { YouTubeMetadataPayload } from '../../types/ambient';
 
 export interface MediaManagementBindings {
@@ -120,6 +121,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
   let metadataDebounceId: ReturnType<typeof setTimeout> | null = null;
   let metadataRequestSeq = 0;
   let latestMetadata: YouTubeMetadataPayload | null = null;
+  let latestMetadataSource: 'youtube' | 'local' = 'youtube';
   const lastAppliedMetadata = {
     title: '',
     artist: '',
@@ -165,7 +167,12 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
     if (youtubeMetadataTitle) youtubeMetadataTitle.textContent = metadata.title;
     if (youtubeMetadataArtist) youtubeMetadataArtist.textContent = metadata.artist;
     if (youtubeMetadataDesc) youtubeMetadataDesc.textContent = metadata.desc;
-    setMetadataState('suggested', getLocalizedMessage('YouTube metadata found.', 'YouTube metadata found.'));
+    setMetadataState(
+      'suggested',
+      latestMetadataSource === 'local'
+        ? getLocalizedMessage('Local media metadata found.', 'Local media metadata found.')
+        : getLocalizedMessage('YouTube metadata found.', 'YouTube metadata found.')
+    );
   };
 
   const applyTextFieldValue = (
@@ -196,7 +203,12 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
     } else {
       lastAppliedMetadata.desc = applyTextFieldValue(descField, latestMetadata.desc, mediaDescMaxLength, sanitizeMediaDescInputLive);
     }
-    setMetadataState('applied', getLocalizedMessage('YouTube metadata applied.', 'YouTube metadata applied.'));
+    setMetadataState(
+      'applied',
+      latestMetadataSource === 'local'
+        ? getLocalizedMessage('Local media metadata applied.', 'Local media metadata applied.')
+        : getLocalizedMessage('YouTube metadata applied.', 'YouTube metadata applied.')
+    );
   };
 
   const applyTitleIfSafe = (): void => {
@@ -208,7 +220,12 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
       return;
     }
     applyMetadataField('title');
-    setMetadataState('suggested', getLocalizedMessage('YouTube metadata found.', 'YouTube metadata found.'));
+    setMetadataState(
+      'suggested',
+      latestMetadataSource === 'local'
+        ? getLocalizedMessage('Local media metadata found.', 'Local media metadata found.')
+        : getLocalizedMessage('YouTube metadata found.', 'YouTube metadata found.')
+    );
   };
 
   const scheduleYouTubeMetadataFetch = (videoId: string): void => {
@@ -241,9 +258,29 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
         );
         return;
       }
+      latestMetadataSource = 'youtube';
       renderMetadataSuggestions(result.data);
       applyTitleIfSafe();
     }, 500);
+  };
+
+  const applyLocalMediaMetadata = async (file: File, fallbackTitle: string): Promise<void> => {
+    const requestSeq = ++metadataRequestSeq;
+    latestMetadataSource = 'local';
+    setMetadataState('loading', getLocalizedMessage('Reading local media metadata...', 'Reading local media metadata...'));
+    const result = await extractLocalMediaMetadata(file);
+    if (requestSeq !== metadataRequestSeq) {
+      return;
+    }
+    if (!result.ok || !result.data) {
+      clearMetadataSuggestions();
+      return;
+    }
+    if (titleField) {
+      lastAppliedMetadata.title = fallbackTitle;
+    }
+    renderMetadataSuggestions(result.data);
+    applyTitleIfSafe();
   };
 
   buttonApplyMetadataAll?.addEventListener('click', () => {
@@ -350,9 +387,15 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
             invalid: !(mediaFileLooksValid && pathIsValid),
           });
           if (inputMediaTitle) {
-            inputMediaTitle.value = mediaFileLooksValid && pathIsValid ? basename(file.name) : '';
+            const fallbackTitle = mediaFileLooksValid && pathIsValid ? basename(file.name) : '';
+            inputMediaTitle.value = fallbackTitle;
             localMediaInput.blur();
             inputMediaTitle.dispatchEvent(new Event('change'));
+            if (fallbackTitle !== '') {
+              void applyLocalMediaMetadata(file, fallbackTitle);
+            } else {
+              clearMetadataSuggestions();
+            }
           }
         };
 

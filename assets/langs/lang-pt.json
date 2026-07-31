@@ -286,5 +286,8 @@
     "Apply all suggestions": "Aplicar todas as sugestoes",
     "YouTube metadata could not be fetched.": "Nao foi possivel obter os metadados do YouTube.",
     "Apply artist": "Aplicar artista",
-    "YouTube metadata applied.": "Metadados do YouTube aplicados."
+    "YouTube metadata applied.": "Metadados do YouTube aplicados.",
+    "Local media metadata found.": "Metadados da midia local encontrados.",
+    "Local media metadata applied.": "Metadados da midia local aplicados.",
+    "Reading local media metadata...": "Lendo metadados da midia local..."
 }

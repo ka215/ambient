@@ -76,7 +76,7 @@ export interface YouTubeMetadataPayload {
   title: string;
   artist: string;
   desc: string;
-  source?: 'youtube-data-api';
+  source?: 'youtube-data-api' | 'local-file-metadata';
   usage?: YouTubeMetadataUsage;
 }
 
