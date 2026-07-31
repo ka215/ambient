@@ -337,6 +337,7 @@
                             </div>
                             <div class="min-w-0 flex-1">
                                 <p id="modal-media-edit-thumbnail-name" class="text-sm font-medium text-gray-700 dark:text-gray-200"></p>
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400"><?= __( 'Drag and drop an image here, or choose an image file.' ) ?></p>
                                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400"><?= __( 'PNG, JPEG, GIF, and WebP are supported.' ) ?></p>
                             </div>
                         </div>

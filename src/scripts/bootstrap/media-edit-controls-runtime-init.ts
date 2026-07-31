@@ -72,6 +72,41 @@ export function initializeMediaEditControlsRuntime(options: InitializeMediaEditC
     button.setAttribute('aria-expanded', String(nextExpanded));
   });
 
+  const applyThumbnailFile = (file: File | null): void => {
+    if (!file) {
+      return;
+    }
+    const allowed = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      options.updateNotice({
+        type: 'error',
+        message: options.getLocalizedMessage(
+          'mediaEditThumbnailTypeError',
+          'Only PNG, JPEG, GIF, and WebP images are accepted.'
+        ),
+        delay: 2500,
+      });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (!options.getActiveItem()) {
+        return;
+      }
+      const current = options.readDraftFromForm();
+      const next = options.sanitizeDraft({
+        ...current,
+        thumbnailMode: 'upload',
+        thumbnailName: file.name,
+        thumbnailMime: file.type,
+        thumbnailDataUrl: typeof reader.result === 'string' ? reader.result : '',
+      }, current);
+      options.applyDraftToForm(next);
+      options.applyDraftState(next);
+    };
+    reader.readAsDataURL(file);
+  };
+
   initializeMediaEditControls({
     primary: {
       closeButton: options.elements.closeButton,
@@ -213,6 +248,7 @@ export function initializeMediaEditControlsRuntime(options: InitializeMediaEditC
     thumbnail: {
       pickButton: options.elements.thumbnailPickButton,
       input: options.elements.thumbnailInput,
+      dropzone: options.elements.thumbnailSection,
       removeButton: options.elements.thumbnailRemoveButton,
       clearButton: options.elements.thumbnailClearButton,
       onPick: () => {
@@ -224,41 +260,10 @@ export function initializeMediaEditControlsRuntime(options: InitializeMediaEditC
           return;
         }
         const file = thumbnailInput.files?.[0] || null;
-        if (!file) {
-          return;
-        }
-        const allowed = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
-        if (!allowed.includes(file.type)) {
-          options.updateNotice({
-            type: 'error',
-            message: options.getLocalizedMessage(
-              'mediaEditThumbnailTypeError',
-              'Only PNG, JPEG, GIF, and WebP images are accepted.'
-            ),
-            delay: 2500,
-          });
-          thumbnailInput.value = '';
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (!options.getActiveItem()) {
-            return;
-          }
-          const current = options.readDraftFromForm();
-          const next = options.sanitizeDraft({
-            ...current,
-            thumbnailMode: 'upload',
-            thumbnailName: file.name,
-            thumbnailMime: file.type,
-            thumbnailDataUrl: typeof reader.result === 'string' ? reader.result : '',
-          }, current);
-          options.applyDraftToForm(next);
-          options.applyDraftState(next);
-        };
-        reader.readAsDataURL(file);
+        applyThumbnailFile(file);
         thumbnailInput.value = '';
       },
+      onDropFile: applyThumbnailFile,
       onRemove: () => {
         if (!options.getActiveItem()) {
           return;
