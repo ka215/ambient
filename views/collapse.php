@@ -890,6 +890,7 @@
                 <?php if ( $this->is_youtube_metadata_enabled() ) : ?>
                 <li><a href="https://developers.google.com/youtube/v3" target="_blank" rel="nofollow" class="text-blue-600 dark:text-blue-500 hover:underline"><?= __( 'YouTube Data API' ) ?></a></li>
                 <?php endif; ?>
+                <li><a href="https://github.com/Borewit/music-metadata#readme" target="_blank" rel="nofollow" class="text-blue-600 dark:text-blue-500 hover:underline"><?= __( 'music-metadata' ) ?></a></li>
                 <li><a href="https://tailwindcss.com/" target="_blank" rel="nofollow" class="text-blue-600 dark:text-blue-500 hover:underline"><?= __( 'tailwindcss' ) ?></a></li>
                 <li><a href="https://flowbite.com/" target="_blank" rel="nofollow" class="text-blue-600 dark:text-blue-500 hover:underline"><?= __( 'Flowbite' ) ?></a></li>
             </ul>

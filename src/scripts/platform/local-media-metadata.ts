@@ -7,8 +7,6 @@ interface LocalMediaMetadataOptions {
 
 type LocalMediaMetadataReason = 'unsupported-format' | 'not-found' | 'parse-error';
 
-const SUPPORTED_LOCAL_METADATA_FILE_RE = /\.(aac|flac|m4a|mp3|ogg|opus|wav|weba)$/i;
-
 const TITLE_NATIVE_TAGS = ['TIT2', 'TT2', 'TIT3', 'TT3'];
 const ARTIST_NATIVE_TAGS = ['TPE1', 'TP1', 'TPE2', 'TP2', 'TPE3', 'TP3', 'TPE4', 'TP4', 'TOPE', 'TOA'];
 const DESCRIPTION_NATIVE_TAGS = ['COMM', 'COM', 'TIT1', 'TT1'];
@@ -103,10 +101,6 @@ export async function extractLocalMediaMetadata(file: File, options: LocalMediaM
   data?: YouTubeMetadataPayload;
   reason?: LocalMediaMetadataReason;
 }> {
-  if (!SUPPORTED_LOCAL_METADATA_FILE_RE.test(file.name)) {
-    return { ok: false, reason: 'unsupported-format' };
-  }
-
   try {
     const { parseBlob } = await import('music-metadata');
     const metadata = await parseBlob(file, { duration: false });
