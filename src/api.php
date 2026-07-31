@@ -1323,13 +1323,7 @@ trait api {
                 $normalized_items[] = $safe_item;
             }
 
-            if ( !empty( $normalized_items ) ) {
-                $normalized[$safe_category] = $normalized_items;
-            }
-        }
-
-        if ( $total_items === 0 ) {
-            return null;
+            $normalized[$safe_category] = $normalized_items;
         }
 
         if ( $reject_count > 10 || ( $reject_count / max( 1, $total_items ) ) > 0.05 ) {

@@ -60,9 +60,9 @@ export interface PlaylistManagementBindingBuilderOptions {
   getPlaylistManageFormData(oneData?: string | null): FormDataEntryValue | [string, FormDataEntryValue][] | null;
   getCategories(): string[];
   getMediaItems(): MediaItem[];
-  createCategory(): { ok: boolean; message: string };
-  renameCategory(categoryIndex: number, categoryName: string): { ok: boolean; message: string };
-  deleteCategory(categoryIndex: number): { ok: boolean; message: string };
+  createCategory(): Promise<{ ok: boolean; message: string }>;
+  renameCategory(categoryIndex: number, categoryName: string): Promise<{ ok: boolean; message: string }>;
+  deleteCategory(categoryIndex: number): Promise<{ ok: boolean; message: string }>;
   downloadPlaylist(): { ok: boolean; message: string };
   importPlaylist(): Promise<{ ok: boolean; message: string }>;
 }

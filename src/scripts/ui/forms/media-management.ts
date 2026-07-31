@@ -338,6 +338,11 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
         elm.addEventListener('click', (evt: Event) => {
           const target = evt.target as HTMLInputElement;
           const prevType = getAddType() ?? null;
+          const currentCategoryValue = String(mediaCategorySelect?.value || '').trim();
+          const numericCurrentCategory = Number(currentCategoryValue);
+          const preferredCategoryId = currentCategoryValue !== '' && !Number.isNaN(numericCurrentCategory)
+            ? numericCurrentCategory
+            : getActiveCategoryId();
           if (target.value === 'youtube') {
             mediaUrlField?.classList.remove('hidden');
             mediaFilesField?.classList.add('hidden');
@@ -349,6 +354,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
           setAddType(target.value);
           if (prevType !== target.value) {
             resetMediaManagementForm();
+            syncMediaCategoryField(preferredCategoryId);
           }
         });
         break;
@@ -401,6 +407,11 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
         };
 
         const applyLocalMediaFile = async (file: File | null): Promise<void> => {
+          if (!canMutateCurrentPlaylist()) {
+            clearLocalMediaFile();
+            applyCloudEditRestrictions();
+            return;
+          }
           if (!file || file.size <= 0) {
             clearLocalMediaFile();
             return;
@@ -434,6 +445,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
           fileName: localMediaFileName,
           dropzone: localMediaDropzone,
           dropLabelFallback: 'Drop media file here',
+          isDisabled: () => !canMutateCurrentPlaylist(),
           onApplyFile: async (file: File | null): Promise<void> => {
             logger('local_file:', localMediaInput.files, [localMediaInput]);
             await applyLocalMediaFile(file);

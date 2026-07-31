@@ -38,6 +38,7 @@ export interface InitializeMediaEditModalBindingsOptions {
   updatePlaylist(): void;
   createPreview(mediaItem: MediaItem): void;
   startDurationSyncWait(): void;
+  afterShow?(): void;
   getActiveItem(): MediaItem | null;
   getDraftKey(mediaItem: MediaItem): string;
   canMutateCurrentPlaylist(): boolean;
@@ -168,6 +169,7 @@ export function initializeMediaEditModalBindings(options: InitializeMediaEditMod
       updatePlaylist: options.updatePlaylist,
       createPreview: options.createPreview,
       startDurationSyncWait: options.startDurationSyncWait,
+      afterShow: options.afterShow,
       modalElement: options.modalElement,
       titleElement: options.modalTitleElement,
       itemTitleElement: options.modalItemTitleElement,

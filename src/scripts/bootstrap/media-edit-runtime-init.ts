@@ -10,6 +10,7 @@ import {
 import { createMediaEditPreviewBindings } from '../ui/media-edit/preview-bindings';
 import { createMediaEditTimingBindings } from '../ui/media-edit/timing-bindings';
 import { createMediaEditUiBindings } from '../ui/media-edit/ui-bindings';
+import { autoResizeMediaEditTextarea } from '../ui/media-edit/form-view';
 import type { MediaEditElements } from '../ui/media-edit/elements';
 import type { MediaItem } from '../types/ambient';
 import {
@@ -393,6 +394,9 @@ export function initializeMediaEditRuntime(options: InitializeMediaEditRuntimeOp
     updatePlaylist: options.updatePlaylist,
     createPreview: mediaEditPreview.createMediaEditPreview,
     startDurationSyncWait: mediaEditDurationSync.startIfNeeded,
+    afterShow: () => {
+      autoResizeMediaEditTextarea(options.elements.descriptionInput);
+    },
     getActiveItem: () => mediaEditActiveItem,
     getDraftKey: draftBindings.getMediaEditDraftKey,
     canMutateCurrentPlaylist: options.canMutateCurrentPlaylist,

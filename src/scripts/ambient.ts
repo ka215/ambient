@@ -1195,6 +1195,7 @@ const init = function (): void {
     getCategories: managementStateFacade.getCategories,
     getMediaItems: managementStateFacade.getMediaItems,
     persistMyPlaylistIfNeeded,
+    persistCurrentPlaylistMutation: () => mediaEditFacade.persistCurrentPlaylist(AMP_STATUS.media || []),
     setCategories: managementStateFacade.setCategories,
     setMediaItems: managementStateFacade.setMediaItems,
     resetActiveCategory: managementStateFacade.resetActiveCategory,

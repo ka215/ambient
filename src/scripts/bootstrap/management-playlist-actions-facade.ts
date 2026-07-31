@@ -6,6 +6,7 @@ export interface CreateManagementPlaylistActionsFacadeOptions {
   getCategories(): string[];
   getMediaItems(): import('../types/ambient').MediaItem[];
   persistMyPlaylistIfNeeded(): boolean;
+  persistCurrentPlaylistMutation(): Promise<{ ok: boolean; message: string }>;
   setCategories(categories: string[]): void;
   setMediaItems(mediaItems: import('../types/ambient').MediaItem[]): void;
   resetActiveCategory(): void;
@@ -28,6 +29,7 @@ export function createManagementPlaylistActionsFacade(
     getCategories: options.getCategories,
     getMediaItems: options.getMediaItems,
     persistMyPlaylistIfNeeded: options.persistMyPlaylistIfNeeded,
+    persistCurrentPlaylistMutation: options.persistCurrentPlaylistMutation,
     setCategories: options.setCategories,
     setMediaItems: options.setMediaItems,
     resetActiveCategory: options.resetActiveCategory,

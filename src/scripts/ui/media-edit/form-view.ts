@@ -4,8 +4,17 @@ export function autoResizeMediaEditTextarea(textarea: HTMLTextAreaElement | null
   if (!textarea) {
     return;
   }
+  const computed = window.getComputedStyle(textarea);
+  const rows = Math.max(5, textarea.rows || Number(textarea.getAttribute('rows')) || 5);
+  const fontSize = Number.parseFloat(computed.fontSize) || 16;
+  const lineHeight = Number.parseFloat(computed.lineHeight) || fontSize * 1.5;
+  const paddingY = (Number.parseFloat(computed.paddingTop) || 0) + (Number.parseFloat(computed.paddingBottom) || 0);
+  const borderY = (Number.parseFloat(computed.borderTopWidth) || 0) + (Number.parseFloat(computed.borderBottomWidth) || 0);
+  const minHeight = lineHeight * rows + paddingY + (computed.boxSizing === 'border-box' ? borderY : 0);
+
   textarea.style.height = 'auto';
-  textarea.style.height = `${textarea.scrollHeight}px`;
+  textarea.style.minHeight = `${minHeight}px`;
+  textarea.style.height = `${Math.max(minHeight, textarea.scrollHeight)}px`;
 }
 
 export function resolveMediaEditThumbnailSrc(options: {
