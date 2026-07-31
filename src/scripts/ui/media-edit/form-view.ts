@@ -1,5 +1,13 @@
 import type { MediaEditDraft } from '../../domain/media-edit/draft';
 
+export function autoResizeMediaEditTextarea(textarea: HTMLTextAreaElement | null): void {
+  if (!textarea) {
+    return;
+  }
+  textarea.style.height = 'auto';
+  textarea.style.height = `${textarea.scrollHeight}px`;
+}
+
 export function resolveMediaEditThumbnailSrc(options: {
   mediaItem: MediaItem | null;
   draft: MediaEditDraft | null;
@@ -68,7 +76,10 @@ export function applyMediaEditDraftToFormView(options: {
 
   options.titleInput && (options.titleInput.value = options.draft.title);
   options.artistInput && (options.artistInput.value = options.draft.artist);
-  options.descriptionInput && (options.descriptionInput.value = options.draft.description);
+  if (options.descriptionInput) {
+    options.descriptionInput.value = options.draft.description;
+    autoResizeMediaEditTextarea(options.descriptionInput);
+  }
 
   if (options.volumeInput) {
     options.syncVolumeSlider({

@@ -1,5 +1,6 @@
 import type { MediaEditDraft, MediaEditDraftInput } from '../domain/media-edit/draft';
 import { initializeMediaEditControls } from './media-edit-controls-init';
+import { autoResizeMediaEditTextarea } from '../ui/media-edit/form-view';
 import type { MediaItem } from '../types/ambient';
 import type { MediaEditElements } from '../ui/media-edit/elements';
 
@@ -158,11 +159,13 @@ export function initializeMediaEditControlsRuntime(options: InitializeMediaEditC
       ],
       timingStepperButtons: document.querySelectorAll('.media-edit-timing-stepper-btn'),
       onDraftFieldInput: () => {
+        autoResizeMediaEditTextarea(options.elements.descriptionInput);
         syncYouTubeAdvancedSettingAvailability();
         options.syncDraftStateFromForm();
         options.validateAndRenderDraftFromForm();
       },
       onDraftFieldChange: () => {
+        autoResizeMediaEditTextarea(options.elements.descriptionInput);
         syncYouTubeAdvancedSettingAvailability();
         options.syncDraftStateFromForm();
         options.validateAndRenderDraftFromForm();
