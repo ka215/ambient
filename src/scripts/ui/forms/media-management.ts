@@ -268,7 +268,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
     const requestSeq = ++metadataRequestSeq;
     latestMetadataSource = 'local';
     setMetadataState('loading', getLocalizedMessage('Reading local media metadata...', 'Reading local media metadata...'));
-    const result = await extractLocalMediaMetadata(file);
+    const result = await extractLocalMediaMetadata(file, { fallbackTitle });
     if (requestSeq !== metadataRequestSeq) {
       return;
     }
