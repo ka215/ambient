@@ -1,11 +1,14 @@
 import type { MediaEditDraft, MediaEditDraftInput } from '../domain/media-edit/draft';
 import { initializeMediaEditControls } from './media-edit-controls-init';
 import { autoResizeMediaEditTextarea } from '../ui/media-edit/form-view';
+import { generateMediaThumbnailFromPreview } from '../platform/thumbnail-generation-api';
 import type { MediaItem } from '../types/ambient';
 import type { MediaEditElements } from '../ui/media-edit/elements';
 
 export interface InitializeMediaEditControlsRuntimeOptions {
   elements: MediaEditElements;
+  baseUrl: string;
+  thumbnailGenerateEndpoint: string;
   defaultVolume: number;
   getLocalizedMessage: (key: string, fallback: string) => string;
   updateNotice: (notification: NotificationPayload) => void;
@@ -21,6 +24,7 @@ export interface InitializeMediaEditControlsRuntimeOptions {
   syncTimingFieldFromPreview: (field: HTMLInputElement | null, label: string) => void;
   mediaEditPreview: {
     getPreviewSourceItem: () => MediaItem | null;
+    getMediaEditPreviewCurrentTime: () => number | null;
   };
   createMediaEditPreview: (mediaItem: MediaItem) => void;
   closeMediaEditModal: (restoreFocus?: boolean) => void;
@@ -252,6 +256,7 @@ export function initializeMediaEditControlsRuntime(options: InitializeMediaEditC
       pickButton: options.elements.thumbnailPickButton,
       input: options.elements.thumbnailInput,
       dropzone: options.elements.thumbnailSection,
+      generateButton: options.elements.thumbnailGenerateButton,
       removeButton: options.elements.thumbnailRemoveButton,
       clearButton: options.elements.thumbnailClearButton,
       onPick: () => {
@@ -267,6 +272,40 @@ export function initializeMediaEditControlsRuntime(options: InitializeMediaEditC
         thumbnailInput.value = '';
       },
       onDropFile: applyThumbnailFile,
+      onGenerate: async () => {
+        const activeItem = options.getActiveItem();
+        const seekTime = options.mediaEditPreview.getMediaEditPreviewCurrentTime();
+        if (!activeItem?.file || seekTime === null) {
+          options.updateNotice({
+            type: 'error',
+            message: options.getLocalizedMessage('mediaEditPreviewSyncFailed', 'Preview is not ready.'),
+            delay: 2500,
+          });
+          return;
+        }
+        const result = await generateMediaThumbnailFromPreview({
+          baseUrl: options.baseUrl,
+          endpoint: options.thumbnailGenerateEndpoint,
+          file: activeItem.file,
+          seekTime,
+          getLocalizedMessage: options.getLocalizedMessage,
+        });
+        if (!result.ok || !result.filename || !result.dataUrl) {
+          options.updateNotice({ type: 'error', message: result.message, delay: 2600 });
+          return;
+        }
+        const current = options.readDraftFromForm();
+        const next = options.sanitizeDraft({
+          ...current,
+          thumbnailMode: 'upload',
+          thumbnailName: result.filename,
+          thumbnailMime: result.mime || 'image/webp',
+          thumbnailDataUrl: result.dataUrl,
+        }, current);
+        options.applyDraftToForm(next);
+        options.applyDraftState(next);
+        options.updateNotice({ type: 'success', message: result.message, delay: 2200 });
+      },
       onRemove: () => {
         if (!options.getActiveItem()) {
           return;

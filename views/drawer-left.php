@@ -319,6 +319,9 @@
                         <div class="mb-2 flex items-center justify-between gap-2">
                             <h5 class="text-sm font-semibold text-gray-800 dark:text-gray-100"><?= __( 'Media thumbnail' ) ?></h5>
                             <div class="flex items-center gap-2">
+                                <button type="button" id="btn-media-edit-thumbnail-generate" class="hidden rounded-md border border-blue-300 bg-white px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-blue-500 dark:bg-gray-700 dark:text-blue-200 dark:hover:bg-gray-600 dark:focus:ring-blue-900">
+                                    <?= __( 'Create from media preview' ) ?>
+                                </button>
                                 <button type="button" id="btn-media-edit-thumbnail-pick" class="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-500 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 dark:focus:ring-blue-900">
                                     <?= __( 'Choose image' ) ?>
                                 </button>

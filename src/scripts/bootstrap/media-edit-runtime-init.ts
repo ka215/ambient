@@ -52,6 +52,7 @@ export interface InitializeMediaEditRuntimeOptions {
   durationSyncPollMs: number;
   saveEndpoint: string;
   thumbnailEndpoint: string;
+  thumbnailGenerateEndpoint: string;
   getLocalizedMessage: (key: string, fallback?: string) => string;
   updateNotice: (notification: NotificationPayload) => void;
   getDefaultVolume: () => number;
@@ -245,6 +246,7 @@ export function initializeMediaEditRuntime(options: InitializeMediaEditRuntimeOp
     thumbnailName: options.elements.thumbnailName,
     thumbnailPreview: options.elements.thumbnailPreview,
     thumbnailSection: options.elements.thumbnailSection,
+    thumbnailGenerateButton: options.elements.thumbnailGenerateButton,
     thumbnailClearButton: options.elements.thumbnailClearButton,
     thumbnailRemoveButton: options.elements.thumbnailRemoveButton,
     seekStartInput: options.elements.seekStartInput,
@@ -404,6 +406,8 @@ export function initializeMediaEditRuntime(options: InitializeMediaEditRuntimeOp
 
   initializeMediaEditControlsRuntime({
     elements: options.elements,
+    baseUrl: options.baseUrl,
+    thumbnailGenerateEndpoint: options.thumbnailGenerateEndpoint,
     defaultVolume: options.defaultVolume,
     getLocalizedMessage: (key, fallback) => options.getLocalizedMessage(key, fallback),
     updateNotice: options.updateNotice,

@@ -136,6 +136,10 @@ export interface AmbientDataGlobal {
   imageDir?: string;         // Base directory for images (relative URL)
   mediaDir?: string;         // Base directory for local media files (relative URL)
   youtubeMetadata?: YouTubeMetadataCapability;
+  thumbnailGeneration?: {
+    enabled: boolean;
+    outputFormat: 'webp' | 'png';
+  };
   [key: string]: any;        // Allow additional properties
 }
 

@@ -59,11 +59,13 @@ export interface MediaEditThumbnailControlBindings {
   pickButton: HTMLButtonElement | null;
   input: HTMLInputElement | null;
   dropzone: HTMLElement | null;
+  generateButton: HTMLButtonElement | null;
   removeButton: HTMLButtonElement | null;
   clearButton: HTMLButtonElement | null;
   onPick(): void;
   onInputChange(): void;
   onDropFile(file: File | null): void;
+  onGenerate(): Promise<void> | void;
   onRemove(): void;
 }
 
@@ -254,6 +256,10 @@ export function bindMediaEditThumbnailControls(bindings: MediaEditThumbnailContr
     evt.preventDefault();
     bindings.dropzone?.classList.remove('ring-2', 'ring-blue-400');
     bindings.onDropFile(evt.dataTransfer?.files?.[0] || null);
+  });
+
+  bindings.generateButton?.addEventListener('click', async () => {
+    await bindings.onGenerate();
   });
 
   bindings.removeButton?.addEventListener('click', () => {

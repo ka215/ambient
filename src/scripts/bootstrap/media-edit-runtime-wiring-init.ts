@@ -48,6 +48,7 @@ export interface InitializeMediaEditRuntimeWiringOptions {
   durationSyncPollMs: number;
   saveEndpoint: string;
   thumbnailEndpoint: string;
+  thumbnailGenerateEndpoint: string;
   getLocalizedMessage(key: string, fallback?: string): string;
   updateNotice(notification: NotificationPayload): void;
   getOption(key: string): unknown;
@@ -88,6 +89,7 @@ export function initializeMediaEditRuntimeWiring(options: InitializeMediaEditRun
     durationSyncPollMs: options.durationSyncPollMs,
     saveEndpoint: options.saveEndpoint,
     thumbnailEndpoint: options.thumbnailEndpoint,
+    thumbnailGenerateEndpoint: options.thumbnailGenerateEndpoint,
     getLocalizedMessage: options.getLocalizedMessage,
     updateNotice: options.updateNotice,
     getDefaultVolume: () => resolveAmbientDefaultVolume(options.getOption('volume'), options.defaultVolume),

@@ -30,6 +30,7 @@ export interface MediaEditElements {
   thumbnailName: HTMLElement | null;
   thumbnailInput: HTMLInputElement | null;
   thumbnailPickButton: HTMLButtonElement | null;
+  thumbnailGenerateButton: HTMLButtonElement | null;
   thumbnailRemoveButton: HTMLButtonElement | null;
   thumbnailClearButton: HTMLButtonElement | null;
   thumbnailSection: HTMLElement | null;
@@ -99,6 +100,7 @@ export function resolveMediaEditElements(root: Document = document): MediaEditEl
     thumbnailName: root.getElementById('modal-media-edit-thumbnail-name') as HTMLElement | null,
     thumbnailInput: root.getElementById('modal-media-edit-thumbnail-input') as HTMLInputElement | null,
     thumbnailPickButton: root.getElementById('btn-media-edit-thumbnail-pick') as HTMLButtonElement | null,
+    thumbnailGenerateButton: root.getElementById('btn-media-edit-thumbnail-generate') as HTMLButtonElement | null,
     thumbnailRemoveButton: root.getElementById('btn-media-edit-thumbnail-remove') as HTMLButtonElement | null,
     thumbnailClearButton: root.getElementById('btn-media-edit-thumbnail-clear') as HTMLButtonElement | null,
     thumbnailSection: root.getElementById('media-edit-thumbnail-section') as HTMLElement | null,

@@ -103,6 +103,7 @@ export function createMediaEditDraftFormApplier(options: {
   thumbnailName: HTMLElement | null;
   thumbnailPreview: HTMLImageElement | null;
   thumbnailSection: HTMLElement | null;
+  thumbnailGenerateButton: HTMLButtonElement | null;
   thumbnailClearButton: HTMLButtonElement | null;
   thumbnailRemoveButton: HTMLButtonElement | null;
   seekStartInput: HTMLInputElement | null;
@@ -147,6 +148,7 @@ export function createMediaEditDraftFormApplier(options: {
       thumbnailName: options.thumbnailName,
       thumbnailPreview: options.thumbnailPreview,
       thumbnailSection: options.thumbnailSection,
+      thumbnailGenerateButton: options.thumbnailGenerateButton,
       thumbnailClearButton: options.thumbnailClearButton,
       thumbnailRemoveButton: options.thumbnailRemoveButton,
       seekStartInput: options.seekStartInput,

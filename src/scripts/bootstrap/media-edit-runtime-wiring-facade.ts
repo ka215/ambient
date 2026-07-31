@@ -21,6 +21,7 @@ export interface CreateMediaEditRuntimeWiringFacadeOptions {
   durationSyncPollMs: number;
   saveEndpoint: string;
   thumbnailEndpoint: string;
+  thumbnailGenerateEndpoint: string;
   getLocalizedMessage: InitializeMediaEditRuntimeWiringOptions['getLocalizedMessage'];
   updateNotice: InitializeMediaEditRuntimeWiringOptions['updateNotice'];
   getOption: InitializeMediaEditRuntimeWiringOptions['getOption'];
@@ -63,6 +64,7 @@ export function createMediaEditRuntimeWiringFacade(
     durationSyncPollMs: options.durationSyncPollMs,
     saveEndpoint: options.saveEndpoint,
     thumbnailEndpoint: options.thumbnailEndpoint,
+    thumbnailGenerateEndpoint: options.thumbnailGenerateEndpoint,
     getLocalizedMessage: options.getLocalizedMessage,
     updateNotice: options.updateNotice,
     getOption: options.getOption,

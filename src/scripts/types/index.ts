@@ -105,6 +105,10 @@ interface AmbientData {
     monthlyLimit: number | null;
     allowOverLimit: boolean;
   };
+  thumbnailGeneration?: {
+    enabled: boolean;
+    outputFormat: 'webp' | 'png';
+  };
   [key: string]: any;
 }
 

@@ -486,6 +486,7 @@ const init = function (): void {
   const MEDIA_EDIT_DURATION_SYNC_POLL_MS = 250;
   const MEDIA_EDIT_SAVE_ENDPOINT = 'playlist-save';
   const MEDIA_EDIT_THUMBNAIL_ENDPOINT = 'thumbnail';
+  const MEDIA_EDIT_THUMBNAIL_GENERATE_ENDPOINT = 'thumbnail-generate';
   const mediaEditPlaylistHelpers = createMediaEditPlaylistHelpers(() => playlistUiFacade);
   const playlistModeMenuSupport = createPlaylistModeMenuSupport();
   const mediaEditRuntimeSupport = createMediaEditRuntimeSupport({
@@ -517,6 +518,7 @@ const init = function (): void {
     durationSyncPollMs: MEDIA_EDIT_DURATION_SYNC_POLL_MS,
     saveEndpoint: MEDIA_EDIT_SAVE_ENDPOINT,
     thumbnailEndpoint: MEDIA_EDIT_THUMBNAIL_ENDPOINT,
+    thumbnailGenerateEndpoint: MEDIA_EDIT_THUMBNAIL_GENERATE_ENDPOINT,
     getLocalizedMessage,
     updateNotice,
     getOption: mediaEditRuntimeSupport.getOption,

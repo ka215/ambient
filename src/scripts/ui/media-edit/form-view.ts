@@ -49,6 +49,7 @@ export function applyMediaEditDraftToFormView(options: {
   thumbnailName: HTMLElement | null;
   thumbnailPreview: HTMLImageElement | null;
   thumbnailSection: HTMLElement | null;
+  thumbnailGenerateButton: HTMLButtonElement | null;
   thumbnailClearButton: HTMLButtonElement | null;
   thumbnailRemoveButton: HTMLButtonElement | null;
   seekStartInput: HTMLInputElement | null;
@@ -134,6 +135,12 @@ export function applyMediaEditDraftToFormView(options: {
   if (options.thumbnailSection) {
     options.thumbnailSection.classList.toggle('hidden', !options.isLocalMode);
   }
+  const thumbnailGenerationEnabled = (window as any).AmbientData?.thumbnailGeneration?.enabled === true;
+  const canGenerateThumbnail = options.isLocalMode
+    && thumbnailGenerationEnabled
+    && !!options.activeItem?.file
+    && /\.(mp4|webm|mov|m4v|ogv|avi|mkv)(\?.*)?$/i.test(String(options.activeItem.file));
+  options.thumbnailGenerateButton?.classList.toggle('hidden', !canGenerateThumbnail);
 
   const hasThumbnail = options.draft.thumbnailMode === 'upload'
     || (options.draft.thumbnailMode !== 'remove' && (
