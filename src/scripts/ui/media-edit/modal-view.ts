@@ -127,6 +127,7 @@ export function showMediaEditModalView(options: {
   closeButton: HTMLElement | null;
   defaultTitle: string;
   itemTitle: string;
+  afterShow?: () => void;
 }): void {
   if (!options.modalElement || !options.titleElement) {
     return;
@@ -141,6 +142,7 @@ export function showMediaEditModalView(options: {
   modalElement.classList.remove('hidden');
   modalElement.removeAttribute('aria-hidden');
   window.requestAnimationFrame(() => {
+    options.afterShow?.();
     (options.closeButton || modalElement).focus();
   });
 }
@@ -213,6 +215,7 @@ export function openManagedMediaEditModal(options: {
   itemTitleElement: HTMLElement | null;
   closeButton: HTMLElement | null;
   defaultTitle: string;
+  afterShow?: () => void;
 }): void {
   if (!options.modalElement || !options.titleElement) {
     return;
@@ -237,5 +240,6 @@ export function openManagedMediaEditModal(options: {
     closeButton: options.closeButton,
     defaultTitle: options.defaultTitle,
     itemTitle,
+    afterShow: options.afterShow,
   });
 }

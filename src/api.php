@@ -904,6 +904,157 @@ trait api {
         ];
     }
 
+    private function generate_media_thumbnail(): void {
+        if ( !$this->is_local() ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 403,
+                'data'  => [ 'message' => $this->__( 'This feature cannot be performed on remote hosts.' ) ],
+            ];
+            return;
+        }
+
+        $ffmpeg_path = $this->get_configured_ffmpeg_path();
+        if ( $ffmpeg_path === null ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 403,
+                'data'  => [ 'message' => $this->__( 'Thumbnail generation is not configured.' ) ],
+            ];
+            return;
+        }
+
+        $payload = json_decode( file_get_contents( 'php://input' ), true );
+        if ( json_last_error() !== JSON_ERROR_NONE || !is_array( $payload ) ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 400,
+                'data'  => [ 'message' => $this->__( 'Invalid JSON data.' ) ],
+            ];
+            return;
+        }
+
+        $file = isset( $payload['file'] ) && is_string( $payload['file'] ) ? trim( $payload['file'] ) : '';
+        $seek_time = isset( $payload['seekTime'] ) && is_numeric( $payload['seekTime'] ) ? max( 0, (float)$payload['seekTime'] ) : null;
+        $resolved = $this->resolve_local_video_media_path( $file );
+        if ( $seek_time === null || $resolved === null ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 400,
+                'data'  => [ 'message' => $this->__( 'Invalid request data.' ) ],
+            ];
+            return;
+        }
+
+        $hash_source = str_replace( '\\', '/', $file );
+        $filename = sha1( $hash_source ) . '.webp';
+        $tmp_file = tempnam( sys_get_temp_dir(), 'ambient-thumb-' );
+        if ( $tmp_file === false ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 500,
+                'data'  => [ 'message' => $this->__( 'Failed to generate thumbnail image.' ) ],
+            ];
+            return;
+        }
+        $tmp_output = $tmp_file . '.webp';
+        @unlink( $tmp_file );
+
+        $cmd = [
+            $ffmpeg_path,
+            '-y',
+            '-ss',
+            (string)$seek_time,
+            '-i',
+            $resolved,
+            '-frames:v',
+            '1',
+            '-vf',
+            'scale=640:-1',
+            '-f',
+            'webp',
+            $tmp_output,
+        ];
+        $descriptor = [
+            0 => [ 'pipe', 'r' ],
+            1 => [ 'pipe', 'w' ],
+            2 => [ 'pipe', 'w' ],
+        ];
+        $process = proc_open( $cmd, $descriptor, $pipes );
+        if ( !is_resource( $process ) ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 500,
+                'data'  => [ 'message' => $this->__( 'Failed to generate thumbnail image.' ) ],
+            ];
+            return;
+        }
+        fclose( $pipes[0] );
+        stream_get_contents( $pipes[1] );
+        $stderr = stream_get_contents( $pipes[2] );
+        fclose( $pipes[1] );
+        fclose( $pipes[2] );
+        $exit_code = proc_close( $process );
+        if ( $exit_code !== 0 || !file_exists( $tmp_output ) ) {
+            @unlink( $tmp_output );
+            $this->logger( __METHOD__, 'ffmpeg failed', $exit_code, $stderr );
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 500,
+                'data'  => [ 'message' => $this->__( 'Failed to generate thumbnail image.' ) ],
+            ];
+            return;
+        }
+
+        $content = file_get_contents( $tmp_output );
+        @unlink( $tmp_output );
+        if ( $content === false ) {
+            $this->api_response = [
+                'state' => 'error',
+                'code'  => 500,
+                'data'  => [ 'message' => $this->__( 'Failed to generate thumbnail image.' ) ],
+            ];
+            return;
+        }
+
+        $base64 = base64_encode( $content );
+        $this->api_response = [
+            'state' => 'ok',
+            'code'  => 200,
+            'data'  => [
+                'message' => $this->__( 'Thumbnail image generated successfully.' ),
+                'filename' => $filename,
+                'mime' => 'image/webp',
+                'content' => $base64,
+                'dataUrl' => 'data:image/webp;base64,' . $base64,
+            ],
+        ];
+    }
+
+    private function resolve_local_video_media_path( string $file ): ?string {
+        $normalized = ltrim( str_replace( '\\', '/', trim( $file ) ), './' );
+        $normalized = preg_replace( '#^assets/media/#', '', $normalized ) ?? $normalized;
+        if ( $normalized === '' || str_contains( $normalized, '..' ) || preg_match( '/^([a-z][a-z0-9+.-]*):/i', $normalized ) ) {
+            return null;
+        }
+        $extension = strtolower( pathinfo( $normalized, PATHINFO_EXTENSION ) );
+        if ( !in_array( $extension, [ 'mp4', 'webm', 'mov', 'm4v', 'ogv', 'avi', 'mkv' ], true ) ) {
+            return null;
+        }
+        $candidate = MEDIA_DIR . $normalized;
+        $real_media_dir = realpath( MEDIA_DIR );
+        $real_candidate = realpath( $candidate );
+        if ( $real_media_dir === false || $real_candidate === false ) {
+            return null;
+        }
+        $media_root = rtrim( str_replace( '\\', '/', $real_media_dir ), '/' ) . '/';
+        $target = str_replace( '\\', '/', $real_candidate );
+        if ( !str_starts_with( $target, $media_root ) ) {
+            return null;
+        }
+        return $real_candidate;
+    }
+
     private function sanitize_thumbnail_filename( string $filename ): ?string {
         $base = basename( $filename );
         $safe = preg_replace( '/[^A-Za-z0-9._-]/', '_', $base );
@@ -1172,13 +1323,7 @@ trait api {
                 $normalized_items[] = $safe_item;
             }
 
-            if ( !empty( $normalized_items ) ) {
-                $normalized[$safe_category] = $normalized_items;
-            }
-        }
-
-        if ( $total_items === 0 ) {
-            return null;
+            $normalized[$safe_category] = $normalized_items;
         }
 
         if ( $reject_count > 10 || ( $reject_count / max( 1, $total_items ) ) > 0.05 ) {
@@ -1298,7 +1443,7 @@ trait api {
             }
         }
 
-        foreach ( [ 'fs', 'cc' ] as $key ) {
+        foreach ( [ 'fs', 'cc', 'controls', 'disablekb' ] as $key ) {
             if ( array_key_exists( $key, $item ) ) {
                 $bool_value = $this->normalize_boolish( $item[$key] );
                 if ( $bool_value !== null ) {

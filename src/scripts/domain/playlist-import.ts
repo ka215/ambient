@@ -209,7 +209,7 @@ export function sanitizeAndNormalizeImportPlaylist(options: {
         }
       }
 
-      ['fs', 'cc'].forEach((key) => {
+      ['fs', 'cc', 'controls', 'disablekb'].forEach((key) => {
         if (!Object.prototype.hasOwnProperty.call(rawItem, key)) return;
         const boolValue = normalizeBoolish((rawItem as Record<string, unknown>)[key]);
         if (boolValue !== null) {
@@ -220,14 +220,9 @@ export function sanitizeAndNormalizeImportPlaylist(options: {
       normalizedItems.push(item);
     });
 
-    if (normalizedItems.length > 0) {
-      normalized[safeCategory] = normalizedItems;
-    }
+    normalized[safeCategory] = normalizedItems;
   }
 
-  if (total === 0) {
-    return null;
-  }
   if (rejected > 10 || (rejected / Math.max(1, total)) > 0.05) {
     return null;
   }

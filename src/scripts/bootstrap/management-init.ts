@@ -41,6 +41,7 @@ export function createPlaylistManagementActions(options: {
   getCategories(): string[];
   getMediaItems(): MediaItem[];
   persistMyPlaylistIfNeeded(): boolean;
+  persistCurrentPlaylistMutation(): Promise<{ ok: boolean; message: string }>;
   setCategories(categories: string[]): void;
   setMediaItems(mediaItems: MediaItem[]): void;
   resetActiveCategory(): void;
@@ -54,12 +55,17 @@ export function createPlaylistManagementActions(options: {
   hideOptionsModal(): void;
   getLocalizedMessage(key: string, fallback: string): string;
 }): {
-  createCategory(): { ok: boolean; message: string };
+  createCategory(): Promise<{ ok: boolean; message: string }>;
   downloadPlaylist(): { ok: boolean; message: string };
   importPlaylist(): Promise<{ ok: boolean; message: string }>;
-  renameCategory(categoryIndex: number, categoryName: string): { ok: boolean; message: string };
-  deleteCategory(categoryIndex: number): { ok: boolean; message: string };
+  renameCategory(categoryIndex: number, categoryName: string): Promise<{ ok: boolean; message: string }>;
+  deleteCategory(categoryIndex: number): Promise<{ ok: boolean; message: string }>;
 } {
+  const persistCurrentPlaylistMutation = async (): Promise<boolean> => {
+    const result = await options.persistCurrentPlaylistMutation();
+    return result.ok;
+  };
+
   return {
     createCategory: () => {
       const selfElm = document.getElementById('btn-create-category');
@@ -69,7 +75,7 @@ export function createPlaylistManagementActions(options: {
         successMessage: selfElm?.dataset['messageSuccess'] || '',
         failureMessage: selfElm?.dataset['messageFailure'] || '',
         appendCategory: appendUniqueCategory,
-        persist: options.persistMyPlaylistIfNeeded,
+        persist: persistCurrentPlaylistMutation,
         onCategoriesUpdated: (categories) => {
           options.setCategories(categories);
         },
@@ -109,7 +115,7 @@ export function createPlaylistManagementActions(options: {
         duplicateMessage: selfElm?.dataset['messageDuplicate'] || '',
         requiredMessage: selfElm?.dataset['messageRequired'] || '',
         renameCategory,
-        persist: options.persistMyPlaylistIfNeeded,
+        persist: persistCurrentPlaylistMutation,
         onCategoriesUpdated: options.setCategories,
         onAfterSuccess: () => {
           options.resetActiveCategory();
@@ -128,7 +134,7 @@ export function createPlaylistManagementActions(options: {
         failureMessage: selfElm?.dataset['messageFailure'] || '',
         notEmptyMessage: selfElm?.dataset['messageNotEmpty'] || '',
         deleteCategory: deleteEmptyCategory,
-        persist: options.persistMyPlaylistIfNeeded,
+        persist: persistCurrentPlaylistMutation,
         onCategoriesUpdated: options.setCategories,
         onMediaItemsUpdated: options.setMediaItems,
         onAfterSuccess: () => {

@@ -1,6 +1,6 @@
 {
   "name": "ambient",
-  "version": "2.6.2",
+  "version": "2.6.3",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -39,6 +39,7 @@
     "vite": "^6.4.1"
   },
   "dependencies": {
+    "music-metadata": "^11.14.0",
     "sortablejs": "^1.15.7"
   }
 }

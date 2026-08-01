@@ -122,7 +122,9 @@ export function buildPlaylistJson(options: {
   playlistOptions: Record<string, unknown> | null | undefined;
   seekFormat: boolean;
 }): string {
-  const playlistData: Record<string, unknown> = {};
+  const playlistData: Record<string, unknown> = Object.fromEntries(
+    options.categories.map((category) => [category, []])
+  );
 
   options.mediaItems.forEach((item) => {
     const categoryName = options.categories[item.catId] || '';

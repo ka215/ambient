@@ -4,6 +4,7 @@ export interface FileDropzoneBinding {
   fileName?: HTMLElement | null;
   dropzone?: HTMLElement | null;
   dropLabelFallback: string;
+  isDisabled?: () => boolean;
   onApplyFile(file: File | null): void | Promise<void>;
 }
 
@@ -50,10 +51,15 @@ function isDragLeavingDropzone(dropzone: HTMLElement | null | undefined, evt: Dr
 }
 
 export function bindFileDropzone(binding: FileDropzoneBinding): void {
-  const { input, picker, fileName, dropzone, dropLabelFallback, onApplyFile } = binding;
+  const { input, picker, fileName, dropzone, dropLabelFallback, isDisabled, onApplyFile } = binding;
+  const disabled = (): boolean => input.disabled || isDisabled?.() === true;
 
   if (picker) {
-    picker.addEventListener('click', () => {
+    picker.addEventListener('click', (evt: MouseEvent) => {
+      if (disabled()) {
+        evt.preventDefault();
+        return;
+      }
       input.click();
     });
   }
@@ -62,6 +68,10 @@ export function bindFileDropzone(binding: FileDropzoneBinding): void {
     const onDragOver = (evt: DragEvent): void => {
       evt.preventDefault();
       evt.stopPropagation();
+      if (disabled()) {
+        setFileDropzoneState(dropzone, { dragover: false, invalid: false });
+        return;
+      }
       const dropLabel = input.dataset['labelDrop'] || dropLabelFallback;
       if (fileName && (!input.files || input.files.length === 0)) {
         fileName.textContent = dropLabel;
@@ -74,6 +84,10 @@ export function bindFileDropzone(binding: FileDropzoneBinding): void {
     dropzone.addEventListener('dragleave', (evt: DragEvent) => {
       evt.preventDefault();
       evt.stopPropagation();
+      if (disabled()) {
+        setFileDropzoneState(dropzone, { dragover: false, invalid: false });
+        return;
+      }
       if (isDragLeavingDropzone(dropzone, evt)) {
         void onApplyFile(getCurrentFile(input));
       }
@@ -81,6 +95,10 @@ export function bindFileDropzone(binding: FileDropzoneBinding): void {
     dropzone.addEventListener('drop', (evt: DragEvent) => {
       evt.preventDefault();
       evt.stopPropagation();
+      if (disabled()) {
+        setFileDropzoneState(dropzone, { dragover: false, invalid: false });
+        return;
+      }
       const file = evt.dataTransfer?.files && evt.dataTransfer.files.length > 0
         ? evt.dataTransfer.files[0] ?? null
         : null;
@@ -92,6 +110,9 @@ export function bindFileDropzone(binding: FileDropzoneBinding): void {
   }
 
   input.addEventListener('change', (evt: Event) => {
+    if (disabled()) {
+      return;
+    }
     const target = evt.target as HTMLInputElement;
     void onApplyFile(getCurrentFile(target));
   });

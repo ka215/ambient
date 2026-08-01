@@ -1,10 +1,14 @@
 import type { MediaEditDraft, MediaEditDraftInput } from '../domain/media-edit/draft';
 import { initializeMediaEditControls } from './media-edit-controls-init';
+import { autoResizeMediaEditTextarea } from '../ui/media-edit/form-view';
+import { generateMediaThumbnailFromPreview } from '../platform/thumbnail-generation-api';
 import type { MediaItem } from '../types/ambient';
 import type { MediaEditElements } from '../ui/media-edit/elements';
 
 export interface InitializeMediaEditControlsRuntimeOptions {
   elements: MediaEditElements;
+  baseUrl: string;
+  thumbnailGenerateEndpoint: string;
   defaultVolume: number;
   getLocalizedMessage: (key: string, fallback: string) => string;
   updateNotice: (notification: NotificationPayload) => void;
@@ -20,6 +24,7 @@ export interface InitializeMediaEditControlsRuntimeOptions {
   syncTimingFieldFromPreview: (field: HTMLInputElement | null, label: string) => void;
   mediaEditPreview: {
     getPreviewSourceItem: () => MediaItem | null;
+    getMediaEditPreviewCurrentTime: () => number | null;
   };
   createMediaEditPreview: (mediaItem: MediaItem) => void;
   closeMediaEditModal: (restoreFocus?: boolean) => void;
@@ -44,6 +49,69 @@ export interface InitializeMediaEditControlsRuntimeOptions {
 }
 
 export function initializeMediaEditControlsRuntime(options: InitializeMediaEditControlsRuntimeOptions): void {
+  const syncYouTubeAdvancedSettingAvailability = (): void => {
+    const pairs = [
+      [options.elements.youtubeCcOverride, options.elements.youtubeCcValue],
+      [options.elements.youtubeFsOverride, options.elements.youtubeFsValue],
+      [options.elements.youtubeControlsOverride, options.elements.youtubeControlsValue],
+      [options.elements.youtubeDisablekbOverride, options.elements.youtubeDisablekbValue],
+    ] as Array<[HTMLInputElement | null, HTMLInputElement | null]>;
+    pairs.forEach(([overrideInput, valueInput]) => {
+      if (!valueInput) {
+        return;
+      }
+      const enabled = overrideInput?.checked === true;
+      valueInput.disabled = !enabled;
+      valueInput.setAttribute('aria-disabled', String(!enabled));
+    });
+  };
+
+  options.elements.youtubeAdvancedToggle?.addEventListener('click', () => {
+    const panel = options.elements.youtubeAdvancedPanel;
+    const button = options.elements.youtubeAdvancedToggle;
+    if (!panel || !button) {
+      return;
+    }
+    const nextExpanded = panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', !nextExpanded);
+    button.setAttribute('aria-expanded', String(nextExpanded));
+  });
+
+  const applyThumbnailFile = (file: File | null): void => {
+    if (!file) {
+      return;
+    }
+    const allowed = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      options.updateNotice({
+        type: 'error',
+        message: options.getLocalizedMessage(
+          'mediaEditThumbnailTypeError',
+          'Only PNG, JPEG, GIF, and WebP images are accepted.'
+        ),
+        delay: 2500,
+      });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (!options.getActiveItem()) {
+        return;
+      }
+      const current = options.readDraftFromForm();
+      const next = options.sanitizeDraft({
+        ...current,
+        thumbnailMode: 'upload',
+        thumbnailName: file.name,
+        thumbnailMime: file.type,
+        thumbnailDataUrl: typeof reader.result === 'string' ? reader.result : '',
+      }, current);
+      options.applyDraftToForm(next);
+      options.applyDraftState(next);
+    };
+    reader.readAsDataURL(file);
+  };
+
   initializeMediaEditControls({
     primary: {
       closeButton: options.elements.closeButton,
@@ -77,6 +145,14 @@ export function initializeMediaEditControlsRuntime(options: InitializeMediaEditC
         options.elements.titleInput,
         options.elements.artistInput,
         options.elements.descriptionInput,
+        options.elements.youtubeCcOverride,
+        options.elements.youtubeCcValue,
+        options.elements.youtubeFsOverride,
+        options.elements.youtubeFsValue,
+        options.elements.youtubeControlsOverride,
+        options.elements.youtubeControlsValue,
+        options.elements.youtubeDisablekbOverride,
+        options.elements.youtubeDisablekbValue,
       ],
       volumeInput: options.elements.volumeInput,
       timingFields: [
@@ -87,10 +163,14 @@ export function initializeMediaEditControlsRuntime(options: InitializeMediaEditC
       ],
       timingStepperButtons: document.querySelectorAll('.media-edit-timing-stepper-btn'),
       onDraftFieldInput: () => {
+        autoResizeMediaEditTextarea(options.elements.descriptionInput);
+        syncYouTubeAdvancedSettingAvailability();
         options.syncDraftStateFromForm();
         options.validateAndRenderDraftFromForm();
       },
       onDraftFieldChange: () => {
+        autoResizeMediaEditTextarea(options.elements.descriptionInput);
+        syncYouTubeAdvancedSettingAvailability();
         options.syncDraftStateFromForm();
         options.validateAndRenderDraftFromForm();
       },
@@ -175,6 +255,8 @@ export function initializeMediaEditControlsRuntime(options: InitializeMediaEditC
     thumbnail: {
       pickButton: options.elements.thumbnailPickButton,
       input: options.elements.thumbnailInput,
+      dropzone: options.elements.thumbnailSection,
+      generateButton: options.elements.thumbnailGenerateButton,
       removeButton: options.elements.thumbnailRemoveButton,
       clearButton: options.elements.thumbnailClearButton,
       onPick: () => {
@@ -186,40 +268,43 @@ export function initializeMediaEditControlsRuntime(options: InitializeMediaEditC
           return;
         }
         const file = thumbnailInput.files?.[0] || null;
-        if (!file) {
-          return;
-        }
-        const allowed = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
-        if (!allowed.includes(file.type)) {
+        applyThumbnailFile(file);
+        thumbnailInput.value = '';
+      },
+      onDropFile: applyThumbnailFile,
+      onGenerate: async () => {
+        const activeItem = options.getActiveItem();
+        const seekTime = options.mediaEditPreview.getMediaEditPreviewCurrentTime();
+        if (!activeItem?.file || seekTime === null) {
           options.updateNotice({
             type: 'error',
-            message: options.getLocalizedMessage(
-              'mediaEditThumbnailTypeError',
-              'Only PNG, JPEG, GIF, and WebP images are accepted.'
-            ),
+            message: options.getLocalizedMessage('mediaEditPreviewSyncFailed', 'Preview is not ready.'),
             delay: 2500,
           });
-          thumbnailInput.value = '';
           return;
         }
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (!options.getActiveItem()) {
-            return;
-          }
-          const current = options.readDraftFromForm();
-          const next = options.sanitizeDraft({
-            ...current,
-            thumbnailMode: 'upload',
-            thumbnailName: file.name,
-            thumbnailMime: file.type,
-            thumbnailDataUrl: typeof reader.result === 'string' ? reader.result : '',
-          }, current);
-          options.applyDraftToForm(next);
-          options.applyDraftState(next);
-        };
-        reader.readAsDataURL(file);
-        thumbnailInput.value = '';
+        const result = await generateMediaThumbnailFromPreview({
+          baseUrl: options.baseUrl,
+          endpoint: options.thumbnailGenerateEndpoint,
+          file: activeItem.file,
+          seekTime,
+          getLocalizedMessage: options.getLocalizedMessage,
+        });
+        if (!result.ok || !result.filename || !result.dataUrl) {
+          options.updateNotice({ type: 'error', message: result.message, delay: 2600 });
+          return;
+        }
+        const current = options.readDraftFromForm();
+        const next = options.sanitizeDraft({
+          ...current,
+          thumbnailMode: 'upload',
+          thumbnailName: result.filename,
+          thumbnailMime: result.mime || 'image/webp',
+          thumbnailDataUrl: result.dataUrl,
+        }, current);
+        options.applyDraftToForm(next);
+        options.applyDraftState(next);
+        options.updateNotice({ type: 'success', message: result.message, delay: 2200 });
       },
       onRemove: () => {
         if (!options.getActiveItem()) {

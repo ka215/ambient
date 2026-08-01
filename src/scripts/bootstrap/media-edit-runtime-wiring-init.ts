@@ -48,6 +48,7 @@ export interface InitializeMediaEditRuntimeWiringOptions {
   durationSyncPollMs: number;
   saveEndpoint: string;
   thumbnailEndpoint: string;
+  thumbnailGenerateEndpoint: string;
   getLocalizedMessage(key: string, fallback?: string): string;
   updateNotice(notification: NotificationPayload): void;
   getOption(key: string): unknown;
@@ -61,6 +62,8 @@ export interface InitializeMediaEditRuntimeWiringOptions {
   syncMediaCategoryField(preferredCategoryId?: number | null): void;
   getActiveCategoryId(): number | null;
   updatePlaylist(): void;
+  canMutateCurrentPlaylist(): boolean;
+  applyEditRestrictions(): void;
   confirm(message: string): boolean;
 }
 
@@ -86,6 +89,7 @@ export function initializeMediaEditRuntimeWiring(options: InitializeMediaEditRun
     durationSyncPollMs: options.durationSyncPollMs,
     saveEndpoint: options.saveEndpoint,
     thumbnailEndpoint: options.thumbnailEndpoint,
+    thumbnailGenerateEndpoint: options.thumbnailGenerateEndpoint,
     getLocalizedMessage: options.getLocalizedMessage,
     updateNotice: options.updateNotice,
     getDefaultVolume: () => resolveAmbientDefaultVolume(options.getOption('volume'), options.defaultVolume),
@@ -124,6 +128,8 @@ export function initializeMediaEditRuntimeWiring(options: InitializeMediaEditRun
     syncMediaCategoryField: options.syncMediaCategoryField,
     getActiveCategoryId: options.getActiveCategoryId,
     updatePlaylist: options.updatePlaylist,
+    canMutateCurrentPlaylist: options.canMutateCurrentPlaylist,
+    applyEditRestrictions: options.applyEditRestrictions,
     confirm: options.confirm,
   });
 }

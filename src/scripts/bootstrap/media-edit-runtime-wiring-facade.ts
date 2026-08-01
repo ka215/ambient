@@ -21,6 +21,7 @@ export interface CreateMediaEditRuntimeWiringFacadeOptions {
   durationSyncPollMs: number;
   saveEndpoint: string;
   thumbnailEndpoint: string;
+  thumbnailGenerateEndpoint: string;
   getLocalizedMessage: InitializeMediaEditRuntimeWiringOptions['getLocalizedMessage'];
   updateNotice: InitializeMediaEditRuntimeWiringOptions['updateNotice'];
   getOption: InitializeMediaEditRuntimeWiringOptions['getOption'];
@@ -34,6 +35,8 @@ export interface CreateMediaEditRuntimeWiringFacadeOptions {
   syncMediaCategoryField: InitializeMediaEditRuntimeWiringOptions['syncMediaCategoryField'];
   getActiveCategoryId: InitializeMediaEditRuntimeWiringOptions['getActiveCategoryId'];
   updatePlaylist: InitializeMediaEditRuntimeWiringOptions['updatePlaylist'];
+  canMutateCurrentPlaylist: InitializeMediaEditRuntimeWiringOptions['canMutateCurrentPlaylist'];
+  applyEditRestrictions: InitializeMediaEditRuntimeWiringOptions['applyEditRestrictions'];
   confirm: InitializeMediaEditRuntimeWiringOptions['confirm'];
 }
 
@@ -61,6 +64,7 @@ export function createMediaEditRuntimeWiringFacade(
     durationSyncPollMs: options.durationSyncPollMs,
     saveEndpoint: options.saveEndpoint,
     thumbnailEndpoint: options.thumbnailEndpoint,
+    thumbnailGenerateEndpoint: options.thumbnailGenerateEndpoint,
     getLocalizedMessage: options.getLocalizedMessage,
     updateNotice: options.updateNotice,
     getOption: options.getOption,
@@ -74,6 +78,8 @@ export function createMediaEditRuntimeWiringFacade(
     syncMediaCategoryField: options.syncMediaCategoryField,
     getActiveCategoryId: options.getActiveCategoryId,
     updatePlaylist: options.updatePlaylist,
+    canMutateCurrentPlaylist: options.canMutateCurrentPlaylist,
+    applyEditRestrictions: options.applyEditRestrictions,
     confirm: options.confirm,
   };
 }

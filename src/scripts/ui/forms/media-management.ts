@@ -1,4 +1,5 @@
 import { bindFileDropzone, setFileDropzoneState } from './file-dropzone';
+import { extractLocalMediaMetadata } from '../../platform/local-media-metadata';
 import type { YouTubeMetadataPayload } from '../../types/ambient';
 
 export interface MediaManagementBindings {
@@ -120,6 +121,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
   let metadataDebounceId: ReturnType<typeof setTimeout> | null = null;
   let metadataRequestSeq = 0;
   let latestMetadata: YouTubeMetadataPayload | null = null;
+  let latestMetadataSource: 'youtube' | 'local' = 'youtube';
   const lastAppliedMetadata = {
     title: '',
     artist: '',
@@ -165,7 +167,12 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
     if (youtubeMetadataTitle) youtubeMetadataTitle.textContent = metadata.title;
     if (youtubeMetadataArtist) youtubeMetadataArtist.textContent = metadata.artist;
     if (youtubeMetadataDesc) youtubeMetadataDesc.textContent = metadata.desc;
-    setMetadataState('suggested', getLocalizedMessage('YouTube metadata found.', 'YouTube metadata found.'));
+    setMetadataState(
+      'suggested',
+      latestMetadataSource === 'local'
+        ? getLocalizedMessage('Local media metadata found.', 'Local media metadata found.')
+        : getLocalizedMessage('YouTube metadata found.', 'YouTube metadata found.')
+    );
   };
 
   const applyTextFieldValue = (
@@ -196,7 +203,12 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
     } else {
       lastAppliedMetadata.desc = applyTextFieldValue(descField, latestMetadata.desc, mediaDescMaxLength, sanitizeMediaDescInputLive);
     }
-    setMetadataState('applied', getLocalizedMessage('YouTube metadata applied.', 'YouTube metadata applied.'));
+    setMetadataState(
+      'applied',
+      latestMetadataSource === 'local'
+        ? getLocalizedMessage('Local media metadata applied.', 'Local media metadata applied.')
+        : getLocalizedMessage('YouTube metadata applied.', 'YouTube metadata applied.')
+    );
   };
 
   const applyTitleIfSafe = (): void => {
@@ -208,7 +220,41 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
       return;
     }
     applyMetadataField('title');
-    setMetadataState('suggested', getLocalizedMessage('YouTube metadata found.', 'YouTube metadata found.'));
+    setMetadataState(
+      'suggested',
+      latestMetadataSource === 'local'
+        ? getLocalizedMessage('Local media metadata found.', 'Local media metadata found.')
+        : getLocalizedMessage('YouTube metadata found.', 'YouTube metadata found.')
+    );
+  };
+
+  const applyLocalMetadataTextIfSafe = (
+    fieldName: 'artist' | 'desc',
+    field: HTMLInputElement | HTMLTextAreaElement | null,
+    metadataValue: string,
+    lastAppliedValue: string
+  ): void => {
+    if (!field || metadataValue.trim() === '') {
+      return;
+    }
+    const currentValue = field.value.trim();
+    if (currentValue !== '' && currentValue !== lastAppliedValue) {
+      return;
+    }
+    applyMetadataField(fieldName);
+  };
+
+  const applyLocalMetadataIfSafe = (): void => {
+    if (!latestMetadata) {
+      return;
+    }
+    applyTitleIfSafe();
+    applyLocalMetadataTextIfSafe('artist', artistField, latestMetadata.artist, lastAppliedMetadata.artist);
+    applyLocalMetadataTextIfSafe('desc', descField, latestMetadata.desc, lastAppliedMetadata.desc);
+    setMetadataState(
+      'suggested',
+      getLocalizedMessage('Local media metadata found.', 'Local media metadata found.')
+    );
   };
 
   const scheduleYouTubeMetadataFetch = (videoId: string): void => {
@@ -241,9 +287,29 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
         );
         return;
       }
+      latestMetadataSource = 'youtube';
       renderMetadataSuggestions(result.data);
       applyTitleIfSafe();
     }, 500);
+  };
+
+  const applyLocalMediaMetadata = async (file: File, fallbackTitle: string): Promise<void> => {
+    const requestSeq = ++metadataRequestSeq;
+    latestMetadataSource = 'local';
+    setMetadataState('loading', getLocalizedMessage('Reading local media metadata...', 'Reading local media metadata...'));
+    const result = await extractLocalMediaMetadata(file, { fallbackTitle });
+    if (requestSeq !== metadataRequestSeq) {
+      return;
+    }
+    if (!result.ok || !result.data) {
+      clearMetadataSuggestions();
+      return;
+    }
+    if (titleField) {
+      lastAppliedMetadata.title = fallbackTitle;
+    }
+    renderMetadataSuggestions(result.data);
+    applyLocalMetadataIfSafe();
   };
 
   buttonApplyMetadataAll?.addEventListener('click', () => {
@@ -272,6 +338,11 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
         elm.addEventListener('click', (evt: Event) => {
           const target = evt.target as HTMLInputElement;
           const prevType = getAddType() ?? null;
+          const currentCategoryValue = String(mediaCategorySelect?.value || '').trim();
+          const numericCurrentCategory = Number(currentCategoryValue);
+          const preferredCategoryId = currentCategoryValue !== '' && !Number.isNaN(numericCurrentCategory)
+            ? numericCurrentCategory
+            : getActiveCategoryId();
           if (target.value === 'youtube') {
             mediaUrlField?.classList.remove('hidden');
             mediaFilesField?.classList.add('hidden');
@@ -283,6 +354,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
           setAddType(target.value);
           if (prevType !== target.value) {
             resetMediaManagementForm();
+            syncMediaCategoryField(preferredCategoryId);
           }
         });
         break;
@@ -335,6 +407,11 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
         };
 
         const applyLocalMediaFile = async (file: File | null): Promise<void> => {
+          if (!canMutateCurrentPlaylist()) {
+            clearLocalMediaFile();
+            applyCloudEditRestrictions();
+            return;
+          }
           if (!file || file.size <= 0) {
             clearLocalMediaFile();
             return;
@@ -350,9 +427,15 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
             invalid: !(mediaFileLooksValid && pathIsValid),
           });
           if (inputMediaTitle) {
-            inputMediaTitle.value = mediaFileLooksValid && pathIsValid ? basename(file.name) : '';
+            const fallbackTitle = mediaFileLooksValid && pathIsValid ? basename(file.name) : '';
+            inputMediaTitle.value = fallbackTitle;
             localMediaInput.blur();
             inputMediaTitle.dispatchEvent(new Event('change'));
+            if (fallbackTitle !== '') {
+              void applyLocalMediaMetadata(file, fallbackTitle);
+            } else {
+              clearMetadataSuggestions();
+            }
           }
         };
 
@@ -362,6 +445,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
           fileName: localMediaFileName,
           dropzone: localMediaDropzone,
           dropLabelFallback: 'Drop media file here',
+          isDisabled: () => !canMutateCurrentPlaylist(),
           onApplyFile: async (file: File | null): Promise<void> => {
             logger('local_file:', localMediaInput.files, [localMediaInput]);
             await applyLocalMediaFile(file);

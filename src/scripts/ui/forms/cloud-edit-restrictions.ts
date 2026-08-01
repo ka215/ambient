@@ -8,7 +8,10 @@ export interface CloudEditRestrictionsOptions {
 export function applyCloudEditRestrictionsView(options: CloudEditRestrictionsOptions): void {
   const mediaControlIds = [
     'media-type-youtube',
+    'media-type-local',
     'youtube-url',
+    'local-media-file',
+    'btn-local-media-file-picker',
     'media-category',
     'media-category-new',
     'media-title',
@@ -45,6 +48,19 @@ export function applyCloudEditRestrictionsView(options: CloudEditRestrictionsOpt
 
   setReadonlyState(mediaControlIds);
   setReadonlyState(categoryControlIds);
+
+  const localMediaDropzone = document.getElementById('local-media-dropzone');
+  if (localMediaDropzone) {
+    localMediaDropzone.setAttribute('aria-disabled', String(!options.canMutatePlaylist));
+    localMediaDropzone.classList.toggle('pointer-events-none', !options.canMutatePlaylist);
+    localMediaDropzone.classList.toggle('opacity-60', !options.canMutatePlaylist);
+    localMediaDropzone.classList.remove('is-dragover', 'is-invalid');
+    if (!options.canMutatePlaylist) {
+      localMediaDropzone.setAttribute('title', options.readonlyTitle);
+    } else {
+      localMediaDropzone.removeAttribute('title');
+    }
+  }
 
   if (!options.canMutatePlaylist) {
     options.mediaForm?.classList.add('opacity-50');

@@ -14,6 +14,14 @@ export interface MediaEditDraft {
   thumbnailName: string;
   thumbnailMime: string;
   thumbnailDataUrl: string;
+  youtubeCcOverride: boolean;
+  youtubeCc: boolean;
+  youtubeFsOverride: boolean;
+  youtubeFs: boolean;
+  youtubeControlsOverride: boolean;
+  youtubeControls: boolean;
+  youtubeDisablekbOverride: boolean;
+  youtubeDisablekb: boolean;
 }
 
 export interface MediaEditDraftInput {
@@ -30,6 +38,14 @@ export interface MediaEditDraftInput {
   thumbnailName?: unknown;
   thumbnailMime?: unknown;
   thumbnailDataUrl?: unknown;
+  youtubeCcOverride?: unknown;
+  youtubeCc?: unknown;
+  youtubeFsOverride?: unknown;
+  youtubeFs?: unknown;
+  youtubeControlsOverride?: unknown;
+  youtubeControls?: unknown;
+  youtubeDisablekbOverride?: unknown;
+  youtubeDisablekb?: unknown;
 }
 
 type SanitizeDraftOptions = {
@@ -44,6 +60,25 @@ type SanitizeDraftOptions = {
   normalizeVolume: (value: unknown, fallback: number) => number;
   normalizeTimingValue: (value: unknown, fallback?: number | null) => number | null;
 };
+
+function normalizeDraftBoolean(value: unknown, fallback = false): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['1', 'true', 'on', 'yes'].includes(normalized)) {
+      return true;
+    }
+    if (['0', 'false', 'off', 'no', ''].includes(normalized)) {
+      return false;
+    }
+  }
+  return fallback;
+}
 
 export function sanitizeMediaEditDraft(options: SanitizeDraftOptions): MediaEditDraft {
   const fallbackVolume = options.fallback?.volume ?? options.defaultVolume;
@@ -66,6 +101,14 @@ export function sanitizeMediaEditDraft(options: SanitizeDraftOptions): MediaEdit
     thumbnailName: options.sanitizeText(String(options.draft.thumbnailName ?? options.fallback?.thumbnailName ?? ''), 255),
     thumbnailMime: options.sanitizeText(String(options.draft.thumbnailMime ?? options.fallback?.thumbnailMime ?? ''), 100),
     thumbnailDataUrl: String(options.draft.thumbnailDataUrl ?? options.fallback?.thumbnailDataUrl ?? ''),
+    youtubeCcOverride: normalizeDraftBoolean(options.draft.youtubeCcOverride, options.fallback?.youtubeCcOverride ?? false),
+    youtubeCc: normalizeDraftBoolean(options.draft.youtubeCc, options.fallback?.youtubeCc ?? false),
+    youtubeFsOverride: normalizeDraftBoolean(options.draft.youtubeFsOverride, options.fallback?.youtubeFsOverride ?? false),
+    youtubeFs: normalizeDraftBoolean(options.draft.youtubeFs, options.fallback?.youtubeFs ?? false),
+    youtubeControlsOverride: normalizeDraftBoolean(options.draft.youtubeControlsOverride, options.fallback?.youtubeControlsOverride ?? false),
+    youtubeControls: normalizeDraftBoolean(options.draft.youtubeControls, options.fallback?.youtubeControls ?? true),
+    youtubeDisablekbOverride: normalizeDraftBoolean(options.draft.youtubeDisablekbOverride, options.fallback?.youtubeDisablekbOverride ?? false),
+    youtubeDisablekb: normalizeDraftBoolean(options.draft.youtubeDisablekb, options.fallback?.youtubeDisablekb ?? false),
   };
 }
 
@@ -84,6 +127,14 @@ export function cloneMediaEditDraft(draft: MediaEditDraft): MediaEditDraft {
     thumbnailName: draft.thumbnailName,
     thumbnailMime: draft.thumbnailMime,
     thumbnailDataUrl: draft.thumbnailDataUrl,
+    youtubeCcOverride: draft.youtubeCcOverride,
+    youtubeCc: draft.youtubeCc,
+    youtubeFsOverride: draft.youtubeFsOverride,
+    youtubeFs: draft.youtubeFs,
+    youtubeControlsOverride: draft.youtubeControlsOverride,
+    youtubeControls: draft.youtubeControls,
+    youtubeDisablekbOverride: draft.youtubeDisablekbOverride,
+    youtubeDisablekb: draft.youtubeDisablekb,
   };
 }
 
@@ -100,7 +151,15 @@ export function isSameMediaEditDraft(a: MediaEditDraft, b: MediaEditDraft): bool
     && a.thumbnailMode === b.thumbnailMode
     && a.thumbnailName === b.thumbnailName
     && a.thumbnailMime === b.thumbnailMime
-    && a.thumbnailDataUrl === b.thumbnailDataUrl;
+    && a.thumbnailDataUrl === b.thumbnailDataUrl
+    && a.youtubeCcOverride === b.youtubeCcOverride
+    && a.youtubeCc === b.youtubeCc
+    && a.youtubeFsOverride === b.youtubeFsOverride
+    && a.youtubeFs === b.youtubeFs
+    && a.youtubeControlsOverride === b.youtubeControlsOverride
+    && a.youtubeControls === b.youtubeControls
+    && a.youtubeDisablekbOverride === b.youtubeDisablekbOverride
+    && a.youtubeDisablekb === b.youtubeDisablekb;
 }
 
 export function createEmptyMediaEditDraft(defaultVolume: number): MediaEditDraft {
@@ -118,6 +177,14 @@ export function createEmptyMediaEditDraft(defaultVolume: number): MediaEditDraft
     thumbnailName: '',
     thumbnailMime: '',
     thumbnailDataUrl: '',
+    youtubeCcOverride: false,
+    youtubeCc: false,
+    youtubeFsOverride: false,
+    youtubeFs: false,
+    youtubeControlsOverride: false,
+    youtubeControls: true,
+    youtubeDisablekbOverride: false,
+    youtubeDisablekb: false,
   };
 }
 
@@ -148,6 +215,14 @@ export function createMediaEditBaseDraft(options: {
     thumbnailName: options.mediaItem.image || options.mediaItem.thumb || '',
     thumbnailMime: '',
     thumbnailDataUrl: '',
+    youtubeCcOverride: Object.prototype.hasOwnProperty.call(options.mediaItem, 'cc'),
+    youtubeCc: normalizeDraftBoolean(options.mediaItem.cc, false),
+    youtubeFsOverride: Object.prototype.hasOwnProperty.call(options.mediaItem, 'fs'),
+    youtubeFs: normalizeDraftBoolean(options.mediaItem.fs, false),
+    youtubeControlsOverride: Object.prototype.hasOwnProperty.call(options.mediaItem, 'controls'),
+    youtubeControls: normalizeDraftBoolean(options.mediaItem.controls, true),
+    youtubeDisablekbOverride: Object.prototype.hasOwnProperty.call(options.mediaItem, 'disablekb'),
+    youtubeDisablekb: normalizeDraftBoolean(options.mediaItem.disablekb, false),
   }, createEmptyMediaEditDraft(options.defaultVolume));
 }
 
@@ -163,6 +238,14 @@ export function readMediaEditDraftFromForm(options: {
   seekEnd?: string | null;
   fadeInEnd?: string | null;
   fadeOutStart?: string | null;
+  youtubeCcOverride?: boolean;
+  youtubeCc?: boolean;
+  youtubeFsOverride?: boolean;
+  youtubeFs?: boolean;
+  youtubeControlsOverride?: boolean;
+  youtubeControls?: boolean;
+  youtubeDisablekbOverride?: boolean;
+  youtubeDisablekb?: boolean;
   sanitizeDraft: (draft: MediaEditDraftInput, fallback: MediaEditDraft | null) => MediaEditDraft;
 }): MediaEditDraft {
   return options.sanitizeDraft({
@@ -179,6 +262,14 @@ export function readMediaEditDraftFromForm(options: {
     thumbnailName: options.activeDraft?.thumbnailName,
     thumbnailMime: options.activeDraft?.thumbnailMime,
     thumbnailDataUrl: options.activeDraft?.thumbnailDataUrl,
+    youtubeCcOverride: options.youtubeCcOverride,
+    youtubeCc: options.youtubeCc,
+    youtubeFsOverride: options.youtubeFsOverride,
+    youtubeFs: options.youtubeFs,
+    youtubeControlsOverride: options.youtubeControlsOverride,
+    youtubeControls: options.youtubeControls,
+    youtubeDisablekbOverride: options.youtubeDisablekbOverride,
+    youtubeDisablekb: options.youtubeDisablekb,
   }, options.fallback);
 }
 
@@ -244,6 +335,27 @@ export function applyMediaEditDraftToItem(options: {
   } else if (options.draft.thumbnailMode === 'upload' && options.draft.thumbnailName !== '') {
     nextItem.image = options.draft.thumbnailName;
     nextItem.thumb = '';
+  }
+
+  if (options.draft.youtubeCcOverride) {
+    nextItem.cc = options.draft.youtubeCc;
+  } else {
+    delete nextItem.cc;
+  }
+  if (options.draft.youtubeFsOverride) {
+    nextItem.fs = options.draft.youtubeFs;
+  } else {
+    delete nextItem.fs;
+  }
+  if (options.draft.youtubeControlsOverride) {
+    nextItem.controls = options.draft.youtubeControls;
+  } else {
+    delete nextItem.controls;
+  }
+  if (options.draft.youtubeDisablekbOverride) {
+    nextItem.disablekb = options.draft.youtubeDisablekb;
+  } else {
+    delete nextItem.disablekb;
   }
 
   return nextItem;

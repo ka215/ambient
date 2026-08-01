@@ -38,8 +38,12 @@ export interface InitializeMediaEditModalBindingsOptions {
   updatePlaylist(): void;
   createPreview(mediaItem: MediaItem): void;
   startDurationSyncWait(): void;
+  afterShow?(): void;
   getActiveItem(): MediaItem | null;
   getDraftKey(mediaItem: MediaItem): string;
+  canMutateCurrentPlaylist(): boolean;
+  applyEditRestrictions(): void;
+  updateNotice(notification: NotificationPayload): void;
   hasUnsavedDraft(): boolean;
   isDirty(): boolean;
   discardDraft(): void;
@@ -123,6 +127,16 @@ export function initializeMediaEditModalBindings(options: InitializeMediaEditMod
   }
 
   function openMediaEditModal(mediaItem: MediaItem, trigger: HTMLElement): void {
+    if (!options.canMutateCurrentPlaylist()) {
+      options.applyEditRestrictions();
+      options.updateNotice({
+        type: 'error',
+        message: options.getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.'),
+        delay: 2600,
+      });
+      return;
+    }
+
     if (!canOpenMediaEditModal({
       mediaItem,
       activeItem: options.getActiveItem(),
@@ -155,6 +169,7 @@ export function initializeMediaEditModalBindings(options: InitializeMediaEditMod
       updatePlaylist: options.updatePlaylist,
       createPreview: options.createPreview,
       startDurationSyncWait: options.startDurationSyncWait,
+      afterShow: options.afterShow,
       modalElement: options.modalElement,
       titleElement: options.modalTitleElement,
       itemTitleElement: options.modalItemTitleElement,

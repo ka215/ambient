@@ -48,6 +48,30 @@ export function resolveMediaFullscreenEnabled(
   return Boolean(fullscreenOption);
 }
 
+function hasMediaOption(mediaData: MediaItem, key: keyof MediaItem): boolean {
+  return Object.prototype.hasOwnProperty.call(mediaData, key) && mediaData[key] !== '';
+}
+
+function toPlayerFlag(value: unknown): number {
+  return Number(Boolean(value));
+}
+
+function resolveCurrentIso6391Language(): string {
+  const selectedLanguage = document.getElementById('language') instanceof HTMLSelectElement
+    ? (document.getElementById('language') as HTMLSelectElement).value
+    : '';
+  const normalized = selectedLanguage.trim().toLowerCase();
+  if (/^[a-z]{2}(?:[-_][a-z]{2})?$/.test(normalized)) {
+    return normalized.slice(0, 2);
+  }
+  const navigatorLanguage = window.navigator.language || '';
+  const fallback = navigatorLanguage.trim().toLowerCase();
+  if (/^[a-z]{2}/.test(fallback)) {
+    return fallback.slice(0, 2);
+  }
+  return 'en';
+}
+
 export function applyInitialPlaybackStateToStatus(
   status: { fader?: boolean; volume: number | null },
   initialPlaybackState: InitialPlaybackState
@@ -89,6 +113,7 @@ export function buildYouTubePlayerOptions(
     controls: 1,
     fs: 0,
     cc_load_policy: 0,
+    playsinline: 1,
     rel: 0,
   };
 
@@ -98,8 +123,8 @@ export function buildYouTubePlayerOptions(
   if (options.controls) {
     playerOptions.controls = Number(options.controls);
   }
-  if (mediaData.hasOwnProperty('controls') && mediaData.controls !== '') {
-    playerOptions.controls = Number(Boolean(mediaData.controls));
+  if (hasMediaOption(mediaData, 'controls')) {
+    playerOptions.controls = toPlayerFlag(mediaData.controls);
   }
   if (options.fs) {
     playerOptions.fs = Number(options.fs);
@@ -108,8 +133,14 @@ export function buildYouTubePlayerOptions(
   if (options.ccLoadPolicy) {
     playerOptions.cc_load_policy = Number(options.ccLoadPolicy);
   }
-  if (mediaData.hasOwnProperty('cc') && mediaData.cc !== '') {
-    playerOptions.cc_load_policy = Number(Boolean(mediaData.cc));
+  if (hasMediaOption(mediaData, 'cc')) {
+    playerOptions.cc_load_policy = toPlayerFlag(mediaData.cc);
+    if (playerOptions.cc_load_policy === 1) {
+      playerOptions.cc_lang_pref = resolveCurrentIso6391Language();
+    }
+  }
+  if (hasMediaOption(mediaData, 'disablekb')) {
+    playerOptions.disablekb = toPlayerFlag(mediaData.disablekb);
   }
   if (options.rel) {
     playerOptions.rel = Number(options.rel);

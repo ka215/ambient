@@ -25,6 +25,8 @@ export function createMediaEditSaveBindings(options: {
   setSaveButtonDisabled: (disabled: boolean) => void;
   setSaveBusyState: (isBusy: boolean) => void;
   updateNotice: (notification: NotificationPayload) => void;
+  canMutateCurrentPlaylist: () => boolean;
+  applyEditRestrictions: () => void;
   applyDraftToMediaItem: (item: MediaItem, draft: MediaEditDraft) => MediaItem;
   uploadThumbnail: (draft: MediaEditDraft) => Promise<{ ok: boolean; message: string }>;
   deleteThumbnail: (draft: MediaEditDraft) => Promise<{ ok: boolean; message: string }>;
@@ -42,6 +44,16 @@ export function createMediaEditSaveBindings(options: {
     const activeItem = options.getActiveItem();
     const baseDraft = options.getBaseDraft();
     if (!activeItem || !baseDraft || !Array.isArray(options.status.media)) {
+      return;
+    }
+
+    if (!options.canMutateCurrentPlaylist()) {
+      options.applyEditRestrictions();
+      options.updateNotice({
+        type: 'error',
+        message: options.getLocalizedMessage('mediaEditSaveFailed', 'Failed to save media changes.'),
+        delay: 2600,
+      });
       return;
     }
 

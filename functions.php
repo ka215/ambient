@@ -361,9 +361,7 @@ function amp_footer(): string {
     } else {
         $manifest_entry = amp_get_vite_manifest_entry( 'src/scripts/ambient.ts' );
         if ( $manifest_entry && !empty( $manifest_entry['file'] ) ) {
-            $js_path = amp_built_asset_path( $manifest_entry['file'] );
-            $version = file_exists( $js_path ) ? '?'. filemtime( $js_path ) : '';
-            $output[] = '<script type="module" src="'. amp_built_asset_url( $manifest_entry['file'] ) . $version .'"></script>';
+            $output[] = '<script type="module" src="'. amp_built_asset_url( $manifest_entry['file'] ) .'"></script>';
         } else {
             $output[] = '<!-- Ambient runtime manifest entry was not found. Run npm run build. -->';
         }

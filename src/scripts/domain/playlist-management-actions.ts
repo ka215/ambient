@@ -26,37 +26,40 @@ export function createPlaylistCategoryAction(options: {
   successMessage: string;
   failureMessage: string;
   appendCategory: (categories: string[], categoryName: string) => { categories: string[] };
-  persist: () => boolean;
+  persist: () => boolean | Promise<boolean>;
   onCategoriesUpdated: (categories: string[]) => void;
   onAfterSuccess: () => void;
   logger: (...args: unknown[]) => void;
-}): { ok: boolean; message: string } {
+}): Promise<{ ok: boolean; message: string }> {
   if (!options.form) {
-    return {
+    return Promise.resolve({
       ok: false,
       message: options.failureMessage,
-    };
+    });
   }
+  const form = options.form;
 
-  try {
-    const formData = new FormData(options.form);
+  return (async () => {
+    const formData = new FormData(form);
     const categoryName = String(formData.get('category_name') || '');
     const result = options.appendCategory(options.categories, categoryName);
     options.onCategoriesUpdated(result.categories);
     options.logger('createCategory:', categoryName, result.categories);
-    const persisted = options.persist();
-    options.onAfterSuccess();
+    const persisted = await options.persist();
+    if (persisted) {
+      options.onAfterSuccess();
+    }
     return {
       ok: persisted,
       message: persisted ? options.successMessage : options.failureMessage,
     };
-  } catch (error) {
+  })().catch((error) => {
     options.logger('createCategory: error', error);
     return {
       ok: false,
       message: options.failureMessage,
     };
-  }
+  });
 }
 
 export function renamePlaylistCategoryAction(options: {
@@ -72,12 +75,12 @@ export function renamePlaylistCategoryAction(options: {
     categories: string[];
     reason?: CategoryMutationReason;
   };
-  persist: () => boolean;
+  persist: () => boolean | Promise<boolean>;
   onCategoriesUpdated: (categories: string[]) => void;
   onAfterSuccess: () => void;
   logger: (...args: unknown[]) => void;
-}): { ok: boolean; message: string } {
-  try {
+}): Promise<{ ok: boolean; message: string }> {
+  return (async () => {
     const result = options.renameCategory(options.categories, options.categoryIndex, options.categoryName);
     if (!result.ok) {
       return {
@@ -94,7 +97,7 @@ export function renamePlaylistCategoryAction(options: {
 
     options.onCategoriesUpdated(result.categories);
     options.logger('renameCategory:', options.categoryIndex, options.categoryName, result.categories);
-    const persisted = options.persist();
+    const persisted = await options.persist();
     if (persisted) {
       options.onAfterSuccess();
     }
@@ -102,13 +105,13 @@ export function renamePlaylistCategoryAction(options: {
       ok: persisted,
       message: persisted ? options.successMessage : options.failureMessage,
     };
-  } catch (error) {
+  })().catch((error) => {
     options.logger('renameCategory: error', error);
     return {
       ok: false,
       message: options.failureMessage,
     };
-  }
+  });
 }
 
 export function deletePlaylistCategoryAction(options: {
@@ -124,13 +127,13 @@ export function deletePlaylistCategoryAction(options: {
     mediaItems?: MediaItem[];
     reason?: CategoryMutationReason;
   };
-  persist: () => boolean;
+  persist: () => boolean | Promise<boolean>;
   onCategoriesUpdated: (categories: string[]) => void;
   onMediaItemsUpdated: (mediaItems: MediaItem[]) => void;
   onAfterSuccess: () => void;
   logger: (...args: unknown[]) => void;
-}): { ok: boolean; message: string } {
-  try {
+}): Promise<{ ok: boolean; message: string }> {
+  return (async () => {
     const result = options.deleteCategory(options.categories, options.mediaItems, options.categoryIndex);
     if (!result.ok) {
       return {
@@ -148,7 +151,7 @@ export function deletePlaylistCategoryAction(options: {
     options.onCategoriesUpdated(result.categories);
     options.onMediaItemsUpdated(result.mediaItems || options.mediaItems);
     options.logger('deleteCategory:', options.categoryIndex, result.categories);
-    const persisted = options.persist();
+    const persisted = await options.persist();
     if (persisted) {
       options.onAfterSuccess();
     }
@@ -156,13 +159,13 @@ export function deletePlaylistCategoryAction(options: {
       ok: persisted,
       message: persisted ? options.successMessage : options.failureMessage,
     };
-  } catch (error) {
+  })().catch((error) => {
     options.logger('deleteCategory: error', error);
     return {
       ok: false,
       message: options.failureMessage,
     };
-  }
+  });
 }
 
 export function downloadPlaylistAction(options: {

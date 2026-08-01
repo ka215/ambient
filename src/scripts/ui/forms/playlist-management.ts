@@ -24,9 +24,9 @@ export interface PlaylistManagementBindings {
   getPlaylistManageFormData(oneData?: string | null): FormDataEntryValue | [string, FormDataEntryValue][] | null;
   getCategories(): string[];
   getMediaItems(): MediaItem[];
-  createCategory(): { ok: boolean; message: string };
-  renameCategory(categoryIndex: number, categoryName: string): { ok: boolean; message: string };
-  deleteCategory(categoryIndex: number): { ok: boolean; message: string };
+  createCategory(): Promise<{ ok: boolean; message: string }>;
+  renameCategory(categoryIndex: number, categoryName: string): Promise<{ ok: boolean; message: string }>;
+  deleteCategory(categoryIndex: number): Promise<{ ok: boolean; message: string }>;
   downloadPlaylist(): { ok: boolean; message: string };
   importPlaylist(): Promise<{ ok: boolean; message: string }>;
 }
@@ -329,7 +329,7 @@ export function bindPlaylistManagementForm(bindings: PlaylistManagementBindings)
               delay: 2000,
             });
           },
-          createCategory(): void {
+          async createCategory(): Promise<void> {
             if (!canMutateCurrentPlaylist()) {
               const selfElm = document.getElementById('btn-create-category');
               applyCloudEditRestrictions();
@@ -340,7 +340,7 @@ export function bindPlaylistManagementForm(bindings: PlaylistManagementBindings)
               });
               return;
             }
-            const result = createCategory();
+            const result = await createCategory();
             updateNotice({
               type: result.ok ? 'success' : 'error',
               message: result.message,
@@ -348,7 +348,7 @@ export function bindPlaylistManagementForm(bindings: PlaylistManagementBindings)
             });
             syncCategoryEditView();
           },
-          updateCategory(): void {
+          async updateCategory(): Promise<void> {
             if (!canMutateCurrentPlaylist()) {
               applyCloudEditRestrictions();
               updateNotice({
@@ -361,7 +361,7 @@ export function bindPlaylistManagementForm(bindings: PlaylistManagementBindings)
             const edit = getCategoryEditElements();
             const categoryIndex = Number(edit.select?.value ?? '');
             const categoryName = edit.nameInput?.value || '';
-            const result = renameCategory(categoryIndex, categoryName);
+            const result = await renameCategory(categoryIndex, categoryName);
             updateNotice({
               type: result.ok ? 'success' : 'error',
               message: result.message,
@@ -372,7 +372,7 @@ export function bindPlaylistManagementForm(bindings: PlaylistManagementBindings)
             }
             syncCategoryEditView();
           },
-          deleteCategory(): void {
+          async deleteCategory(): Promise<void> {
             if (!canMutateCurrentPlaylist()) {
               applyCloudEditRestrictions();
               updateNotice({
@@ -384,7 +384,7 @@ export function bindPlaylistManagementForm(bindings: PlaylistManagementBindings)
             }
             const edit = getCategoryEditElements();
             const categoryIndex = Number(edit.select?.value ?? '');
-            const result = deleteCategory(categoryIndex);
+            const result = await deleteCategory(categoryIndex);
             updateNotice({
               type: result.ok ? 'success' : 'error',
               message: result.message,
@@ -420,13 +420,13 @@ export function bindPlaylistManagementForm(bindings: PlaylistManagementBindings)
               await callback.createSymlink();
               break;
             case 'createCategory':
-              callback.createCategory();
+              await callback.createCategory();
               break;
             case 'updateCategory':
-              callback.updateCategory();
+              await callback.updateCategory();
               break;
             case 'deleteCategory':
-              callback.deleteCategory();
+              await callback.deleteCategory();
               break;
             case 'downloadPlaylist':
               await callback.downloadPlaylist();

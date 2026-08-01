@@ -10,6 +10,7 @@ import {
 import { createMediaEditPreviewBindings } from '../ui/media-edit/preview-bindings';
 import { createMediaEditTimingBindings } from '../ui/media-edit/timing-bindings';
 import { createMediaEditUiBindings } from '../ui/media-edit/ui-bindings';
+import { autoResizeMediaEditTextarea } from '../ui/media-edit/form-view';
 import type { MediaEditElements } from '../ui/media-edit/elements';
 import type { MediaItem } from '../types/ambient';
 import {
@@ -52,6 +53,7 @@ export interface InitializeMediaEditRuntimeOptions {
   durationSyncPollMs: number;
   saveEndpoint: string;
   thumbnailEndpoint: string;
+  thumbnailGenerateEndpoint: string;
   getLocalizedMessage: (key: string, fallback?: string) => string;
   updateNotice: (notification: NotificationPayload) => void;
   getDefaultVolume: () => number;
@@ -92,6 +94,8 @@ export interface InitializeMediaEditRuntimeOptions {
   syncMediaCategoryField: (preferredCategoryId?: number | null) => void;
   getActiveCategoryId: () => number | null;
   updatePlaylist: () => void;
+  canMutateCurrentPlaylist: () => boolean;
+  applyEditRestrictions: () => void;
   confirm: (message: string) => boolean;
 }
 
@@ -230,9 +234,20 @@ export function initializeMediaEditRuntime(options: InitializeMediaEditRuntimeOp
     descriptionInput: options.elements.descriptionInput,
     volumeInput: options.elements.volumeInput,
     volumeDisplay: options.elements.volumeValue,
+    youtubeAdvancedSection: options.elements.youtubeAdvancedSection,
+    youtubeAdvancedPanel: options.elements.youtubeAdvancedPanel,
+    youtubeCcOverride: options.elements.youtubeCcOverride,
+    youtubeCcValue: options.elements.youtubeCcValue,
+    youtubeFsOverride: options.elements.youtubeFsOverride,
+    youtubeFsValue: options.elements.youtubeFsValue,
+    youtubeControlsOverride: options.elements.youtubeControlsOverride,
+    youtubeControlsValue: options.elements.youtubeControlsValue,
+    youtubeDisablekbOverride: options.elements.youtubeDisablekbOverride,
+    youtubeDisablekbValue: options.elements.youtubeDisablekbValue,
     thumbnailName: options.elements.thumbnailName,
     thumbnailPreview: options.elements.thumbnailPreview,
     thumbnailSection: options.elements.thumbnailSection,
+    thumbnailGenerateButton: options.elements.thumbnailGenerateButton,
     thumbnailClearButton: options.elements.thumbnailClearButton,
     thumbnailRemoveButton: options.elements.thumbnailRemoveButton,
     seekStartInput: options.elements.seekStartInput,
@@ -289,6 +304,14 @@ export function initializeMediaEditRuntime(options: InitializeMediaEditRuntimeOp
       seekEnd: options.elements.seekEndInput?.value,
       fadeInEnd: options.elements.fadeInEndInput?.value,
       fadeOutStart: options.elements.fadeOutStartInput?.value,
+      youtubeCcOverride: options.elements.youtubeCcOverride?.checked,
+      youtubeCc: options.elements.youtubeCcValue?.checked,
+      youtubeFsOverride: options.elements.youtubeFsOverride?.checked,
+      youtubeFs: options.elements.youtubeFsValue?.checked,
+      youtubeControlsOverride: options.elements.youtubeControlsOverride?.checked,
+      youtubeControls: options.elements.youtubeControlsValue?.checked,
+      youtubeDisablekbOverride: options.elements.youtubeDisablekbOverride?.checked,
+      youtubeDisablekb: options.elements.youtubeDisablekbValue?.checked,
     }),
   });
   readMediaEditDraftFromForm = draftBindings.readMediaEditDraftFromForm;
@@ -340,6 +363,8 @@ export function initializeMediaEditRuntime(options: InitializeMediaEditRuntimeOp
     readDraftFromForm: draftBindings.readMediaEditDraftFromForm,
     validateDraft: uiBindings.validateAndRenderMediaEditDraftFromForm,
     setSaveButtonDisabled: uiBindings.setMediaEditSaveButtonDisabled,
+    canMutateCurrentPlaylist: options.canMutateCurrentPlaylist,
+    applyEditRestrictions: options.applyEditRestrictions,
     applyDraftToMediaItem,
   });
 
@@ -369,8 +394,14 @@ export function initializeMediaEditRuntime(options: InitializeMediaEditRuntimeOp
     updatePlaylist: options.updatePlaylist,
     createPreview: mediaEditPreview.createMediaEditPreview,
     startDurationSyncWait: mediaEditDurationSync.startIfNeeded,
+    afterShow: () => {
+      autoResizeMediaEditTextarea(options.elements.descriptionInput);
+    },
     getActiveItem: () => mediaEditActiveItem,
     getDraftKey: draftBindings.getMediaEditDraftKey,
+    canMutateCurrentPlaylist: options.canMutateCurrentPlaylist,
+    applyEditRestrictions: options.applyEditRestrictions,
+    updateNotice: options.updateNotice,
     hasUnsavedDraft: draftBindings.isActiveMediaEditUnsaved,
     isDirty: () => mediaEditIsDirty,
     discardDraft: draftBindings.discardActiveMediaEditDraft,
@@ -379,6 +410,8 @@ export function initializeMediaEditRuntime(options: InitializeMediaEditRuntimeOp
 
   initializeMediaEditControlsRuntime({
     elements: options.elements,
+    baseUrl: options.baseUrl,
+    thumbnailGenerateEndpoint: options.thumbnailGenerateEndpoint,
     defaultVolume: options.defaultVolume,
     getLocalizedMessage: (key, fallback) => options.getLocalizedMessage(key, fallback),
     updateNotice: options.updateNotice,

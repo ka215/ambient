@@ -93,6 +93,7 @@ class Ambient {
             return $messages;
         };
         $youtube_metadata_capability = $this->get_youtube_metadata_capability();
+        $thumbnail_generation_capability = $this->get_thumbnail_generation_capability();
 
         if ( empty( $this->playlists ) ) {
             $this->set_warn( $this->__( 'Playlist not found. Please create a new playlist.' ) );
@@ -101,6 +102,7 @@ class Ambient {
                 'isCloud' => $this->is_cloud(),
                 'messages' => $build_frontend_messages(),
                 'youtubeMetadata' => $youtube_metadata_capability,
+                'thumbnailGeneration' => $thumbnail_generation_capability,
             ] );
         } else {
             // Pass all playlist data to JavaScript of view.
@@ -116,6 +118,7 @@ class Ambient {
                 'mediaDir'  => str_replace( $app_root_normalized, './', str_replace( '\\', '/', MEDIA_DIR ) ),
                 'messages'  => $build_frontend_messages(),
                 'youtubeMetadata' => $youtube_metadata_capability,
+                'thumbnailGeneration' => $thumbnail_generation_capability,
             ];
             if ( count( $this->playlists ) > 1 ) {
                 // If there are multiple playlists, prompt you to select a playlist.
@@ -219,6 +222,10 @@ class Ambient {
                 $method = 'save_media_thumbnail';
                 $_route = 'Upload media thumbnail';
                 break;
+            case 'post:thumbnail-generate':
+                $method = 'generate_media_thumbnail';
+                $_route = 'Generate media thumbnail';
+                break;
             case 'delete:thumbnail':
                 $method = 'delete_media_thumbnail';
                 $_route = 'Delete media thumbnail';
@@ -263,6 +270,33 @@ class Ambient {
             'enabled' => $api_key !== '',
             'monthlyLimit' => $limit,
             'allowOverLimit' => amp_env_bool( 'YOUTUBE_METADATA_ALLOW_OVER_LIMIT', false ),
+        ];
+    }
+
+    public function is_youtube_metadata_enabled(): bool {
+        $capability = $this->get_youtube_metadata_capability();
+        return ( $capability['enabled'] ?? false ) === true;
+    }
+
+    protected function get_configured_ffmpeg_path(): ?string {
+        $path = trim( (string)amp_env( 'AMBIENT_FFMPEG_PATH', '' ) );
+        if ( $path === '' ) {
+            return null;
+        }
+        $resolved = amp_resolve_path( $path, APP_ROOT );
+        if ( !is_file( $resolved ) ) {
+            return null;
+        }
+        if ( is_executable( $resolved ) || preg_match( '/\.exe$/i', $resolved ) ) {
+            return $resolved;
+        }
+        return null;
+    }
+
+    private function get_thumbnail_generation_capability(): array {
+        return [
+            'enabled' => $this->is_local() && $this->get_configured_ffmpeg_path() !== null,
+            'outputFormat' => 'webp',
         ];
     }
 

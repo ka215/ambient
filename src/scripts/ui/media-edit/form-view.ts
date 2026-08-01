@@ -1,5 +1,22 @@
 import type { MediaEditDraft } from '../../domain/media-edit/draft';
 
+export function autoResizeMediaEditTextarea(textarea: HTMLTextAreaElement | null): void {
+  if (!textarea) {
+    return;
+  }
+  const computed = window.getComputedStyle(textarea);
+  const rows = Math.max(5, textarea.rows || Number(textarea.getAttribute('rows')) || 5);
+  const fontSize = Number.parseFloat(computed.fontSize) || 16;
+  const lineHeight = Number.parseFloat(computed.lineHeight) || fontSize * 1.5;
+  const paddingY = (Number.parseFloat(computed.paddingTop) || 0) + (Number.parseFloat(computed.paddingBottom) || 0);
+  const borderY = (Number.parseFloat(computed.borderTopWidth) || 0) + (Number.parseFloat(computed.borderBottomWidth) || 0);
+  const minHeight = lineHeight * rows + paddingY + (computed.boxSizing === 'border-box' ? borderY : 0);
+
+  textarea.style.height = 'auto';
+  textarea.style.minHeight = `${minHeight}px`;
+  textarea.style.height = `${Math.max(minHeight, textarea.scrollHeight)}px`;
+}
+
 export function resolveMediaEditThumbnailSrc(options: {
   mediaItem: MediaItem | null;
   draft: MediaEditDraft | null;
@@ -28,9 +45,20 @@ export function applyMediaEditDraftToFormView(options: {
   descriptionInput: HTMLTextAreaElement | null;
   volumeInput: HTMLInputElement | null;
   volumeDisplay: HTMLElement | null;
+  youtubeAdvancedSection: HTMLElement | null;
+  youtubeAdvancedPanel: HTMLElement | null;
+  youtubeCcOverride: HTMLInputElement | null;
+  youtubeCcValue: HTMLInputElement | null;
+  youtubeFsOverride: HTMLInputElement | null;
+  youtubeFsValue: HTMLInputElement | null;
+  youtubeControlsOverride: HTMLInputElement | null;
+  youtubeControlsValue: HTMLInputElement | null;
+  youtubeDisablekbOverride: HTMLInputElement | null;
+  youtubeDisablekbValue: HTMLInputElement | null;
   thumbnailName: HTMLElement | null;
   thumbnailPreview: HTMLImageElement | null;
   thumbnailSection: HTMLElement | null;
+  thumbnailGenerateButton: HTMLButtonElement | null;
   thumbnailClearButton: HTMLButtonElement | null;
   thumbnailRemoveButton: HTMLButtonElement | null;
   seekStartInput: HTMLInputElement | null;
@@ -58,7 +86,10 @@ export function applyMediaEditDraftToFormView(options: {
 
   options.titleInput && (options.titleInput.value = options.draft.title);
   options.artistInput && (options.artistInput.value = options.draft.artist);
-  options.descriptionInput && (options.descriptionInput.value = options.draft.description);
+  if (options.descriptionInput) {
+    options.descriptionInput.value = options.draft.description;
+    autoResizeMediaEditTextarea(options.descriptionInput);
+  }
 
   if (options.volumeInput) {
     options.syncVolumeSlider({
@@ -68,6 +99,33 @@ export function applyMediaEditDraftToFormView(options: {
       display: options.volumeDisplay,
     });
   }
+
+  const isYouTubeItem = !!options.activeItem?.videoid && String(options.activeItem.videoid).trim() !== '';
+  options.youtubeAdvancedSection?.classList.toggle('hidden', !isYouTubeItem);
+  if (!isYouTubeItem) {
+    options.youtubeAdvancedPanel?.classList.add('hidden');
+  }
+
+  const syncAdvancedSetting = (
+    overrideInput: HTMLInputElement | null,
+    valueInput: HTMLInputElement | null,
+    overrideValue: boolean,
+    settingValue: boolean
+  ): void => {
+    if (overrideInput) {
+      overrideInput.checked = overrideValue;
+    }
+    if (valueInput) {
+      valueInput.checked = settingValue;
+      valueInput.disabled = !overrideValue;
+      valueInput.setAttribute('aria-disabled', String(!overrideValue));
+    }
+  };
+
+  syncAdvancedSetting(options.youtubeCcOverride, options.youtubeCcValue, options.draft.youtubeCcOverride, options.draft.youtubeCc);
+  syncAdvancedSetting(options.youtubeFsOverride, options.youtubeFsValue, options.draft.youtubeFsOverride, options.draft.youtubeFs);
+  syncAdvancedSetting(options.youtubeControlsOverride, options.youtubeControlsValue, options.draft.youtubeControlsOverride, options.draft.youtubeControls);
+  syncAdvancedSetting(options.youtubeDisablekbOverride, options.youtubeDisablekbValue, options.draft.youtubeDisablekbOverride, options.draft.youtubeDisablekb);
 
   if (options.thumbnailName) {
     options.thumbnailName.textContent = options.draft.thumbnailMode === 'upload'
@@ -86,6 +144,12 @@ export function applyMediaEditDraftToFormView(options: {
   if (options.thumbnailSection) {
     options.thumbnailSection.classList.toggle('hidden', !options.isLocalMode);
   }
+  const thumbnailGenerationEnabled = (window as any).AmbientData?.thumbnailGeneration?.enabled === true;
+  const canGenerateThumbnail = options.isLocalMode
+    && thumbnailGenerationEnabled
+    && !!options.activeItem?.file
+    && /\.(mp4|webm|mov|m4v|ogv|avi|mkv)(\?.*)?$/i.test(String(options.activeItem.file));
+  options.thumbnailGenerateButton?.classList.toggle('hidden', !canGenerateThumbnail);
 
   const hasThumbnail = options.draft.thumbnailMode === 'upload'
     || (options.draft.thumbnailMode !== 'remove' && (

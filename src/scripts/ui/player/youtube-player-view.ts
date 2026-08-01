@@ -71,6 +71,7 @@ export function buildYouTubePreviewPlayerConfig(videoId: string): {
     controls: number;
     rel: number;
     fs: number;
+    playsinline: number;
   };
 } {
   return {
@@ -82,6 +83,7 @@ export function buildYouTubePreviewPlayerConfig(videoId: string): {
       controls: 1,
       rel: 0,
       fs: 0,
+      playsinline: 1,
     },
   };
 }

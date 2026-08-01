@@ -15,10 +15,22 @@ export interface MediaEditElements {
   descriptionInput: HTMLTextAreaElement | null;
   volumeInput: HTMLInputElement | null;
   volumeValue: HTMLElement | null;
+  youtubeAdvancedSection: HTMLElement | null;
+  youtubeAdvancedToggle: HTMLButtonElement | null;
+  youtubeAdvancedPanel: HTMLElement | null;
+  youtubeCcOverride: HTMLInputElement | null;
+  youtubeCcValue: HTMLInputElement | null;
+  youtubeFsOverride: HTMLInputElement | null;
+  youtubeFsValue: HTMLInputElement | null;
+  youtubeControlsOverride: HTMLInputElement | null;
+  youtubeControlsValue: HTMLInputElement | null;
+  youtubeDisablekbOverride: HTMLInputElement | null;
+  youtubeDisablekbValue: HTMLInputElement | null;
   thumbnailPreview: HTMLImageElement | null;
   thumbnailName: HTMLElement | null;
   thumbnailInput: HTMLInputElement | null;
   thumbnailPickButton: HTMLButtonElement | null;
+  thumbnailGenerateButton: HTMLButtonElement | null;
   thumbnailRemoveButton: HTMLButtonElement | null;
   thumbnailClearButton: HTMLButtonElement | null;
   thumbnailSection: HTMLElement | null;
@@ -73,10 +85,22 @@ export function resolveMediaEditElements(root: Document = document): MediaEditEl
     descriptionInput: root.getElementById('modal-media-edit-description') as HTMLTextAreaElement | null,
     volumeInput: root.getElementById('modal-media-edit-volume') as HTMLInputElement | null,
     volumeValue: root.getElementById('modal-media-edit-volume-value') as HTMLElement | null,
+    youtubeAdvancedSection: root.getElementById('modal-media-edit-youtube-advanced') as HTMLElement | null,
+    youtubeAdvancedToggle: root.getElementById('btn-media-edit-youtube-advanced') as HTMLButtonElement | null,
+    youtubeAdvancedPanel: root.getElementById('modal-media-edit-youtube-advanced-panel') as HTMLElement | null,
+    youtubeCcOverride: root.getElementById('modal-media-edit-youtube-cc-override') as HTMLInputElement | null,
+    youtubeCcValue: root.getElementById('modal-media-edit-youtube-cc') as HTMLInputElement | null,
+    youtubeFsOverride: root.getElementById('modal-media-edit-youtube-fs-override') as HTMLInputElement | null,
+    youtubeFsValue: root.getElementById('modal-media-edit-youtube-fs') as HTMLInputElement | null,
+    youtubeControlsOverride: root.getElementById('modal-media-edit-youtube-controls-override') as HTMLInputElement | null,
+    youtubeControlsValue: root.getElementById('modal-media-edit-youtube-controls') as HTMLInputElement | null,
+    youtubeDisablekbOverride: root.getElementById('modal-media-edit-youtube-disablekb-override') as HTMLInputElement | null,
+    youtubeDisablekbValue: root.getElementById('modal-media-edit-youtube-disablekb') as HTMLInputElement | null,
     thumbnailPreview: root.getElementById('modal-media-edit-thumbnail-preview') as HTMLImageElement | null,
     thumbnailName: root.getElementById('modal-media-edit-thumbnail-name') as HTMLElement | null,
     thumbnailInput: root.getElementById('modal-media-edit-thumbnail-input') as HTMLInputElement | null,
     thumbnailPickButton: root.getElementById('btn-media-edit-thumbnail-pick') as HTMLButtonElement | null,
+    thumbnailGenerateButton: root.getElementById('btn-media-edit-thumbnail-generate') as HTMLButtonElement | null,
     thumbnailRemoveButton: root.getElementById('btn-media-edit-thumbnail-remove') as HTMLButtonElement | null,
     thumbnailClearButton: root.getElementById('btn-media-edit-thumbnail-clear') as HTMLButtonElement | null,
     thumbnailSection: root.getElementById('media-edit-thumbnail-section') as HTMLElement | null,

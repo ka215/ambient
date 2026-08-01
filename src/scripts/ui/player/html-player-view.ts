@@ -105,6 +105,8 @@ export function createHtmlPreviewPlayerView(options: {
   ].filter(Boolean).join(' ');
   playerElement.setAttribute('preload', 'metadata');
   playerElement.setAttribute('playsinline', 'true');
+  playerElement.removeAttribute('autoplay');
+  playerElement.autoplay = false;
 
   return { playerElement, sourceElement };
 }
