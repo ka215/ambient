@@ -121,6 +121,22 @@ interface NotificationPayload {
   delay?: number;
 }
 
+type AmbientFilterCallback<TValue = any, TContext = any> =
+  (value: TValue, context: TContext) => TValue | Promise<TValue>;
+
+interface AmbientHooks {
+  addFilter<TValue = any, TContext = any>(
+    hookName: string,
+    callback: AmbientFilterCallback<TValue, TContext>,
+    priority?: number
+  ): void;
+  applyFilters<TValue = any, TContext = any>(
+    hookName: string,
+    value: TValue,
+    context?: TContext
+  ): Promise<TValue>;
+}
+
 /**
  * Window size configuration
  */
@@ -197,6 +213,9 @@ interface ApiResponse<T = any> {
  * Global variables passed from PHP / YouTube IFrame API
  */
 declare var AmbientData: AmbientData;
+interface Window {
+  AmbientHooks?: AmbientHooks;
+}
 declare var APP_KEY: string;
 declare var YT: {
   Player: new (elementId: string, options: YTPlayerOptions) => YTPlayer;

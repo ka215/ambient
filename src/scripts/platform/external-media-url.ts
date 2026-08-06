@@ -1,0 +1,170 @@
+import { resolveHtmlMediaMimeType } from '../ui/player/html-player-source';
+import { resolveHtmlPlayerKind, type HtmlPlayerKind } from '../ui/player/player-setup';
+
+export interface ExternalMediaUrlCheckResult {
+  ok: boolean;
+  url: string;
+  kind: HtmlPlayerKind | null;
+  reason?: 'invalid-url' | 'unsupported-extension' | 'unsupported-mime' | 'load-timeout' | 'load-error';
+  message: string;
+}
+
+function getExtension(path: string): string {
+  const normalizedPath = String(path || '').split(/[?#]/, 1)[0] || '';
+  const lastSlashIndex = Math.max(normalizedPath.lastIndexOf('/'), normalizedPath.lastIndexOf('\\'));
+  const fileName = lastSlashIndex >= 0 ? normalizedPath.slice(lastSlashIndex + 1) : normalizedPath;
+  const dotIndex = fileName.lastIndexOf('.');
+
+  if (dotIndex < 0 || dotIndex === fileName.length - 1) {
+    return '';
+  }
+
+  return fileName.slice(dotIndex + 1).toLowerCase();
+}
+
+export function normalizeExternalMediaUrl(value: string): string | null {
+  const normalized = String(value || '').trim();
+  if (normalized === '' || /^\/\//.test(normalized)) {
+    return null;
+  }
+  try {
+    const url = new URL(normalized);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return null;
+    }
+    return url.toString();
+  } catch (_error) {
+    return null;
+  }
+}
+
+export function isValidExternalMediaUrlFormat(value: string): boolean {
+  const normalizedUrl = normalizeExternalMediaUrl(value);
+  return normalizedUrl !== null;
+}
+
+function checkMediaElementPlayable(options: {
+  url: string;
+  kind: HtmlPlayerKind;
+  timeoutMs: number;
+  checkMime: boolean;
+}): Promise<ExternalMediaUrlCheckResult> {
+  const mediaElement = document.createElement(options.kind);
+  if (options.checkMime) {
+    const mimeType = resolveHtmlMediaMimeType(options.url, options.kind);
+    if (mimeType && mediaElement.canPlayType(mimeType) === '') {
+      return Promise.resolve({
+        ok: false,
+        url: options.url,
+        kind: options.kind,
+        reason: 'unsupported-mime',
+        message: 'This media type cannot be played by your browser.',
+      });
+    }
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const cleanup = (): void => {
+      mediaElement.removeEventListener('loadedmetadata', onSuccess);
+      mediaElement.removeEventListener('canplay', onSuccess);
+      mediaElement.removeEventListener('error', onError);
+      mediaElement.removeAttribute('src');
+      mediaElement.load();
+    };
+    const settle = (result: ExternalMediaUrlCheckResult): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      window.clearTimeout(timeoutId);
+      cleanup();
+      resolve(result);
+    };
+    const onSuccess = (): void => settle({
+      ok: true,
+      url: options.url,
+      kind: options.kind,
+      message: 'Media URL is playable.',
+    });
+    const onError = (): void => settle({
+      ok: false,
+      url: options.url,
+      kind: options.kind,
+      reason: 'load-error',
+      message: 'Failed to load media URL.',
+    });
+    const timeoutId = window.setTimeout(() => {
+      settle({
+        ok: false,
+        url: options.url,
+        kind: options.kind,
+        reason: 'load-timeout',
+        message: 'Media URL check timed out.',
+      });
+    }, options.timeoutMs);
+
+    mediaElement.preload = 'metadata';
+    mediaElement.addEventListener('loadedmetadata', onSuccess, { once: true });
+    mediaElement.addEventListener('canplay', onSuccess, { once: true });
+    mediaElement.addEventListener('error', onError, { once: true });
+    mediaElement.src = options.url;
+    mediaElement.load();
+  });
+}
+
+async function checkExtensionlessMediaUrlPlayable(
+  url: string,
+  timeoutMs: number
+): Promise<ExternalMediaUrlCheckResult> {
+  const results = await Promise.all([
+    checkMediaElementPlayable({ url, kind: 'video', timeoutMs, checkMime: false }),
+    checkMediaElementPlayable({ url, kind: 'audio', timeoutMs, checkMime: false }),
+  ]);
+  return results.find((result) => result.ok) || {
+    ok: false,
+    url,
+    kind: null,
+    reason: results.some((result) => result.reason === 'load-timeout') ? 'load-timeout' : 'load-error',
+    message: 'Failed to load media URL.',
+  };
+}
+
+export async function checkExternalMediaUrlPlayable(
+  value: string,
+  timeoutMs = 8000
+): Promise<ExternalMediaUrlCheckResult> {
+  const normalizedUrl = normalizeExternalMediaUrl(value);
+  if (!normalizedUrl) {
+    return Promise.resolve({
+      ok: false,
+      url: '',
+      kind: null,
+      reason: 'invalid-url',
+      message: 'Invalid media URL.',
+    });
+  }
+
+  const extension = getExtension(normalizedUrl);
+  if (extension === '') {
+    return checkExtensionlessMediaUrlPlayable(normalizedUrl, timeoutMs);
+  }
+
+  const kind = resolveHtmlPlayerKind(extension);
+  if (!kind) {
+    return Promise.resolve({
+      ok: false,
+      url: normalizedUrl,
+      kind: null,
+      reason: 'unsupported-extension',
+      message: 'Unsupported media URL format.',
+    });
+  }
+
+  return checkMediaElementPlayable({
+    url: normalizedUrl,
+    kind,
+    timeoutMs,
+    checkMime: true,
+  });
+}

@@ -202,6 +202,43 @@ function amp_head(): string {
     $output[] = '<link rel="icon" href="./'. basename( VIEWS_DIR ) .'/images/ambient.ico">';
         $output[] = "<script>
 (function () {
+    if (window.AmbientHooks && typeof window.AmbientHooks.addFilter === 'function') {
+        return;
+    }
+    var filters = {};
+    window.AmbientHooks = {
+        addFilter: function (hookName, callback, priority) {
+            if (typeof hookName !== 'string' || hookName === '' || typeof callback !== 'function') {
+                return;
+            }
+            var hookPriority = Number.isFinite(Number(priority)) ? Number(priority) : 10;
+            filters[hookName] = filters[hookName] || [];
+            filters[hookName].push({
+                callback: callback,
+                priority: hookPriority,
+                order: filters[hookName].length
+            });
+            filters[hookName].sort(function (a, b) {
+                return a.priority === b.priority ? a.order - b.order : a.priority - b.priority;
+            });
+        },
+        applyFilters: async function (hookName, value, context) {
+            var chain = filters[hookName] || [];
+            var nextValue = value;
+            for (var i = 0; i < chain.length; i++) {
+                try {
+                    nextValue = await chain[i].callback(nextValue, context || {});
+                } catch (error) {
+                    console.error('[AmbientHooks] Filter failed:', hookName, error);
+                }
+            }
+            return nextValue;
+        }
+    };
+})();
+</script>";
+        $output[] = "<script>
+(function () {
     try {
         var appKey = 'AmbientUserData';
         var raw = window.localStorage ? window.localStorage.getItem(appKey) : null;

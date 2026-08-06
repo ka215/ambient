@@ -245,6 +245,16 @@ a[aria-current="true"] .text--playlist-artist {
     -webkit-mask-image: url("../assets/icons/ui-check.svg");
 }
 
+.ui-icon-mask--upload {
+    mask-image: url("../assets/icons/ui-upload.svg");
+    -webkit-mask-image: url("../assets/icons/ui-upload.svg");
+}
+
+.ui-icon-mask--link {
+    mask-image: url("../assets/icons/ui-link.svg");
+    -webkit-mask-image: url("../assets/icons/ui-link.svg");
+}
+
 .ui-icon-mask--playlist {
     mask-image: url("../assets/icons/ui-playlist.svg");
     -webkit-mask-image: url("../assets/icons/ui-playlist.svg");

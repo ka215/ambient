@@ -1,0 +1,214 @@
+import { type APIRequestContext, type Page } from '@playwright/test';
+
+import { expect, test } from '../fixtures/ambient-page.fixture';
+import { E2E_PLAYLIST_NAME, installE2ePlaylistFixture, removeE2ePlaylistFixture } from '../utils/playlist-fixtures';
+
+const HTML_PAGE_URL = 'https://ambient-e2e.invalid/page-with-extensionless-media';
+const RESOLVED_MEDIA_URL = 'https://media.example.test/stream/e2e-local-media?asset=video';
+
+function baseURL(): string {
+  return process.env.E2E_BASE_URL || 'https://dev-amp.ka2.org/';
+}
+
+function resolverURL(): string {
+  return new URL('tests/e2e/fixtures/custom-media-url-resolver.php', baseURL()).toString();
+}
+
+async function skipUnlessResolverFixtureAvailable(request: APIRequestContext): Promise<void> {
+  const response = await request.get(resolverURL(), {
+    params: {
+      url: HTML_PAGE_URL,
+    },
+  });
+  const contentType = response.headers()['content-type'] || '';
+  test.skip(
+    !response.ok() || !contentType.includes('application/json'),
+    'SC-022 requires the PHP E2E resolver fixture to be served by the local test server.'
+  );
+  const payload = await response.json() as { mediaUrl?: string };
+  expect(payload.mediaUrl).toBe(RESOLVED_MEDIA_URL);
+}
+
+async function openManagementSection(
+  page: Page,
+  headingButtonSelector: string,
+  bodyId: string
+): Promise<void> {
+  const modalOpen = await page.evaluate(() => {
+    const el = document.getElementById('modal-options');
+    return el ? !el.classList.contains('hidden') : false;
+  });
+  if (!modalOpen) {
+    await page.evaluate(() => {
+      document.querySelector<HTMLElement>('#btn-options')?.click();
+    });
+    await page.waitForFunction(() => {
+      const el = document.getElementById('modal-options');
+      return el ? !el.classList.contains('hidden') : false;
+    }, { timeout: 8_000 });
+  }
+
+  const alreadyOpen = await page.evaluate((targetBodyId: string) => {
+    const el = document.getElementById(targetBodyId);
+    return el ? !el.classList.contains('hidden') : false;
+  }, bodyId);
+  if (alreadyOpen) {
+    return;
+  }
+
+  await page.evaluate((selector: string) => {
+    document.querySelector<HTMLElement>(selector)?.click();
+  }, headingButtonSelector);
+  await page.waitForFunction((targetBodyId: string) => {
+    const el = document.getElementById(targetBodyId);
+    return el ? !el.classList.contains('hidden') : false;
+  }, bodyId, { timeout: 8_000 });
+}
+
+async function installMediaElementSuccessStub(page: Page): Promise<void> {
+  await page.addInitScript((targetUrl) => {
+    const originalLoad = HTMLMediaElement.prototype.load;
+    Object.defineProperty(HTMLMediaElement.prototype, 'load', {
+      configurable: true,
+      value: function load() {
+        const media = this as HTMLMediaElement;
+        const src = media.currentSrc || media.getAttribute('src') || '';
+        if (src === targetUrl) {
+          window.setTimeout(() => {
+            media.dispatchEvent(new Event('canplay'));
+          }, 0);
+          return;
+        }
+        originalLoad.call(media);
+      },
+    });
+  }, RESOLVED_MEDIA_URL);
+}
+
+test.describe('SC-022 Local media URL hook and resolver', () => {
+  test.beforeEach(() => {
+    installE2ePlaylistFixture();
+  });
+
+  test.afterEach(() => {
+    removeE2ePlaylistFixture();
+  });
+
+  test('resolves an HTML page URL through localMediaUrl.beforeCheck before checking playback', async ({ ambientPage, page, request }) => {
+    await skipUnlessResolverFixtureAvailable(request);
+    await installMediaElementSuccessStub(page);
+    await page.context().addCookies([
+      {
+        name: 'lang',
+        value: 'ja',
+        url: baseURL(),
+      },
+    ]);
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.selectPlaylist(E2E_PLAYLIST_NAME);
+
+    await page.evaluate((endpointUrl) => {
+      (window as any).__ambientE2ELocalMediaHookCalls = [];
+      window.AmbientHooks?.addFilter('localMediaUrl.beforeCheck', async (url, context) => {
+        (window as any).__ambientE2ELocalMediaHookCalls.push({ url, context });
+        const endpoint = new URL(endpointUrl);
+        endpoint.searchParams.set('url', url);
+        const response = await fetch(endpoint.toString(), { credentials: 'same-origin' });
+        if (!response.ok) {
+          return url;
+        }
+        const payload = await response.json() as { mediaUrl?: unknown };
+        return typeof payload.mediaUrl === 'string' && payload.mediaUrl !== ''
+          ? payload.mediaUrl
+          : url;
+      }, 10);
+    }, resolverURL());
+
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+    await page.evaluate(() => {
+      const localType = document.getElementById('media-type-local') as HTMLInputElement | null;
+      if (!localType) {
+        throw new Error('media-type-local not found');
+      }
+      localType.click();
+    });
+
+    await expect(page.locator('#media-management-field-media-files')).toBeVisible();
+    await expect(page.locator('label[for="media-type-local"]')).toHaveText('その他のメディア');
+    await expect(page.locator('#local-media-tab-upload')).toContainText('ホストコンピュータ内のメディア');
+    await expect(page.locator('#local-media-tab-url')).toContainText('メディアのURL');
+    await expect(page.locator('#local-media-tab-upload .ui-icon-mask--upload')).toBeVisible();
+    await expect(page.locator('#local-media-tab-url .ui-icon-mask--link')).toBeVisible();
+    await expect(page.locator('#local-media-tab-upload').locator('..')).toHaveClass(/w-full/);
+    await expect(page.locator('#local-media-tab-url').locator('..')).toHaveClass(/w-full/);
+
+    await page.locator('#local-media-tab-url').click();
+    await expect(page.locator('#local-media-tab-url')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#local-media-tab-url')).toHaveClass(/bg-blue-100/);
+    await expect(page.locator('#local-media-url-panel')).toBeVisible();
+    await expect(page.locator('#local-media-url-label .required')).toHaveText('メディアのURL');
+    await expect(page.locator('#btn-check-local-media-url')).toHaveText('確認');
+    await expect.poll(async () => {
+      return page.locator('#btn-check-local-media-url').evaluate((button) => {
+        const style = window.getComputedStyle(button);
+        return style.whiteSpace === 'nowrap' && button.scrollWidth <= button.clientWidth + 1;
+      });
+    }).toBe(true);
+
+    await page.locator('#local-media-url').fill(HTML_PAGE_URL);
+    await page.locator('#local-media-url').dispatchEvent('input');
+    await expect(page.locator('#btn-check-local-media-url')).toBeEnabled();
+
+    await page.locator('#btn-check-local-media-url').click();
+    await expect(page.locator('#local-media-url')).toHaveValue(RESOLVED_MEDIA_URL);
+    await expect(page.locator('#local-media-filepath')).toHaveValue(RESOLVED_MEDIA_URL);
+    await expect(page.locator('#note-success-local-media-url')).toBeVisible();
+
+    await expect.poll(async () => {
+      return page.evaluate(() => (window as any).__ambientE2ELocalMediaHookCalls);
+    }).toEqual([
+      {
+        url: HTML_PAGE_URL,
+        context: {
+          source: 'media-management',
+          rawUrl: HTML_PAGE_URL,
+        },
+      },
+    ]);
+
+    const mediaTitle = `e2e-local-url-hook-${Date.now()}`;
+    await page.evaluate((title) => {
+      const category = document.getElementById('media-category') as HTMLSelectElement | null;
+      const titleInput = document.getElementById('media-title') as HTMLInputElement | null;
+      if (category && category.options.length > 0) {
+        const option = Array.from(category.options).find((item) => item.value !== '');
+        if (!option) {
+          throw new Error('media-category option not found');
+        }
+        category.value = option.value;
+        category.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (titleInput) {
+        titleInput.value = title;
+        titleInput.dispatchEvent(new Event('input', { bubbles: true }));
+        titleInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }, mediaTitle);
+
+    await expect(page.locator('#local-media-url')).toHaveAttribute('data-validate', 'true');
+    await expect(page.locator('#media-category')).toHaveAttribute('data-validate', 'true');
+    await expect(page.locator('#media-title')).toHaveAttribute('data-validate', 'true');
+    await expect(page.locator('#btn-add-media')).toBeEnabled();
+    await page.locator('#btn-add-media').click();
+    await expect(page.locator('#modal-options')).toHaveClass(/pointer-events-none/);
+
+    await expect.poll(async () => {
+      return page.evaluate((title) => {
+        return Array.from(document.querySelectorAll('#playlist-list-group a[data-playlist-item]'))
+          .some((item) => (item.textContent || '').includes(title));
+      }, mediaTitle);
+    }, { timeout: 10_000 }).toBe(true);
+  });
+});

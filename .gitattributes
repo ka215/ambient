@@ -1,0 +1,3 @@
+dist/manifest.json text eol=lf
+dist/assets/*.js text eol=lf
+dist/assets/*.css text eol=lf

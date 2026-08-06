@@ -29,6 +29,24 @@ if ( !defined( 'APP_ROOT' ) ) {
 //    console.log(message);
 //EOT, 'inline_scripts' );
 
+// Example of filtering a Local Media URL before Ambient checks whether it is playable.
+// This can be used to pass the entered page URL to a site-managed endpoint that extracts
+// the actual media file URL server-side, then returns that extracted media URL to Ambient.
+//amp_add_footer_script( <<<'EOT'
+//window.AmbientHooks.addFilter('localMediaUrl.beforeCheck', async function (url, context) {
+//    const endpoint = new URL('./refuges/custom-media-url-resolver.php', window.location.href);
+//    endpoint.searchParams.set('url', url);
+//    const response = await fetch(endpoint.toString(), { credentials: 'same-origin' });
+//    if (!response.ok) {
+//        return url;
+//    }
+//    const payload = await response.json();
+//    return typeof payload.mediaUrl === 'string' && payload.mediaUrl !== ''
+//        ? payload.mediaUrl
+//        : url;
+//}, 10);
+//EOT, 'inline_scripts' );
+
 // Example of adding custom content to the "About Ambient" section.
 // This slot accepts trusted HTML from this site-managed custom.php file.
 //amp_add_about_content( <<<'HTML'

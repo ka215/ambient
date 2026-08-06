@@ -1,4 +1,5 @@
 import type { MediaItem, PlaylistOptions } from '../types/ambient';
+import { resolveMediaImageDisplayUrl } from '../shared/media-image-cache';
 import {
   appendPlaylistQuickAddItem,
   createShuffledPlaylist,
@@ -91,6 +92,10 @@ export function updateAmbientPlaylistDisplay(options: {
     format: options.playlistFormat,
     imageDir: options.imageDir,
     fallbackThumbPath: options.fallbackThumbPath,
+    resolveImagePath: (image) => resolveMediaImageDisplayUrl({
+      imageDir: options.imageDir,
+      imagePath: image,
+    }),
     resolveYoutubeThumbnailUrl: createYouTubeThumbnailUrl,
     trimTitle: options.trimTitle,
     formatLabel: options.formatLabel,
@@ -149,7 +154,10 @@ export function updateAmbientCarousel(options: {
     mediaItems: options.mediaItems,
     placeholderImage: options.placeholderImage,
     resolveYouTubeThumbnail: createYouTubeThumbnailUrl,
-    resolveImagePath: (image) => `${options.imageDir ?? ''}${image}`,
+    resolveImagePath: (image) => resolveMediaImageDisplayUrl({
+      imageDir: options.imageDir,
+      imagePath: image,
+    }),
   });
 }
 

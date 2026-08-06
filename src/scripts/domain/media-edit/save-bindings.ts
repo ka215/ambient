@@ -35,6 +35,7 @@ export function createMediaEditSaveBindings(options: {
     activeItem: MediaItem;
     updatedItem: MediaItem;
     persistMessage: string;
+    thumbnailCacheBustImage: string | null;
   }) => void;
   failSave: (message: string, delay?: number) => void;
 }): {
@@ -106,6 +107,9 @@ export function createMediaEditSaveBindings(options: {
       activeItem,
       updatedItem: persistResult.updatedItem,
       persistMessage: persistResult.persistMessage,
+      thumbnailCacheBustImage: draft.thumbnailMode === 'upload'
+        ? persistResult.updatedItem.image || persistResult.updatedItem.thumb || draft.thumbnailName || null
+        : null,
     });
   }
 

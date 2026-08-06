@@ -1,4 +1,6 @@
 import type { MediaEditDraft } from '../../domain/media-edit/draft';
+import { resolveMediaImageDisplayUrl } from '../../shared/media-image-cache';
+import type { MediaItem } from '../../types/ambient';
 
 export function autoResizeMediaEditTextarea(textarea: HTMLTextAreaElement | null): void {
   if (!textarea) {
@@ -31,7 +33,10 @@ export function resolveMediaEditThumbnailSrc(options: {
   }
   const thumbnailName = options.draft?.thumbnailName || options.mediaItem?.image || options.mediaItem?.thumb || '';
   if (thumbnailName !== '' && options.imageDir) {
-    return options.imageDir + thumbnailName;
+    return resolveMediaImageDisplayUrl({
+      imageDir: options.imageDir,
+      imagePath: thumbnailName,
+    });
   }
   return options.getFallbackThumbnailSrc();
 }
