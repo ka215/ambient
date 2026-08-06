@@ -11,6 +11,7 @@ export interface PlaylistItemRenderOptions {
   format: string | null;
   imageDir?: string | null;
   fallbackThumbPath: string;
+  resolveImagePath: (image: string) => string;
   resolveYoutubeThumbnailUrl: (videoId: string) => string;
   trimTitle: (value: string) => string;
   formatLabel: (format: string, item: MediaItem) => string;
@@ -36,6 +37,7 @@ export interface PlaylistItemsRenderOptions {
   format: string | null;
   imageDir?: string | null;
   fallbackThumbPath: string;
+  resolveImagePath: (image: string) => string;
   resolveYoutubeThumbnailUrl: (videoId: string) => string;
   trimTitle: (value: string) => string;
   formatLabel: (format: string, item: MediaItem) => string;
@@ -320,7 +322,7 @@ export function createPlaylistItemElement(options: PlaylistItemRenderOptions): H
   let imageSrc = options.fallbackThumbPath;
   if ((options.item.image && options.item.image !== '') || (options.item.thumb && options.item.thumb !== '')) {
     if (options.imageDir) {
-      imageSrc = options.imageDir + (options.item.thumb && options.item.thumb !== '' ? options.item.thumb : options.item.image);
+      imageSrc = options.resolveImagePath(options.item.thumb && options.item.thumb !== '' ? options.item.thumb : options.item.image || '');
     }
   } else if (options.item.videoid && options.item.videoid !== '') {
     imageSrc = options.resolveYoutubeThumbnailUrl(options.item.videoid);
@@ -429,6 +431,7 @@ export function renderPlaylistItems(options: PlaylistItemsRenderOptions): void {
       format: options.format,
       imageDir: options.imageDir || null,
       fallbackThumbPath: options.fallbackThumbPath,
+      resolveImagePath: options.resolveImagePath,
       resolveYoutubeThumbnailUrl: options.resolveYoutubeThumbnailUrl,
       trimTitle: options.trimTitle,
       formatLabel: options.formatLabel,

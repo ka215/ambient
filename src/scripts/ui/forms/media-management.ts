@@ -1,4 +1,10 @@
 import { bindFileDropzone, setFileDropzoneState } from './file-dropzone';
+import { applyAmbientFilter, type LocalMediaUrlBeforeCheckContext } from '../../shared/ambient-hooks';
+import {
+  checkExternalMediaUrlPlayable,
+  isValidExternalMediaUrlFormat,
+  normalizeExternalMediaUrl,
+} from '../../platform/external-media-url';
 import { extractLocalMediaMetadata } from '../../platform/local-media-metadata';
 import type { YouTubeMetadataPayload } from '../../types/ambient';
 
@@ -117,6 +123,17 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
   const artistField = document.getElementById('media-artist') as HTMLInputElement | null;
   const descField = document.getElementById('media-desc') as HTMLInputElement | HTMLTextAreaElement | null;
   const videoIdField = document.getElementById('youtube-videoid') as HTMLInputElement | null;
+  const localMediaContainer = document.getElementById('media-management-field-media-files') as HTMLElement | null;
+  const localMediaTabs = Array.from(document.querySelectorAll('[data-local-media-mode]')) as HTMLButtonElement[];
+  const localMediaPanels = Array.from(document.querySelectorAll('[data-local-media-panel]')) as HTMLElement[];
+  const localMediaUrlInput = document.getElementById('local-media-url') as HTMLInputElement | null;
+  const localMediaUrlCheckButton = document.getElementById('btn-check-local-media-url') as HTMLButtonElement | null;
+  const localMediaUrlStatus = document.getElementById('local-media-url-status') as HTMLElement | null;
+  const localMediaUploadDisabled = localMediaContainer?.dataset['cloudUploadDisabled'] === 'true';
+  let activeLocalMediaMode: 'upload' | 'url' = localMediaContainer?.dataset['defaultLocalInputMode'] === 'url'
+    ? 'url'
+    : 'upload';
+  let localMediaUrlRequestSeq = 0;
 
   let metadataDebounceId: ReturnType<typeof setTimeout> | null = null;
   let metadataRequestSeq = 0;
@@ -130,6 +147,22 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
 
   const setMetadataAssistVisible = (visible: boolean): void => {
     youtubeMetadataAssist?.classList.toggle('hidden', !visible);
+  };
+
+  const setLocalMediaUrlStatus = (
+    message: string,
+    state: 'neutral' | 'loading' | 'success' | 'error' = 'neutral'
+  ): void => {
+    if (!localMediaUrlStatus) {
+      return;
+    }
+    localMediaUrlStatus.textContent = message;
+    localMediaUrlStatus.classList.toggle('text-red-600', state === 'error');
+    localMediaUrlStatus.classList.toggle('dark:text-red-400', state === 'error');
+    localMediaUrlStatus.classList.toggle('text-green-700', state === 'success');
+    localMediaUrlStatus.classList.toggle('dark:text-green-300', state === 'success');
+    localMediaUrlStatus.classList.toggle('text-gray-500', state === 'neutral' || state === 'loading');
+    localMediaUrlStatus.classList.toggle('dark:text-gray-300', state === 'neutral' || state === 'loading');
   };
 
   const setMetadataState = (
@@ -160,6 +193,92 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
       metadataDebounceId = null;
     }
     setMetadataState('idle');
+  };
+
+  const getInputFilepath = (): HTMLInputElement | null => {
+    return document.getElementById('local-media-filepath') as HTMLInputElement | null;
+  };
+
+  const setLocalMediaUrlCheckButtonDisabled = (disabled: boolean): void => {
+    if (!localMediaUrlCheckButton) {
+      return;
+    }
+    localMediaUrlCheckButton.disabled = disabled;
+    localMediaUrlCheckButton.setAttribute('aria-disabled', String(disabled));
+  };
+
+  const clearLocalMediaUrlState = (): void => {
+    localMediaUrlRequestSeq++;
+    if (localMediaUrlInput) {
+      setValidated(localMediaUrlInput, null);
+    }
+    if (localMediaUrlCheckButton) {
+      setLocalMediaUrlCheckButtonDisabled(true);
+      localMediaUrlCheckButton.removeAttribute('aria-busy');
+    }
+    const inputFilepath = getInputFilepath();
+    if (inputFilepath) {
+      inputFilepath.value = '';
+    }
+    setLocalMediaUrlStatus(
+      getLocalizedMessage(
+        'Enter an audio or video URL, then check whether it can be played.',
+        'Enter an audio or video URL, then check whether it can be played.'
+      )
+    );
+  };
+
+  const syncLocalMediaInputMode = (mode: 'upload' | 'url', options: { clearInactive: boolean } = { clearInactive: true }): void => {
+    if (mode === 'upload' && localMediaUploadDisabled) {
+      activeLocalMediaMode = 'url';
+    } else {
+      activeLocalMediaMode = mode;
+    }
+
+    localMediaTabs.forEach((tab) => {
+      const isActive = tab.dataset['localMediaMode'] === activeLocalMediaMode;
+      tab.setAttribute('aria-selected', String(isActive));
+      tab.classList.toggle('bg-blue-100', isActive);
+      tab.classList.toggle('text-blue-700', isActive);
+      tab.classList.toggle('border-blue-300', isActive);
+      tab.classList.toggle('dark:bg-blue-900', isActive);
+      tab.classList.toggle('dark:text-blue-100', isActive);
+      tab.classList.toggle('dark:border-blue-700', isActive);
+      tab.classList.toggle('bg-white', !isActive);
+      tab.classList.toggle('text-gray-500', !isActive);
+      tab.classList.toggle('border-gray-300', !isActive);
+      tab.classList.toggle('dark:bg-gray-800', !isActive);
+      tab.classList.toggle('dark:text-gray-400', !isActive);
+      tab.classList.toggle('dark:border-gray-600', !isActive);
+      tab.classList.toggle('opacity-50', tab.disabled);
+      tab.classList.toggle('cursor-not-allowed', tab.disabled);
+    });
+    localMediaPanels.forEach((panel) => {
+      panel.classList.toggle('hidden', panel.dataset['localMediaPanel'] !== activeLocalMediaMode);
+    });
+
+    if (!options.clearInactive) {
+      return;
+    }
+
+    const inputFilepath = getInputFilepath();
+    if (inputFilepath) {
+      inputFilepath.value = '';
+    }
+    if (activeLocalMediaMode === 'url') {
+      const localMediaFile = document.getElementById('local-media-file') as HTMLInputElement | null;
+      if (localMediaFile) {
+        localMediaFile.value = '';
+        setValidated(localMediaFile, null);
+      }
+      const localMediaFileName = document.getElementById('local-media-file-name') as HTMLElement | null;
+      if (localMediaFileName && localMediaFile) {
+        localMediaFileName.textContent = localMediaFile.dataset['labelEmpty'] || 'No file selected';
+      }
+      setFileDropzoneState(document.getElementById('local-media-dropzone'), { dragover: false, invalid: false });
+    } else {
+      clearLocalMediaUrlState();
+    }
   };
 
   const renderMetadataSuggestions = (metadata: YouTubeMetadataPayload): void => {
@@ -322,6 +441,66 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
   buttonApplyMetadataDesc?.addEventListener('click', () => applyMetadataField('desc'));
   buttonDismissMetadata?.addEventListener('click', () => clearMetadataSuggestions());
 
+  syncLocalMediaInputMode(activeLocalMediaMode, { clearInactive: false });
+  localMediaTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const mode = tab.dataset['localMediaMode'] === 'url' ? 'url' : 'upload';
+      syncLocalMediaInputMode(mode);
+    });
+  });
+  localMediaUrlCheckButton?.addEventListener('click', async () => {
+    if (!localMediaUrlInput || !canMutateCurrentPlaylist()) {
+      applyCloudEditRestrictions();
+      return;
+    }
+    const rawUrl = localMediaUrlInput.value;
+    const filteredUrl = await applyAmbientFilter<string, LocalMediaUrlBeforeCheckContext>(
+      'localMediaUrl.beforeCheck',
+      rawUrl,
+      {
+        source: 'media-management',
+        rawUrl,
+      }
+    );
+    const normalizedUrl = normalizeExternalMediaUrl(filteredUrl);
+    if (!normalizedUrl || !isValidExternalMediaUrlFormat(filteredUrl)) {
+      setValidated(localMediaUrlInput, false);
+      setLocalMediaUrlStatus(
+        getLocalizedMessage('Enter a valid http(s) audio or video URL.', 'Enter a valid http(s) audio or video URL.'),
+        'error'
+      );
+      return;
+    }
+    const requestSeq = ++localMediaUrlRequestSeq;
+    setLocalMediaUrlCheckButtonDisabled(true);
+    localMediaUrlCheckButton.setAttribute('aria-busy', 'true');
+    setValidated(localMediaUrlInput, null);
+    setLocalMediaUrlStatus(getLocalizedMessage('Checking media URL...', 'Checking media URL...'), 'loading');
+    const result = await checkExternalMediaUrlPlayable(normalizedUrl);
+    if (requestSeq !== localMediaUrlRequestSeq) {
+      return;
+    }
+    localMediaUrlCheckButton.removeAttribute('aria-busy');
+    if (!result.ok) {
+      const inputFilepath = getInputFilepath();
+      if (inputFilepath) {
+        inputFilepath.value = '';
+      }
+      setLocalMediaUrlCheckButtonDisabled(false);
+      setValidated(localMediaUrlInput, false);
+      setLocalMediaUrlStatus(getLocalizedMessage(result.message, result.message), 'error');
+      return;
+    }
+    const inputFilepath = getInputFilepath();
+    if (inputFilepath) {
+      inputFilepath.value = result.url;
+      inputFilepath.dispatchEvent(new Event('change'));
+    }
+    localMediaUrlInput.value = result.url;
+    setValidated(localMediaUrlInput, true);
+    setLocalMediaUrlStatus(getLocalizedMessage(result.message, result.message), 'success');
+  });
+
   elements.forEach((elm) => {
     const mediaUrlField = document.getElementById('media-management-field-media-url');
     const mediaFilesField = document.getElementById('media-management-field-media-files');
@@ -349,6 +528,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
           } else {
             mediaUrlField?.classList.add('hidden');
             mediaFilesField?.classList.remove('hidden');
+            syncLocalMediaInputMode(activeLocalMediaMode, { clearInactive: false });
             clearMetadataSuggestions();
           }
           setAddType(target.value);
@@ -453,6 +633,37 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
         });
         break;
       }
+      case 'local_media_url':
+        elm.addEventListener('input', (evt: Event) => {
+          const target = evt.target as HTMLInputElement;
+          const normalizedUrl = normalizeExternalMediaUrl(target.value);
+          localMediaUrlRequestSeq++;
+          const inputFilepath = getInputFilepath();
+          if (inputFilepath) {
+            inputFilepath.value = '';
+          }
+          setValidated(elm, null);
+          if (localMediaUrlCheckButton) {
+            setLocalMediaUrlCheckButtonDisabled(!normalizedUrl || !isValidExternalMediaUrlFormat(target.value));
+            localMediaUrlCheckButton.removeAttribute('aria-busy');
+          }
+          setLocalMediaUrlStatus(
+            normalizedUrl
+              ? getLocalizedMessage('Check the URL before adding media.', 'Check the URL before adding media.')
+              : getLocalizedMessage(
+                'Enter an audio or video URL, then check whether it can be played.',
+                'Enter an audio or video URL, then check whether it can be played.'
+              )
+          );
+        });
+        elm.addEventListener('change', (evt: Event) => {
+          const target = evt.target as HTMLInputElement;
+          const normalizedUrl = normalizeExternalMediaUrl(target.value);
+          if (normalizedUrl) {
+            target.value = normalizedUrl;
+          }
+        });
+        break;
       case 'media_filepath':
         elm.addEventListener('change', (evt: Event) => {
           (evt.target as HTMLElement).focus();
@@ -631,14 +842,21 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
     const categoryField = mediaCategorySelect?.classList.contains('hidden')
       ? 'media-category-new'
       : 'media-category';
-    const contains = [mediaType === 'youtube' ? 'youtube-url' : 'local-media-file', categoryField, 'media-title'];
+    const mediaSourceField = mediaType === 'youtube'
+      ? 'youtube-url'
+      : activeLocalMediaMode === 'url'
+        ? 'local-media-url'
+        : 'local-media-file';
+    const contains = [mediaSourceField, categoryField, 'media-title'];
     const isContainAll = contains.every((id) => validItems.includes(id));
     logger(`Check valid items for "${mediaType}":`, validItems, contains, isContainAll);
     if (buttonAddMedia) {
       if (isContainAll) {
         buttonAddMedia.removeAttribute('disabled');
+        buttonAddMedia.setAttribute('aria-disabled', 'false');
       } else {
         buttonAddMedia.setAttribute('disabled', '');
+        buttonAddMedia.setAttribute('aria-disabled', 'true');
       }
     }
   });

@@ -10,6 +10,7 @@ import {
   uploadMediaEditThumbnailIfNeeded as uploadMediaEditThumbnailIfNeededState,
 } from '../domain/media-edit/save';
 import { createMediaEditSaveBindings } from '../domain/media-edit/save-bindings';
+import { registerMediaImageCacheBust } from '../shared/media-image-cache';
 import type { MediaEditDraft } from '../domain/media-edit/draft';
 import type { MediaItem } from '../types/ambient';
 
@@ -129,7 +130,11 @@ export function initializeMediaEditSaveRuntime(options: InitializeMediaEditSaveR
     activeItem: MediaItem;
     updatedItem: MediaItem;
     persistMessage: string;
+    thumbnailCacheBustImage: string | null;
   }): void {
+    if (finalizeOptions.thumbnailCacheBustImage) {
+      registerMediaImageCacheBust(finalizeOptions.thumbnailCacheBustImage);
+    }
     const draftKey = options.getDraftKey(finalizeOptions.activeItem);
     options.deleteDraftByKey(draftKey);
     options.setBaseDraft(options.createBaseDraft(finalizeOptions.updatedItem));

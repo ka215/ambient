@@ -28,11 +28,14 @@ export function initializePlaylistPolicy(options: InitializePlaylistPolicyOption
   };
 
   const applyCloudEditRestrictions = (): void => {
+    const ambientData = options.getRuntimeAmbientData() || options.getAmbientData();
     applyCloudEditRestrictionsView({
       canMutatePlaylist: canMutateCurrentPlaylist(),
+      isCloud: ambientData?.isCloud === true,
       mediaForm: options.mediaForm,
       playlistForm: options.playlistForm,
       readonlyTitle: options.readonlyTitle,
+      cloudUploadTitle: 'Host computer file upload is not available in cloud mode.',
     });
   };
 

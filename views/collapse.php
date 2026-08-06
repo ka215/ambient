@@ -59,9 +59,8 @@
                               value="local" 
                               name="media_type" 
                               class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-700 dark:focus:ring-offset-gray-700 focus:ring-2 dark:bg-gray-600 dark:border-gray-500"
-                              <?php if ( !is_local() ): ?>disabled<?php endif; ?>
                             />
-                            <label for="media-type-local" class="w-full py-3 ml-2 text-sm font-medium text-gray-900 dark:text-gray-300<?php if ( !is_local() ): ?> opacity-50<?php endif; ?>"><?= __( 'Local Media' ) ?></label>
+                            <label for="media-type-local" class="w-full py-3 ml-2 text-sm font-medium text-gray-900 dark:text-gray-300"><?= __( 'Other Media' ) ?></label>
                         </div>
                     </li>
                 </ul>
@@ -152,47 +151,115 @@
                 <div 
                   id="media-management-field-media-files"
                   class="hidden mb-4"
+                  data-default-local-input-mode="<?= is_local() ? 'upload' : 'url' ?>"
+                  data-cloud-upload-disabled="<?= is_local() ? 'false' : 'true' ?>"
                 >
-                    <label
-                      id="local-media-file-label"
-                      for="local-media-file"
-                      class="block mb-2 text-sm font-medium normal-text"
-                    >
-                        <span class="required"><?= __( 'Choose media file (Drag and drop supported).' ) ?></span>
-                        <span
-                          id="note-error-local-media-file"
-                          class="hidden bg-red-100 text-red-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300"
-                          data-default-message="<?= __( 'Invalid file path' ) ?>"
-                        ><?= __( 'Invalid file path' ) ?></span>
-                        <span 
-                          id="note-success-local-media-file"
-                          class="hidden bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300 inline-flex items-center"
-                        ><span class="ui-icon-mask ui-icon-mask--check w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true"></span></span>
-                    </label>
-                    <input
-                      id="local-media-file"
-                      type="file"
-                      name="local_media_file"
-                      accept="audio/*,video/*"
-                      directory="<?= MEDIA_DIR ?>"
-                      class="sr-only"
-                      data-label-empty="<?= __( 'No file selected' ) ?>"
-                      data-label-drop="<?= __( 'Drop media file here' ) ?>"
-                    />
-                    <div id="local-media-dropzone" class="file-dropzone local-media-dropzone mt-2 flex items-center gap-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-500 px-3 py-2">
-                        <button
-                          id="btn-local-media-file-picker"
-                          type="button"
-                          class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-900 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 dark:hover:bg-gray-600"
-                        ><?= __( 'Select file' ) ?></button>
-                        <span
-                          id="local-media-file-name"
-                          class="text-sm text-gray-500 dark:text-gray-400"
-                        ><?= __( 'No file selected' ) ?></span>
+                    <div class="mb-4">
+                        <ul class="flex -space-x-px text-sm font-medium text-center text-gray-500 dark:text-gray-400" role="tablist" aria-label="<?= __( 'Local media input method' ) ?>">
+                            <li class="w-full focus-within:z-10" role="presentation">
+                                <button
+                                  id="local-media-tab-upload"
+                                  type="button"
+                                  class="local-media-input-tab inline-flex w-full items-center justify-center gap-2 border border-gray-300 px-4 py-2.5 font-medium leading-5 rounded-s-lg hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-4 focus:ring-blue-200 dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-blue-900"
+                                  data-local-media-mode="upload"
+                                  role="tab"
+                                  aria-controls="local-media-upload-panel"
+                                  aria-selected="<?= is_local() ? 'true' : 'false' ?>"
+                                  <?php if ( !is_local() ): ?>disabled aria-disabled="true" title="<?= __( 'Host computer file upload is not available in cloud mode.' ) ?>"<?php endif; ?>
+                                ><span class="ui-icon-mask ui-icon-mask--upload h-4 w-4" aria-hidden="true"></span><?= __( 'Host Computer Media' ) ?></button>
+                            </li>
+                            <li class="w-full focus-within:z-10" role="presentation">
+                                <button
+                                  id="local-media-tab-url"
+                                  type="button"
+                                  class="local-media-input-tab inline-flex w-full items-center justify-center gap-2 border border-gray-300 px-4 py-2.5 font-medium leading-5 rounded-e-lg hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-4 focus:ring-blue-200 dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-blue-900"
+                                  data-local-media-mode="url"
+                                  role="tab"
+                                  aria-controls="local-media-url-panel"
+                                  aria-selected="<?= is_local() ? 'false' : 'true' ?>"
+                                ><span class="ui-icon-mask ui-icon-mask--link h-4 w-4" aria-hidden="true"></span><?= __( 'Media URL' ) ?></button>
+                            </li>
+                        </ul>
                     </div>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-300">
-                        <?= __( 'Only media files that are relatively accessible from the Ambient media directory are valid.' ) ?>
-                    </p>
+                    <div id="local-media-upload-panel" data-local-media-panel="upload">
+                        <label
+                          id="local-media-file-label"
+                          for="local-media-file"
+                          class="block mb-2 text-sm font-medium normal-text"
+                        >
+                            <span class="required"><?= __( 'Choose media file (Drag and drop supported).' ) ?></span>
+                            <span
+                              id="note-error-local-media-file"
+                              class="hidden bg-red-100 text-red-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300"
+                              data-default-message="<?= __( 'Invalid file path' ) ?>"
+                            ><?= __( 'Invalid file path' ) ?></span>
+                            <span 
+                              id="note-success-local-media-file"
+                              class="hidden bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300 inline-flex items-center"
+                            ><span class="ui-icon-mask ui-icon-mask--check w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true"></span></span>
+                        </label>
+                        <input
+                          id="local-media-file"
+                          type="file"
+                          name="local_media_file"
+                          accept="audio/*,video/*"
+                          directory="<?= MEDIA_DIR ?>"
+                          class="sr-only"
+                          data-label-empty="<?= __( 'No file selected' ) ?>"
+                          data-label-drop="<?= __( 'Drop media file here' ) ?>"
+                        />
+                        <div id="local-media-dropzone" class="file-dropzone local-media-dropzone mt-2 flex items-center gap-3 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-500 px-3 py-2">
+                            <button
+                              id="btn-local-media-file-picker"
+                              type="button"
+                              class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-900 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600 dark:hover:bg-gray-600"
+                            ><?= __( 'Select file' ) ?></button>
+                            <span
+                              id="local-media-file-name"
+                              class="text-sm text-gray-500 dark:text-gray-400"
+                            ><?= __( 'No file selected' ) ?></span>
+                        </div>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-300">
+                            <?= __( 'Only media files that are relatively accessible from the Ambient media directory are valid.' ) ?>
+                        </p>
+                    </div>
+                    <div id="local-media-url-panel" class="hidden" data-local-media-panel="url">
+                        <label
+                          id="local-media-url-label"
+                          for="local-media-url"
+                          class="block mb-2 text-sm font-medium normal-text"
+                        >
+                            <span class="required"><?= __( 'Media URL' ) ?></span>
+                            <span
+                              id="note-error-local-media-url"
+                              class="hidden bg-red-100 text-red-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300"
+                              data-default-message="<?= __( 'Enter a playable audio or video URL.' ) ?>"
+                            ><?= __( 'Enter a playable audio or video URL.' ) ?></span>
+                            <span
+                              id="note-success-local-media-url"
+                              class="hidden bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300 inline-flex items-center"
+                            ><span class="ui-icon-mask ui-icon-mask--check w-3 h-3 text-green-800 dark:text-green-300" aria-hidden="true"></span></span>
+                        </label>
+                        <div class="flex">
+                            <input
+                              id="local-media-url"
+                              type="url"
+                              name="local_media_url"
+                              class="border text-sm rounded-l-lg block w-full p-2.5 normal-input"
+                              placeholder="https://example.com/media.mp4"
+                              data-validate="false"
+                            />
+                            <button
+                              id="btn-check-local-media-url"
+                              type="button"
+                              class="inline-flex shrink-0 items-center whitespace-nowrap px-3 py-2 text-sm font-medium text-white bg-blue-700 border border-blue-700 rounded-r-lg hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-blue-600 dark:hover:bg-blue-700"
+                              disabled
+                            ><?= __( 'Check' ) ?></button>
+                        </div>
+                        <p id="local-media-url-status" class="mt-1 text-sm text-gray-500 dark:text-gray-300">
+                            <?= __( 'Enter an audio or video URL, then check whether it can be played.' ) ?>
+                        </p>
+                    </div>
                     <input id="local-media-filepath" type="hidden" name="media_filepath" value="" />
                 </div>
                 <div
