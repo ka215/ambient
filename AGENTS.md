@@ -168,6 +168,14 @@ This repository currently keeps both .github/copilot-instructions.md and AGENTS.
 
 Avoid duplicating detailed content across both files.
 
+## 7.1 Documentation Source Policy
+
+- Canonical project documentation under `docs/` must be written in English.
+- Japanese reader-friendly companion documents, when needed, should be placed under `.codex/tmp/ja-docs/` with a `-ja.md` suffix and must remain untracked.
+- If an English canonical document and a Japanese companion document conflict, the English canonical document is authoritative.
+- `.codex/memo.md` is a scratch input memo, not a source of truth. Promote active requirements, design decisions, handoffs, and backlog items into `docs/`.
+- Use the `ambient-doc-workflow` skill for memo-to-doc promotion, backlog updates, and memo inventory work.
+
 ## 8. Terminal & Process Management
 - Use `jq` for parsing or manipulating JSON data, and `yq` for YAML data, rather than using generic text processing tools like `grep` or `awk`.
 - Use `rg` (ripgrep) as the primary tool for search operations. Prefer `rg --files` for listing files.

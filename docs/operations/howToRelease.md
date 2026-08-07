@@ -1,158 +1,216 @@
-# リリース手順メモ
+# Release Procedure
 
-このファイルは現行の実装済みコマンドに合わせた最短運用手順です。
+Date: 2026-08-07
+Canonical: yes
+Companion: `.codex/tmp/ja-docs/howToRelease-ja.md`
 
-## 作業開始前の確認
+## 1. Purpose
 
-作業を始める前に、まず現在のブランチを確認します。
+This document defines the standard Ambient release workflow using the currently implemented npm scripts.
 
-```bash
-git branch --show-current
+The key rule is:
+
+```text
+Do not update package.json version during feature or fix implementation.
 ```
 
-現在のブランチが feature 系でない場合は、そのまま作業を進めず、警告を出すか、必要な feature ブランチへ切り替えてから続行します。
-例外がある場合でも、この確認だけは毎回行います。
-
-feature / fix ブランチで通常実装を行う段階では、`package.json` の `version` は更新しません。
-バージョン更新はリリース開始時に `npm run release:start -- X.Y.Z` が実施するため、実装・検証中に手動で `npm version` や `package.json` の version 編集を行わないでください。
-
-## 標準フロー（推奨）
-
-前提:
-
-1. 作業ブランチの変更は `dev` にマージ済み
-2. `git status --short` が空であること
-
-実行:
-
-1. リリース開始
+Version changes are performed by the release workflow, primarily through:
 
 ```bash
 npm run release:start -- X.Y.Z
 ```
 
-2. GitHub 上で `release/vX.Y.Z -> main` PR をレビューしてマージ
+## 2. Pre-Work Check
 
-3. リリース完了（dev 同期 + ブランチ整理）
+Always confirm the current branch before starting release-related work:
+
+```bash
+git branch --show-current
+```
+
+If the branch is not the expected feature, fix, dev, or release branch for the current operation, stop and correct the branch first.
+
+For ordinary feature or fix implementation:
+
+- Do not run `npm version`.
+- Do not manually edit `package.json` version.
+- Leave version bumping to `npm run release:start -- X.Y.Z`.
+
+## 3. Standard Release Flow
+
+Prerequisites:
+
+1. Feature branch changes have been merged into `dev`.
+2. `git status --short` is clean.
+3. The target version is known as `X.Y.Z`.
+
+### Step 1: Start Release
+
+```bash
+npm run release:start -- X.Y.Z
+```
+
+This creates and pushes the release branch and opens the `release/vX.Y.Z -> main` PR by default.
+
+### Step 2: Merge Release PR
+
+Review and merge the GitHub PR from:
+
+```text
+release/vX.Y.Z -> main
+```
+
+### Step 3: Finish Release
 
 ```bash
 npm run release:finish -- X.Y.Z
 ```
 
-4. 必要なら公開相当 E2E 検証
+This updates local branches, syncs `dev`, and removes the release branch by default.
 
-リリース前の確認で、まだ本番 `https://amp.ka2.org/` が旧版を配信している場合は、先に v2.6.0 配信済みの VHOST 環境を使います。
-現状の v2.6.0 想定では `https://dev-amp.ka2.org/` を使うのが正です。
+### Step 4: Optional Public-Like E2E
+
+If production has not yet deployed the target version, verify against the dev public host instead of production.
+
+Current expected dev host:
+
+```text
+https://dev-amp.ka2.org/
+```
+
+Run:
 
 ```bash
 npm run release:verify:public
 ```
 
-または:
+Or specify a URL directly:
 
 ```bash
 powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/release-verify-public-e2e.ps1 -BaseUrl https://dev-amp.ka2.org/
 ```
 
-## E2E コマンドの使い分け
+## 4. E2E Command Selection
 
-`npm run test:e2e` は、v2.6.0 以降の標準 E2E として release 判定に使える split cloud/local pack を実行します。
+### Release Gate
+
+`npm run test:e2e` runs the standard split cloud/local release E2E pack.
 
 ```bash
 npm run test:e2e
 ```
 
-実体は `npm run release:verify:split-e2e` と同じです。
+This is equivalent to:
 
-一方で、単一 `baseURL` 上に cloud/local 混在シナリオを流す broad matrix は、開発用の参照コマンドとして明示名に切り出しました。
+```bash
+npm run release:verify:split-e2e
+```
+
+### Broad Smoke Matrix
+
+`npm run test:e2e:matrix` runs a broad browser/device matrix against a single `baseURL`.
 
 ```bash
 npm run test:e2e:matrix
 ```
 
-この matrix は release gate ではありません。full regression の傾向観測や、個別シナリオ切り分けの入口としてのみ使います。
+Use this for development investigation and broad smoke checks. Do not treat it as the release gate.
 
-## release:start の実行内容
+## 5. `release:start`
 
-- clean worktree の確認
-- `dev` checkout + `origin/dev` の ff-only pull
-- `npm run check:i18n`
-- `npm run typecheck`
-- `npm run build`
-- `dist` 差分チェック（差分があれば停止）
-- `release/vX.Y.Z` 作成
-- `package.json` の version を X.Y.Z に更新してコミット
-- release ブランチを push
-- `gh pr create` で main 向け PR を作成（既定）
+Command:
 
-### 便利オプション
+```bash
+npm run release:start -- X.Y.Z
+```
 
-- PR を手動作成したい場合
+Main actions:
+
+- Verify clean worktree.
+- Check out `dev`.
+- Pull `origin/dev` with ff-only behavior.
+- Run `npm run check:i18n`.
+- Run `npm run typecheck`.
+- Run `npm run build`.
+- Check that `dist` has no unexpected generated diff.
+- Create `release/vX.Y.Z`.
+- Update `package.json` version to `X.Y.Z`.
+- Commit the release version bump.
+- Push the release branch.
+- Create a GitHub PR to `main` by default.
+
+Useful options:
 
 ```bash
 npm run release:start -- X.Y.Z -- -SkipPr
-```
-
-- pull をスキップしたい場合
-
-```bash
 npm run release:start -- X.Y.Z -- -SkipPull
 ```
 
-## release:finish の実行内容
+## 6. `release:finish`
 
-- clean worktree の確認
-- `main` 最新化
-- `dev` へ `main` を取り込み（既定は ff-only）
-- `dev` push
-- release ブランチ削除（既定）
+Command:
 
-### 便利オプション
+```bash
+npm run release:finish -- X.Y.Z
+```
 
-- ff-only 不可時に merge commit を許容
+Main actions:
+
+- Verify clean worktree.
+- Update `main`.
+- Merge or fast-forward `main` into `dev`.
+- Push `dev`.
+- Delete the release branch by default.
+
+Useful options:
 
 ```bash
 npm run release:finish -- X.Y.Z -- -AllowMergeCommit
-```
-
-- release ブランチを残す
-
-```bash
 npm run release:finish -- X.Y.Z -- -KeepReleaseBranch
-```
-
-- finish 内で公開 E2E を連続実行
-
-```bash
 npm run release:finish -- X.Y.Z -- -RunPublicE2E
-```
-
-- 公開 E2E の URL を上書き
-
-```bash
 npm run release:finish -- X.Y.Z -- -RunPublicE2E -PublicE2EBaseUrl https://example.com/
 ```
 
-## release:prepare について
+## 7. `release:prepare`
 
-`npm run release:prepare -- X.Y.Z` は事前整備用の補助コマンドです。
+`release:prepare` is a pre-release helper.
 
-実行内容:
+Command:
 
-1. `feature/vX.Y.Z` を checkout（必要に応じて remote から作成）
-2. `npm run check:i18n`
-3. `npm run typecheck`
-4. `npm run build`
-5. `dist` 変更があれば feature ブランチにコミット
-6. `dev` を ff-only pull して最新化
-7. `feature/vX.Y.Z` を `dev` に merge（`--no-edit`）
-8. `dev` を remote push（既定）
+```bash
+npm run release:prepare -- X.Y.Z
+```
 
-この後に `npm run release:start -- X.Y.Z` を実行します。
+Main actions:
 
-## トラブル時の確認ポイント
+1. Check out `feature/vX.Y.Z`, creating it from remote if needed.
+2. Run `npm run check:i18n`.
+3. Run `npm run typecheck`.
+4. Run `npm run build`.
+5. Commit generated `dist` changes to the feature branch if needed.
+6. Fast-forward pull `dev`.
+7. Merge `feature/vX.Y.Z` into `dev`.
+8. Push `dev` by default.
 
-1. worktree が dirty で止まった場合: 変更をコミットまたは退避
-2. ff-only で止まった場合: `-AllowMergeCommit` の利用可否を判断
-3. public E2E 失敗時: 先に `npm run release:verify:public` を単体で再実行して切り分け
-4. 失敗時に `amp.ka2.org` を向いていた場合: その環境が対象版を配信しているかを先に確認し、未反映なら `dev-amp.ka2.org` で再検証
+After this command, run:
+
+```bash
+npm run release:start -- X.Y.Z
+```
+
+## 8. Troubleshooting
+
+| Symptom | Action |
+|---|---|
+| Dirty worktree stops a release command | Commit or stash the changes, then rerun. |
+| ff-only update fails | Decide whether `-AllowMergeCommit` is acceptable. |
+| Public E2E fails | Rerun `npm run release:verify:public` alone and inspect the failing scenario. |
+| Public E2E points at an old production version | Verify the target version on `https://dev-amp.ka2.org/` first. |
+| Release PR target is invalid | Confirm the release branch exists and was pushed. |
+| Version changed during feature work | Revert the feature-time version edit and let `release:start` perform the bump. |
+
+## 9. Release Notes Skill
+
+Use the project `release-notes` skill when generating GitHub Release notes for Ambient.
+
+The release note body should follow `.github/release-notes-template.md` and summarize user-relevant changes only.

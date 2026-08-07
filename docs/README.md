@@ -1,91 +1,80 @@
-# Ambient v2.0.0
+# Ambient Documentation
 
-Ambient は、以下を単一UIで扱えるセルフホスト型ハイブリッドメディアプレイヤーです。
+Date: 2026-08-07
+Canonical: yes
+Companion: `.codex/tmp/ja-docs/README-ja.md`
 
-- YouTube IFrame Player API による YouTube 再生
-- HTML5 audio/video によるローカルメディア再生
+## Overview
 
-v2.0.0 は、TypeScript 化したランタイム統合とクロスブラウザ E2E 基盤を確立した最初のベースラインです。
+Ambient is a self-hostable hybrid media player that can handle the following in one UI:
 
-## v2.0.0 の主な変更
+- YouTube playback through the YouTube IFrame Player API
+- Local audio/video playback through HTML5 media elements
+- JSON playlist management
+- Cloud-mode MyPlaylist persistence in browser storage
+- Local-mode playlist and media editing through PHP-backed file persistence
 
-- フロントエンド実装を TypeScript 化（`src/scripts/ambient.ts`）
-- 実行スクリプトを Vite ビルド成果物へ統一（`dist/assets/ambient.js`）
-- 旧 `src/scripts/ambient.js` ランタイムは廃止し、PHP 側参照も Vite manifest ベースへ統一
-- Playwright E2E の6シナリオ基盤を整備（Chromium/Firefox/WebKit）
-- YouTube ライフサイクルを DOM 属性で観測可能に変更
-  - `data-yt-phase`
-  - `data-yt-seq`
-  - `data-yt-error`
-- Phase 1（移行・統合・検証）を完了
+The current v2 line uses a TypeScript runtime built by Vite, modular frontend architecture, Tailwind CSS + Flowbite UI surfaces, and Playwright E2E coverage.
 
-## ディレクトリ概要
+## Directory Overview
 
-- `index.php`: エントリポイント
-- `src/`: PHPコアと TypeScript ソース
-- `views/`: PHPコンポーネントテンプレート
-- `assets/`: プレイリスト・言語ファイル・メディア/画像
-- `dist/`: ビルド成果物
-- `tests/e2e/`: Playwright シナリオ・fixture・ユーティリティ
-- `docs/`: 設計・引き継ぎ・テストレポート
+| Path | Purpose |
+|---|---|
+| `index.php` | Application entry point. |
+| `src/` | PHP core and TypeScript source. |
+| `src/scripts/` | Modular TypeScript frontend runtime. |
+| `views/` | PHP UI component templates. |
+| `assets/` | Playlists, language files, media, and images. |
+| `dist/` | Built frontend assets and Vite manifest. |
+| `tests/e2e/` | Playwright scenarios, fixtures, and utilities. |
+| `docs/` | Canonical English project documentation. |
 
-## 動作要件
+## Runtime Requirements
 
-- PHP 8.4 以上（推奨: 8.x）
-- URLリライト設定済みの Apache または Nginx
-- Node.js / npm（ビルド・テスト実行用）
+- PHP 8.x recommended.
+- Apache or Nginx with URL rewrite support.
+- Node.js and npm for build, typecheck, and E2E workflows.
+- Windows + XAMPP is the primary local development environment.
 
-## ローカル起動（簡易）
+## Local Startup
 
-1. Webルート配下へ clone
-2. 対象ディレクトリを Web サーバーで公開
-3. ブラウザでアクセス（例: `http://dev2.ka2.org/amp/`）
+1. Clone the project under a web root.
+2. Expose the project directory through the local web server.
+3. Open the application in a browser.
 
-Windows + XAMPP での開発を前提に、すぐ動かせる構成です。
+Example local URL:
 
-## 開発コマンド
-
-```bash
-npm run dev           # Vite dev server
-npm run build         # dist/ ビルド
-npm run typecheck     # TypeScript 型検査
-npm run test:e2e      # release 判定用 split E2E
-npm run test:e2e:matrix   # broad smoke matrix
-npm run test:e2e:debug
+```text
+http://dev2.ka2.org/amp/
 ```
 
-## プレイリスト仕様（要点）
+## Development Commands
 
-プレイリストは `assets/` 配下の JSON を使用します。
+```bash
+npm run build         # Build dist assets
+npm run typecheck     # Run TypeScript type checking
+npm run check:i18n    # Validate translation coverage
+npm run test:e2e      # Run release-gate split cloud/local E2E
+```
 
-- テンプレート: `assets/PlayList.json`
-- 言語定義: `assets/langs/lang.json`, `assets/langs/lang-ja.json`（後方互換として `assets/lang*.json` も読み込み可）
-- メディア指定:
-  - YouTube: `videoid`
-  - ローカル: `file`（`assets/media` からの相対）
+## Key Documents
 
-JSON Schema:
+| Document | Purpose |
+|---|---|
+| `docs/architecture/latest-system-summary.md` | Current canonical system architecture summary. |
+| `docs/features/uiux/latest-uiux-summary.md` | Current canonical UI/UX summary. |
+| `docs/operations/howToRelease.md` | Current canonical release procedure. |
+| `docs/architecture/design/20260807-v2-6-5-local-media-url-resolver-design.md` | v2.6.5 Local Media URL resolver design. |
+| `docs/operations/handoffs/20260807-v2-6-5-local-media-url-resolver-handoff-requirements.md` | v2.6.5 handoff requirements. |
+| `docs/features/requests/20260807-requirement-memo-backlog.md` | Current backlog promoted from requirement memo inventory. |
 
-- https://ka2.org/schemas/ambient.json
+## Documentation Policy
 
-## v2.0.0 テストベースライン
+- `docs/` is the canonical documentation tree and should be written in English.
+- Japanese reader-friendly companion documents belong under `.codex/tmp/ja-docs/` and are not tracked.
+- If a Japanese companion conflicts with an English canonical document, the English canonical document wins.
+- `.codex/memo.md` is scratch input for requirement capture, not a source of truth.
 
-- SC-001: 初期化
-- SC-002: 再生/一時停止
-- SC-003: 前後ナビゲーション
-- SC-004: 音量フェーダー
-- SC-005: シャッフルトグル
-- SC-006: YouTube 埋め込み表示
+## License
 
-上記を Chromium / Firefox / WebKit で検証済みです。
-
-## 主要ドキュメント
-
-- v2システムサマリ: `docs/architecture/v2-system-summary.md`
-- YouTube DOM signal 仕様（英語）: `docs/architecture/design/youtube-player-dom-signal-spec.md`
-- YouTube DOM signal 仕様（日本語）: `docs/architecture/design/youtube-player-dom-signal-spec.ja.md`
-- Phase 1 完了レポート: `docs/operations/test-reports/20260503-phase1-completion-report.md`
-
-## ライセンス
-
-MIT License
+See the project license and repository metadata for licensing details.

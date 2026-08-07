@@ -16,10 +16,10 @@
 ## Requirement Status
 | Requirement | Status | Basis |
 |---|---|---|
-| 1) de/es/fr/it/ko/pt 翻訳追加 | Partial Pass | Files exist and have no missing keys vs JA baseline; app boot blocker prevented runtime language switching validation |
-| 2) assets/langs への移設 + 後方互換 | Partial Pass | `assets/langs/` files exist and legacy `assets/lang*.json` files remain byte-identical; app boot blocker prevented runtime load-path verification |
-| 3) ローディング表示を ambient-loading-type1.svg 中央表示へ差し替え | Partial Pass | DOM/CSS implementation confirmed in source; runtime first-paint confirmation blocked by HTTP 500 |
-| 4) local 環境でメディア追加可能 + 追加時即時JSON保存 | Fail (Blocked) | Could not execute because the app crashes during translation loading before UI boot |
+| 1) Add de/es/fr/it/ko/pt translations | Partial Pass | Files exist and have no missing keys vs JA baseline; app boot blocker prevented runtime language switching validation |
+| 2) Move language files under assets/langs with backward compatibility | Partial Pass | `assets/langs/` files exist and legacy `assets/lang*.json` files remain byte-identical; app boot blocker prevented runtime load-path verification |
+| 3) Replace the loading indicator with centered ambient-loading-type1.svg | Partial Pass | DOM/CSS implementation confirmed in source; runtime first-paint confirmation blocked by HTTP 500 |
+| 4) Enable local media add in local mode with immediate JSON persistence | Fail (Blocked) | Could not execute because the app crashes during translation loading before UI boot |
 
 ## Validation Executed
 1. `node -e 'const fs=require("fs");const base=JSON.parse(fs.readFileSync("assets/langs/lang-ja.json","utf8"));const targets=["de","es","fr","it","ko","pt"];for(const t of targets){const p=`assets/langs/lang-${t}.json`;const data=JSON.parse(fs.readFileSync(p,"utf8"));const missing=Object.keys(base).filter(k=>!Object.prototype.hasOwnProperty.call(data,k));const extra=Object.keys(data).filter(k=>!Object.prototype.hasOwnProperty.call(base,k));console.log(`${t} missing=${missing.length} extra=${extra.length}`);if(missing.length){console.log(missing.join(","));}}'`
