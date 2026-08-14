@@ -56,6 +56,7 @@ export async function playMediaSelection(options: {
   mediaItems: MediaItem[];
   triggerElement?: HTMLElement | null;
   targetId?: number | null;
+  playlistName?: string | null;
   getExtension: (src: string) => string;
   logger: (...args: unknown[]) => void;
   updatePlayStatus: (targetId: number) => void;
@@ -72,6 +73,7 @@ export async function playMediaSelection(options: {
     mediaItems: options.mediaItems,
     triggerElement: options.triggerElement,
     targetId: options.targetId,
+    playlistName: options.playlistName,
     getExtension: options.getExtension,
   });
   if (!invocation) {

@@ -213,6 +213,7 @@ export function createAmbientPlayerBindings(options: {
       mediaItems: options.status.media || [],
       triggerElement: options.isElement(object) ? (object as HTMLElement) : null,
       targetId: id,
+      playlistName: options.status.playlist || '',
       getExtension: options.getExtension,
       logger: options.logger,
       updatePlayStatus: options.updatePlayStatus,

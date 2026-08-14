@@ -28,6 +28,7 @@ export function playManagedMediaSelection(options: {
   mediaItems: MediaItem[];
   triggerElement: HTMLElement | null;
   targetId: number | null;
+  playlistName?: string | null;
   getExtension: (src: string) => string;
   logger: (...args: unknown[]) => void;
   updatePlayStatus: (currentAmId: number) => void;

@@ -209,7 +209,7 @@ export function sanitizeAndNormalizeImportPlaylist(options: {
         }
       }
 
-      ['fs', 'cc', 'controls', 'disablekb'].forEach((key) => {
+      ['fs', 'cc', 'controls', 'disablekb', 'rangeProxy'].forEach((key) => {
         if (!Object.prototype.hasOwnProperty.call(rawItem, key)) return;
         const boolValue = normalizeBoolish((rawItem as Record<string, unknown>)[key]);
         if (boolValue !== null) {

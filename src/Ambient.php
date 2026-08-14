@@ -211,6 +211,14 @@ class Ambient {
                 ] );
                 $_route = 'Check external local media URL';
                 break;
+            case 'get:local-media-proxy':
+                $method = 'proxy_external_local_media';
+                $args = [
+                    $_GET['playlist'] ?? null,
+                    $_GET['media'] ?? null,
+                ];
+                $_route = 'Proxy external local media with Range support';
+                break;
             case 'post:playlist':
                 $method = 'upsert_playlist';
                 $_route = "Add item to playlist \"{$params[0]}\"";

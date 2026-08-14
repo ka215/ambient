@@ -1,10 +1,17 @@
 import { type APIRequestContext, type Page } from '@playwright/test';
+import { writeFileSync } from 'node:fs';
 
 import { expect, test } from '../fixtures/ambient-page.fixture';
-import { E2E_PLAYLIST_NAME, installE2ePlaylistFixture, removeE2ePlaylistFixture } from '../utils/playlist-fixtures';
+import {
+  E2E_PLAYLIST_ASSET_PATH,
+  E2E_PLAYLIST_NAME,
+  installE2ePlaylistFixture,
+  removeE2ePlaylistFixture,
+} from '../utils/playlist-fixtures';
 
 const HTML_PAGE_URL = 'https://ambient-e2e.invalid/page-with-extensionless-media';
 const RESOLVED_MEDIA_URL = 'https://media.example.test/stream/e2e-local-media?asset=video';
+const RANGE_PROXY_VIDEO_URL = 'https://media.example.test/stream/e2e-local-range-proxy.mp4?asset=video';
 
 function baseURL(): string {
   return process.env.E2E_BASE_URL || 'https://dev-amp.ka2.org/';
@@ -128,6 +135,36 @@ async function installServerMediaCheckStub(page: Page): Promise<void> {
           source: 'server',
         },
       }),
+    });
+  });
+}
+
+function installRangeProxyPlaylistFixture(): void {
+  writeFileSync(E2E_PLAYLIST_ASSET_PATH, JSON.stringify({
+    'range-proxy-e2e': [
+      {
+        file: RANGE_PROXY_VIDEO_URL,
+        title: 'e2e-local-range-proxy-media',
+        artist: 'E2E Artist',
+        desc: '',
+        rangeProxy: true,
+      },
+    ],
+    options: {},
+  }, null, 2));
+}
+
+async function installLocalMediaProxyRouteStub(page: Page): Promise<void> {
+  await page.route('**/local-media-proxy/**?**', async (route) => {
+    await route.fulfill({
+      status: 206,
+      contentType: 'video/mp4',
+      headers: {
+        'accept-ranges': 'bytes',
+        'content-range': 'bytes 0-3/4',
+        'content-length': '4',
+      },
+      body: 'ID3\u0000',
     });
   });
 }
@@ -330,5 +367,56 @@ test.describe('SC-022 Local media URL hook and resolver', () => {
         },
       },
     ]);
+  });
+
+  test('uses the local Range Proxy URL for opt-in external media playback', async ({ ambientPage, page }) => {
+    installRangeProxyPlaylistFixture();
+    await installLocalMediaProxyRouteStub(page);
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.selectPlaylist(E2E_PLAYLIST_NAME);
+
+    await page.evaluate(() => {
+      const item = Array.from(document.querySelectorAll<HTMLElement>('#playlist-list-group a[data-playlist-item]'))
+        .find((candidate) => (candidate.textContent || '').includes('e2e-local-range-proxy-media'));
+      item?.click();
+    });
+
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const source = document.querySelector<HTMLSourceElement>('#html-player source');
+        return source?.getAttribute('src') || '';
+      });
+    }, { timeout: 10_000 }).toContain('/local-media-proxy/0.mp4?');
+
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const player = document.querySelector<HTMLMediaElement>('#html-player');
+        const source = document.querySelector<HTMLSourceElement>('#html-player source');
+        return {
+          tagName: player?.tagName || '',
+          sourceType: source?.getAttribute('type') || '',
+        };
+      });
+    }).toEqual({
+      tagName: 'VIDEO',
+      sourceType: 'video/mp4',
+    });
+
+    const proxyParams = await page.evaluate(() => {
+      const source = document.querySelector<HTMLSourceElement>('#html-player source');
+      const src = source?.getAttribute('src') || '';
+      const url = new URL(src, window.location.href);
+      return {
+        pathname: url.pathname,
+        playlist: url.searchParams.get('playlist'),
+        media: url.searchParams.get('media'),
+      };
+    });
+
+    expect(proxyParams.pathname).toMatch(/\/local-media-proxy\/0\.mp4$/);
+    expect(proxyParams.playlist).toBe(E2E_PLAYLIST_NAME);
+    expect(proxyParams.media).toBe('0');
   });
 });

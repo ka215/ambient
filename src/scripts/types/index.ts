@@ -16,6 +16,7 @@ interface MediaItem {
   image?: string;
   thumb?: string;
   file?: string;
+  rangeProxy?: boolean | string;
   videoid?: string;
   volume?: number;
   start?: number | string;

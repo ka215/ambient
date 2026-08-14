@@ -469,3 +469,65 @@ Mitigation:
 6. Add Media Edit preview async resolver path.
 7. Extend SC-022 E2E for origin persistence and playback source resolution.
 8. Run typecheck, build, i18n, and targeted E2E.
+
+## 12. Local-Only Range Proxy Extension
+
+Some external URL-backed media providers allow registration and playback but do not provide efficient byte-range delivery. For v2.6.5, Ambient may add a local-only opt-in Range Proxy for those media items.
+
+### 12.1 Scope
+
+- Applies only in local mode.
+- Cloud mode must not expose the proxy endpoint.
+- The feature is opt-in per media item through `rangeProxy: true`.
+- The stored `file` value remains the origin URL.
+- The playback source may be replaced with a local proxy URL at runtime.
+- The MVP applies only when the stored origin URL itself is the media URL. If the resolver changes an HTML/page URL into a different media URL, Range Proxy is skipped because the PHP endpoint cannot execute browser-side custom resolver hooks.
+
+### 12.2 Media Item Contract
+
+```ts
+interface MediaItem {
+  file?: string;
+  rangeProxy?: boolean | string;
+}
+```
+
+The field defaults to false when absent.
+
+### 12.3 Server Endpoint
+
+Recommended endpoint:
+
+```text
+GET local-media-proxy?playlist=<playlist.json>&media=<amId>
+```
+
+The endpoint must not accept arbitrary remote URLs directly. It should:
+
+1. Run only when `is_local()` is true.
+2. Resolve the playlist and media item server-side.
+3. Recompute `amId` from playlist order because persisted playlist JSON does not store runtime IDs.
+4. Confirm the target item has `rangeProxy: true`.
+5. Validate that the stored origin URL is the direct media URL intended for caching.
+6. Validate the origin URL with the same SSRF protections used by server-side media URL checking.
+7. Cache the upstream media outside normal web assets.
+8. Serve the cached file with `Accept-Ranges: bytes` and correct `206 Partial Content` responses.
+
+### 12.4 Cache Strategy
+
+The MVP uses a file cache under:
+
+```text
+.cache/media-proxy/
+```
+
+The default cache key is `sha256(originUrl)`.
+
+Because a non-Range upstream cannot satisfy arbitrary seeks until Ambient has the file locally, the MVP downloads the upstream file fully on first proxy access, then serves subsequent requests from the local cache. More advanced progressive sparse caching is out of scope for v2.6.5.
+
+### 12.5 Risks And Mitigations
+
+- Large upstream files can consume disk space. Mitigate with a configurable max byte limit.
+- Multiple requests may race on first cache creation. Mitigate with lock files.
+- SSRF risk exists for any server-side URL fetch. Mitigate by blocking localhost, private, reserved, and invalid IP targets on the original URL and redirects.
+- First playback may still be slow because the full file must be cached before efficient seeking is possible.

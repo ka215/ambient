@@ -13,6 +13,7 @@ export interface MediaItem {
   artist?: string;
   desc?: string;
   file?: string;          // Local media file path
+  rangeProxy?: boolean | string; // Use local Range proxy for external HTML media
   videoid?: string;       // YouTube video ID
   image?: string;         // Cover image path
   thumb?: string;         // Thumbnail image path
@@ -135,6 +136,7 @@ export interface AmbientDataGlobal {
   };
   imageDir?: string;         // Base directory for images (relative URL)
   mediaDir?: string;         // Base directory for local media files (relative URL)
+  isCloud?: boolean;          // Cloud mode flag from PHP
   youtubeMetadata?: YouTubeMetadataCapability;
   thumbnailGeneration?: {
     enabled: boolean;

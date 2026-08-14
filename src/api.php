@@ -274,6 +274,389 @@ trait api {
         );
     }
 
+    private function proxy_external_local_media( ?string $playlist_file = null, ?string $media_id = null ): void {
+        if ( !$this->is_local() ) {
+            $this->send_local_media_proxy_error( 403, 'Range proxy is available only in local mode.' );
+        }
+        if ( !function_exists( 'curl_init' ) ) {
+            $this->send_local_media_proxy_error( 500, 'Range proxy requires the PHP cURL extension.' );
+        }
+
+        $playlist_file = trim( (string)$playlist_file );
+        $media_id_value = is_numeric( $media_id ) ? (int)$media_id : -1;
+        if ( $playlist_file === '' || $media_id_value < 0 ) {
+            $this->send_local_media_proxy_error( 400, 'Invalid media proxy request.' );
+        }
+
+        $target = $this->resolve_range_proxy_media_target( $playlist_file, $media_id_value );
+        if ( $target === null ) {
+            $this->send_local_media_proxy_error( 404, 'Range proxy media was not found.' );
+        }
+
+        $url = $target['url'];
+        if ( !$this->is_safe_external_media_check_url( $url ) ) {
+            $this->send_local_media_proxy_error( 400, 'Media URL is not allowed for Range proxy.' );
+        }
+
+        $cache = $this->ensure_local_media_proxy_cache( $url, $target['mime'] );
+        if ( !$cache['ok'] ) {
+            $this->send_local_media_proxy_error( (int)( $cache['code'] ?? 502 ), 'Media proxy cache could not be prepared.' );
+        }
+
+        $this->send_local_media_proxy_file( (string)$cache['file'], (string)( $cache['mime'] ?? $target['mime'] ) );
+    }
+
+    /**
+     * @return array{url:string,mime:string}|null
+     */
+    private function resolve_range_proxy_media_target( string $playlist_file, int $media_id ): ?array {
+        $this->find_playlist();
+        if ( !array_key_exists( $playlist_file, $this->playlists ) ) {
+            return null;
+        }
+
+        $raw_data = file_get_contents( $this->playlists[$playlist_file] );
+        if ( $raw_data === false ) {
+            return null;
+        }
+        $playlist_data = $this->normalize_playlist_data( json_decode( $raw_data, true ) );
+        $current_id = 0;
+        foreach ( $playlist_data as $category => $items ) {
+            if ( $category === 'options' || !is_array( $items ) ) {
+                continue;
+            }
+            foreach ( $items as $item ) {
+                if ( !is_array( $item ) ) {
+                    continue;
+                }
+                $title = isset( $item['title'] ) ? trim( (string)$item['title'] ) : '';
+                if ( $title === '' ) {
+                    continue;
+                }
+                if ( $current_id !== $media_id ) {
+                    $current_id++;
+                    continue;
+                }
+                if ( $this->normalize_boolish( $item['rangeProxy'] ?? false ) !== true ) {
+                    return null;
+                }
+                $url = isset( $item['file'] ) && is_string( $item['file'] ) ? trim( $item['file'] ) : '';
+                if ( $url === '' || preg_match( '#^https?://#i', $url ) !== 1 ) {
+                    return null;
+                }
+                $mime = $this->resolve_media_mime_from_url_extension( $url ) ?? 'application/octet-stream';
+                return [
+                    'url' => $url,
+                    'mime' => $mime,
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function ensure_local_media_proxy_cache( string $url, string $fallback_mime ): array {
+        $cache_dir = $this->get_local_media_proxy_cache_dir();
+        if ( !is_dir( $cache_dir ) && !@mkdir( $cache_dir, 0755, true ) ) {
+            return [ 'ok' => false, 'code' => 500, 'reason' => 'cache-dir-unavailable' ];
+        }
+
+        $key = hash( 'sha256', $url );
+        $cache_file = $cache_dir . $key . '.bin';
+        $meta_file = $cache_dir . $key . '.json';
+        $lock_file = $cache_dir . $key . '.lock';
+        $meta = $this->read_local_media_proxy_cache_meta( $meta_file );
+        if ( is_file( $cache_file ) && filesize( $cache_file ) > 0 ) {
+            return [
+                'ok' => true,
+                'file' => $cache_file,
+                'mime' => $meta['mime'] ?? $fallback_mime,
+            ];
+        }
+
+        $lock = @fopen( $lock_file, 'c' );
+        if ( $lock === false ) {
+            return [ 'ok' => false, 'code' => 500, 'reason' => 'cache-lock-unavailable' ];
+        }
+        try {
+            if ( !@flock( $lock, LOCK_EX ) ) {
+                return [ 'ok' => false, 'code' => 500, 'reason' => 'cache-lock-failed' ];
+            }
+            clearstatcache( true, $cache_file );
+            if ( is_file( $cache_file ) && filesize( $cache_file ) > 0 ) {
+                $meta = $this->read_local_media_proxy_cache_meta( $meta_file );
+                return [
+                    'ok' => true,
+                    'file' => $cache_file,
+                    'mime' => $meta['mime'] ?? $fallback_mime,
+                ];
+            }
+
+            $download = $this->download_local_media_proxy_cache( $url, $cache_file, $fallback_mime );
+            if ( !$download['ok'] ) {
+                return $download;
+            }
+            @file_put_contents(
+                $meta_file,
+                json_encode( [
+                    'urlHash' => $key,
+                    'mime' => $download['mime'] ?? $fallback_mime,
+                    'bytes' => filesize( $cache_file ) ?: null,
+                    'createdAt' => gmdate( 'c' ),
+                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ),
+                LOCK_EX
+            );
+            return [
+                'ok' => true,
+                'file' => $cache_file,
+                'mime' => $download['mime'] ?? $fallback_mime,
+            ];
+        } finally {
+            @flock( $lock, LOCK_UN );
+            @fclose( $lock );
+        }
+    }
+
+    private function get_local_media_proxy_cache_dir(): string {
+        $configured = trim( (string)amp_env( 'AMBIENT_LOCAL_MEDIA_PROXY_CACHE_DIR', '' ) );
+        if ( $configured !== '' ) {
+            return amp_resolve_dir( $configured, APP_ROOT );
+        }
+        return APP_ROOT . '.cache/media-proxy/';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function read_local_media_proxy_cache_meta( string $meta_file ): array {
+        if ( !is_file( $meta_file ) ) {
+            return [];
+        }
+        $raw = @file_get_contents( $meta_file );
+        $decoded = is_string( $raw ) ? json_decode( $raw, true ) : null;
+        return is_array( $decoded ) ? $decoded : [];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function download_local_media_proxy_cache( string $url, string $cache_file, string $fallback_mime ): array {
+        $tmp_file = $cache_file . '.tmp-' . bin2hex( random_bytes( 6 ) );
+        $fp = @fopen( $tmp_file, 'wb' );
+        if ( $fp === false ) {
+            return [ 'ok' => false, 'code' => 500, 'reason' => 'cache-write-unavailable' ];
+        }
+
+        $headers = [];
+        $max_bytes = $this->get_local_media_proxy_max_bytes();
+        $written = 0;
+        $current_url = $url;
+        $max_redirects = 3;
+        try {
+            for ( $redirect = 0; $redirect <= $max_redirects; $redirect++ ) {
+                if ( !$this->is_safe_external_media_check_url( $current_url ) ) {
+                    return [ 'ok' => false, 'code' => 400, 'reason' => 'blocked-url' ];
+                }
+                $result = $this->download_local_media_proxy_cache_once(
+                    $current_url,
+                    $fp,
+                    $headers,
+                    $written,
+                    $max_bytes
+                );
+                if ( !( $result['ok'] ?? false ) ) {
+                    return [
+                        'ok' => false,
+                        'code' => ( $result['reason'] ?? '' ) === 'max-size-exceeded' ? 413 : 502,
+                        'reason' => $result['reason'] ?? 'upstream-error',
+                    ];
+                }
+                $status = (int)( $result['httpStatus'] ?? 0 );
+                $location = trim( (string)( $headers['location'] ?? '' ) );
+                if ( in_array( $status, [ 301, 302, 303, 307, 308 ], true ) && $location !== '' ) {
+                    $next_url = $this->resolve_external_media_redirect_url( $location, $current_url );
+                    if ( $next_url === null ) {
+                        return [ 'ok' => false, 'code' => 502, 'reason' => 'invalid-redirect' ];
+                    }
+                    $current_url = $next_url;
+                    $headers = [];
+                    continue;
+                }
+                if ( $status < 200 || $status >= 300 ) {
+                    return [ 'ok' => false, 'code' => 502, 'reason' => 'upstream-status' ];
+                }
+                if ( $written <= 0 ) {
+                    return [ 'ok' => false, 'code' => 502, 'reason' => 'empty-upstream' ];
+                }
+                $mime = $this->normalize_header_media_type( $headers['content-type'] ?? '' );
+                if ( $this->resolve_media_kind_from_mime( $mime ) === null ) {
+                    $mime = $fallback_mime;
+                }
+                if ( !@rename( $tmp_file, $cache_file ) ) {
+                    return [ 'ok' => false, 'code' => 500, 'reason' => 'cache-commit-failed' ];
+                }
+                return [ 'ok' => true, 'mime' => $mime ];
+            }
+
+            return [ 'ok' => false, 'code' => 502, 'reason' => 'too-many-redirects' ];
+        } finally {
+            @fclose( $fp );
+            if ( is_file( $tmp_file ) ) {
+                @unlink( $tmp_file );
+            }
+        }
+    }
+
+    private function get_local_media_proxy_max_bytes(): int {
+        $value = amp_env( 'AMBIENT_LOCAL_MEDIA_PROXY_MAX_BYTES', '524288000' );
+        $max_bytes = is_numeric( $value ) ? (int)$value : 524288000;
+        return max( 1024 * 1024, $max_bytes );
+    }
+
+    /**
+     * @param array<string, string> $headers
+     * @return array<string, mixed>
+     */
+    private function download_local_media_proxy_cache_once(
+        string $url,
+        $fp,
+        array &$headers,
+        int &$written,
+        int $max_bytes
+    ): array {
+        $ch = curl_init( $url );
+        if ( $ch === false ) {
+            return [ 'ok' => false, 'reason' => 'curl-init-failed' ];
+        }
+        @ftruncate( $fp, 0 );
+        @rewind( $fp );
+        $written = 0;
+        $headers = [];
+        $options = [
+            CURLOPT_RETURNTRANSFER => false,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 120,
+            CURLOPT_USERAGENT => 'Ambient/' . $this->get_version(),
+            CURLOPT_HEADERFUNCTION => function( $curl, string $header ) use ( &$headers ): int {
+                $length = strlen( $header );
+                $trimmed = trim( $header );
+                if ( $trimmed === '' || !str_contains( $trimmed, ':' ) ) {
+                    return $length;
+                }
+                [ $name, $value ] = array_map( 'trim', explode( ':', $trimmed, 2 ) );
+                $headers[strtolower( $name )] = $value;
+                return $length;
+            },
+            CURLOPT_WRITEFUNCTION => function( $curl, string $chunk ) use ( $fp, &$written, $max_bytes ): int {
+                $length = strlen( $chunk );
+                if ( $written + $length > $max_bytes ) {
+                    return 0;
+                }
+                $result = fwrite( $fp, $chunk );
+                if ( $result === false ) {
+                    return 0;
+                }
+                $written += $result;
+                return $result;
+            },
+        ];
+        if ( defined( 'CURLOPT_PROTOCOLS' ) && defined( 'CURLPROTO_HTTP' ) && defined( 'CURLPROTO_HTTPS' ) ) {
+            $options[CURLOPT_PROTOCOLS] = CURLPROTO_HTTP | CURLPROTO_HTTPS;
+        }
+        curl_setopt_array( $ch, $options );
+        $executed = curl_exec( $ch );
+        $errno = curl_errno( $ch );
+        $http_code = (int)curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+        curl_close( $ch );
+        if ( $executed === false ) {
+            return [
+                'ok' => false,
+                'reason' => $errno === 23 ? 'max-size-exceeded' : 'upstream-error',
+                'httpStatus' => $http_code,
+            ];
+        }
+        return [
+            'ok' => true,
+            'httpStatus' => $http_code,
+        ];
+    }
+
+    private function send_local_media_proxy_file( string $cache_file, string $mime ): void {
+        if ( !is_file( $cache_file ) || !is_readable( $cache_file ) ) {
+            $this->send_local_media_proxy_error( 404, 'Range proxy cache file was not found.' );
+        }
+        $size = filesize( $cache_file );
+        if ( $size === false || $size <= 0 ) {
+            $this->send_local_media_proxy_error( 502, 'Range proxy cache file is empty.' );
+        }
+
+        $start = 0;
+        $end = $size - 1;
+        $status_code = 200;
+        $range = $_SERVER['HTTP_RANGE'] ?? '';
+        if ( is_string( $range ) && preg_match( '/bytes=(\d*)-(\d*)/', $range, $matches ) === 1 ) {
+            $range_start = $matches[1] !== '' ? (int)$matches[1] : null;
+            $range_end = $matches[2] !== '' ? (int)$matches[2] : null;
+            if ( $range_start === null && $range_end !== null ) {
+                $start = max( 0, $size - $range_end );
+            } elseif ( $range_start !== null ) {
+                $start = $range_start;
+            }
+            if ( $range_end !== null && $range_start !== null ) {
+                $end = min( $range_end, $size - 1 );
+            }
+            if ( $start < 0 || $start > $end || $start >= $size ) {
+                header( 'HTTP/1.1 416 Range Not Satisfiable' );
+                header( 'Content-Range: bytes */' . $size );
+                die();
+            }
+            $status_code = 206;
+        }
+
+        $length = $end - $start + 1;
+        header( $status_code === 206 ? 'HTTP/1.1 206 Partial Content' : 'HTTP/1.1 200 OK' );
+        header( 'Content-Type: ' . ( $this->normalize_header_media_type( $mime ) ?: 'application/octet-stream' ) );
+        header( 'Accept-Ranges: bytes' );
+        header( 'Content-Length: ' . $length );
+        header( 'Cache-Control: private, max-age=3600' );
+        if ( $status_code === 206 ) {
+            header( sprintf( 'Content-Range: bytes %d-%d/%d', $start, $end, $size ) );
+        }
+
+        $fp = fopen( $cache_file, 'rb' );
+        if ( $fp === false ) {
+            $this->send_local_media_proxy_error( 500, 'Range proxy cache file could not be opened.' );
+        }
+        fseek( $fp, $start );
+        $remaining = $length;
+        while ( $remaining > 0 && !feof( $fp ) ) {
+            $chunk_size = min( 8192, $remaining );
+            $buffer = fread( $fp, $chunk_size );
+            if ( $buffer === false || $buffer === '' ) {
+                break;
+            }
+            echo $buffer;
+            $remaining -= strlen( $buffer );
+            if ( function_exists( 'fastcgi_finish_request' ) ) {
+                continue;
+            }
+            flush();
+        }
+        fclose( $fp );
+        die();
+    }
+
+    private function send_local_media_proxy_error( int $code, string $message ): void {
+        http_response_code( $code );
+        header( 'Content-Type: text/plain; charset=UTF-8' );
+        echo $message;
+        die();
+    }
+
     /**
      * @param array<string, mixed> $meta
      */
@@ -1889,7 +2272,7 @@ trait api {
             }
         }
 
-        foreach ( [ 'fs', 'cc', 'controls', 'disablekb' ] as $key ) {
+        foreach ( [ 'fs', 'cc', 'controls', 'disablekb', 'rangeProxy' ] as $key ) {
             if ( array_key_exists( $key, $item ) ) {
                 $bool_value = $this->normalize_boolish( $item[$key] );
                 if ( $bool_value !== null ) {

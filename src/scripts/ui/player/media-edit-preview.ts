@@ -1,6 +1,7 @@
 import type { MediaItem } from '../../types/ambient';
 import type { YTPlayer } from '../../types/youtube';
 import { normalizeExternalMediaUrl } from '../../platform/external-media-url';
+import { resolveLocalMediaRangeProxyUrl } from '../../platform/local-media-range-proxy';
 import { resolveLocalMediaUrl } from '../../platform/local-media-url-resolver';
 import type { PlayerViewKind, PlayerViewSource } from './player-view-types';
 import {
@@ -74,7 +75,10 @@ export function resolveMediaEditPreviewSource(mediaItem: MediaItem): MediaEditPr
   return { kind: 'missing' };
 }
 
-export async function resolveMediaEditPreviewSourceAsync(mediaItem: MediaItem): Promise<MediaEditPreviewSource> {
+export async function resolveMediaEditPreviewSourceAsync(
+  mediaItem: MediaItem,
+  playlistName?: string | null
+): Promise<MediaEditPreviewSource> {
   if (!mediaItem.file || !normalizeExternalMediaUrl(mediaItem.file)) {
     return resolveMediaEditPreviewSource(mediaItem);
   }
@@ -86,7 +90,11 @@ export async function resolveMediaEditPreviewSourceAsync(mediaItem: MediaItem): 
   });
   const previewSource = resolveMediaEditPreviewSource({
     ...mediaItem,
-    file: resolved.url,
+    file: resolveLocalMediaRangeProxyUrl({
+      mediaItem,
+      sourceUrl: resolved.url,
+      playlistName,
+    }) || resolved.url,
   });
 
   if (previewSource.kind !== 'html') {
@@ -182,7 +190,10 @@ export async function createManagedMediaEditPreview(options: {
     };
   }
 
-  const previewSource = await resolveMediaEditPreviewSourceAsync(options.mediaItem);
+  const previewSource = await resolveMediaEditPreviewSourceAsync(
+    options.mediaItem,
+    ((window as any).$ambient?.playlist || (window as any).AmbientData?.currentPlaylist || '') as string
+  );
 
   if (previewSource.kind === 'youtube') {
     createYouTubePreviewHost({

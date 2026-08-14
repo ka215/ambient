@@ -1,5 +1,6 @@
 import type { MediaItem } from '../../types/ambient';
 import { normalizeExternalMediaUrl } from '../../platform/external-media-url';
+import { resolveLocalMediaRangeProxyUrl } from '../../platform/local-media-range-proxy';
 import { resolveLocalMediaUrl } from '../../platform/local-media-url-resolver';
 import {
   type PlaybackSetupPlan,
@@ -43,7 +44,10 @@ function hasExplicitFileExtension(src: string): boolean {
   return dotIndex > 0 && dotIndex < fileName.length - 1;
 }
 
-async function resolveHtmlPlaybackMediaItem(mediaData: MediaItem): Promise<MediaItem> {
+async function resolveHtmlPlaybackMediaItem(
+  mediaData: MediaItem,
+  playlistName?: string | null
+): Promise<MediaItem> {
   if (!isExternalHtmlMediaItem(mediaData)) {
     return mediaData;
   }
@@ -52,9 +56,14 @@ async function resolveHtmlPlaybackMediaItem(mediaData: MediaItem): Promise<Media
     source: 'html-playback',
     phase: 'playback',
   });
+  const proxyUrl = resolveLocalMediaRangeProxyUrl({
+    mediaItem: mediaData,
+    sourceUrl: resolved.url,
+    playlistName,
+  });
   return {
     ...mediaData,
-    file: resolved.url,
+    file: proxyUrl || resolved.url,
   };
 }
 
@@ -103,13 +112,14 @@ export function resolveNextPlaybackTarget(
 
 export async function resolveNextPlaybackTargetAsync(
   mediaItems: MediaItem[],
-  nextId: number | null
+  nextId: number | null,
+  playlistName?: string | null
 ): Promise<PlaybackTarget | null> {
   const playbackTarget = resolveNextPlaybackTarget(mediaItems, nextId);
   if (!playbackTarget) {
     return null;
   }
-  const mediaData = await resolveHtmlPlaybackMediaItem(playbackTarget.mediaData);
+  const mediaData = await resolveHtmlPlaybackMediaItem(playbackTarget.mediaData, playlistName);
   const { src: mediaSrc, type: playerType } = resolvePlaybackSource(mediaData);
   return {
     ...playbackTarget,
@@ -139,9 +149,10 @@ export async function resolveEndedPlaybackTargetAsync(
   mediaItems: MediaItem[],
   currentId: number | null,
   nextId: number | null,
-  loop: boolean
+  loop: boolean,
+  playlistName?: string | null
 ): Promise<PlaybackTarget | null> {
-  return resolveNextPlaybackTargetAsync(mediaItems, resolveLoopAwareNextId(currentId, nextId, loop));
+  return resolveNextPlaybackTargetAsync(mediaItems, resolveLoopAwareNextId(currentId, nextId, loop), playlistName);
 }
 
 export function resolveYouTubeTransitionCleanupMode(
@@ -219,12 +230,17 @@ export function resolvePlayableTransitionTarget(
 
 export async function runPlaybackTransition(options: {
   playbackTarget: PlaybackTarget | null;
+  playlistName?: string | null;
   getExtension: (src: string) => string;
   updatePlayStatus: (nextId: number) => void;
   setupPlayer: (setupKind: PlayableSetupKind, mediaSrc: string | null, mediaData: MediaItem) => void;
 }): Promise<void> {
   const playbackTarget = options.playbackTarget
-    ? await resolveNextPlaybackTargetAsync([options.playbackTarget.mediaData], options.playbackTarget.nextId)
+    ? await resolveNextPlaybackTargetAsync(
+      [options.playbackTarget.mediaData],
+      options.playbackTarget.nextId,
+      options.playlistName
+    )
     : null;
   if (!playbackTarget) {
     return;
@@ -271,6 +287,7 @@ export function resolvePlaybackSelectionById(options: {
 export async function resolvePlaybackSelectionByIdAsync(options: {
   mediaItems: MediaItem[];
   targetId: number | null;
+  playlistName?: string | null;
   getExtension: (src: string) => string;
 }): Promise<PlaybackSelection | null> {
   const mediaData = findMediaById(options.mediaItems, options.targetId);
@@ -278,7 +295,7 @@ export async function resolvePlaybackSelectionByIdAsync(options: {
     return null;
   }
 
-  const resolvedMediaData = await resolveHtmlPlaybackMediaItem(mediaData);
+  const resolvedMediaData = await resolveHtmlPlaybackMediaItem(mediaData, options.playlistName);
   return {
     mediaData: resolvedMediaData,
     playbackPlan: resolveHtmlPlaybackSetupPlan({
@@ -317,6 +334,7 @@ export async function resolvePlaybackInvocationAsync(options: {
   mediaItems: MediaItem[];
   triggerElement?: HTMLElement | null;
   targetId?: number | null;
+  playlistName?: string | null;
   getExtension: (src: string) => string;
 }): Promise<PlaybackInvocation | null> {
   const resolvedTargetId = options.targetId !== undefined && options.targetId !== null
@@ -326,6 +344,7 @@ export async function resolvePlaybackInvocationAsync(options: {
   const selection = await resolvePlaybackSelectionByIdAsync({
     mediaItems: options.mediaItems,
     targetId: resolvedTargetId,
+    playlistName: options.playlistName,
     getExtension: options.getExtension,
   });
   if (!selection) {
