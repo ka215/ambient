@@ -1,4 +1,6 @@
 import type { MediaEditDraft } from '../../domain/media-edit/draft';
+import { normalizeExternalMediaUrl } from '../../platform/external-media-url';
+import { shouldUseLocalMediaRangeProxy } from '../../platform/local-media-range-proxy';
 import { resolveMediaImageDisplayUrl } from '../../shared/media-image-cache';
 import type { MediaItem } from '../../types/ambient';
 
@@ -39,6 +41,48 @@ export function resolveMediaEditThumbnailSrc(options: {
     });
   }
   return options.getFallbackThumbnailSrc();
+}
+
+function resolveMediaPathExtension(value: string): string {
+  const path = String(value || '').split(/[?#]/, 1)[0] || '';
+  const fileName = path.split(/[\\/]/).pop() || '';
+  const dotIndex = fileName.lastIndexOf('.');
+  if (dotIndex < 0 || dotIndex === fileName.length - 1) {
+    return '';
+  }
+  return fileName.slice(dotIndex + 1).toLowerCase();
+}
+
+function isVideoMediaItem(mediaItem: MediaItem): boolean {
+  if (mediaItem.mediaKind === 'video') {
+    return true;
+  }
+  if (typeof mediaItem.mediaMime === 'string' && mediaItem.mediaMime.toLowerCase().startsWith('video/')) {
+    return true;
+  }
+  return ['mp4', 'webm', 'mov', 'm4v', 'ogv', 'avi', 'mkv'].includes(
+    resolveMediaPathExtension(mediaItem.file || '')
+  );
+}
+
+export function canGenerateMediaEditThumbnailFromPreview(options: {
+  isLocalMode: boolean;
+  thumbnailGenerationEnabled: boolean;
+  activeItem: MediaItem | null;
+}): boolean {
+  const activeItem = options.activeItem;
+  if (!options.isLocalMode || !options.thumbnailGenerationEnabled || !activeItem?.file || !isVideoMediaItem(activeItem)) {
+    return false;
+  }
+
+  const isExternal = normalizeExternalMediaUrl(activeItem.file) !== null;
+  if (!isExternal) {
+    return true;
+  }
+
+  return shouldUseLocalMediaRangeProxy(activeItem)
+    && Number.isInteger(activeItem.amId)
+    && activeItem.amId >= 0;
 }
 
 export function applyMediaEditDraftToFormView(options: {
@@ -150,10 +194,11 @@ export function applyMediaEditDraftToFormView(options: {
     options.thumbnailSection.classList.toggle('hidden', !options.isLocalMode);
   }
   const thumbnailGenerationEnabled = (window as any).AmbientData?.thumbnailGeneration?.enabled === true;
-  const canGenerateThumbnail = options.isLocalMode
-    && thumbnailGenerationEnabled
-    && !!options.activeItem?.file
-    && /\.(mp4|webm|mov|m4v|ogv|avi|mkv)(\?.*)?$/i.test(String(options.activeItem.file));
+  const canGenerateThumbnail = canGenerateMediaEditThumbnailFromPreview({
+    isLocalMode: options.isLocalMode,
+    thumbnailGenerationEnabled,
+    activeItem: options.activeItem,
+  });
   options.thumbnailGenerateButton?.classList.toggle('hidden', !canGenerateThumbnail);
 
   const hasThumbnail = options.draft.thumbnailMode === 'upload'

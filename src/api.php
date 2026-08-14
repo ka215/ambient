@@ -489,7 +489,10 @@ trait api {
                 }
                 $resolved = $this->resolve_core_local_media_url( $url );
                 $url = $resolved['url'];
-                $mime = $this->resolve_media_mime_from_url_extension( $url ) ?? 'application/octet-stream';
+                $item_mime = isset( $item['mediaMime'] ) && is_string( $item['mediaMime'] ) ? strtolower( trim( $item['mediaMime'] ) ) : '';
+                $mime = preg_match( '#^(audio|video)/#', $item_mime ) === 1
+                    ? $item_mime
+                    : ( $this->resolve_media_mime_from_url_extension( $url ) ?? 'application/octet-stream' );
                 return [
                     'url' => $url,
                     'mime' => $mime,
@@ -2128,19 +2131,24 @@ trait api {
             return;
         }
 
-        $file = isset( $payload['file'] ) && is_string( $payload['file'] ) ? trim( $payload['file'] ) : '';
         $seek_time = isset( $payload['seekTime'] ) && is_numeric( $payload['seekTime'] ) ? max( 0, (float)$payload['seekTime'] ) : null;
-        $resolved = $this->resolve_local_video_media_path( $file );
-        if ( $seek_time === null || $resolved === null ) {
+        $source_error = null;
+        $source = $this->resolve_media_thumbnail_source( $payload, $source_error );
+        if ( $seek_time === null || $source === null ) {
             $this->api_response = [
                 'state' => 'error',
                 'code'  => 400,
-                'data'  => [ 'message' => $this->__( 'Invalid request data.' ) ],
+                'data'  => [
+                    'message' => $this->__( 'Invalid request data.' ),
+                    'reason' => $seek_time === null ? 'invalid-seek-time' : ( $source_error['reason'] ?? 'invalid-source' ),
+                    'details' => $source_error['details'] ?? null,
+                ],
             ];
             return;
         }
 
-        $hash_source = str_replace( '\\', '/', $file );
+        $resolved = $source['path'];
+        $hash_source = str_replace( '\\', '/', $source['hashSource'] );
         $filename = sha1( $hash_source ) . '.webp';
         $tmp_file = tempnam( sys_get_temp_dir(), 'ambient-thumb-' );
         if ( $tmp_file === false ) {
@@ -2195,7 +2203,14 @@ trait api {
             $this->api_response = [
                 'state' => 'error',
                 'code'  => 500,
-                'data'  => [ 'message' => $this->__( 'Failed to generate thumbnail image.' ) ],
+                'data'  => [
+                    'message' => $this->__( 'Failed to generate thumbnail image.' ),
+                    'reason' => 'ffmpeg-failed',
+                    'details' => [
+                        'exitCode' => $exit_code,
+                        'stderr' => $this->truncate_debug_text( $stderr, 2000 ),
+                    ],
+                ],
             ];
             return;
         }
@@ -2223,6 +2238,104 @@ trait api {
                 'dataUrl' => 'data:image/webp;base64,' . $base64,
             ],
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $payload
+     * @param ?array<string,mixed> $error
+     * @return array{path:string,hashSource:string}|null
+     */
+    private function resolve_media_thumbnail_source( array $payload, ?array &$error = null ): ?array {
+        $source = isset( $payload['source'] ) && is_string( $payload['source'] ) ? trim( $payload['source'] ) : '';
+        if ( $source === 'range-proxy' ) {
+            if ( !function_exists( 'curl_init' ) ) {
+                $error = [ 'reason' => 'curl-unavailable' ];
+                return null;
+            }
+            $playlist_file = isset( $payload['playlist'] ) && is_string( $payload['playlist'] ) ? trim( $payload['playlist'] ) : '';
+            $media_id = isset( $payload['media'] ) && is_numeric( $payload['media'] ) ? (int)$payload['media'] : -1;
+            if ( $playlist_file === '' || $media_id < 0 ) {
+                $error = [
+                    'reason' => 'invalid-range-proxy-reference',
+                    'details' => [
+                        'playlist' => $playlist_file,
+                        'media' => $media_id,
+                    ],
+                ];
+                return null;
+            }
+            $target = $this->resolve_range_proxy_media_target( $playlist_file, $media_id );
+            if ( $target === null || !$this->is_safe_external_media_check_url( $target['url'] ) ) {
+                $error = [
+                    'reason' => 'range-proxy-target-not-found',
+                    'details' => [
+                        'playlist' => $playlist_file,
+                        'media' => $media_id,
+                    ],
+                ];
+                return null;
+            }
+            if ( !$this->is_video_media_source( $target['url'], $target['mime'] ) ) {
+                $error = [
+                    'reason' => 'range-proxy-target-not-video',
+                    'details' => [
+                        'mime' => $target['mime'],
+                        'url' => $target['url'],
+                    ],
+                ];
+                return null;
+            }
+            $cache = $this->ensure_local_media_proxy_cache( $target['url'], $target['mime'] );
+            if ( !$cache['ok'] || !isset( $cache['file'] ) || !is_string( $cache['file'] ) || !is_file( $cache['file'] ) ) {
+                $error = [
+                    'reason' => 'range-proxy-cache-unavailable',
+                    'details' => [
+                        'cacheReason' => $cache['reason'] ?? null,
+                        'cacheCode' => $cache['code'] ?? null,
+                    ],
+                ];
+                return null;
+            }
+            return [
+                'path' => $cache['file'],
+                'hashSource' => 'range-proxy:' . $playlist_file . ':' . $media_id . ':' . $target['url'],
+            ];
+        }
+
+        $file = isset( $payload['file'] ) && is_string( $payload['file'] ) ? trim( $payload['file'] ) : '';
+        if ( $file === '' ) {
+            $error = [ 'reason' => 'missing-file' ];
+            return null;
+        }
+        $resolved = $this->resolve_local_video_media_path( $file );
+        if ( $resolved === null ) {
+            $error = [
+                'reason' => 'invalid-local-video-path',
+                'details' => [ 'file' => $file ],
+            ];
+            return null;
+        }
+        return [
+            'path' => $resolved,
+            'hashSource' => $file,
+        ];
+    }
+
+    private function is_video_media_source( string $url, string $mime ): bool {
+        $normalized_mime = strtolower( trim( $mime ) );
+        if ( str_starts_with( $normalized_mime, 'video/' ) ) {
+            return true;
+        }
+        $path = parse_url( $url, PHP_URL_PATH );
+        $extension = is_string( $path ) ? strtolower( pathinfo( $path, PATHINFO_EXTENSION ) ) : '';
+        return in_array( $extension, [ 'mp4', 'webm', 'mov', 'm4v', 'ogv', 'avi', 'mkv' ], true );
+    }
+
+    private function truncate_debug_text( string $text, int $max_length ): string {
+        if ( strlen( $text ) <= $max_length ) {
+            return $text;
+        }
+        return substr( $text, 0, $max_length ) . '...';
     }
 
     private function resolve_local_video_media_path( string $file ): ?string {
