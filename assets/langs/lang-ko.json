@@ -71,6 +71,7 @@
     "Failed to load media URL.": "미디어 URL을 불러오지 못했습니다.",
     "Media URL check timed out.": "미디어 URL 확인 시간이 초과되었습니다.",
     "Invalid media URL.": "유효하지 않은 미디어 URL입니다.",
+    "Media URL could not be checked by the server.": "서버에서 미디어 URL을 확인할 수 없습니다.",
     "Unsupported media URL format.": "지원되지 않는 미디어 URL 형식입니다.",
     "Required": "필수",
     "Invalid URL": "유효하지 않은 URL",

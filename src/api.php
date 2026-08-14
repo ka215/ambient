@@ -190,6 +190,452 @@ trait api {
     }
 
     /**
+     * Lightweight server-side media URL checker for external local media URLs.
+     *
+     * The frontend uses this before falling back to HTMLMediaElement metadata loading.
+     * It keeps external fetches same-origin from the browser perspective and only reads
+     * a small prefix of the remote resource.
+     *
+     * @param string|null $url
+     * @return void
+     */
+    private function check_external_local_media_url( ?string $url = null ): void {
+        $url = trim( (string)$url );
+        if ( !$this->is_safe_external_media_check_url( $url ) ) {
+            $this->set_local_media_check_response(
+                400,
+                false,
+                $url,
+                null,
+                null,
+                'blocked-url',
+                $this->__( 'Media URL could not be checked by the server.' ),
+                'server'
+            );
+            return;
+        }
+
+        $sample = $this->fetch_external_media_header_sample( $url );
+        if ( !$sample['ok'] ) {
+            $this->set_local_media_check_response(
+                200,
+                false,
+                $url,
+                null,
+                null,
+                $sample['reason'] ?? 'probe-failed',
+                $this->__( 'Media URL could not be checked by the server.' ),
+                'server'
+            );
+            return;
+        }
+
+        $detected = $this->detect_external_media_mime(
+            $sample['body'] ?? '',
+            $sample['contentType'] ?? '',
+            $url
+        );
+        if ( $detected['kind'] === null || $detected['mime'] === null ) {
+            $this->set_local_media_check_response(
+                200,
+                false,
+                $url,
+                null,
+                null,
+                'unsupported-mime',
+                $this->__( 'Unsupported media URL format.' ),
+                'server',
+                [
+                    'httpStatus' => $sample['httpStatus'] ?? null,
+                    'contentType' => $sample['contentType'] ?? '',
+                    'contentLength' => $sample['contentLength'] ?? null,
+                    'acceptRanges' => $sample['acceptRanges'] ?? '',
+                ]
+            );
+            return;
+        }
+
+        $this->set_local_media_check_response(
+            200,
+            true,
+            $url,
+            $detected['kind'],
+            $detected['mime'],
+            null,
+            $this->__( 'Media URL is playable.' ),
+            'server',
+            [
+                'httpStatus' => $sample['httpStatus'] ?? null,
+                'contentType' => $sample['contentType'] ?? '',
+                'contentLength' => $sample['contentLength'] ?? null,
+                'acceptRanges' => $sample['acceptRanges'] ?? '',
+                'detection' => $detected['source'],
+            ]
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $meta
+     */
+    private function set_local_media_check_response(
+        int $code,
+        bool $ok,
+        string $url,
+        ?string $kind,
+        ?string $mime,
+        ?string $reason,
+        string $message,
+        string $source,
+        array $meta = []
+    ): void {
+        $data = [
+            'ok' => $ok,
+            'url' => $url,
+            'kind' => $kind,
+            'mime' => $mime,
+            'reason' => $reason,
+            'message' => $message,
+            'source' => $source,
+        ];
+        if ( !empty( $meta ) ) {
+            $data['meta'] = $meta;
+        }
+        $this->api_response = [
+            'state' => $ok ? 'ok' : 'error',
+            'code' => $code,
+            'data' => $data,
+        ];
+    }
+
+    private function is_safe_external_media_check_url( string $url ): bool {
+        if ( $url === '' ) {
+            return false;
+        }
+        $parts = parse_url( $url );
+        if ( !is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
+            return false;
+        }
+        $scheme = strtolower( (string)$parts['scheme'] );
+        if ( $scheme !== 'http' && $scheme !== 'https' ) {
+            return false;
+        }
+        $host = trim( (string)$parts['host'], "[] \t\n\r\0\x0B" );
+        if ( $host === '' ) {
+            return false;
+        }
+        $lower_host = strtolower( $host );
+        if (
+            $lower_host === 'localhost' ||
+            str_ends_with( $lower_host, '.localhost' ) ||
+            str_ends_with( $lower_host, '.local' )
+        ) {
+            return false;
+        }
+        if ( isset( $parts['user'] ) || isset( $parts['pass'] ) ) {
+            return false;
+        }
+        if ( isset( $parts['port'] ) ) {
+            $port = (int)$parts['port'];
+            if ( $port < 1 || $port > 65535 ) {
+                return false;
+            }
+        }
+
+        foreach ( $this->resolve_external_media_check_host_ips( $host ) as $ip ) {
+            if ( !$this->is_public_ip_address( $ip ) ) {
+                return false;
+            }
+        }
+
+        return count( $this->resolve_external_media_check_host_ips( $host ) ) > 0;
+    }
+
+    /**
+     * @return string[]
+     */
+    private function resolve_external_media_check_host_ips( string $host ): array {
+        if ( filter_var( $host, FILTER_VALIDATE_IP ) ) {
+            return [ $host ];
+        }
+
+        $ips = [];
+        $ipv4 = @gethostbynamel( $host );
+        if ( is_array( $ipv4 ) ) {
+            $ips = array_merge( $ips, $ipv4 );
+        }
+        if ( function_exists( 'dns_get_record' ) ) {
+            $records = @dns_get_record( $host, DNS_AAAA );
+            if ( is_array( $records ) ) {
+                foreach ( $records as $record ) {
+                    if ( isset( $record['ipv6'] ) && is_string( $record['ipv6'] ) ) {
+                        $ips[] = $record['ipv6'];
+                    }
+                }
+            }
+        }
+
+        return array_values( array_unique( array_filter( $ips, 'is_string' ) ) );
+    }
+
+    private function is_public_ip_address( string $ip ): bool {
+        return filter_var(
+            $ip,
+            FILTER_VALIDATE_IP,
+            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+        ) !== false;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function fetch_external_media_header_sample( string $url ): array {
+        if ( !function_exists( 'curl_init' ) ) {
+            return [ 'ok' => false, 'reason' => 'curl-unavailable' ];
+        }
+
+        $current_url = $url;
+        $max_redirects = 3;
+        for ( $redirect = 0; $redirect <= $max_redirects; $redirect++ ) {
+            if ( !$this->is_safe_external_media_check_url( $current_url ) ) {
+                return [ 'ok' => false, 'reason' => 'blocked-url' ];
+            }
+
+            $result = $this->fetch_external_media_header_sample_once( $current_url );
+            $status = (int)( $result['httpStatus'] ?? 0 );
+            $location = trim( (string)( $result['location'] ?? '' ) );
+            if ( in_array( $status, [ 301, 302, 303, 307, 308 ], true ) && $location !== '' ) {
+                $next_url = $this->resolve_external_media_redirect_url( $location, $current_url );
+                if ( $next_url === null ) {
+                    return [ 'ok' => false, 'reason' => 'invalid-redirect' ];
+                }
+                $current_url = $next_url;
+                continue;
+            }
+
+            if ( $status < 200 || $status >= 300 ) {
+                return [
+                    'ok' => false,
+                    'reason' => 'upstream-status',
+                    'httpStatus' => $status,
+                ];
+            }
+
+            return [
+                'ok' => true,
+                'url' => $current_url,
+                'httpStatus' => $status,
+                'contentType' => $result['contentType'] ?? '',
+                'contentLength' => $result['contentLength'] ?? null,
+                'acceptRanges' => $result['acceptRanges'] ?? '',
+                'body' => $result['body'] ?? '',
+            ];
+        }
+
+        return [ 'ok' => false, 'reason' => 'too-many-redirects' ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function fetch_external_media_header_sample_once( string $url ): array {
+        $headers = [];
+        $body = '';
+        $max_bytes = 4096;
+        $timeout = 5;
+        $ch = curl_init( $url );
+        if ( $ch === false ) {
+            return [ 'ok' => false, 'reason' => 'curl-init-failed' ];
+        }
+
+        $options = [
+            CURLOPT_RETURNTRANSFER => false,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_CONNECTTIMEOUT => 3,
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_RANGE => '0-' . ( $max_bytes - 1 ),
+            CURLOPT_USERAGENT => 'Ambient/' . $this->get_version(),
+            CURLOPT_HEADERFUNCTION => function( $curl, string $header ) use ( &$headers ): int {
+                $length = strlen( $header );
+                $trimmed = trim( $header );
+                if ( $trimmed === '' || !str_contains( $trimmed, ':' ) ) {
+                    return $length;
+                }
+                [ $name, $value ] = array_map( 'trim', explode( ':', $trimmed, 2 ) );
+                $headers[strtolower( $name )] = $value;
+                return $length;
+            },
+            CURLOPT_WRITEFUNCTION => function( $curl, string $chunk ) use ( &$body, $max_bytes ): int {
+                $remaining = $max_bytes - strlen( $body );
+                if ( $remaining <= 0 ) {
+                    return 0;
+                }
+                $chunk_length = strlen( $chunk );
+                if ( $chunk_length <= $remaining ) {
+                    $body .= $chunk;
+                    return $chunk_length;
+                }
+                $body .= substr( $chunk, 0, $remaining );
+                return 0;
+            },
+        ];
+        if ( defined( 'CURLOPT_PROTOCOLS' ) && defined( 'CURLPROTO_HTTP' ) && defined( 'CURLPROTO_HTTPS' ) ) {
+            $options[CURLOPT_PROTOCOLS] = CURLPROTO_HTTP | CURLPROTO_HTTPS;
+        }
+        curl_setopt_array( $ch, $options );
+
+        $executed = curl_exec( $ch );
+        $errno = curl_errno( $ch );
+        $http_code = (int)curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+        curl_close( $ch );
+
+        if ( $executed === false && $body === '' ) {
+            return [ 'ok' => false, 'reason' => $errno === 28 ? 'timeout' : 'upstream-error' ];
+        }
+
+        return [
+            'ok' => true,
+            'httpStatus' => $http_code,
+            'contentType' => $this->normalize_header_media_type( $headers['content-type'] ?? '' ),
+            'contentLength' => isset( $headers['content-length'] ) && is_numeric( $headers['content-length'] )
+                ? (int)$headers['content-length']
+                : null,
+            'acceptRanges' => $headers['accept-ranges'] ?? '',
+            'location' => $headers['location'] ?? '',
+            'body' => $body,
+        ];
+    }
+
+    private function resolve_external_media_redirect_url( string $location, string $base_url ): ?string {
+        if ( preg_match( '#^https?://#i', $location ) === 1 ) {
+            return $location;
+        }
+        if ( str_starts_with( $location, '//' ) ) {
+            $scheme = parse_url( $base_url, PHP_URL_SCHEME ) ?: 'https';
+            return $scheme . ':' . $location;
+        }
+
+        $base = parse_url( $base_url );
+        if ( !is_array( $base ) || empty( $base['scheme'] ) || empty( $base['host'] ) ) {
+            return null;
+        }
+        $authority = $base['scheme'] . '://' . $base['host'] . ( isset( $base['port'] ) ? ':' . $base['port'] : '' );
+        if ( str_starts_with( $location, '/' ) ) {
+            return $authority . $location;
+        }
+        $path = isset( $base['path'] ) ? preg_replace( '#/[^/]*$#', '/', $base['path'] ) : '/';
+        return $authority . $path . $location;
+    }
+
+    private function normalize_header_media_type( string $content_type ): string {
+        $type = strtolower( trim( explode( ';', $content_type, 2 )[0] ?? '' ) );
+        return $type;
+    }
+
+    /**
+     * @return array{kind:?string,mime:?string,source:string}
+     */
+    private function detect_external_media_mime( string $body, string $content_type, string $url ): array {
+        $content_type = $this->normalize_header_media_type( $content_type );
+        $kind = $this->resolve_media_kind_from_mime( $content_type );
+        if ( $kind !== null ) {
+            return [ 'kind' => $kind, 'mime' => $content_type, 'source' => 'content-type' ];
+        }
+
+        $magic_mime = $this->detect_media_mime_from_magic_bytes( $body );
+        $kind = $this->resolve_media_kind_from_mime( $magic_mime );
+        if ( $kind !== null && $magic_mime !== null ) {
+            return [ 'kind' => $kind, 'mime' => $magic_mime, 'source' => 'magic-bytes' ];
+        }
+
+        $extension_mime = $this->resolve_media_mime_from_url_extension( $url );
+        $kind = $this->resolve_media_kind_from_mime( $extension_mime );
+        if ( $kind !== null && $extension_mime !== null ) {
+            return [ 'kind' => $kind, 'mime' => $extension_mime, 'source' => 'extension' ];
+        }
+
+        return [ 'kind' => null, 'mime' => null, 'source' => 'unknown' ];
+    }
+
+    private function resolve_media_kind_from_mime( ?string $mime ): ?string {
+        if ( $mime === null || $mime === '' ) {
+            return null;
+        }
+        if ( str_starts_with( $mime, 'audio/' ) ) {
+            return 'audio';
+        }
+        if ( str_starts_with( $mime, 'video/' ) ) {
+            return 'video';
+        }
+        if ( $mime === 'application/ogg' ) {
+            return 'audio';
+        }
+        return null;
+    }
+
+    private function detect_media_mime_from_magic_bytes( string $body ): ?string {
+        if ( strlen( $body ) < 4 ) {
+            return null;
+        }
+        if ( str_starts_with( $body, 'ID3' ) ) {
+            return 'audio/mpeg';
+        }
+        $first = ord( $body[0] );
+        $second = ord( $body[1] );
+        if ( $first === 0xFF && ( $second & 0xE0 ) === 0xE0 ) {
+            return 'audio/mpeg';
+        }
+        if ( substr( $body, 4, 4 ) === 'ftyp' ) {
+            return 'video/mp4';
+        }
+        if ( str_starts_with( $body, 'OggS' ) ) {
+            return 'application/ogg';
+        }
+        if ( str_starts_with( $body, 'fLaC' ) ) {
+            return 'audio/flac';
+        }
+        if ( str_starts_with( $body, "RIFF" ) && substr( $body, 8, 4 ) === 'WAVE' ) {
+            return 'audio/wav';
+        }
+        if ( str_starts_with( $body, "RIFF" ) && substr( $body, 8, 4 ) === 'AVI ' ) {
+            return 'video/x-msvideo';
+        }
+        if ( substr( $body, 0, 4 ) === "\x1A\x45\xDF\xA3" ) {
+            return 'video/webm';
+        }
+        if ( $first === 0xFF && ( $second === 0xF1 || $second === 0xF9 ) ) {
+            return 'audio/aac';
+        }
+        return null;
+    }
+
+    private function resolve_media_mime_from_url_extension( string $url ): ?string {
+        $path = (string)( parse_url( $url, PHP_URL_PATH ) ?? '' );
+        $extension = strtolower( pathinfo( $path, PATHINFO_EXTENSION ) );
+        $map = [
+            'aac' => 'audio/aac',
+            'mid' => 'audio/midi',
+            'midi' => 'audio/midi',
+            'mp3' => 'audio/mpeg',
+            'm4a' => 'audio/mp4',
+            'ogg' => 'audio/ogg',
+            'opus' => 'audio/opus',
+            'wav' => 'audio/wav',
+            'weba' => 'audio/webm',
+            'wma' => 'audio/x-ms-wma',
+            'avi' => 'video/x-msvideo',
+            'mpeg' => 'video/mpeg',
+            'mpg' => 'video/mpeg',
+            'mp4' => 'video/mp4',
+            'ogv' => 'video/ogg',
+            'ts' => 'video/mp2t',
+            'webm' => 'video/webm',
+            '3gp' => 'video/3gpp',
+            '3g2' => 'video/3gpp2',
+        ];
+        return $map[$extension] ?? null;
+    }
+
+    /**
      * @param array<string, mixed>|null $usage
      */
     private function set_youtube_metadata_error( int $code, string $reason, string $message, ?array $usage = null ): void {

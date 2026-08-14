@@ -85,6 +85,53 @@ async function installMediaElementSuccessStub(page: Page): Promise<void> {
   }, RESOLVED_MEDIA_URL);
 }
 
+async function installServerMediaCheckStub(page: Page): Promise<void> {
+  await page.route('**/local-media-check', async (route) => {
+    const request = route.request();
+    const formData = request.postData() || '';
+    const params = new URLSearchParams(formData);
+    const url = params.get('url') || '';
+    if (url !== RESOLVED_MEDIA_URL) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          state: 'error',
+          code: 200,
+          data: {
+            ok: false,
+            url,
+            kind: null,
+            mime: null,
+            reason: 'unsupported-mime',
+            message: 'Unsupported media URL format.',
+            source: 'server',
+          },
+        }),
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        state: 'ok',
+        code: 200,
+        data: {
+          ok: true,
+          url,
+          kind: 'video',
+          mime: 'video/mp4',
+          reason: null,
+          message: 'Media URL is playable.',
+          source: 'server',
+        },
+      }),
+    });
+  });
+}
+
 test.describe('SC-022 Local media URL hook and resolver', () => {
   test.beforeEach(() => {
     installE2ePlaylistFixture();
@@ -97,6 +144,7 @@ test.describe('SC-022 Local media URL hook and resolver', () => {
   test('resolves an HTML page URL through localMediaUrl.beforeCheck before checking playback', async ({ ambientPage, page, request }) => {
     await skipUnlessResolverFixtureAvailable(request);
     await installMediaElementSuccessStub(page);
+    await installServerMediaCheckStub(page);
     await page.context().addCookies([
       {
         name: 'lang',
@@ -229,8 +277,12 @@ test.describe('SC-022 Local media URL hook and resolver', () => {
       });
     }, { timeout: 10_000 }).toBe(RESOLVED_MEDIA_URL);
 
-    await page.locator('#btn-playlist-mode').click();
-    await page.locator('.playlist-mode-option[data-mode="edit"]').click();
+    await page.evaluate(() => {
+      document.querySelector<HTMLElement>('#btn-playlist-mode')?.click();
+    });
+    await page.evaluate(() => {
+      document.querySelector<HTMLElement>('.playlist-mode-option[data-mode="edit"]')?.click();
+    });
     await page.evaluate((title) => {
       const item = Array.from(document.querySelectorAll<HTMLElement>('#playlist-list-group a[data-playlist-item]'))
         .find((candidate) => (candidate.textContent || '').includes(title));

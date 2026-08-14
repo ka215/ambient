@@ -77,6 +77,7 @@
     "Failed to load media URL.": "メディアのURLを読み込めませんでした。",
     "Media URL check timed out.": "メディアのURL確認がタイムアウトしました。",
     "Invalid media URL.": "無効なメディアのURLです。",
+    "Media URL could not be checked by the server.": "サーバーでメディアのURLを確認できませんでした。",
     "Unsupported media URL format.": "サポートされていないメディアのURL形式です。",
     "Required": "必須",
     "Invalid URL": "無効なURLです",

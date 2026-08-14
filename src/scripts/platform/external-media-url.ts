@@ -5,8 +5,23 @@ export interface ExternalMediaUrlCheckResult {
   ok: boolean;
   url: string;
   kind: HtmlPlayerKind | null;
-  reason?: 'invalid-url' | 'unsupported-extension' | 'unsupported-mime' | 'load-timeout' | 'load-error';
+  reason?: 'invalid-url' | 'unsupported-extension' | 'unsupported-mime' | 'load-timeout' | 'load-error' | 'server-check-failed';
   message: string;
+  mime?: string | null;
+  source?: 'server' | 'media-element';
+}
+
+interface ServerMediaUrlCheckResponse {
+  state?: string;
+  data?: {
+    ok?: boolean;
+    url?: string;
+    kind?: HtmlPlayerKind | null;
+    mime?: string | null;
+    reason?: ExternalMediaUrlCheckResult['reason'] | 'probe-failed' | 'curl-unavailable' | 'blocked-url' | 'upstream-status' | 'timeout';
+    message?: string;
+    source?: string;
+  };
 }
 
 function getExtension(path: string): string {
@@ -41,6 +56,69 @@ export function normalizeExternalMediaUrl(value: string): string | null {
 export function isValidExternalMediaUrlFormat(value: string): boolean {
   const normalizedUrl = normalizeExternalMediaUrl(value);
   return normalizedUrl !== null;
+}
+
+function resolveLocalMediaCheckEndpoint(): string {
+  const currentUrl = new URL(window.location.href);
+  return `${currentUrl.origin}${currentUrl.pathname.replace(/\/?$/, '/')}local-media-check`;
+}
+
+async function checkExternalMediaUrlByServer(
+  url: string,
+  timeoutMs: number
+): Promise<ExternalMediaUrlCheckResult | null> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => {
+    controller.abort();
+  }, Math.max(1000, Math.min(timeoutMs, 8000)));
+
+  try {
+    const body = new URLSearchParams();
+    body.set('url', url);
+    const response = await fetch(resolveLocalMediaCheckEndpoint(), {
+      method: 'POST',
+      cache: 'no-cache',
+      credentials: 'same-origin',
+      body,
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = await response.json() as ServerMediaUrlCheckResponse;
+    const data = payload.data;
+    if (!data) {
+      return null;
+    }
+    if (data.ok === true && (data.kind === 'audio' || data.kind === 'video')) {
+      return {
+        ok: true,
+        url: data.url || url,
+        kind: data.kind,
+        mime: data.mime || null,
+        message: data.message || 'Media URL is playable.',
+        source: 'server',
+      };
+    }
+    if (data.reason === 'invalid-url' || data.reason === 'unsupported-mime') {
+      return {
+        ok: false,
+        url: data.url || url,
+        kind: null,
+        mime: data.mime || null,
+        reason: data.reason,
+        message: data.message || 'Unsupported media URL format.',
+        source: 'server',
+      };
+    }
+  } catch (_error) {
+    return null;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+
+  return null;
 }
 
 function checkMediaElementPlayable(options: {
@@ -86,6 +164,7 @@ function checkMediaElementPlayable(options: {
       url: options.url,
       kind: options.kind,
       message: 'Media URL is playable.',
+      source: 'media-element',
     });
     const onError = (): void => settle({
       ok: false,
@@ -93,6 +172,7 @@ function checkMediaElementPlayable(options: {
       kind: options.kind,
       reason: 'load-error',
       message: 'Failed to load media URL.',
+      source: 'media-element',
     });
     const timeoutId = window.setTimeout(() => {
       settle({
@@ -101,6 +181,7 @@ function checkMediaElementPlayable(options: {
         kind: options.kind,
         reason: 'load-timeout',
         message: 'Media URL check timed out.',
+        source: 'media-element',
       });
     }, options.timeoutMs);
 
@@ -143,6 +224,11 @@ export async function checkExternalMediaUrlPlayable(
       reason: 'invalid-url',
       message: 'Invalid media URL.',
     });
+  }
+
+  const serverResult = await checkExternalMediaUrlByServer(normalizedUrl, timeoutMs);
+  if (serverResult) {
+    return serverResult;
   }
 
   const extension = getExtension(normalizedUrl);

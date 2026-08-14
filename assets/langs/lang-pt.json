@@ -71,6 +71,7 @@
     "Failed to load media URL.": "Não foi possível carregar a URL da mídia.",
     "Media URL check timed out.": "A verificação da URL da mídia expirou.",
     "Invalid media URL.": "URL da mídia inválida.",
+    "Media URL could not be checked by the server.": "O servidor não pôde verificar a URL da mídia.",
     "Unsupported media URL format.": "Formato de URL da mídia não compatível.",
     "Required": "Obrigatório",
     "Invalid URL": "URL inválida",

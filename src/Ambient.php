@@ -204,6 +204,13 @@ class Ambient {
                 $_route = "Retrieve YouTube metadata \"{$video_id}\"";
                 $args[] = $video_id;
                 break;
+            case 'post:local-media-check':
+                $method = 'check_external_local_media_url';
+                $args = filter_input_array( INPUT_POST, [
+                    'url' => FILTER_UNSAFE_RAW,
+                ] );
+                $_route = 'Check external local media URL';
+                break;
             case 'post:playlist':
                 $method = 'upsert_playlist';
                 $_route = "Add item to playlist \"{$params[0]}\"";
