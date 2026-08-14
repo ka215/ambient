@@ -38,7 +38,7 @@ export function createMediaEditPreviewBindings(options: {
   resetMediaEditPreviewState: () => void;
   getMediaEditPreviewCurrentTime: () => number | null;
   syncMediaEditTimingFieldFromPreview: (field: HTMLInputElement | null, label: string) => void;
-  createMediaEditPreview: (mediaItem: MediaItem) => void;
+  createMediaEditPreview: (mediaItem: MediaItem) => Promise<void>;
 } {
   let mediaEditPreviewYouTubePlayer: YTPlayer | null = null;
   let mediaEditPreviewHtmlPlayer: HTMLMediaElement | null = null;
@@ -112,10 +112,10 @@ export function createMediaEditPreviewBindings(options: {
     options.validateAndRenderMediaEditDraftFromForm();
   }
 
-  function createMediaEditPreview(mediaItem: MediaItem): void {
+  async function createMediaEditPreview(mediaItem: MediaItem): Promise<void> {
     resetMediaEditPreviewState();
     mediaEditPreviewSourceItem = mediaItem;
-    const previewState = createManagedMediaEditPreview({
+    const previewState = await createManagedMediaEditPreview({
       mediaItem,
       previewElement: options.previewElement,
       previewPlayerId: options.previewPlayerId,

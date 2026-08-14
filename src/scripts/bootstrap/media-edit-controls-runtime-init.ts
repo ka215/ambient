@@ -26,7 +26,7 @@ export interface InitializeMediaEditControlsRuntimeOptions {
     getPreviewSourceItem: () => MediaItem | null;
     getMediaEditPreviewCurrentTime: () => number | null;
   };
-  createMediaEditPreview: (mediaItem: MediaItem) => void;
+  createMediaEditPreview: (mediaItem: MediaItem) => Promise<void>;
   closeMediaEditModal: (restoreFocus?: boolean) => void;
   cancelMediaEditModal: (restoreFocus?: boolean) => void;
   saveMediaEdit: () => Promise<void>;
@@ -249,7 +249,7 @@ export function initializeMediaEditControlsRuntime(options: InitializeMediaEditC
         if (!previewSourceItem) {
           return;
         }
-        options.createMediaEditPreview(previewSourceItem);
+        void options.createMediaEditPreview(previewSourceItem);
       },
     },
     thumbnail: {

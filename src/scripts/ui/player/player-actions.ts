@@ -1,6 +1,6 @@
 import type { MediaItem } from '../../types/ambient';
 import type { PlayableSetupKind } from './player-setup';
-import { resolvePlaybackInvocation, resolvePlaybackStatusUpdate } from './player-runtime';
+import { resolvePlaybackInvocationAsync, resolvePlaybackStatusUpdate } from './player-runtime';
 
 export function updatePlaybackStatus(options: {
   mediaItems: MediaItem[];
@@ -52,7 +52,7 @@ export function syncPlaybackStatusAndCarousel(options: {
   options.refreshCarousel();
 }
 
-export function playMediaSelection(options: {
+export async function playMediaSelection(options: {
   mediaItems: MediaItem[];
   triggerElement?: HTMLElement | null;
   targetId?: number | null;
@@ -67,8 +67,8 @@ export function playMediaSelection(options: {
     mediaData: MediaItem,
     extension?: string | null
   ) => void;
-}): void {
-  const invocation = resolvePlaybackInvocation({
+}): Promise<void> {
+  const invocation = await resolvePlaybackInvocationAsync({
     mediaItems: options.mediaItems,
     triggerElement: options.triggerElement,
     targetId: options.targetId,

@@ -112,17 +112,19 @@ test.describe('SC-022 Local media URL hook and resolver', () => {
     await page.evaluate((endpointUrl) => {
       (window as any).__ambientE2ELocalMediaHookCalls = [];
       window.AmbientHooks?.addFilter('localMediaUrl.beforeCheck', async (url, context) => {
-        (window as any).__ambientE2ELocalMediaHookCalls.push({ url, context });
         const endpoint = new URL(endpointUrl);
         endpoint.searchParams.set('url', url);
         const response = await fetch(endpoint.toString(), { credentials: 'same-origin' });
         if (!response.ok) {
+          (window as any).__ambientE2ELocalMediaHookCalls.push({ url, context, resolvedUrl: url });
           return url;
         }
         const payload = await response.json() as { mediaUrl?: unknown };
-        return typeof payload.mediaUrl === 'string' && payload.mediaUrl !== ''
+        const resolvedUrl = typeof payload.mediaUrl === 'string' && payload.mediaUrl !== ''
           ? payload.mediaUrl
           : url;
+        (window as any).__ambientE2ELocalMediaHookCalls.push({ url, context, resolvedUrl });
+        return resolvedUrl;
       }, 10);
     }, resolverURL());
 
@@ -162,8 +164,8 @@ test.describe('SC-022 Local media URL hook and resolver', () => {
     await expect(page.locator('#btn-check-local-media-url')).toBeEnabled();
 
     await page.locator('#btn-check-local-media-url').click();
-    await expect(page.locator('#local-media-url')).toHaveValue(RESOLVED_MEDIA_URL);
-    await expect(page.locator('#local-media-filepath')).toHaveValue(RESOLVED_MEDIA_URL);
+    await expect(page.locator('#local-media-url')).toHaveValue(HTML_PAGE_URL);
+    await expect(page.locator('#local-media-filepath')).toHaveValue(HTML_PAGE_URL);
     await expect(page.locator('#note-success-local-media-url')).toBeVisible();
 
     await expect.poll(async () => {
@@ -171,9 +173,13 @@ test.describe('SC-022 Local media URL hook and resolver', () => {
     }).toEqual([
       {
         url: HTML_PAGE_URL,
+        resolvedUrl: RESOLVED_MEDIA_URL,
         context: {
           source: 'media-management',
+          phase: 'check',
           rawUrl: HTML_PAGE_URL,
+          currentUrl: HTML_PAGE_URL,
+          defaultResolved: false,
         },
       },
     ]);
@@ -210,5 +216,67 @@ test.describe('SC-022 Local media URL hook and resolver', () => {
           .some((item) => (item.textContent || '').includes(title));
       }, mediaTitle);
     }, { timeout: 10_000 }).toBe(true);
+
+    await page.evaluate((title) => {
+      const item = Array.from(document.querySelectorAll<HTMLElement>('#playlist-list-group a[data-playlist-item]'))
+        .find((candidate) => (candidate.textContent || '').includes(title));
+      item?.click();
+    }, mediaTitle);
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const source = document.querySelector<HTMLSourceElement>('#html-player source');
+        return source?.getAttribute('src') || '';
+      });
+    }, { timeout: 10_000 }).toBe(RESOLVED_MEDIA_URL);
+
+    await page.locator('#btn-playlist-mode').click();
+    await page.locator('.playlist-mode-option[data-mode="edit"]').click();
+    await page.evaluate((title) => {
+      const item = Array.from(document.querySelectorAll<HTMLElement>('#playlist-list-group a[data-playlist-item]'))
+        .find((candidate) => (candidate.textContent || '').includes(title));
+      item?.click();
+    }, mediaTitle);
+    await expect(page.locator('#modal-media-edit')).toBeVisible();
+    await expect.poll(async () => {
+      return page.locator('#modal-media-edit-preview source').evaluate((source) => source.getAttribute('src'));
+    }, { timeout: 10_000 }).toBe(RESOLVED_MEDIA_URL);
+
+    await expect.poll(async () => {
+      return page.evaluate(() => (window as any).__ambientE2ELocalMediaHookCalls);
+    }).toEqual([
+      {
+        url: HTML_PAGE_URL,
+        resolvedUrl: RESOLVED_MEDIA_URL,
+        context: {
+          source: 'media-management',
+          phase: 'check',
+          rawUrl: HTML_PAGE_URL,
+          currentUrl: HTML_PAGE_URL,
+          defaultResolved: false,
+        },
+      },
+      {
+        url: HTML_PAGE_URL,
+        resolvedUrl: RESOLVED_MEDIA_URL,
+        context: {
+          source: 'html-playback',
+          phase: 'playback',
+          rawUrl: HTML_PAGE_URL,
+          currentUrl: HTML_PAGE_URL,
+          defaultResolved: false,
+        },
+      },
+      {
+        url: HTML_PAGE_URL,
+        resolvedUrl: RESOLVED_MEDIA_URL,
+        context: {
+          source: 'media-edit-preview',
+          phase: 'preview',
+          rawUrl: HTML_PAGE_URL,
+          currentUrl: HTML_PAGE_URL,
+          defaultResolved: false,
+        },
+      },
+    ]);
   });
 });

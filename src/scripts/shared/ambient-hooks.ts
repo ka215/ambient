@@ -1,6 +1,13 @@
+export type LocalMediaUrlResolveSource = 'media-management' | 'html-playback' | 'media-edit-preview';
+export type LocalMediaUrlResolvePhase = 'check' | 'playback' | 'preview';
+
 export interface LocalMediaUrlBeforeCheckContext {
-  source: 'media-management';
+  source: LocalMediaUrlResolveSource;
+  phase: LocalMediaUrlResolvePhase;
   rawUrl: string;
+  currentUrl: string;
+  defaultResolved: boolean;
+  defaultResolverName?: string;
 }
 
 export async function applyAmbientFilter<TValue, TContext>(

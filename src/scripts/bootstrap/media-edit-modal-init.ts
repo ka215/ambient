@@ -36,7 +36,7 @@ export interface InitializeMediaEditModalBindingsOptions {
   closeCategoryDropdown(restoreFocus?: boolean): void;
   bindForm(mediaItem: MediaItem): void;
   updatePlaylist(): void;
-  createPreview(mediaItem: MediaItem): void;
+  createPreview(mediaItem: MediaItem): Promise<void>;
   startDurationSyncWait(): void;
   afterShow?(): void;
   getActiveItem(): MediaItem | null;

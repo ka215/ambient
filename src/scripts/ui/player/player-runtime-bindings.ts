@@ -209,7 +209,7 @@ export function createAmbientPlayerBindings(options: {
   }
 
   function playItem(object: HTMLElement | null = null, id: number | null = null): void {
-    playManagedMediaSelection({
+    void playManagedMediaSelection({
       mediaItems: options.status.media || [],
       triggerElement: options.isElement(object) ? (object as HTMLElement) : null,
       targetId: id,

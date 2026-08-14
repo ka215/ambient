@@ -1,10 +1,10 @@
 import { bindFileDropzone, setFileDropzoneState } from './file-dropzone';
-import { applyAmbientFilter, type LocalMediaUrlBeforeCheckContext } from '../../shared/ambient-hooks';
 import {
   checkExternalMediaUrlPlayable,
   isValidExternalMediaUrlFormat,
   normalizeExternalMediaUrl,
 } from '../../platform/external-media-url';
+import { resolveLocalMediaUrl } from '../../platform/local-media-url-resolver';
 import { extractLocalMediaMetadata } from '../../platform/local-media-metadata';
 import type { YouTubeMetadataPayload } from '../../types/ambient';
 
@@ -134,6 +134,10 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
     ? 'url'
     : 'upload';
   let localMediaUrlRequestSeq = 0;
+  let localMediaUrlCheckState: {
+    originUrl: string;
+    playable: boolean;
+  } | null = null;
 
   let metadataDebounceId: ReturnType<typeof setTimeout> | null = null;
   let metadataRequestSeq = 0;
@@ -209,6 +213,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
 
   const clearLocalMediaUrlState = (): void => {
     localMediaUrlRequestSeq++;
+    localMediaUrlCheckState = null;
     if (localMediaUrlInput) {
       setValidated(localMediaUrlInput, null);
     }
@@ -454,17 +459,10 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
       return;
     }
     const rawUrl = localMediaUrlInput.value;
-    const filteredUrl = await applyAmbientFilter<string, LocalMediaUrlBeforeCheckContext>(
-      'localMediaUrl.beforeCheck',
-      rawUrl,
-      {
-        source: 'media-management',
-        rawUrl,
-      }
-    );
-    const normalizedUrl = normalizeExternalMediaUrl(filteredUrl);
-    if (!normalizedUrl || !isValidExternalMediaUrlFormat(filteredUrl)) {
+    const originUrl = normalizeExternalMediaUrl(rawUrl);
+    if (!originUrl || !isValidExternalMediaUrlFormat(rawUrl)) {
       setValidated(localMediaUrlInput, false);
+      localMediaUrlCheckState = null;
       setLocalMediaUrlStatus(
         getLocalizedMessage('Enter a valid http(s) audio or video URL.', 'Enter a valid http(s) audio or video URL.'),
         'error'
@@ -476,7 +474,13 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
     localMediaUrlCheckButton.setAttribute('aria-busy', 'true');
     setValidated(localMediaUrlInput, null);
     setLocalMediaUrlStatus(getLocalizedMessage('Checking media URL...', 'Checking media URL...'), 'loading');
-    const result = await checkExternalMediaUrlPlayable(normalizedUrl);
+    const resolved = await resolveLocalMediaUrl({
+      url: originUrl,
+      source: 'media-management',
+      phase: 'check',
+      refreshCache: true,
+    });
+    const result = await checkExternalMediaUrlPlayable(resolved.url);
     if (requestSeq !== localMediaUrlRequestSeq) {
       return;
     }
@@ -486,6 +490,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
       if (inputFilepath) {
         inputFilepath.value = '';
       }
+      localMediaUrlCheckState = null;
       setLocalMediaUrlCheckButtonDisabled(false);
       setValidated(localMediaUrlInput, false);
       setLocalMediaUrlStatus(getLocalizedMessage(result.message, result.message), 'error');
@@ -493,10 +498,14 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
     }
     const inputFilepath = getInputFilepath();
     if (inputFilepath) {
-      inputFilepath.value = result.url;
+      inputFilepath.value = originUrl;
       inputFilepath.dispatchEvent(new Event('change'));
     }
-    localMediaUrlInput.value = result.url;
+    localMediaUrlCheckState = {
+      originUrl,
+      playable: true,
+    };
+    localMediaUrlInput.value = originUrl;
     setValidated(localMediaUrlInput, true);
     setLocalMediaUrlStatus(getLocalizedMessage(result.message, result.message), 'success');
   });
@@ -638,6 +647,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
           const target = evt.target as HTMLInputElement;
           const normalizedUrl = normalizeExternalMediaUrl(target.value);
           localMediaUrlRequestSeq++;
+          localMediaUrlCheckState = null;
           const inputFilepath = getInputFilepath();
           if (inputFilepath) {
             inputFilepath.value = '';
@@ -760,6 +770,28 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
               delay: 2400,
             });
             return;
+          }
+
+          if (getAddType() !== 'youtube' && activeLocalMediaMode === 'url') {
+            const originUrl = normalizeExternalMediaUrl(localMediaUrlInput?.value || '');
+            if (
+              !originUrl
+              || !localMediaUrlCheckState?.playable
+              || localMediaUrlCheckState.originUrl !== originUrl
+            ) {
+              if (localMediaUrlInput) {
+                setValidated(localMediaUrlInput, false);
+              }
+              setLocalMediaUrlStatus(
+                getLocalizedMessage('Check the URL before adding media.', 'Check the URL before adding media.'),
+                'error'
+              );
+              return;
+            }
+            const inputFilepath = getInputFilepath();
+            if (inputFilepath) {
+              inputFilepath.value = localMediaUrlCheckState.originUrl;
+            }
           }
 
           const formData = new FormData(form);

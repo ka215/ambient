@@ -1,5 +1,7 @@
 import type { MediaItem } from '../../types/ambient';
 import type { YTPlayer } from '../../types/youtube';
+import { normalizeExternalMediaUrl } from '../../platform/external-media-url';
+import { resolveLocalMediaUrl } from '../../platform/local-media-url-resolver';
 import type { PlayerViewKind, PlayerViewSource } from './player-view-types';
 import {
   buildYouTubePreviewPlayerConfig,
@@ -72,6 +74,28 @@ export function resolveMediaEditPreviewSource(mediaItem: MediaItem): MediaEditPr
   return { kind: 'missing' };
 }
 
+export async function resolveMediaEditPreviewSourceAsync(mediaItem: MediaItem): Promise<MediaEditPreviewSource> {
+  if (!mediaItem.file || !normalizeExternalMediaUrl(mediaItem.file)) {
+    return resolveMediaEditPreviewSource(mediaItem);
+  }
+
+  const resolved = await resolveLocalMediaUrl({
+    url: mediaItem.file,
+    source: 'media-edit-preview',
+    phase: 'preview',
+  });
+  const previewSource = resolveMediaEditPreviewSource({
+    ...mediaItem,
+    file: resolved.url,
+  });
+
+  if (previewSource.kind !== 'html') {
+    return previewSource;
+  }
+
+  return previewSource;
+}
+
 export function resolveMediaEditPreviewCurrentTime(options: {
   previewType: 'youtube' | 'audio' | 'video' | null;
   youtubePlayer: { getCurrentTime: () => number } | null;
@@ -129,7 +153,7 @@ export function clearMediaEditPreviewContainerView(containerElement: HTMLElement
   containerElement.innerHTML = '';
 }
 
-export function createManagedMediaEditPreview(options: {
+export async function createManagedMediaEditPreview(options: {
   mediaItem: MediaItem;
   previewElement: HTMLElement | null;
   previewPlayerId: string;
@@ -145,11 +169,11 @@ export function createManagedMediaEditPreview(options: {
   hidePreviewError: () => void;
   showPreviewError: (message: string) => void;
   getLocalizedMessage: (key: string, fallback: string) => string;
-}): {
+}): Promise<{
   previewType: 'youtube' | 'audio' | 'video' | null;
   youtubePlayer: YTPlayer | null;
   htmlPlayer: HTMLMediaElement | null;
-} {
+}> {
   if (!options.previewElement) {
     return {
       previewType: null,
@@ -158,7 +182,7 @@ export function createManagedMediaEditPreview(options: {
     };
   }
 
-  const previewSource = resolveMediaEditPreviewSource(options.mediaItem);
+  const previewSource = await resolveMediaEditPreviewSourceAsync(options.mediaItem);
 
   if (previewSource.kind === 'youtube') {
     createYouTubePreviewHost({
