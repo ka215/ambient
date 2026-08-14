@@ -23,6 +23,7 @@ export function createAmbientYouTubeRuntimePlayer(options: {
   emitYouTubeSignal: (phase: string, error?: string) => void;
   findMediaById: (mediaItems: MediaItem[], targetId: number | null) => MediaItem | null;
   logger: (...args: unknown[]) => void;
+  playlistName: () => string | null;
   onAutoplayTimeout: () => void;
   syncPlaybackButtonState: (
     playButton: HTMLButtonElement,
@@ -54,6 +55,7 @@ export function createAmbientYouTubeRuntimePlayer(options: {
     showYouTubePlayerWrapper: () => showYouTubePlayerWrapper(options.embedWrapper),
     findMediaById: options.findMediaById,
     logger: options.logger,
+    playlistName: options.playlistName,
     onAutoplayTimeout: options.onAutoplayTimeout,
     setWatchOriginState: (watchUrl: string) => {
       setWatchOriginState(options.watchButton, options.optionalContainer, watchUrl);
@@ -114,6 +116,7 @@ export function createAmbientHtmlRuntimePlayer(options: {
     state: 'playing' | 'paused'
   ) => void;
   logger: (...args: unknown[]) => void;
+  playlistName: () => string | null;
   resolveSeekRange: (mediaData: MediaItem, fallbackEnd: number) => { seekStart: number; seekEnd: number };
   fadeOut: (media: HTMLMediaElement, period: number, start: number) => void;
   fadeIn: (media: HTMLMediaElement, period: number, start: number) => void;
@@ -147,6 +150,7 @@ export function createAmbientHtmlRuntimePlayer(options: {
       options.syncPlaybackButtonState(options.playButton, options.pauseButton, state);
     },
     logger: options.logger,
+    playlistName: options.playlistName,
     resolveSeekRange: options.resolveSeekRange,
     fadeOut: options.fadeOut,
     fadeIn: options.fadeIn,

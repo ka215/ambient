@@ -156,8 +156,33 @@ function installRangeProxyPlaylistFixture(): void {
   }, null, 2));
 }
 
+function installEndedTransitionRangeProxyPlaylistFixture(): void {
+  writeFileSync(E2E_PLAYLIST_ASSET_PATH, JSON.stringify({
+    'range-proxy-ended-e2e': [
+      {
+        file: RANGE_PROXY_DROPBOX_SHARED_VIDEO_URL,
+        title: 'e2e-ended-transition-source',
+        artist: 'E2E Artist',
+        desc: '',
+        mediaKind: 'video',
+        mediaMime: 'video/mp4',
+      },
+      {
+        file: RANGE_PROXY_GOOGLE_DRIVE_SHARED_VIDEO_URL,
+        title: 'e2e-ended-transition-range-proxy-target',
+        artist: 'E2E Artist',
+        desc: '',
+        mediaKind: 'video',
+        mediaMime: 'video/mp4',
+        rangeProxy: true,
+      },
+    ],
+    options: {},
+  }, null, 2));
+}
+
 async function installLocalMediaProxyRouteStub(page: Page): Promise<void> {
-  await page.route('**/local-media-proxy/**?**', async (route) => {
+  const fulfillProxy = async (route: Parameters<Parameters<typeof page.route>[1]>[0]): Promise<void> => {
     await route.fulfill({
       status: 206,
       contentType: 'video/mp4',
@@ -168,7 +193,9 @@ async function installLocalMediaProxyRouteStub(page: Page): Promise<void> {
       },
       body: 'ID3\u0000',
     });
-  });
+  };
+  await page.route('**/local-media-proxy/**?**', fulfillProxy);
+  await page.route('**/local-media-proxy?**', fulfillProxy);
 }
 
 async function installGoogleDriveNonRangeMediaCheckStub(page: Page): Promise<void> {
@@ -496,6 +523,54 @@ test.describe('SC-022 Local media URL hook and resolver', () => {
     expect(proxyParams.pathname).toMatch(/\/local-media-proxy\/0\.mp4$/);
     expect(proxyParams.playlist).toBe(E2E_PLAYLIST_NAME);
     expect(proxyParams.media).toBe('0');
+  });
+
+  test('keeps Range Proxy URL when HTML ended advances to cached external media', async ({ ambientPage, page }) => {
+    installEndedTransitionRangeProxyPlaylistFixture();
+    await installLocalMediaProxyRouteStub(page);
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.selectPlaylist(E2E_PLAYLIST_NAME);
+
+    await page.evaluate(() => {
+      const item = Array.from(document.querySelectorAll<HTMLElement>('#playlist-list-group a[data-playlist-item]'))
+        .find((candidate) => (candidate.textContent || '').includes('e2e-ended-transition-source'));
+      item?.click();
+    });
+
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const source = document.querySelector<HTMLSourceElement>('#html-player source');
+        return source?.getAttribute('src') || '';
+      });
+    }, { timeout: 10_000 }).toContain('dl.dropboxusercontent.com');
+
+    await page.evaluate(() => {
+      document.querySelector<HTMLMediaElement>('#html-player')?.dispatchEvent(new Event('ended'));
+    });
+
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const player = document.querySelector<HTMLMediaElement>('#html-player');
+        const source = document.querySelector<HTMLSourceElement>('#html-player source');
+        const src = source?.getAttribute('src') || '';
+        const url = src ? new URL(src, window.location.href) : null;
+        return {
+          tagName: player?.tagName || '',
+          pathname: url?.pathname || '',
+          playlist: url?.searchParams.get('playlist') || '',
+          media: url?.searchParams.get('media') || '',
+          sourceType: source?.getAttribute('type') || '',
+        };
+      });
+    }, { timeout: 10_000 }).toEqual({
+      tagName: 'VIDEO',
+      pathname: '/local-media-proxy',
+      playlist: E2E_PLAYLIST_NAME,
+      media: '1',
+      sourceType: 'video/mp4',
+    });
   });
 
   test('defaults Range Proxy on for eligible Google Drive URL registration', async ({ ambientPage, page }) => {
