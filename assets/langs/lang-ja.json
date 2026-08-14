@@ -316,5 +316,11 @@
     "YouTube metadata applied.": "YouTube メタデータを適用しました。",
     "Local media metadata found.": "ローカルメディアのメタデータが見つかりました。",
     "Local media metadata applied.": "ローカルメディアのメタデータを適用しました。",
-    "Reading local media metadata...": "ローカルメディアのメタデータを読み込んでいます..."
+    "Reading local media metadata...": "ローカルメディアのメタデータを読み込んでいます...",
+    "Use local Range Proxy": "ローカル Range Proxy を使用",
+    "Recommended when the checked media URL does not support byte-range requests.": "確認済みのメディアURLが byte-range リクエストに対応していない場合に推奨されます。",
+    "Media URL requires authentication.": "メディアのURLは認証が必要です。",
+    "Media URL access is forbidden.": "メディアのURLへのアクセスが許可されていません。",
+    "Media URL was not found.": "メディアのURLが見つかりませんでした。",
+    "Media URL host returned a server error.": "メディアURLの配信元でサーバーエラーが発生しました。"
 }

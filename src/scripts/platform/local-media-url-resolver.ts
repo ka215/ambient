@@ -20,7 +20,9 @@ export interface LocalMediaUrlResolveResult {
 export type LocalMediaUrlFilterValue = string | Partial<LocalMediaUrlResolveResult>;
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
-const DEFAULT_RESOLVER_NAME = 'ambient-normalize-external-url';
+const NORMALIZE_RESOLVER_NAME = 'ambient-normalize-external-url';
+const DROPBOX_RESOLVER_NAME = 'ambient-dropbox-shared-url';
+const GOOGLE_DRIVE_RESOLVER_NAME = 'ambient-google-drive-shared-url';
 
 const cache = new Map<string, {
   expiresAt: number;
@@ -35,7 +37,54 @@ function cloneResult(result: LocalMediaUrlResolveResult): LocalMediaUrlResolveRe
   return { ...result };
 }
 
-function applyDefaultLocalMediaUrlResolver(originUrl: string): {
+function resolveDropboxSharedUrl(url: URL): {
+  url: string;
+  resolverName: string;
+} | null {
+  const hostname = url.hostname.toLowerCase();
+  if (hostname !== 'www.dropbox.com' && hostname !== 'dropbox.com') {
+    return null;
+  }
+  const resolved = new URL(url.toString());
+  resolved.hostname = 'dl.dropboxusercontent.com';
+  resolved.searchParams.delete('dl');
+  resolved.searchParams.delete('raw');
+  return {
+    url: resolved.toString(),
+    resolverName: DROPBOX_RESOLVER_NAME,
+  };
+}
+
+function resolveGoogleDriveSharedUrl(url: URL): {
+  url: string;
+  resolverName: string;
+} | null {
+  const hostname = url.hostname.toLowerCase();
+  if (hostname !== 'drive.google.com') {
+    return null;
+  }
+
+  let fileId = '';
+  const filePathMatch = url.pathname.match(/\/file\/d\/([^/]+)/);
+  if (filePathMatch?.[1]) {
+    fileId = filePathMatch[1];
+  } else if (url.pathname === '/open' || url.pathname === '/uc') {
+    fileId = url.searchParams.get('id') || '';
+  }
+  if (!/^[A-Za-z0-9_-]{10,}$/.test(fileId)) {
+    return null;
+  }
+
+  const resolved = new URL('https://drive.google.com/uc');
+  resolved.searchParams.set('export', 'download');
+  resolved.searchParams.set('id', fileId);
+  return {
+    url: resolved.toString(),
+    resolverName: GOOGLE_DRIVE_RESOLVER_NAME,
+  };
+}
+
+export function resolveCoreLocalMediaUrl(originUrl: string): {
   url: string;
   resolved: boolean;
   resolverName?: string;
@@ -48,11 +97,37 @@ function applyDefaultLocalMediaUrlResolver(originUrl: string): {
     };
   }
 
+  try {
+    const parsed = new URL(normalizedUrl);
+    const providerResolved = resolveDropboxSharedUrl(parsed) || resolveGoogleDriveSharedUrl(parsed);
+    if (providerResolved) {
+      return {
+        url: providerResolved.url,
+        resolved: providerResolved.url !== normalizedUrl,
+        resolverName: providerResolved.resolverName,
+      };
+    }
+  } catch (_error) {
+    return {
+      url: normalizedUrl,
+      resolved: normalizedUrl !== originUrl,
+      resolverName: normalizedUrl !== originUrl ? NORMALIZE_RESOLVER_NAME : undefined,
+    };
+  }
+
   return {
     url: normalizedUrl,
     resolved: normalizedUrl !== originUrl,
-    resolverName: normalizedUrl !== originUrl ? DEFAULT_RESOLVER_NAME : undefined,
+    resolverName: normalizedUrl !== originUrl ? NORMALIZE_RESOLVER_NAME : undefined,
   };
+}
+
+function applyDefaultLocalMediaUrlResolver(originUrl: string): {
+  url: string;
+  resolved: boolean;
+  resolverName?: string;
+} {
+  return resolveCoreLocalMediaUrl(originUrl);
 }
 
 function resolveFilterValue(

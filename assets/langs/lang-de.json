@@ -316,5 +316,11 @@
     "YouTube metadata applied.": "YouTube-Metadaten angewendet.",
     "Local media metadata found.": "Lokale Medienmetadaten gefunden.",
     "Local media metadata applied.": "Lokale Medienmetadaten angewendet.",
-    "Reading local media metadata...": "Lokale Medienmetadaten werden gelesen..."
+    "Reading local media metadata...": "Lokale Medienmetadaten werden gelesen...",
+    "Use local Range Proxy": "",
+    "Recommended when the checked media URL does not support byte-range requests.": "",
+    "Media URL requires authentication.": "",
+    "Media URL access is forbidden.": "",
+    "Media URL was not found.": "",
+    "Media URL host returned a server error.": ""
 }

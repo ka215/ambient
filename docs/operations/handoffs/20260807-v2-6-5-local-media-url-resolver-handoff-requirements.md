@@ -88,6 +88,12 @@ Acceptance criteria:
 - The playlist item stores the original HTML page URL in `file`.
 - The Add Media button can become enabled based on the resolved URL check result.
 - Editing or re-checking the input invalidates stale runtime resolved state.
+- Server-side check failures preserve actionable upstream HTTP status context:
+  - `401`: authentication required.
+  - `403`: access forbidden, including restricted Google Drive shares.
+  - `404`: media URL not found.
+  - `5xx`: upstream host server error.
+- The Media Management URL status text displays the status-specific message and keeps Add Media disabled.
 
 ### 3.4 Playback-time behavior
 
@@ -160,21 +166,73 @@ rangeProxy?: boolean | string
    - Ambient is running in local mode,
    - the media item has `rangeProxy: true`,
    - the media item has an external `http(s)` `file` URL,
-   - the stored origin URL is the same URL being prepared for playback after the resolver pipeline,
+   - the stored origin URL is directly proxyable or can be resolved by Ambient PHP core resolver into the same direct media URL,
    - playback or preview is preparing an HTML media source.
 4. The proxy endpoint must not accept arbitrary remote URLs from the browser.
 5. The proxy endpoint must resolve `playlist` and `media` server-side and confirm the persisted media item has `rangeProxy: true`.
-6. Cloud mode must return an error for the proxy endpoint.
-7. The server should cache the upstream media outside `assets/` and serve byte ranges from the cached file.
+6. The proxy endpoint must run the PHP core local media URL resolver against the persisted origin URL before upstream fetches.
+7. Cloud mode must return an error for the proxy endpoint.
+8. The server should cache the upstream media outside `assets/` and serve byte ranges from the cached file.
+9. The proxy cache should carry a configurable TTL and should be cleaned during Ambient initialization, on proxy endpoint access, and after playlist saves that remove cached `rangeProxy` items.
+
+Initial core provider resolvers:
+
+- Dropbox shared URLs resolved to `dl.dropboxusercontent.com`.
+- Google Drive shared URLs resolved to `drive.google.com/uc?export=download&id=<id>`.
 
 Acceptance criteria:
 
 - A manually authored playlist item with `file: "<external media URL>"` and `rangeProxy: true` uses `local-media-proxy` as the runtime `<source src>` in local mode.
+- A manually authored playlist item with `file: "<Dropbox shared URL>"` and `rangeProxy: true` can use `local-media-proxy` after Ambient core resolves it to the direct Dropbox URL.
 - The persisted `file` URL remains the origin URL.
-- A resolver-transformed page URL does not use Range Proxy in the MVP.
+- A browser-only custom hook transformed page URL does not use Range Proxy unless that resolution is also implemented in PHP core.
 - A proxy request for an item without `rangeProxy: true` is rejected.
 - Cloud mode does not expose usable Range Proxy behavior.
 - The proxy responds with `Accept-Ranges: bytes` and `206 Partial Content` for valid Range requests once the file is cached.
+- Expired proxy cache files are removed no more than once per day by routine cleanup.
+- When a playlist save removes a `rangeProxy` media URL, Ambient deletes that URL's proxy cache files.
+
+### 3.8 Range Proxy toggle UI
+
+After a Local Media URL check succeeds, show a Range Proxy toggle only when:
+
+1. Ambient is running in local mode.
+2. The current playlist can be saved.
+3. The check result came from the server.
+4. The checked media is `audio` or `video`.
+5. The resolved media URL does not advertise `Accept-Ranges: bytes`, or it was resolved by `ambient-google-drive-shared-url`.
+6. `Content-Length` is known.
+7. `0 < Content-Length <= AMBIENT_LOCAL_MEDIA_PROXY_MAX_BYTES`.
+
+Default behavior:
+
+- Google Drive URLs resolved by `ambient-google-drive-shared-url` default the toggle to on, including cases where the final URL advertises byte-range support but is still unreliable as a direct browser media source.
+- Other eligible non-Range URLs default the toggle to off.
+- Dropbox URLs that resolve to byte-range-capable `dl.dropboxusercontent.com` do not show the toggle.
+
+Acceptance criteria:
+
+- An eligible Google Drive URL shows the toggle checked by default after Check.
+- Saving that media item persists `rangeProxy: true`.
+- Ineligible URLs do not persist `rangeProxy`; Range-capable Google Drive URLs may persist `rangeProxy` because browser direct playback is unreliable.
+
+### 3.9 Checked media type hints
+
+When a Local Media URL check succeeds, persist lightweight playback hints from the server check result.
+
+Requirements:
+
+1. Persist `mediaKind: "audio" | "video"` when the server check classifies the URL as audio or video.
+2. Persist `mediaMime` when the server check returns a safe `audio/*` or `video/*` MIME value.
+3. Use `mediaKind` as a runtime player-kind hint when the resolved playback URL has no explicit file extension.
+4. Use `mediaMime` as the preferred `<source type>` when it matches the selected HTML player kind.
+5. Keep `file` as the origin URL; do not replace it with the resolved URL.
+
+Acceptance criteria:
+
+- A Google Drive shared URL that resolves to an extensionless `uc?export=download` URL can be registered as video when the check result reports `video/mp4`.
+- Playback and Media Edit preview create a `<video>` source for that item, even though the resolved URL path has no `.mp4` extension.
+- Range-capable providers still do not show or persist `rangeProxy` solely because the URL is extensionless, except for Google Drive URLs resolved by Ambient core.
 
 ## 4. Non-Functional Requirements
 

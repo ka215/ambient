@@ -60,6 +60,21 @@ export function buildManagedMediaItem(options: BuildMediaItemOptions): BuildMedi
       case 'media_filepath':
         mediaItem.file = val;
         break;
+      case 'media_kind':
+        if (val === 'audio' || val === 'video') {
+          mediaItem.mediaKind = val;
+        }
+        break;
+      case 'media_mime':
+        if (/^(audio|video)\/[a-z0-9.+-]+$/i.test(val)) {
+          mediaItem.mediaMime = val.toLowerCase();
+        }
+        break;
+      case 'range_proxy':
+        if (val === 'true' || val === '1') {
+          mediaItem.rangeProxy = true;
+        }
+        break;
       case 'category':
         if (val !== '') {
           const categoryIndex = Number(val);

@@ -141,6 +141,12 @@ export function buildPlaylistJson(options: {
     if (Object.prototype.hasOwnProperty.call(item, 'rangeProxy')) {
       serializedItem.rangeProxy = item.rangeProxy === true || item.rangeProxy === 'true' || item.rangeProxy === '1';
     }
+    if (item.mediaKind === 'audio' || item.mediaKind === 'video') {
+      serializedItem.mediaKind = item.mediaKind;
+    }
+    if (typeof item.mediaMime === 'string' && /^(audio|video)\/[a-z0-9.+-]+$/i.test(item.mediaMime)) {
+      serializedItem.mediaMime = item.mediaMime.toLowerCase();
+    }
 
     if (!Object.prototype.hasOwnProperty.call(playlistData, categoryName)) {
       playlistData[categoryName] = [];

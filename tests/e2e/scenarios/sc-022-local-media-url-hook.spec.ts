@@ -1,5 +1,5 @@
 import { type APIRequestContext, type Page } from '@playwright/test';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 
 import { expect, test } from '../fixtures/ambient-page.fixture';
 import {
@@ -11,7 +11,9 @@ import {
 
 const HTML_PAGE_URL = 'https://ambient-e2e.invalid/page-with-extensionless-media';
 const RESOLVED_MEDIA_URL = 'https://media.example.test/stream/e2e-local-media?asset=video';
-const RANGE_PROXY_VIDEO_URL = 'https://media.example.test/stream/e2e-local-range-proxy.mp4?asset=video';
+const RANGE_PROXY_DROPBOX_SHARED_VIDEO_URL = 'https://www.dropbox.com/scl/fi/e2e/v01.mp4?rlkey=e2e&dl=1';
+const RANGE_PROXY_GOOGLE_DRIVE_SHARED_VIDEO_URL = 'https://drive.google.com/file/d/1E2eRangeProxyVideoId/view?usp=sharing';
+const RANGE_PROXY_GOOGLE_DRIVE_DIRECT_VIDEO_URL = 'https://drive.google.com/uc?export=download&id=1E2eRangeProxyVideoId';
 
 function baseURL(): string {
   return process.env.E2E_BASE_URL || 'https://dev-amp.ka2.org/';
@@ -143,7 +145,7 @@ function installRangeProxyPlaylistFixture(): void {
   writeFileSync(E2E_PLAYLIST_ASSET_PATH, JSON.stringify({
     'range-proxy-e2e': [
       {
-        file: RANGE_PROXY_VIDEO_URL,
+        file: RANGE_PROXY_DROPBOX_SHARED_VIDEO_URL,
         title: 'e2e-local-range-proxy-media',
         artist: 'E2E Artist',
         desc: '',
@@ -165,6 +167,82 @@ async function installLocalMediaProxyRouteStub(page: Page): Promise<void> {
         'content-length': '4',
       },
       body: 'ID3\u0000',
+    });
+  });
+}
+
+async function installGoogleDriveNonRangeMediaCheckStub(page: Page): Promise<void> {
+  await installGoogleDriveMediaCheckStub(page, '');
+}
+
+async function installGoogleDriveRangeCapableMediaCheckStub(page: Page): Promise<void> {
+  await installGoogleDriveMediaCheckStub(page, 'bytes');
+}
+
+async function installGoogleDriveMediaCheckStub(page: Page, acceptRanges: string): Promise<void> {
+  await page.route('**/local-media-check', async (route) => {
+    const request = route.request();
+    const formData = request.postData() || '';
+    const params = new URLSearchParams(formData);
+    const url = params.get('url') || '';
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        state: 'ok',
+        code: 200,
+        data: {
+          ok: true,
+          url,
+          kind: 'video',
+          mime: 'video/mp4',
+          reason: null,
+          message: 'Media URL is playable.',
+          source: 'server',
+          meta: {
+            httpStatus: 200,
+            contentType: 'video/mp4',
+            contentLength: 4_194_304,
+            acceptRanges,
+            detection: 'content-type',
+            originUrl: RANGE_PROXY_GOOGLE_DRIVE_SHARED_VIDEO_URL,
+            resolved: true,
+            resolvedBy: 'ambient-google-drive-shared-url',
+          },
+        },
+      }),
+    });
+  });
+}
+
+async function installForbiddenMediaCheckStub(page: Page): Promise<void> {
+  await page.route('**/local-media-check', async (route) => {
+    const request = route.request();
+    const formData = request.postData() || '';
+    const params = new URLSearchParams(formData);
+    const url = params.get('url') || '';
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        state: 'error',
+        code: 200,
+        data: {
+          ok: false,
+          url,
+          kind: null,
+          mime: null,
+          reason: 'upstream-forbidden',
+          message: 'Media URL access is forbidden.',
+          source: 'server',
+          meta: {
+            httpStatus: 403,
+            originUrl: RANGE_PROXY_GOOGLE_DRIVE_SHARED_VIDEO_URL,
+            resolved: true,
+            resolvedBy: 'ambient-google-drive-shared-url',
+          },
+        },
+      }),
     });
   });
 }
@@ -418,5 +496,203 @@ test.describe('SC-022 Local media URL hook and resolver', () => {
     expect(proxyParams.pathname).toMatch(/\/local-media-proxy\/0\.mp4$/);
     expect(proxyParams.playlist).toBe(E2E_PLAYLIST_NAME);
     expect(proxyParams.media).toBe('0');
+  });
+
+  test('defaults Range Proxy on for eligible Google Drive URL registration', async ({ ambientPage, page }) => {
+    await installGoogleDriveNonRangeMediaCheckStub(page);
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.selectPlaylist(E2E_PLAYLIST_NAME);
+
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+    await page.evaluate(() => {
+      const localType = document.getElementById('media-type-local') as HTMLInputElement | null;
+      localType?.click();
+    });
+    await page.locator('#local-media-tab-url').click();
+    await page.locator('#local-media-url').fill(RANGE_PROXY_GOOGLE_DRIVE_SHARED_VIDEO_URL);
+    await page.locator('#local-media-url').dispatchEvent('input');
+    await page.locator('#btn-check-local-media-url').click();
+
+    await expect(page.locator('#local-media-range-proxy-option')).toBeVisible();
+    await expect(page.locator('#local-media-range-proxy')).toBeChecked();
+    await expect(page.locator('#local-media-filepath')).toHaveValue(RANGE_PROXY_GOOGLE_DRIVE_SHARED_VIDEO_URL);
+
+    const mediaTitle = `e2e-google-drive-range-proxy-${Date.now()}`;
+    await page.evaluate((title) => {
+      const category = document.getElementById('media-category') as HTMLSelectElement | null;
+      const titleInput = document.getElementById('media-title') as HTMLInputElement | null;
+      if (category && category.options.length > 0) {
+        const option = Array.from(category.options).find((item) => item.value !== '');
+        if (!option) {
+          throw new Error('media-category option not found');
+        }
+        category.value = option.value;
+        category.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (titleInput) {
+        titleInput.value = title;
+        titleInput.dispatchEvent(new Event('input', { bubbles: true }));
+        titleInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }, mediaTitle);
+
+    await expect(page.locator('#btn-add-media')).toBeEnabled();
+    await page.locator('#btn-add-media').click();
+
+    await expect.poll(() => {
+      const playlist = JSON.parse(readFileSync(E2E_PLAYLIST_ASSET_PATH, 'utf8')) as Record<string, unknown>;
+      const items = Object.entries(playlist)
+        .filter(([key]) => key !== 'options')
+        .flatMap(([, value]) => Array.isArray(value) ? value : []);
+      return items.find((item) => {
+        return typeof item === 'object' && item !== null && (item as { title?: string }).title === mediaTitle;
+      }) as { file?: string; mediaKind?: string; mediaMime?: string; rangeProxy?: boolean } | undefined;
+    }, { timeout: 10_000 }).toMatchObject({
+      file: RANGE_PROXY_GOOGLE_DRIVE_SHARED_VIDEO_URL,
+      mediaKind: 'video',
+      mediaMime: 'video/mp4',
+      rangeProxy: true,
+    });
+
+    await expect(page.locator('#modal-options')).toHaveClass(/pointer-events-none/);
+    await page.evaluate(() => {
+      const modal = document.getElementById('modal-options');
+      modal?.classList.remove('opacity-0', 'pointer-events-none');
+      modal?.classList.add('modal-visible');
+      modal?.setAttribute('aria-hidden', 'false');
+    });
+    await expect(page.locator('#modal-options')).not.toHaveClass(/pointer-events-none/);
+    await expect(page.locator('#local-media-url')).toHaveValue('');
+    await expect(page.locator('#local-media-filepath')).toHaveValue('');
+    await expect(page.locator('#local-media-range-proxy-option')).toBeHidden();
+    await expect(page.locator('#local-media-range-proxy')).not.toBeChecked();
+
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const calls = performance.getEntriesByType('resource')
+          .map((entry) => entry.name)
+          .filter((name) => name.includes('local-media-check'));
+        return calls.length;
+      });
+    }).toBeGreaterThan(0);
+    expect(RANGE_PROXY_GOOGLE_DRIVE_DIRECT_VIDEO_URL).toContain('/uc?export=download&id=');
+  });
+
+  test('defaults Range Proxy on for Google Drive URL even when range capable', async ({ ambientPage, page }) => {
+    await installGoogleDriveRangeCapableMediaCheckStub(page);
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.selectPlaylist(E2E_PLAYLIST_NAME);
+
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+    await page.evaluate(() => {
+      const localType = document.getElementById('media-type-local') as HTMLInputElement | null;
+      localType?.click();
+    });
+    await page.locator('#local-media-tab-url').click();
+    await page.locator('#local-media-url').fill(RANGE_PROXY_GOOGLE_DRIVE_SHARED_VIDEO_URL);
+    await page.locator('#local-media-url').dispatchEvent('input');
+    await page.locator('#btn-check-local-media-url').click();
+
+    await expect(page.locator('#local-media-range-proxy-option')).toBeVisible();
+    await expect(page.locator('#local-media-range-proxy')).toBeChecked();
+
+    const mediaTitle = `e2e-google-drive-range-capable-proxy-${Date.now()}`;
+    await page.evaluate((title) => {
+      const category = document.getElementById('media-category') as HTMLSelectElement | null;
+      const titleInput = document.getElementById('media-title') as HTMLInputElement | null;
+      const option = category ? Array.from(category.options).find((item) => item.value !== '') : null;
+      if (!category || !option || !titleInput) {
+        throw new Error('media form fields not found');
+      }
+      category.value = option.value;
+      category.dispatchEvent(new Event('change', { bubbles: true }));
+      titleInput.value = title;
+      titleInput.dispatchEvent(new Event('input', { bubbles: true }));
+      titleInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }, mediaTitle);
+
+    await page.locator('#btn-add-media').click();
+
+    await expect.poll(() => {
+      const playlist = JSON.parse(readFileSync(E2E_PLAYLIST_ASSET_PATH, 'utf8')) as Record<string, unknown>;
+      const items = Object.entries(playlist)
+        .filter(([key]) => key !== 'options')
+        .flatMap(([, value]) => Array.isArray(value) ? value : []);
+      return items.find((item) => {
+        return typeof item === 'object' && item !== null && (item as { title?: string }).title === mediaTitle;
+      }) as { rangeProxy?: boolean } | undefined;
+    }, { timeout: 10_000 }).toMatchObject({
+      rangeProxy: true,
+    });
+  });
+
+  test('uses saved mediaKind for extensionless Google Drive playback', async ({ ambientPage, page }) => {
+    writeFileSync(E2E_PLAYLIST_ASSET_PATH, JSON.stringify({
+      'google-drive-e2e': [
+        {
+          file: RANGE_PROXY_GOOGLE_DRIVE_SHARED_VIDEO_URL,
+          title: 'e2e-google-drive-extensionless-video',
+          artist: 'E2E Artist',
+          desc: '',
+          mediaKind: 'video',
+          mediaMime: 'video/mp4',
+        },
+      ],
+      options: {},
+    }, null, 2));
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.selectPlaylist(E2E_PLAYLIST_NAME);
+
+    await page.evaluate(() => {
+      const item = Array.from(document.querySelectorAll<HTMLElement>('#playlist-list-group a[data-playlist-item]'))
+        .find((candidate) => (candidate.textContent || '').includes('e2e-google-drive-extensionless-video'));
+      item?.click();
+    });
+
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const player = document.querySelector<HTMLMediaElement>('#html-player');
+        const source = document.querySelector<HTMLSourceElement>('#html-player source');
+        return {
+          tagName: player?.tagName || '',
+          src: source?.getAttribute('src') || '',
+          sourceType: source?.getAttribute('type') || '',
+        };
+      });
+    }, { timeout: 10_000 }).toEqual({
+      tagName: 'VIDEO',
+      src: RANGE_PROXY_GOOGLE_DRIVE_DIRECT_VIDEO_URL,
+      sourceType: 'video/mp4',
+    });
+  });
+
+  test('shows server status-specific error for restricted Google Drive URL checks', async ({ ambientPage, page }) => {
+    await installForbiddenMediaCheckStub(page);
+
+    await ambientPage.gotoHome();
+    await ambientPage.waitForBaseUi();
+    await ambientPage.selectPlaylist(E2E_PLAYLIST_NAME);
+
+    await openManagementSection(page, '#collapse-item-heading-media button', 'collapse-item-body-media');
+    await page.evaluate(() => {
+      const localType = document.getElementById('media-type-local') as HTMLInputElement | null;
+      localType?.click();
+    });
+    await page.locator('#local-media-tab-url').click();
+    await page.locator('#local-media-url').fill(RANGE_PROXY_GOOGLE_DRIVE_SHARED_VIDEO_URL);
+    await page.locator('#local-media-url').dispatchEvent('input');
+    await page.locator('#btn-check-local-media-url').click();
+
+    await expect(page.locator('#local-media-url-status')).toHaveText('Media URL access is forbidden.');
+    await expect(page.locator('#local-media-url')).toHaveAttribute('data-validate', 'false');
+    await expect(page.locator('#local-media-filepath')).toHaveValue('');
+    await expect(page.locator('#local-media-range-proxy-option')).toBeHidden();
+    await expect(page.locator('#btn-add-media')).toBeDisabled();
   });
 });

@@ -194,6 +194,19 @@ export function sanitizeAndNormalizeImportPlaylist(options: {
         }
       }
 
+      if (Object.prototype.hasOwnProperty.call(rawItem, 'mediaKind')) {
+        const mediaKind = String(rawItem.mediaKind || '').trim().toLowerCase();
+        if (mediaKind === 'audio' || mediaKind === 'video') {
+          item.mediaKind = mediaKind;
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(rawItem, 'mediaMime')) {
+        const mediaMime = String(rawItem.mediaMime || '').trim().toLowerCase();
+        if (/^(audio|video)\/[a-z0-9.+-]+$/i.test(mediaMime)) {
+          item.mediaMime = mediaMime;
+        }
+      }
+
       ['start', 'end', 'fadein', 'fadeout'].forEach((key) => {
         if (!Object.prototype.hasOwnProperty.call(rawItem, key)) return;
         const num = normalizeNonNegativeNumber((rawItem as Record<string, unknown>)[key]);

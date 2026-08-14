@@ -1,5 +1,6 @@
 import type { MediaItem } from '../types/ambient';
 import { normalizeExternalMediaUrl } from './external-media-url';
+import { resolveCoreLocalMediaUrl } from './local-media-url-resolver';
 
 function normalizeBooleanish(value: unknown): boolean {
   if (value === true || value === 1) {
@@ -46,7 +47,11 @@ export function resolveLocalMediaRangeProxyUrl(options: {
   }
   const normalizedSource = normalizeExternalMediaUrl(options.sourceUrl);
   const normalizedOrigin = normalizeExternalMediaUrl(options.mediaItem.file || '');
-  if (!normalizedSource || !normalizedOrigin || normalizedSource !== normalizedOrigin) {
+  if (!normalizedSource || !normalizedOrigin) {
+    return null;
+  }
+  const coreResolved = resolveCoreLocalMediaUrl(normalizedOrigin);
+  if (coreResolved.url !== normalizedSource) {
     return null;
   }
   const playlistName = String(options.playlistName || '').trim();

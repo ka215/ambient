@@ -316,5 +316,11 @@
     "YouTube metadata applied.": "YouTube 메타데이터를 적용했습니다.",
     "Local media metadata found.": "로컬 미디어 메타데이터를 찾았습니다.",
     "Local media metadata applied.": "로컬 미디어 메타데이터를 적용했습니다.",
-    "Reading local media metadata...": "로컬 미디어 메타데이터를 읽는 중..."
+    "Reading local media metadata...": "로컬 미디어 메타데이터를 읽는 중...",
+    "Use local Range Proxy": "",
+    "Recommended when the checked media URL does not support byte-range requests.": "",
+    "Media URL requires authentication.": "",
+    "Media URL access is forbidden.": "",
+    "Media URL was not found.": "",
+    "Media URL host returned a server error.": ""
 }

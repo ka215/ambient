@@ -221,6 +221,11 @@ Implementation note:
 - `media_filepath` remains the existing field mapped into `MediaItem.file`.
 - If `media_filepath` stores origin URL, Add Media validation must rely on runtime checked state, not only on hidden value existence.
 - Input change must clear runtime checked state.
+- Server-side URL checks should return structured failure reasons for upstream HTTP status responses. The frontend should display the server-provided message instead of falling back to browser media probing for these cases:
+  - `401` -> authentication required.
+  - `403` -> access forbidden.
+  - `404` -> media URL not found.
+  - `5xx` -> upstream server error.
 
 Suggested runtime state in `media-management.ts`:
 
@@ -481,7 +486,8 @@ Some external URL-backed media providers allow registration and playback but do 
 - The feature is opt-in per media item through `rangeProxy: true`.
 - The stored `file` value remains the origin URL.
 - The playback source may be replaced with a local proxy URL at runtime.
-- The MVP applies only when the stored origin URL itself is the media URL. If the resolver changes an HTML/page URL into a different media URL, Range Proxy is skipped because the PHP endpoint cannot execute browser-side custom resolver hooks.
+- The MVP applies when the stored origin URL itself is the media URL, or when Ambient core can reproduce the same direct media URL on the PHP side.
+- Browser-only custom hook resolver results are not proxyable unless the same resolution is later implemented in the PHP core resolver.
 
 ### 12.2 Media Item Contract
 
@@ -508,10 +514,29 @@ The endpoint must not accept arbitrary remote URLs directly. It should:
 2. Resolve the playlist and media item server-side.
 3. Recompute `amId` from playlist order because persisted playlist JSON does not store runtime IDs.
 4. Confirm the target item has `rangeProxy: true`.
-5. Validate that the stored origin URL is the direct media URL intended for caching.
-6. Validate the origin URL with the same SSRF protections used by server-side media URL checking.
-7. Cache the upstream media outside normal web assets.
-8. Serve the cached file with `Accept-Ranges: bytes` and correct `206 Partial Content` responses.
+5. Run the PHP core local media URL resolver against the stored origin URL.
+6. Use the resolved direct media URL for cache and upstream fetches.
+7. Validate the resolved URL with the same SSRF protections used by server-side media URL checking.
+8. Cache the upstream media outside normal web assets.
+9. Serve the cached file with `Accept-Ranges: bytes` and correct `206 Partial Content` responses.
+
+### 12.3.1 Core Provider Resolvers
+
+Ambient core resolver implementations must be mirrored between TypeScript and PHP when their results need to participate in server-side checks or Range Proxy.
+
+Initial deterministic providers:
+
+- Dropbox shared URLs:
+  - `https://www.dropbox.com/...`
+  - `https://dropbox.com/...`
+  - resolved to `https://dl.dropboxusercontent.com/...`
+- Google Drive shared URLs:
+  - `https://drive.google.com/file/d/<id>/...`
+  - `https://drive.google.com/open?id=<id>`
+  - `https://drive.google.com/uc?id=<id>`
+  - resolved to `https://drive.google.com/uc?export=download&id=<id>`
+
+The PHP resolver is intentionally limited to Ambient-core deterministic providers. It does not execute browser-side `localMediaUrl.beforeCheck` hooks.
 
 ### 12.4 Cache Strategy
 
@@ -521,13 +546,69 @@ The MVP uses a file cache under:
 .cache/media-proxy/
 ```
 
-The default cache key is `sha256(originUrl)`.
+The default cache key is `sha256(resolved direct media URL)`.
+
+Each cache entry has a `.bin` payload and a `.json` metadata file. Metadata includes the URL hash, MIME type, byte size, creation time, and expiry time. The TTL is configured by `AMBIENT_LOCAL_MEDIA_PROXY_CACHE_TTL_SECONDS`; the default is 604800 seconds, and `0` disables TTL expiry.
+
+Cleanup rules:
+
+- Ambient initialization runs a lightweight cleanup when local mode is active.
+- The `local-media-proxy` endpoint runs the same cleanup before serving a request.
+- Routine cleanup is throttled by `.cache/media-proxy/.last-cleanup` so it normally runs at most once per day.
+- Expired entries delete the `.bin`, `.json`, `.lock`, and matching temporary cache files.
+- When a playlist save removes a `rangeProxy` URL, Ambient deletes that URL's cache immediately and also runs forced cleanup.
 
 Because a non-Range upstream cannot satisfy arbitrary seeks until Ambient has the file locally, the MVP downloads the upstream file fully on first proxy access, then serves subsequent requests from the local cache. More advanced progressive sparse caching is out of scope for v2.6.5.
 
-### 12.5 Risks And Mitigations
+### 12.5 Range Proxy Registration UI
+
+Media Management may show a local Range Proxy toggle after a URL-backed Local Media check succeeds.
+
+The toggle is visible only when all conditions are true:
+
+- Ambient is running in local mode.
+- The current playlist can be mutated and persisted.
+- Server-side media URL check succeeded.
+- The checked media kind is `audio` or `video`.
+- The final resolved media URL does not report `Accept-Ranges: bytes`, or the URL was resolved by `ambient-google-drive-shared-url`.
+- `Content-Length` is known.
+- `0 < Content-Length <= AMBIENT_LOCAL_MEDIA_PROXY_MAX_BYTES`.
+
+Default state:
+
+- Dropbox shared URLs normally resolve to `dl.dropboxusercontent.com` with byte-range support, so the toggle should not appear.
+- Google Drive shared URLs that resolve through `ambient-google-drive-shared-url` should show the toggle defaulted on when they otherwise satisfy the eligibility checks, even if the final response advertises byte-range support.
+- Other eligible non-Range URLs should show the toggle defaulted off.
+
+Saving behavior:
+
+- If the toggle is on, persist `rangeProxy: true` on the new media item.
+- If the toggle is off or hidden, omit `rangeProxy`.
+- The persisted `file` value remains the origin URL entered by the user.
+
+### 12.6 Checked Media Type Hints
+
+URL-backed media can resolve to extensionless direct media URLs, such as Google Drive `uc?export=download&id=<id>` links. Extension-only player detection is not sufficient for those URLs.
+
+When the server-side check returns a successful media classification, Media Management should persist two optional lightweight hints:
+
+```ts
+mediaKind?: 'audio' | 'video'
+mediaMime?: string
+```
+
+Rules:
+
+- `mediaKind` is stored only for `audio` or `video`.
+- `mediaMime` is stored only for safe `audio/*` or `video/*` MIME values.
+- Playback setup uses `mediaKind` as a fallback when the resolved source URL has no usable file extension.
+- HTML player and Media Edit preview source creation use `mediaMime` as the preferred `<source type>` when it matches the selected player kind.
+- These hints do not change the source-of-truth URL rule: `file` remains the origin URL, and resolved URLs stay runtime-only.
+- These hints do not imply Range Proxy eligibility. A Range-capable extensionless URL remains ineligible for the Range Proxy toggle unless it is a Google Drive URL resolved by Ambient core.
+
+### 12.7 Risks And Mitigations
 
 - Large upstream files can consume disk space. Mitigate with a configurable max byte limit.
 - Multiple requests may race on first cache creation. Mitigate with lock files.
-- SSRF risk exists for any server-side URL fetch. Mitigate by blocking localhost, private, reserved, and invalid IP targets on the original URL and redirects.
+- SSRF risk exists for any server-side URL fetch. Mitigate by blocking localhost, private, reserved, and invalid IP targets on the resolved URL and redirects.
 - First playback may still be slow because the full file must be cached before efficient seeking is possible.

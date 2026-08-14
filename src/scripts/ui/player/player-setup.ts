@@ -80,6 +80,12 @@ export function resolveHtmlPlayerKind(extension: string): HtmlPlayerKind | null 
   return null;
 }
 
+function resolveMediaKindHint(mediaData: MediaItem): HtmlPlayerKind | null {
+  return mediaData.mediaKind === 'audio' || mediaData.mediaKind === 'video'
+    ? mediaData.mediaKind
+    : null;
+}
+
 export function resolvePlaybackSetupPlan(options: {
   mediaData: MediaItem;
   getExtension: (src: string) => string;
@@ -116,6 +122,17 @@ export function resolvePlaybackSetupPlan(options: {
         src: source.src,
         extension,
         htmlPlayerKind,
+      };
+    }
+
+    const hintedPlayerKind = resolveMediaKindHint(options.mediaData);
+    if (hintedPlayerKind) {
+      return {
+        kind: hintedPlayerKind,
+        sourceType: source.type,
+        src: source.src,
+        extension,
+        htmlPlayerKind: hintedPlayerKind,
       };
     }
 

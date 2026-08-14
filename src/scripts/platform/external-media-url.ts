@@ -5,10 +5,35 @@ export interface ExternalMediaUrlCheckResult {
   ok: boolean;
   url: string;
   kind: HtmlPlayerKind | null;
-  reason?: 'invalid-url' | 'unsupported-extension' | 'unsupported-mime' | 'load-timeout' | 'load-error' | 'server-check-failed';
+  reason?:
+    | 'invalid-url'
+    | 'unsupported-extension'
+    | 'unsupported-mime'
+    | 'load-timeout'
+    | 'load-error'
+    | 'server-check-failed'
+    | 'probe-failed'
+    | 'curl-unavailable'
+    | 'blocked-url'
+    | 'upstream-status'
+    | 'upstream-unauthorized'
+    | 'upstream-forbidden'
+    | 'upstream-not-found'
+    | 'upstream-server-error'
+    | 'timeout';
   message: string;
   mime?: string | null;
   source?: 'server' | 'media-element';
+  meta?: {
+    httpStatus?: number | null;
+    contentType?: string;
+    contentLength?: number | null;
+    acceptRanges?: string;
+    detection?: string;
+    originUrl?: string;
+    resolved?: boolean;
+    resolvedBy?: string | null;
+  };
 }
 
 interface ServerMediaUrlCheckResponse {
@@ -18,9 +43,10 @@ interface ServerMediaUrlCheckResponse {
     url?: string;
     kind?: HtmlPlayerKind | null;
     mime?: string | null;
-    reason?: ExternalMediaUrlCheckResult['reason'] | 'probe-failed' | 'curl-unavailable' | 'blocked-url' | 'upstream-status' | 'timeout';
+    reason?: ExternalMediaUrlCheckResult['reason'];
     message?: string;
     source?: string;
+    meta?: ExternalMediaUrlCheckResult['meta'];
   };
 }
 
@@ -99,9 +125,10 @@ async function checkExternalMediaUrlByServer(
         mime: data.mime || null,
         message: data.message || 'Media URL is playable.',
         source: 'server',
+        meta: data.meta,
       };
     }
-    if (data.reason === 'invalid-url' || data.reason === 'unsupported-mime') {
+    if (data.ok === false && data.reason) {
       return {
         ok: false,
         url: data.url || url,
@@ -110,6 +137,7 @@ async function checkExternalMediaUrlByServer(
         reason: data.reason,
         message: data.message || 'Unsupported media URL format.',
         source: 'server',
+        meta: data.meta,
       };
     }
   } catch (_error) {

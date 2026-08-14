@@ -15,7 +15,7 @@ import {
   createHtmlPreviewPlayerView,
 } from './html-player-view';
 import {
-  resolveHtmlMediaMimeType,
+  resolveHtmlMediaMimeTypeWithHint,
   resolveHtmlMediaSourcePath,
   resolveHtmlMediaTagName,
 } from './html-player-source';
@@ -55,17 +55,20 @@ export function resolveMediaEditPreviewSource(mediaItem: MediaItem): MediaEditPr
 
   if (mediaItem.file && mediaItem.file.trim() !== '') {
     const sourcePath = resolveHtmlMediaSourcePath(mediaItem.file);
-    const tagName = resolveHtmlMediaTagName(sourcePath);
+    const tagName = mediaItem.mediaKind === 'audio' || mediaItem.mediaKind === 'video'
+      ? mediaItem.mediaKind
+      : resolveHtmlMediaTagName(sourcePath);
+    const sourceType = resolveHtmlMediaMimeTypeWithHint(sourcePath, tagName, mediaItem.mediaMime);
 
     return {
       kind: 'html',
       sourcePath,
       tagName,
-      sourceType: resolveHtmlMediaMimeType(sourcePath, tagName),
+      sourceType,
       viewKind: tagName,
       viewSource: {
         filePath: sourcePath,
-        sourceType: resolveHtmlMediaMimeType(sourcePath, tagName),
+        sourceType,
         controls: true,
         fullscreen: false,
       },

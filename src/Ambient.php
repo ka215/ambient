@@ -66,6 +66,7 @@ class Ambient {
         $this->package_info = json_decode( file_get_contents( APP_ROOT . 'package.json' ), true );
 
         $this->find_playlist();
+        $this->maybe_cleanup_local_media_proxy_cache();
 
         $build_frontend_messages = function(): array {
             $messages = is_array( $this->translation_data )
@@ -94,6 +95,10 @@ class Ambient {
         };
         $youtube_metadata_capability = $this->get_youtube_metadata_capability();
         $thumbnail_generation_capability = $this->get_thumbnail_generation_capability();
+        $local_media_proxy_capability = [
+            'enabled' => $this->is_local(),
+            'maxBytes' => $this->get_local_media_proxy_max_bytes(),
+        ];
 
         if ( empty( $this->playlists ) ) {
             $this->set_warn( $this->__( 'Playlist not found. Please create a new playlist.' ) );
@@ -103,6 +108,7 @@ class Ambient {
                 'messages' => $build_frontend_messages(),
                 'youtubeMetadata' => $youtube_metadata_capability,
                 'thumbnailGeneration' => $thumbnail_generation_capability,
+                'localMediaProxy' => $local_media_proxy_capability,
             ] );
         } else {
             // Pass all playlist data to JavaScript of view.
@@ -119,6 +125,7 @@ class Ambient {
                 'messages'  => $build_frontend_messages(),
                 'youtubeMetadata' => $youtube_metadata_capability,
                 'thumbnailGeneration' => $thumbnail_generation_capability,
+                'localMediaProxy' => $local_media_proxy_capability,
             ];
             if ( count( $this->playlists ) > 1 ) {
                 // If there are multiple playlists, prompt you to select a playlist.

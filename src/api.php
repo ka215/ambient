@@ -200,12 +200,14 @@ trait api {
      * @return void
      */
     private function check_external_local_media_url( ?string $url = null ): void {
-        $url = trim( (string)$url );
+        $origin_url = trim( (string)$url );
+        $resolved = $this->resolve_core_local_media_url( $origin_url );
+        $url = $resolved['url'];
         if ( !$this->is_safe_external_media_check_url( $url ) ) {
             $this->set_local_media_check_response(
                 400,
                 false,
-                $url,
+                $origin_url,
                 null,
                 null,
                 'blocked-url',
@@ -217,15 +219,23 @@ trait api {
 
         $sample = $this->fetch_external_media_header_sample( $url );
         if ( !$sample['ok'] ) {
+            $reason = $sample['reason'] ?? 'probe-failed';
+            $message = $this->resolve_external_media_check_failure_message( $reason, $sample['httpStatus'] ?? null );
             $this->set_local_media_check_response(
                 200,
                 false,
                 $url,
                 null,
                 null,
-                $sample['reason'] ?? 'probe-failed',
-                $this->__( 'Media URL could not be checked by the server.' ),
-                'server'
+                $reason,
+                $message,
+                'server',
+                [
+                    'httpStatus' => $sample['httpStatus'] ?? null,
+                    'originUrl' => $origin_url,
+                    'resolved' => $resolved['resolved'],
+                    'resolvedBy' => $resolved['resolverName'] ?? null,
+                ]
             );
             return;
         }
@@ -236,6 +246,33 @@ trait api {
             $url
         );
         if ( $detected['kind'] === null || $detected['mime'] === null ) {
+            $content_type = $sample['contentType'] ?? '';
+            if (
+                ( $resolved['resolverName'] ?? null ) === 'ambient-google-drive-shared-url' &&
+                is_string( $content_type ) &&
+                stripos( $content_type, 'text/html' ) !== false
+            ) {
+                $this->set_local_media_check_response(
+                    200,
+                    false,
+                    $url,
+                    null,
+                    null,
+                    'upstream-forbidden',
+                    $this->__( 'Media URL access is forbidden.' ),
+                    'server',
+                    [
+                        'httpStatus' => 403,
+                        'contentType' => $content_type,
+                        'contentLength' => $sample['contentLength'] ?? null,
+                        'acceptRanges' => $sample['acceptRanges'] ?? '',
+                        'originUrl' => $origin_url,
+                        'resolved' => $resolved['resolved'],
+                        'resolvedBy' => $resolved['resolverName'] ?? null,
+                    ]
+                );
+                return;
+            }
             $this->set_local_media_check_response(
                 200,
                 false,
@@ -270,14 +307,120 @@ trait api {
                 'contentLength' => $sample['contentLength'] ?? null,
                 'acceptRanges' => $sample['acceptRanges'] ?? '',
                 'detection' => $detected['source'],
+                'originUrl' => $origin_url,
+                'resolved' => $resolved['resolved'],
+                'resolvedBy' => $resolved['resolverName'] ?? null,
             ]
         );
+    }
+
+    /**
+     * @return array{url:string,resolved:bool,resolverName:?string}
+     */
+    private function resolve_core_local_media_url( string $origin_url ): array {
+        $normalized_url = $this->normalize_external_media_url( $origin_url );
+        if ( $normalized_url === null ) {
+            return [
+                'url' => $origin_url,
+                'resolved' => false,
+                'resolverName' => null,
+            ];
+        }
+
+        $dropbox_url = $this->resolve_dropbox_shared_media_url( $normalized_url );
+        if ( $dropbox_url !== null ) {
+            return [
+                'url' => $dropbox_url,
+                'resolved' => $dropbox_url !== $normalized_url,
+                'resolverName' => 'ambient-dropbox-shared-url',
+            ];
+        }
+
+        $google_drive_url = $this->resolve_google_drive_shared_media_url( $normalized_url );
+        if ( $google_drive_url !== null ) {
+            return [
+                'url' => $google_drive_url,
+                'resolved' => $google_drive_url !== $normalized_url,
+                'resolverName' => 'ambient-google-drive-shared-url',
+            ];
+        }
+
+        return [
+            'url' => $normalized_url,
+            'resolved' => $normalized_url !== $origin_url,
+            'resolverName' => $normalized_url !== $origin_url ? 'ambient-normalize-external-url' : null,
+        ];
+    }
+
+    private function normalize_external_media_url( string $url ): ?string {
+        $url = trim( $url );
+        if ( $url === '' || str_starts_with( $url, '//' ) ) {
+            return null;
+        }
+        $parts = parse_url( $url );
+        if ( !is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
+            return null;
+        }
+        $scheme = strtolower( (string)$parts['scheme'] );
+        if ( $scheme !== 'http' && $scheme !== 'https' ) {
+            return null;
+        }
+        return $url;
+    }
+
+    private function resolve_dropbox_shared_media_url( string $url ): ?string {
+        $parts = parse_url( $url );
+        if ( !is_array( $parts ) || empty( $parts['host'] ) ) {
+            return null;
+        }
+        $host = strtolower( (string)$parts['host'] );
+        if ( $host !== 'www.dropbox.com' && $host !== 'dropbox.com' ) {
+            return null;
+        }
+
+        $path = isset( $parts['path'] ) ? (string)$parts['path'] : '';
+        $query = [];
+        if ( isset( $parts['query'] ) ) {
+            parse_str( (string)$parts['query'], $query );
+        }
+        unset( $query['dl'], $query['raw'] );
+        $resolved_query = http_build_query( $query );
+        return 'https://dl.dropboxusercontent.com' . $path . ( $resolved_query !== '' ? '?' . $resolved_query : '' );
+    }
+
+    private function resolve_google_drive_shared_media_url( string $url ): ?string {
+        $parts = parse_url( $url );
+        if ( !is_array( $parts ) || empty( $parts['host'] ) ) {
+            return null;
+        }
+        if ( strtolower( (string)$parts['host'] ) !== 'drive.google.com' ) {
+            return null;
+        }
+
+        $path = isset( $parts['path'] ) ? (string)$parts['path'] : '';
+        $file_id = '';
+        if ( preg_match( '#/file/d/([^/]+)#', $path, $matches ) === 1 ) {
+            $file_id = $matches[1];
+        } elseif ( $path === '/open' || $path === '/uc' ) {
+            $query = [];
+            if ( isset( $parts['query'] ) ) {
+                parse_str( (string)$parts['query'], $query );
+            }
+            $file_id = isset( $query['id'] ) ? (string)$query['id'] : '';
+        }
+
+        if ( preg_match( '/^[A-Za-z0-9_-]{10,}$/', $file_id ) !== 1 ) {
+            return null;
+        }
+
+        return 'https://drive.google.com/uc?export=download&id=' . rawurlencode( $file_id );
     }
 
     private function proxy_external_local_media( ?string $playlist_file = null, ?string $media_id = null ): void {
         if ( !$this->is_local() ) {
             $this->send_local_media_proxy_error( 403, 'Range proxy is available only in local mode.' );
         }
+        $this->maybe_cleanup_local_media_proxy_cache();
         if ( !function_exists( 'curl_init' ) ) {
             $this->send_local_media_proxy_error( 500, 'Range proxy requires the PHP cURL extension.' );
         }
@@ -344,6 +487,8 @@ trait api {
                 if ( $url === '' || preg_match( '#^https?://#i', $url ) !== 1 ) {
                     return null;
                 }
+                $resolved = $this->resolve_core_local_media_url( $url );
+                $url = $resolved['url'];
                 $mime = $this->resolve_media_mime_from_url_extension( $url ) ?? 'application/octet-stream';
                 return [
                     'url' => $url,
@@ -406,6 +551,7 @@ trait api {
                     'mime' => $download['mime'] ?? $fallback_mime,
                     'bytes' => filesize( $cache_file ) ?: null,
                     'createdAt' => gmdate( 'c' ),
+                    'expiresAt' => $this->resolve_local_media_proxy_cache_expires_at(),
                 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ),
                 LOCK_EX
             );
@@ -426,6 +572,154 @@ trait api {
             return amp_resolve_dir( $configured, APP_ROOT );
         }
         return APP_ROOT . '.cache/media-proxy/';
+    }
+
+    private function get_local_media_proxy_cache_ttl_seconds(): int {
+        $value = amp_env( 'AMBIENT_LOCAL_MEDIA_PROXY_CACHE_TTL_SECONDS', '604800' );
+        if ( !is_numeric( $value ) ) {
+            return 604800;
+        }
+        return max( 0, (int)$value );
+    }
+
+    private function resolve_local_media_proxy_cache_expires_at(): ?string {
+        $ttl_seconds = $this->get_local_media_proxy_cache_ttl_seconds();
+        if ( $ttl_seconds === 0 ) {
+            return null;
+        }
+        return gmdate( 'c', time() + $ttl_seconds );
+    }
+
+    private function maybe_cleanup_local_media_proxy_cache( bool $force = false ): void {
+        if ( !$this->is_local() ) {
+            return;
+        }
+        $cache_dir = $this->get_local_media_proxy_cache_dir();
+        if ( !is_dir( $cache_dir ) ) {
+            return;
+        }
+        $marker_file = $cache_dir . '.last-cleanup';
+        if ( !$force && is_file( $marker_file ) && ( time() - (int)@filemtime( $marker_file ) ) < 86400 ) {
+            return;
+        }
+
+        $this->cleanup_expired_local_media_proxy_cache( $cache_dir );
+        @file_put_contents( $marker_file, gmdate( 'c' ), LOCK_EX );
+    }
+
+    private function cleanup_expired_local_media_proxy_cache( string $cache_dir ): void {
+        $ttl_seconds = $this->get_local_media_proxy_cache_ttl_seconds();
+        $meta_files = glob( $cache_dir . '*.json' );
+        if ( !is_array( $meta_files ) ) {
+            $meta_files = [];
+        }
+
+        foreach ( $meta_files as $meta_file ) {
+            $meta = $this->read_local_media_proxy_cache_meta( $meta_file );
+            $hash = pathinfo( $meta_file, PATHINFO_FILENAME );
+            if ( !is_string( $hash ) || preg_match( '/^[a-f0-9]{64}$/', $hash ) !== 1 ) {
+                continue;
+            }
+            $expired = false;
+            $expires_at = isset( $meta['expiresAt'] ) && is_string( $meta['expiresAt'] )
+                ? strtotime( $meta['expiresAt'] )
+                : false;
+            if ( $expires_at !== false ) {
+                $expired = $expires_at <= time();
+            } elseif ( $ttl_seconds > 0 ) {
+                $created_at = isset( $meta['createdAt'] ) && is_string( $meta['createdAt'] )
+                    ? strtotime( $meta['createdAt'] )
+                    : false;
+                $mtime = @filemtime( $meta_file );
+                $base_time = $created_at !== false ? $created_at : ( $mtime !== false ? $mtime : time() );
+                $expired = ( $base_time + $ttl_seconds ) <= time();
+            }
+            if ( $expired ) {
+                $this->delete_local_media_proxy_cache_by_hash( $hash );
+            }
+        }
+
+        $tmp_files = glob( $cache_dir . '*.tmp-*' );
+        if ( !is_array( $tmp_files ) ) {
+            return;
+        }
+        foreach ( $tmp_files as $tmp_file ) {
+            $mtime = @filemtime( $tmp_file );
+            if ( $mtime !== false && ( time() - $mtime ) > 86400 ) {
+                @unlink( $tmp_file );
+            }
+        }
+    }
+
+    private function delete_local_media_proxy_cache_by_url( string $url ): void {
+        $normalized_url = $this->normalize_external_media_url( $url );
+        if ( $normalized_url === null ) {
+            return;
+        }
+        $this->delete_local_media_proxy_cache_by_hash( hash( 'sha256', $normalized_url ) );
+    }
+
+    private function delete_local_media_proxy_cache_by_hash( string $hash ): void {
+        if ( preg_match( '/^[a-f0-9]{64}$/', $hash ) !== 1 ) {
+            return;
+        }
+        $cache_dir = $this->get_local_media_proxy_cache_dir();
+        foreach ( [ '.bin', '.json', '.lock' ] as $suffix ) {
+            $path = $cache_dir . $hash . $suffix;
+            if ( is_file( $path ) ) {
+                @unlink( $path );
+            }
+        }
+        $tmp_files = glob( $cache_dir . $hash . '.bin.tmp-*' );
+        if ( is_array( $tmp_files ) ) {
+            foreach ( $tmp_files as $tmp_file ) {
+                @unlink( $tmp_file );
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $playlist_data
+     * @return array<string, bool>
+     */
+    private function collect_local_media_proxy_cache_urls( array $playlist_data ): array {
+        $urls = [];
+        foreach ( $this->normalize_playlist_data( $playlist_data ) as $category => $items ) {
+            if ( $category === 'options' || !is_array( $items ) ) {
+                continue;
+            }
+            foreach ( $items as $item ) {
+                if ( !is_array( $item ) || $this->normalize_boolish( $item['rangeProxy'] ?? false ) !== true ) {
+                    continue;
+                }
+                $origin_url = isset( $item['file'] ) && is_string( $item['file'] ) ? trim( $item['file'] ) : '';
+                if ( $origin_url === '' || preg_match( '#^https?://#i', $origin_url ) !== 1 ) {
+                    continue;
+                }
+                $resolved = $this->resolve_core_local_media_url( $origin_url );
+                $url = $this->normalize_external_media_url( $resolved['url'] );
+                if ( $url !== null ) {
+                    $urls[$url] = true;
+                }
+            }
+        }
+        return $urls;
+    }
+
+    /**
+     * @param array<string, bool> $before_urls
+     * @param array<string, bool> $after_urls
+     */
+    private function cleanup_removed_local_media_proxy_cache_urls( array $before_urls, array $after_urls ): void {
+        if ( empty( $before_urls ) ) {
+            return;
+        }
+        foreach ( $before_urls as $url => $_used ) {
+            if ( !array_key_exists( $url, $after_urls ) ) {
+                $this->delete_local_media_proxy_cache_by_url( $url );
+            }
+        }
+        $this->maybe_cleanup_local_media_proxy_cache( true );
     }
 
     /**
@@ -690,6 +984,26 @@ trait api {
         ];
     }
 
+    private function resolve_external_media_check_failure_message( string $reason, $http_status = null ): string {
+        $status = is_numeric( $http_status ) ? (int)$http_status : 0;
+        if ( $status === 401 ) {
+            return $this->__( 'Media URL requires authentication.' );
+        }
+        if ( $status === 403 ) {
+            return $this->__( 'Media URL access is forbidden.' );
+        }
+        if ( $status === 404 ) {
+            return $this->__( 'Media URL was not found.' );
+        }
+        if ( $status >= 500 ) {
+            return $this->__( 'Media URL host returned a server error.' );
+        }
+        if ( $reason === 'timeout' ) {
+            return $this->__( 'Media URL check timed out.' );
+        }
+        return $this->__( 'Media URL could not be checked by the server.' );
+    }
+
     private function is_safe_external_media_check_url( string $url ): bool {
         if ( $url === '' ) {
             return false;
@@ -791,6 +1105,13 @@ trait api {
                 if ( $next_url === null ) {
                     return [ 'ok' => false, 'reason' => 'invalid-redirect' ];
                 }
+                if ( $this->is_google_drive_auth_redirect( $current_url, $next_url ) ) {
+                    return [
+                        'ok' => false,
+                        'reason' => 'upstream-forbidden',
+                        'httpStatus' => 403,
+                    ];
+                }
                 $current_url = $next_url;
                 continue;
             }
@@ -798,7 +1119,7 @@ trait api {
             if ( $status < 200 || $status >= 300 ) {
                 return [
                     'ok' => false,
-                    'reason' => 'upstream-status',
+                    'reason' => $this->resolve_external_media_upstream_status_reason( $status ),
                     'httpStatus' => $status,
                 ];
             }
@@ -815,6 +1136,34 @@ trait api {
         }
 
         return [ 'ok' => false, 'reason' => 'too-many-redirects' ];
+    }
+
+    private function is_google_drive_auth_redirect( string $from_url, string $to_url ): bool {
+        $from_parts = parse_url( $from_url );
+        $to_parts = parse_url( $to_url );
+        if ( !is_array( $from_parts ) || !is_array( $to_parts ) ) {
+            return false;
+        }
+        $from_host = strtolower( (string)( $from_parts['host'] ?? '' ) );
+        $to_host = strtolower( (string)( $to_parts['host'] ?? '' ) );
+        $from_is_drive = $from_host === 'drive.google.com' || $from_host === 'drive.usercontent.google.com';
+        return $from_is_drive && $to_host === 'accounts.google.com';
+    }
+
+    private function resolve_external_media_upstream_status_reason( int $status ): string {
+        if ( $status === 401 ) {
+            return 'upstream-unauthorized';
+        }
+        if ( $status === 403 ) {
+            return 'upstream-forbidden';
+        }
+        if ( $status === 404 ) {
+            return 'upstream-not-found';
+        }
+        if ( $status >= 500 ) {
+            return 'upstream-server-error';
+        }
+        return 'upstream-status';
     }
 
     /**
@@ -1535,6 +1884,19 @@ trait api {
             return;
         }
 
+        $before_proxy_urls = [];
+        $playlist_path = $this->playlists[$playlist_file];
+        if ( $this->is_local() && is_file( $playlist_path ) ) {
+            $before_raw = @file_get_contents( $playlist_path );
+            $before_decoded = is_string( $before_raw ) ? json_decode( $before_raw, true ) : null;
+            if ( is_array( $before_decoded ) ) {
+                $before_proxy_urls = $this->collect_local_media_proxy_cache_urls( $before_decoded );
+            }
+        }
+        $after_proxy_urls = $this->is_local()
+            ? $this->collect_local_media_proxy_cache_urls( $data )
+            : [];
+
         $json_content = json_encode( $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE );
         $result = file_put_contents( $this->playlists[$playlist_file], $json_content );
         if ( $result === false ) {
@@ -1546,6 +1908,9 @@ trait api {
                 ],
             ];
             return;
+        }
+        if ( $this->is_local() ) {
+            $this->cleanup_removed_local_media_proxy_cache_urls( $before_proxy_urls, $after_proxy_urls );
         }
 
         $this->api_response = [
@@ -2013,6 +2378,17 @@ trait api {
         }
 
         $target_path = ASSETS_DIR . $resolved_filename;
+        $before_proxy_urls = [];
+        if ( $this->is_local() && is_file( $target_path ) ) {
+            $before_raw = @file_get_contents( $target_path );
+            $before_decoded = is_string( $before_raw ) ? json_decode( $before_raw, true ) : null;
+            if ( is_array( $before_decoded ) ) {
+                $before_proxy_urls = $this->collect_local_media_proxy_cache_urls( $before_decoded );
+            }
+        }
+        $after_proxy_urls = $this->is_local()
+            ? $this->collect_local_media_proxy_cache_urls( $normalized )
+            : [];
 
         $json_content = json_encode( $normalized, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
         if ( $json_content === false ) {
@@ -2049,6 +2425,9 @@ trait api {
                 ],
             ];
             return;
+        }
+        if ( $this->is_local() ) {
+            $this->cleanup_removed_local_media_proxy_cache_urls( $before_proxy_urls, $after_proxy_urls );
         }
 
         $this->api_response = [
@@ -2253,6 +2632,20 @@ trait api {
             $videoid = $this->sanitize_text( $item['videoid'], 100 );
             if ( $videoid !== '' ) {
                 $normalized['videoid'] = $videoid;
+            }
+        }
+
+        if ( array_key_exists( 'mediaKind', $item ) && is_string( $item['mediaKind'] ) ) {
+            $media_kind = strtolower( trim( $item['mediaKind'] ) );
+            if ( $media_kind === 'audio' || $media_kind === 'video' ) {
+                $normalized['mediaKind'] = $media_kind;
+            }
+        }
+
+        if ( array_key_exists( 'mediaMime', $item ) && is_string( $item['mediaMime'] ) ) {
+            $media_mime = strtolower( trim( $item['mediaMime'] ) );
+            if ( preg_match( '/^(audio|video)\/[a-z0-9.+-]+$/', $media_mime ) ) {
+                $normalized['mediaMime'] = $media_mime;
             }
         }
 

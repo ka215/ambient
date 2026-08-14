@@ -16,6 +16,8 @@ interface MediaItem {
   image?: string;
   thumb?: string;
   file?: string;
+  mediaKind?: 'audio' | 'video' | string;
+  mediaMime?: string;
   rangeProxy?: boolean | string;
   videoid?: string;
   volume?: number;
@@ -109,6 +111,10 @@ interface AmbientData {
   thumbnailGeneration?: {
     enabled: boolean;
     outputFormat: 'webp' | 'png';
+  };
+  localMediaProxy?: {
+    enabled: boolean;
+    maxBytes: number;
   };
   [key: string]: any;
 }
