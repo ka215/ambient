@@ -1,5 +1,6 @@
 import type { MediaItem } from '../types/ambient';
 import type { YouTubeMetadataPayload } from '../types/ambient';
+import type { LocalMediaArtworkPayload } from '../platform/local-media-metadata';
 
 type MediaBindings =
   NonNullable<
@@ -23,6 +24,7 @@ export interface CreateManagementMediaBindingsFacadeOptions {
   syncMediaCategoryField(preferredCategoryId?: number | null): void;
   syncPlaybackAfterMediaAdd(): void;
   persistMediaEditForCurrentPlaylist(workingMedia: MediaItem[]): Promise<{ ok: boolean; message: string }>;
+  saveArtworkThumbnail(artwork: LocalMediaArtworkPayload): Promise<{ ok: boolean; filename?: string; message: string }>;
   hideOptionsModal(): void;
   setValidated(targetElement: HTMLElement, result?: boolean | null): void;
   sanitizeMediaText(value: string, maxLength: number): string;
@@ -61,6 +63,7 @@ export function createManagementMediaBindingsFacade(
     syncMediaCategoryField: options.syncMediaCategoryField,
     syncPlaybackAfterMediaAdd: options.syncPlaybackAfterMediaAdd,
     persistMediaEditForCurrentPlaylist: options.persistMediaEditForCurrentPlaylist,
+    saveArtworkThumbnail: options.saveArtworkThumbnail,
     hideOptionsModal: options.hideOptionsModal,
     setValidated: options.setValidated,
     sanitizeMediaText: options.sanitizeMediaText,

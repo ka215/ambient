@@ -75,6 +75,11 @@ export function buildManagedMediaItem(options: BuildMediaItemOptions): BuildMedi
           mediaItem.rangeProxy = true;
         }
         break;
+      case 'image':
+        if (val !== '') {
+          mediaItem.image = val;
+        }
+        break;
       case 'category':
         if (val !== '') {
           const categoryIndex = Number(val);

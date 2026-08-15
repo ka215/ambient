@@ -5,7 +5,7 @@ import {
   normalizeExternalMediaUrl,
 } from '../../platform/external-media-url';
 import { resolveLocalMediaUrl } from '../../platform/local-media-url-resolver';
-import { extractLocalMediaMetadata } from '../../platform/local-media-metadata';
+import { extractLocalMediaMetadata, type LocalMediaArtworkPayload } from '../../platform/local-media-metadata';
 import type { YouTubeMetadataPayload } from '../../types/ambient';
 
 export interface MediaManagementBindings {
@@ -29,6 +29,7 @@ export interface MediaManagementBindings {
   syncMediaCategoryField(preferredCategoryId?: number | null): void;
   syncPlaybackAfterMediaAdd(): void;
   persistMediaEditForCurrentPlaylist(workingMedia: unknown[]): Promise<{ ok: boolean; message: string }>;
+  saveArtworkThumbnail(artwork: LocalMediaArtworkPayload): Promise<{ ok: boolean; filename?: string; message: string }>;
   hideOptionsModal(): void;
   setValidated(targetElement: HTMLElement, result?: boolean | null): void;
   sanitizeMediaText(value: string, maxLength: number): string;
@@ -85,6 +86,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
     syncMediaCategoryField,
     syncPlaybackAfterMediaAdd,
     persistMediaEditForCurrentPlaylist,
+    saveArtworkThumbnail,
     hideOptionsModal,
     setValidated,
     sanitizeMediaText,
@@ -149,6 +151,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
   let metadataDebounceId: ReturnType<typeof setTimeout> | null = null;
   let metadataRequestSeq = 0;
   let latestMetadata: YouTubeMetadataPayload | null = null;
+  let latestLocalArtwork: LocalMediaArtworkPayload | null = null;
   let latestMetadataSource: 'youtube' | 'local' = 'youtube';
   const lastAppliedMetadata = {
     title: '',
@@ -265,6 +268,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
   const clearMetadataSuggestions = (): void => {
     metadataRequestSeq++;
     latestMetadata = null;
+    latestLocalArtwork = null;
     if (metadataDebounceId) {
       clearTimeout(metadataDebounceId);
       metadataDebounceId = null;
@@ -512,6 +516,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
       clearMetadataSuggestions();
       return;
     }
+    latestLocalArtwork = result.artwork || null;
     if (titleField) {
       lastAppliedMetadata.title = fallbackTitle;
     }
@@ -925,6 +930,14 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
           }
 
           const formData = new FormData(form);
+          if (getAddType() !== 'youtube' && activeLocalMediaMode === 'upload' && latestLocalArtwork) {
+            const artworkResult = await saveArtworkThumbnail(latestLocalArtwork);
+            if (artworkResult.ok && artworkResult.filename) {
+              formData.set('image', artworkResult.filename);
+            } else {
+              logger('error', 'local media artwork thumbnail save failed', artworkResult, 'force');
+            }
+          }
           const categoryField = mediaCategorySelect?.classList.contains('hidden')
             ? 'media-category-new'
             : 'media-category';

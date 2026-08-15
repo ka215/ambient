@@ -37,6 +37,7 @@ import {
 } from './platform/ambient-data';
 import { fetchData } from './platform/fetch-data';
 import { createYouTubeMetadataClient } from './platform/youtube-metadata-api';
+import { uploadMediaEditThumbnail } from './platform/media-edit-persistence';
 import {
   USER_DATA_APP_KEY,
 } from './platform/storage';
@@ -1173,6 +1174,20 @@ const init = function (): void {
     syncMediaCategoryField: managementPlaylistUiHelpers.syncMediaCategoryField,
     syncPlaybackAfterMediaAdd: managementPlaylistUiHelpers.syncPlaybackAfterMediaAdd,
     persistMediaEditForCurrentPlaylist: mediaEditFacade.persistCurrentPlaylist,
+    saveArtworkThumbnail: async (artwork) => {
+      const result = await uploadMediaEditThumbnail({
+        baseUrl: BASE_URL,
+        endpoint: MEDIA_EDIT_THUMBNAIL_ENDPOINT,
+        filename: artwork.filename,
+        dataUrl: artwork.dataUrl,
+        getLocalizedMessage: getRuntimeLocalizedMessage,
+      });
+      return {
+        ok: result.ok,
+        filename: result.ok ? artwork.filename : undefined,
+        message: result.message,
+      };
+    },
     hideOptionsModal,
     setValidated,
     sanitizeMediaText,
