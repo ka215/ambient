@@ -28,6 +28,7 @@ export interface InitializePlaylistModeRuntimeOptions {
   discardEditState(): void;
   updatePlaylist(): void;
   persistCurrentPlaylistMutation(): Promise<{ ok: boolean; message: string }>;
+  cleanupDeletedMediaArtwork(deletedItems: MediaItem[], remainingMediaItems: MediaItem[]): Promise<void>;
   updateNotice(notification: NotificationPayload): void;
   getLocalizedMessage(key: string, fallback?: string): string;
 }
@@ -60,6 +61,7 @@ export function initializePlaylistModeRuntime(options: InitializePlaylistModeRun
     discardEditState: options.discardEditState,
     updatePlaylist: options.updatePlaylist,
     persistCurrentPlaylistMutation: options.persistCurrentPlaylistMutation,
+    cleanupDeletedMediaArtwork: options.cleanupDeletedMediaArtwork,
     updateNotice: options.updateNotice,
     getLocalizedMessage: options.getLocalizedMessage,
   });

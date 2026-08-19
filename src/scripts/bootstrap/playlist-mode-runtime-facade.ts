@@ -21,6 +21,7 @@ export interface CreatePlaylistModeRuntimeFacadeOptions {
   discardEditState: InitializePlaylistModeRuntimeOptions['discardEditState'];
   updatePlaylist: InitializePlaylistModeRuntimeOptions['updatePlaylist'];
   persistCurrentPlaylistMutation: InitializePlaylistModeRuntimeOptions['persistCurrentPlaylistMutation'];
+  cleanupDeletedMediaArtwork: InitializePlaylistModeRuntimeOptions['cleanupDeletedMediaArtwork'];
   updateNotice: InitializePlaylistModeRuntimeOptions['updateNotice'];
   getLocalizedMessage: InitializePlaylistModeRuntimeOptions['getLocalizedMessage'];
 }
@@ -49,6 +50,7 @@ export function createPlaylistModeRuntimeFacade(
     discardEditState: options.discardEditState,
     updatePlaylist: options.updatePlaylist,
     persistCurrentPlaylistMutation: options.persistCurrentPlaylistMutation,
+    cleanupDeletedMediaArtwork: options.cleanupDeletedMediaArtwork,
     updateNotice: options.updateNotice,
     getLocalizedMessage: options.getLocalizedMessage,
   };

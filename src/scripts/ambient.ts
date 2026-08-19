@@ -37,7 +37,7 @@ import {
 } from './platform/ambient-data';
 import { fetchData } from './platform/fetch-data';
 import { createYouTubeMetadataClient } from './platform/youtube-metadata-api';
-import { uploadMediaEditThumbnail } from './platform/media-edit-persistence';
+import { deleteMediaEditThumbnail, uploadMediaEditThumbnail } from './platform/media-edit-persistence';
 import {
   USER_DATA_APP_KEY,
 } from './platform/storage';
@@ -157,6 +157,10 @@ import { createDebugSupport } from './bootstrap/debug-support';
 import {
   getAmbientNoMediaImagePath,
 } from './bootstrap/display-runtime';
+import {
+  collectGeneratedArtworkImages,
+  resolveUnreferencedGeneratedArtworkImages,
+} from './shared/generated-artwork';
 import { createAppBootController } from './bootstrap/app-boot';
 import { createAppBootSupport } from './bootstrap/app-boot-support';
 import { initializePlaylistUiRuntime } from './bootstrap/playlist-ui-runtime-init';
@@ -609,6 +613,27 @@ const init = function (): void {
     mediaManagementActionBridge,
   });
 
+  const cleanupUnreferencedGeneratedArtworkImages = async (
+    candidates: Array<unknown>,
+    remainingMediaItems: MediaItem[]
+  ): Promise<void> => {
+    const targets = resolveUnreferencedGeneratedArtworkImages({
+      candidates,
+      remainingMediaItems,
+    });
+    await Promise.all(targets.map(async (filename) => {
+      const result = await deleteMediaEditThumbnail({
+        baseUrl: BASE_URL,
+        endpoint: MEDIA_EDIT_THUMBNAIL_ENDPOINT,
+        filename,
+        getLocalizedMessage: getRuntimeLocalizedMessage,
+      });
+      if (!result.ok) {
+        runtimeLogger('error', 'generated artwork cleanup failed', filename, result, 'force');
+      }
+    }));
+  };
+
   const {
     closePlaylistModeMenu,
     destroyPlaylistSortable,
@@ -639,6 +664,10 @@ const init = function (): void {
     discardEditState: playlistRuntimeSupport.discardEditState,
     updatePlaylist: playlistRuntimeSupport.updatePlaylist,
     persistCurrentPlaylistMutation: playlistRuntimeSupport.persistCurrentPlaylistMutation,
+    cleanupDeletedMediaArtwork: (deletedItems, remainingMediaItems) => cleanupUnreferencedGeneratedArtworkImages(
+      collectGeneratedArtworkImages(deletedItems),
+      remainingMediaItems
+    ),
     updateNotice,
     getLocalizedMessage,
   }));

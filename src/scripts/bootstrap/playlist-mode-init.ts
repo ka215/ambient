@@ -28,6 +28,7 @@ export interface InitializePlaylistModeBindingsOptions {
   discardEditState(): void;
   updatePlaylist(): void;
   persistCurrentPlaylistMutation(): Promise<{ ok: boolean; message: string }>;
+  cleanupDeletedMediaArtwork(deletedItems: MediaItem[], remainingMediaItems: MediaItem[]): Promise<void>;
   updateNotice(notification: NotificationPayload): void;
   getLocalizedMessage(key: string, fallback?: string): string;
 }
@@ -79,6 +80,7 @@ export function initializePlaylistModeBindings(options: InitializePlaylistModeBi
       syncDeleteSelectionIndicatorView(itemElm, isSelected);
     },
     persistCurrentPlaylistMutation: options.persistCurrentPlaylistMutation,
+    cleanupDeletedMediaArtwork: options.cleanupDeletedMediaArtwork,
     updateNotice: options.updateNotice,
     getLocalizedMessage: options.getLocalizedMessage,
   });
