@@ -13,6 +13,9 @@ export interface MediaItem {
   artist?: string;
   desc?: string;
   file?: string;          // Local media file path
+  mediaKind?: 'audio' | 'video' | string; // Runtime/player hint for extensionless HTML media
+  mediaMime?: string;     // Runtime/player MIME hint from URL validation
+  rangeProxy?: boolean | string; // Use local Range proxy for external HTML media
   videoid?: string;       // YouTube video ID
   image?: string;         // Cover image path
   thumb?: string;         // Thumbnail image path
@@ -135,10 +138,15 @@ export interface AmbientDataGlobal {
   };
   imageDir?: string;         // Base directory for images (relative URL)
   mediaDir?: string;         // Base directory for local media files (relative URL)
+  isCloud?: boolean;          // Cloud mode flag from PHP
   youtubeMetadata?: YouTubeMetadataCapability;
   thumbnailGeneration?: {
     enabled: boolean;
     outputFormat: 'webp' | 'png';
+  };
+  localMediaProxy?: {
+    enabled: boolean;
+    maxBytes: number;
   };
   [key: string]: any;        // Allow additional properties
 }

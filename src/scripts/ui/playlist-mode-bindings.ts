@@ -58,6 +58,7 @@ export function bindAmbientPlaylistMode(options: {
   syncModeButton(mode: PlaylistMode): void;
   syncDeleteSelectionIndicator(itemElm: HTMLElement, isSelected: boolean): void;
   persistCurrentPlaylistMutation(): Promise<{ ok: boolean; message: string }>;
+  cleanupDeletedMediaArtwork(deletedItems: MediaItem[], remainingMediaItems: MediaItem[]): Promise<void>;
   updateNotice(notification: NotificationPayload): void;
   getLocalizedMessage(key: string, fallback?: string): string;
 }): PlaylistModeBindingsResult {
@@ -99,6 +100,7 @@ export function bindAmbientPlaylistMode(options: {
 
     const previousMedia = status.media;
     const nextMedia = previousMedia.filter((item: MediaItem) => !deleteSelectedIds.has(item.amId));
+    const deletedItems = previousMedia.filter((item: MediaItem) => deleteSelectedIds.has(item.amId));
     options.setMediaItems(nextMedia);
     deleteSelectedIds.clear();
     options.setPlaylistModeState('normal');
@@ -116,6 +118,8 @@ export function bindAmbientPlaylistMode(options: {
       });
       return;
     }
+
+    await options.cleanupDeletedMediaArtwork(deletedItems, nextMedia);
 
     options.updateNotice({
       type: 'success',

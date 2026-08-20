@@ -25,6 +25,18 @@ export function resolveHtmlMediaMimeType(path: string, tagName: 'audio' | 'video
   return mimeTypes[ext] || `${tagName}/${ext || 'mpeg'}`;
 }
 
+export function resolveHtmlMediaMimeTypeWithHint(
+  path: string,
+  tagName: 'audio' | 'video',
+  mimeHint?: string | null
+): string {
+  const normalizedHint = String(mimeHint || '').trim().toLowerCase();
+  if (new RegExp(`^${tagName}\\/[a-z0-9.+-]+$`, 'i').test(normalizedHint)) {
+    return normalizedHint;
+  }
+  return resolveHtmlMediaMimeType(path, tagName);
+}
+
 export function resolveHtmlMediaSourcePath(path: string): string {
   const normalizedPath = String(path || '').replace(/\\/g, '/');
   if (!normalizedPath) {

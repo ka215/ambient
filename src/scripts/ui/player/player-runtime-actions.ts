@@ -28,14 +28,15 @@ export function playManagedMediaSelection(options: {
   mediaItems: MediaItem[];
   triggerElement: HTMLElement | null;
   targetId: number | null;
+  playlistName?: string | null;
   getExtension: (src: string) => string;
   logger: (...args: unknown[]) => void;
   updatePlayStatus: (currentAmId: number) => void;
   closeResponsiveDrawers: () => void;
   reportMissingSource: (mediaData: MediaItem) => void;
   setupPlayer: (setupKind: PlayableSetupKind, src: string | null, mediaData: MediaItem, extension?: string | null) => void;
-}): void {
-  playMediaSelection(options);
+}): Promise<void> {
+  return playMediaSelection(options);
 }
 
 export function setupManagedPlayer(options: {

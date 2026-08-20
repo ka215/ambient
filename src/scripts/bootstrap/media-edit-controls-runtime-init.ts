@@ -2,6 +2,7 @@ import type { MediaEditDraft, MediaEditDraftInput } from '../domain/media-edit/d
 import { initializeMediaEditControls } from './media-edit-controls-init';
 import { autoResizeMediaEditTextarea } from '../ui/media-edit/form-view';
 import { generateMediaThumbnailFromPreview } from '../platform/thumbnail-generation-api';
+import { shouldUseLocalMediaRangeProxy } from '../platform/local-media-range-proxy';
 import type { MediaItem } from '../types/ambient';
 import type { MediaEditElements } from '../ui/media-edit/elements';
 
@@ -12,6 +13,7 @@ export interface InitializeMediaEditControlsRuntimeOptions {
   defaultVolume: number;
   getLocalizedMessage: (key: string, fallback: string) => string;
   updateNotice: (notification: NotificationPayload) => void;
+  getPlaylistName: () => string | null;
   getActiveItem: () => MediaItem | null;
   getBaseDraft: () => MediaEditDraft | null;
   readDraftFromForm: () => MediaEditDraft;
@@ -26,7 +28,7 @@ export interface InitializeMediaEditControlsRuntimeOptions {
     getPreviewSourceItem: () => MediaItem | null;
     getMediaEditPreviewCurrentTime: () => number | null;
   };
-  createMediaEditPreview: (mediaItem: MediaItem) => void;
+  createMediaEditPreview: (mediaItem: MediaItem) => Promise<void>;
   closeMediaEditModal: (restoreFocus?: boolean) => void;
   cancelMediaEditModal: (restoreFocus?: boolean) => void;
   saveMediaEdit: () => Promise<void>;
@@ -249,7 +251,7 @@ export function initializeMediaEditControlsRuntime(options: InitializeMediaEditC
         if (!previewSourceItem) {
           return;
         }
-        options.createMediaEditPreview(previewSourceItem);
+        void options.createMediaEditPreview(previewSourceItem);
       },
     },
     thumbnail: {
@@ -283,11 +285,16 @@ export function initializeMediaEditControlsRuntime(options: InitializeMediaEditC
           });
           return;
         }
+        const useRangeProxy = shouldUseLocalMediaRangeProxy(activeItem);
+        const playlistName = String(options.getPlaylistName() || '');
         const result = await generateMediaThumbnailFromPreview({
           baseUrl: options.baseUrl,
           endpoint: options.thumbnailGenerateEndpoint,
           file: activeItem.file,
           seekTime,
+          rangeProxy: useRangeProxy,
+          playlistName,
+          mediaId: Number.isInteger(activeItem.amId) ? activeItem.amId : null,
           getLocalizedMessage: options.getLocalizedMessage,
         });
         if (!result.ok || !result.filename || !result.dataUrl) {

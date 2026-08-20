@@ -77,6 +77,7 @@
     "Failed to load media URL.": "",
     "Media URL check timed out.": "",
     "Invalid media URL.": "",
+    "Media URL could not be checked by the server.": "",
     "Unsupported media URL format.": "",
     "Required": "",
     "Invalid URL": "",
@@ -315,5 +316,11 @@
     "YouTube metadata applied.": "",
     "Local media metadata found.": "",
     "Local media metadata applied.": "",
-    "Reading local media metadata...": ""
+    "Reading local media metadata...": "",
+    "Use local Range Proxy": "",
+    "Recommended when the checked media URL does not support byte-range requests.": "",
+    "Media URL requires authentication.": "",
+    "Media URL access is forbidden.": "",
+    "Media URL was not found.": "",
+    "Media URL host returned a server error.": ""
 }

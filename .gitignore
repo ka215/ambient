@@ -7,6 +7,7 @@ pids
 *.pid
 *.seed
 *.pid.lock
+.cache/
 
 # Coverage directory used by tools like istanbul
 coverage
@@ -56,4 +57,16 @@ dist/*.min.css
 src/_*.*
 package-lock.json
 refuges/
-.codex/
+
+# Codex workspace files
+.codex/*
+!.codex/skills/
+.codex/skills/*
+!.codex/skills/release-notes/
+.codex/skills/release-notes/*
+!.codex/skills/release-notes/SKILL.md
+!.codex/skills/ambient-doc-workflow/
+.codex/skills/ambient-doc-workflow/*
+!.codex/skills/ambient-doc-workflow/SKILL.md
+!.codex/skills/ambient-doc-workflow/references/
+!.codex/skills/ambient-doc-workflow/references/*.md

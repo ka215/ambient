@@ -11,6 +11,7 @@ import {
 } from '../domain/media-edit/save';
 import { createMediaEditSaveBindings } from '../domain/media-edit/save-bindings';
 import { registerMediaImageCacheBust } from '../shared/media-image-cache';
+import { isGeneratedArtworkImage, resolveUnreferencedGeneratedArtworkImages } from '../shared/generated-artwork';
 import type { MediaEditDraft } from '../domain/media-edit/draft';
 import type { MediaItem } from '../types/ambient';
 
@@ -74,6 +75,9 @@ export function initializeMediaEditSaveRuntime(options: InitializeMediaEditSaveR
   }
 
   async function deleteMediaEditThumbnailIfNeeded(draft: MediaEditDraft): Promise<{ ok: boolean; message: string }> {
+    if (isGeneratedArtworkImage(options.getBaseDraft()?.thumbnailName || '')) {
+      return { ok: true, message: '' };
+    }
     return deleteMediaEditThumbnailIfNeededState({
       draft,
       baseThumbnailName: options.getBaseDraft()?.thumbnailName || '',
@@ -86,6 +90,19 @@ export function initializeMediaEditSaveRuntime(options: InitializeMediaEditSaveR
         getLocalizedMessage: options.getLocalizedMessage,
       }),
     });
+  }
+
+  async function cleanupGeneratedArtworkImages(candidates: Array<unknown>, remainingMediaItems: MediaItem[]): Promise<void> {
+    const targets = resolveUnreferencedGeneratedArtworkImages({
+      candidates,
+      remainingMediaItems,
+    });
+    await Promise.all(targets.map((filename) => deleteMediaEditThumbnailPlatform({
+      baseUrl: options.baseUrl,
+      endpoint: options.thumbnailEndpoint,
+      filename,
+      getLocalizedMessage: options.getLocalizedMessage,
+    })));
   }
 
   async function persistMediaEditForCurrentPlaylist(workingMedia: MediaItem[]): Promise<{ ok: boolean; message: string }> {
@@ -174,6 +191,7 @@ export function initializeMediaEditSaveRuntime(options: InitializeMediaEditSaveR
     applyDraftToMediaItem: options.applyDraftToMediaItem,
     uploadThumbnail: uploadMediaEditThumbnailIfNeeded,
     deleteThumbnail: deleteMediaEditThumbnailIfNeeded,
+    cleanupGeneratedArtwork: cleanupGeneratedArtworkImages,
     persistWorkingMedia: persistMediaEditForCurrentPlaylist,
     finalizeSave: finalizeMediaEditSave,
     failSave: failMediaEditSave,

@@ -24,7 +24,7 @@ The edit flow must be safe by default:
 ### 2.2 Modal behavior
 - Fullscreen modal
 - No backdrop interaction
-- Header left: `メディア編集` / `Media Edit`
+- Header left: localized Media Edit label / `Media Edit`
 - Header right: close button (`✕`) that cancels editing and closes the modal
 - `Esc` closes the modal
 - `Cancel` closes the modal and discards changes
@@ -52,9 +52,9 @@ Ordered fields:
 ### 2.5 Media type badge
 - No media-type radio buttons in edit mode
 - Show a badge indicating the immutable source type:
-  - YouTube media: YouTube icon + `メディア`
-  - local video: generic video icon + `ローカルメディア`
-  - local audio: generic audio icon + `ローカルメディア`
+  - YouTube media: YouTube icon + localized media label
+  - local video: generic video icon + localized local media label
+  - local audio: generic audio icon + localized local media label
 - Headline must show the full title and the badge
 - Under the headline, show either YouTube URL or local file path
 
@@ -140,7 +140,7 @@ If direct player state refresh would be risky, fall back to UI refresh only and 
 - The modal must not allow interaction with other page areas while open
 
 ### 4.2 Header
-- Title: `メディア編集`
+- Title: localized Media Edit label
 - Close button: `✕`
 - No backdrop click-to-close requirement
 

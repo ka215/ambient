@@ -1,6 +1,6 @@
 import type { MediaItem } from '../../types/ambient';
 import {
-  resolveHtmlMediaMimeType,
+  resolveHtmlMediaMimeTypeWithHint,
   resolveHtmlMediaSourcePath,
 } from './html-player-source';
 
@@ -60,7 +60,7 @@ export function createMountedHtmlPlaybackView(options: {
     controls: options.controls,
     autoplay: options.autoplay,
     sourcePath,
-    sourceType: resolveHtmlMediaMimeType(sourcePath, options.tagName),
+    sourceType: resolveHtmlMediaMimeTypeWithHint(sourcePath, options.tagName, options.mediaData.mediaMime),
   });
 
   prepareHtmlPlayerWrapper({

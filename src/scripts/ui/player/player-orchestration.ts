@@ -115,6 +115,7 @@ export function bindManagedHtmlPlaybackOrchestration(options: {
   nextId: () => number | null;
   loopEnabled: () => boolean;
   logger: (...args: unknown[]) => void;
+  playlistName: () => string | null;
   getExtension: (src: string) => string;
   updatePlayStatus: (nextId: number) => void;
   setupPlayer: (setupKind: PlayableSetupKind, mediaSrc: string | null, mediaData: MediaItem) => void;
@@ -156,6 +157,7 @@ export function bindManagedHtmlPlaybackOrchestration(options: {
       }
       runPlaybackTransition({
         playbackTarget,
+        playlistName: options.playlistName(),
         getExtension: options.getExtension,
         updatePlayStatus: options.updatePlayStatus,
         setupPlayer: options.setupPlayer,

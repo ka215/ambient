@@ -259,8 +259,27 @@
                         <p id="local-media-url-status" class="mt-1 text-sm text-gray-500 dark:text-gray-300">
                             <?= __( 'Enter an audio or video URL, then check whether it can be played.' ) ?>
                         </p>
+                        <div
+                          id="local-media-range-proxy-option"
+                          class="hidden mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
+                        >
+                            <label for="local-media-range-proxy" class="flex items-start gap-2 cursor-pointer">
+                                <input
+                                  id="local-media-range-proxy"
+                                  type="checkbox"
+                                  class="mt-1 h-4 w-4 rounded border-amber-400 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span>
+                                    <span class="block font-medium"><?= __( 'Use local Range Proxy' ) ?></span>
+                                    <span class="block text-xs"><?= __( 'Recommended when the checked media URL does not support byte-range requests.' ) ?></span>
+                                </span>
+                            </label>
+                        </div>
                     </div>
                     <input id="local-media-filepath" type="hidden" name="media_filepath" value="" />
+                    <input id="local-media-kind" type="hidden" name="media_kind" value="" />
+                    <input id="local-media-mime" type="hidden" name="media_mime" value="" />
+                    <input id="local-media-range-proxy-value" type="hidden" name="range_proxy" value="" />
                 </div>
                 <div
                   id="media-management-field-meta"

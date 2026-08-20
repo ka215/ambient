@@ -1,4 +1,7 @@
 import type { MediaItem } from '../../types/ambient';
+import { normalizeExternalMediaUrl } from '../../platform/external-media-url';
+import { resolveLocalMediaRangeProxyUrl } from '../../platform/local-media-range-proxy';
+import { resolveLocalMediaUrl } from '../../platform/local-media-url-resolver';
 import {
   type PlaybackSetupPlan,
   resolvePlaybackSetupPlan,
@@ -29,6 +32,61 @@ export interface PlayableTransitionTarget extends PlaybackTarget {
 
 export type YouTubeTransitionCleanupMode = 'destroy' | 'remove_host' | 'none';
 
+function isExternalHtmlMediaItem(mediaData: MediaItem): boolean {
+  return Boolean(mediaData.file && normalizeExternalMediaUrl(mediaData.file));
+}
+
+function hasExplicitFileExtension(src: string): boolean {
+  const path = String(src || '').split(/[?#]/, 1)[0] || '';
+  const lastSlashIndex = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  const fileName = lastSlashIndex >= 0 ? path.slice(lastSlashIndex + 1) : path;
+  const dotIndex = fileName.lastIndexOf('.');
+  return dotIndex > 0 && dotIndex < fileName.length - 1;
+}
+
+async function resolveHtmlPlaybackMediaItem(
+  mediaData: MediaItem,
+  playlistName?: string | null
+): Promise<MediaItem> {
+  if (!isExternalHtmlMediaItem(mediaData)) {
+    return mediaData;
+  }
+  const resolved = await resolveLocalMediaUrl({
+    url: mediaData.file || '',
+    source: 'html-playback',
+    phase: 'playback',
+  });
+  const proxyUrl = resolveLocalMediaRangeProxyUrl({
+    mediaItem: mediaData,
+    sourceUrl: resolved.url,
+    playlistName,
+  });
+  return {
+    ...mediaData,
+    file: proxyUrl || resolved.url,
+  };
+}
+
+function resolveHtmlPlaybackSetupPlan(options: {
+  mediaData: MediaItem;
+  getExtension: (src: string) => string;
+}): PlaybackSetupPlan {
+  const playbackPlan = resolvePlaybackSetupPlan(options);
+  if (
+    playbackPlan.kind !== 'unsupported_html'
+    || !playbackPlan.src
+    || hasExplicitFileExtension(playbackPlan.src)
+  ) {
+    return playbackPlan;
+  }
+
+  return {
+    ...playbackPlan,
+    kind: 'audio',
+    htmlPlayerKind: 'audio',
+  };
+}
+
 export function resolveNextPlaybackTarget(
   mediaItems: MediaItem[],
   nextId: number | null
@@ -52,6 +110,25 @@ export function resolveNextPlaybackTarget(
   };
 }
 
+export async function resolveNextPlaybackTargetAsync(
+  mediaItems: MediaItem[],
+  nextId: number | null,
+  playlistName?: string | null
+): Promise<PlaybackTarget | null> {
+  const playbackTarget = resolveNextPlaybackTarget(mediaItems, nextId);
+  if (!playbackTarget) {
+    return null;
+  }
+  const mediaData = await resolveHtmlPlaybackMediaItem(playbackTarget.mediaData, playlistName);
+  const { src: mediaSrc, type: playerType } = resolvePlaybackSource(mediaData);
+  return {
+    ...playbackTarget,
+    mediaData,
+    mediaSrc,
+    playerType,
+  };
+}
+
 export function resolveLoopAwareNextId(currentId: number | null, nextId: number | null, loop: boolean): number | null {
   if (loop) {
     return currentId;
@@ -66,6 +143,16 @@ export function resolveEndedPlaybackTarget(
   loop: boolean
 ): PlaybackTarget | null {
   return resolveNextPlaybackTarget(mediaItems, resolveLoopAwareNextId(currentId, nextId, loop));
+}
+
+export async function resolveEndedPlaybackTargetAsync(
+  mediaItems: MediaItem[],
+  currentId: number | null,
+  nextId: number | null,
+  loop: boolean,
+  playlistName?: string | null
+): Promise<PlaybackTarget | null> {
+  return resolveNextPlaybackTargetAsync(mediaItems, resolveLoopAwareNextId(currentId, nextId, loop), playlistName);
 }
 
 export function resolveYouTubeTransitionCleanupMode(
@@ -141,19 +228,34 @@ export function resolvePlayableTransitionTarget(
   };
 }
 
-export function runPlaybackTransition(options: {
+export async function runPlaybackTransition(options: {
   playbackTarget: PlaybackTarget | null;
+  playlistName?: string | null;
   getExtension: (src: string) => string;
   updatePlayStatus: (nextId: number) => void;
   setupPlayer: (setupKind: PlayableSetupKind, mediaSrc: string | null, mediaData: MediaItem) => void;
-}): void {
-  const playableTarget = resolvePlayableTransitionTarget(options.playbackTarget, options.getExtension);
-  if (!playableTarget) {
+}): Promise<void> {
+  const playbackTarget = options.playbackTarget
+    ? await resolveNextPlaybackTargetAsync(
+      [options.playbackTarget.mediaData],
+      options.playbackTarget.nextId,
+      options.playlistName
+    )
+    : null;
+  if (!playbackTarget) {
     return;
   }
 
-  options.updatePlayStatus(playableTarget.nextId);
-  options.setupPlayer(playableTarget.setupKind, playableTarget.mediaSrc, playableTarget.mediaData);
+  const playbackPlan = resolveHtmlPlaybackSetupPlan({
+    mediaData: playbackTarget.mediaData,
+    getExtension: options.getExtension,
+  });
+  if (playbackPlan.kind === 'missing') {
+    return;
+  }
+
+  options.updatePlayStatus(playbackTarget.nextId);
+  options.setupPlayer(playbackPlan.kind, playbackPlan.src, playbackTarget.mediaData);
 }
 
 export function findMediaById(mediaItems: MediaItem[], targetId: number | null): MediaItem | null {
@@ -182,6 +284,27 @@ export function resolvePlaybackSelectionById(options: {
   };
 }
 
+export async function resolvePlaybackSelectionByIdAsync(options: {
+  mediaItems: MediaItem[];
+  targetId: number | null;
+  playlistName?: string | null;
+  getExtension: (src: string) => string;
+}): Promise<PlaybackSelection | null> {
+  const mediaData = findMediaById(options.mediaItems, options.targetId);
+  if (!mediaData) {
+    return null;
+  }
+
+  const resolvedMediaData = await resolveHtmlPlaybackMediaItem(mediaData, options.playlistName);
+  return {
+    mediaData: resolvedMediaData,
+    playbackPlan: resolveHtmlPlaybackSetupPlan({
+      mediaData: resolvedMediaData,
+      getExtension: options.getExtension,
+    }),
+  };
+}
+
 export function resolvePlaybackInvocation(options: {
   mediaItems: MediaItem[];
   triggerElement?: HTMLElement | null;
@@ -195,6 +318,33 @@ export function resolvePlaybackInvocation(options: {
   const selection = resolvePlaybackSelectionById({
     mediaItems: options.mediaItems,
     targetId: resolvedTargetId,
+    getExtension: options.getExtension,
+  });
+  if (!selection) {
+    return null;
+  }
+
+  return {
+    targetId: resolvedTargetId,
+    ...selection,
+  };
+}
+
+export async function resolvePlaybackInvocationAsync(options: {
+  mediaItems: MediaItem[];
+  triggerElement?: HTMLElement | null;
+  targetId?: number | null;
+  playlistName?: string | null;
+  getExtension: (src: string) => string;
+}): Promise<PlaybackInvocation | null> {
+  const resolvedTargetId = options.targetId !== undefined && options.targetId !== null
+    ? options.targetId
+    : Number(options.triggerElement?.dataset?.playlistItem || 0);
+
+  const selection = await resolvePlaybackSelectionByIdAsync({
+    mediaItems: options.mediaItems,
+    targetId: resolvedTargetId,
+    playlistName: options.playlistName,
     getExtension: options.getExtension,
   });
   if (!selection) {

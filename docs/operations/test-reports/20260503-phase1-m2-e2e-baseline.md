@@ -30,38 +30,38 @@
 
 | ID | Scenario | Result | Notes |
 |----|----------|--------|-------|
-| SC-001 | 初期表示・プレイリスト準備状態 | ✅ Pass (all 3 browsers) | 単一プレイリスト未選択時: no-media + select 要素確認, 選択済時: アイテム列挙 |
-| SC-002 | 再生/一時停止トグル | ✅ Pass (all 3 browsers) | `data-yt-phase` / `data-yt-seq` によるDOMシグナル待機を導入 |
-| SC-003 | 次/前ナビゲーション | ✅ Pass (all 3 browsers) | YouTube再生開始シグナル検知後にナビゲーション検証 |
-| SC-004 | ボリュームスライダー操作 | ✅ Pass (all 3 browsers) | スライダーを35に設定し表示値と一致確認 |
-| SC-005 | シャッフルトグル | ✅ Pass (all 3 browsers) | `#toggle-shuffle` の label クリックで状態反転確認 |
-| SC-006 | YouTube IFrame 埋め込み | ✅ Pass (all 3 browsers) | YouTubeプレイヤー生成シグナル検知後に埋め込みDOMを検証 |
+| SC-001 | Initial display and playlist ready state | Pass (all 3 browsers) | Verified no-media and select elements when no single playlist is selected; verified item listing when a playlist is selected |
+| SC-002 | Play/pause toggle | Pass (all 3 browsers) | Added DOM signal waiting through `data-yt-phase` and `data-yt-seq` |
+| SC-003 | Next/previous navigation | Pass (all 3 browsers) | Verified navigation after detecting the YouTube playback start signal |
+| SC-004 | Volume slider operation | Pass (all 3 browsers) | Set the slider to 35 and verified the displayed value |
+| SC-005 | Shuffle toggle | Pass (all 3 browsers) | Verified state change by clicking the `#toggle-shuffle` label |
+| SC-006 | YouTube IFrame embed | Pass (all 3 browsers) | Verified embedded DOM after detecting the YouTube player creation signal |
 
 ---
 
 ## Investigation Notes
 
-1. **baseURL 修正:** 当初 `http://localhost/dev2.ka2.org/amp/` を設定したが、XAMPPのVirtualHost設定により `http://dev2.ka2.org/amp/` が正しいエンドポイント。
-   - 対応: `playwright.config.ts` に `process.env.E2E_BASE_URL || 'http://dev2.ka2.org/amp/'` を設定。
-2. **page.goto('/') 問題:** Playwright の `baseURL + '/'` は `http://dev2.ka2.org/` (ドメインルート) に解決される。
-   - 対応: `AmbientPage.gotoHome()` を `page.goto('./')` に修正。
-3. **SC-005 Firefox失敗:** `input.check({ force: true })` がFirefoxでclickしても状態変更しない。
-   - 対応: `#toggle-shuffle` (label) を直接 `.click({ force: true })` に変更。
-4. **DOMシグナル検知型 Wait 戦略を導入:**
-   - `AMP_STATUS` に `yt_phase` / `yt_seq` / `yt_error` を追加。
-   - `body` 属性として `data-yt-phase` / `data-yt-seq` / `data-yt-error` を同期更新。
-   - Playwright fixture 側で `waitForYouTubePhase()` を追加し、固定sleep依存を削減。
-   - 属性名は `e2e` 接頭辞なしを採用（衝突回避は `yt-*` プレフィックスで担保）。
+1. **baseURL correction:** The initial value was `http://localhost/dev2.ka2.org/amp/`, but the XAMPP VirtualHost configuration makes `http://dev2.ka2.org/amp/` the correct endpoint.
+   - Action: Set `process.env.E2E_BASE_URL || 'http://dev2.ka2.org/amp/'` in `playwright.config.ts`.
+2. **`page.goto('/')` issue:** Playwright resolves `baseURL + '/'` to `http://dev2.ka2.org/`, the domain root.
+   - Action: Changed `AmbientPage.gotoHome()` to `page.goto('./')`.
+3. **SC-005 Firefox failure:** `input.check({ force: true })` did not change state when clicked in Firefox.
+   - Action: Clicked the `#toggle-shuffle` label directly.
+4. **DOM signal wait strategy:**
+   - Added `yt_phase`, `yt_seq`, and `yt_error` to `AMP_STATUS`.
+   - Synchronized `data-yt-phase`, `data-yt-seq`, and `data-yt-error` as `body` attributes.
+   - Added `waitForYouTubePhase()` to the Playwright fixture to reduce fixed-sleep dependency.
+   - Used attribute names without an `e2e` prefix; collision avoidance is handled by the `yt-*` prefix.
 
 ---
 
 ## Known Risks
 
-- YouTube API自体の外部依存は残るため、ネットワーク断時は `data-yt-phase="api_error"` で失敗する。
-- `getPlaylistData()` 内の `initStatus()` 呼び出しにより `yt_*` が `idle/0` に再初期化されるため、テストは必ず「操作前のseq採取」→「seq増加待ち」で扱う必要がある。
+- The YouTube API remains an external dependency, so network loss can still fail with `data-yt-phase="api_error"`.
+- `initStatus()` inside `getPlaylistData()` resets `yt_*` to `idle/0`; tests must capture the sequence before the action and then wait for sequence increase.
 
 ## Next Actions
 
-- M3: `yt_phase` の許容遷移図（state machine）を docs に明文化。
-- M3: `getPlaylistData()` の `initStatus()` 再初期化仕様を整理し、シグナル初期化ルールを統一。
-- M3: TSビルド + E2E実行の総合検証レポートへ本方式を標準手順として反映。
+- M3: Document the allowed `yt_phase` transition diagram as a state machine.
+- M3: Clarify `initStatus()` reset behavior inside `getPlaylistData()` and standardize signal initialization rules.
+- M3: Reflect this strategy as the standard approach in the combined TypeScript build and E2E validation report.

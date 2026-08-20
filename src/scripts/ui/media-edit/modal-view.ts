@@ -208,7 +208,7 @@ export function openManagedMediaEditModal(options: {
   renderSourceBadges: (mediaItem: MediaItem) => void;
   bindForm: (mediaItem: MediaItem) => void;
   updatePlaylist: () => void;
-  createPreview: (mediaItem: MediaItem) => void;
+  createPreview: (mediaItem: MediaItem) => Promise<void>;
   startDurationSyncWait: () => void;
   modalElement: HTMLElement | null;
   titleElement: HTMLElement | null;
@@ -231,7 +231,7 @@ export function openManagedMediaEditModal(options: {
     options.updatePlaylist();
   }
 
-  options.createPreview(options.mediaItem);
+  void options.createPreview(options.mediaItem);
   options.startDurationSyncWait();
   showMediaEditModalView({
     modalElement: options.modalElement,

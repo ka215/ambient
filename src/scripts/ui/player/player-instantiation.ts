@@ -124,6 +124,7 @@ export function createHtmlPlayerInstance(options: {
   showPlayingState: () => void;
   showPausedState: () => void;
   logger: (...args: unknown[]) => void;
+  playlistName: () => string | null;
   resolveSeekRange: (mediaData: MediaItem, fallbackEnd: number) => { seekStart: number; seekEnd: number };
   fadeOut: (media: HTMLMediaElement, period: number, start: number) => void;
   fadeIn: (media: HTMLMediaElement, period: number, start: number) => void;
@@ -180,6 +181,7 @@ export function createHtmlPlayerInstance(options: {
     nextId: () => options.status.next,
     loopEnabled: () => Boolean(options.status.loop),
     logger: options.logger,
+    playlistName: options.playlistName,
     getExtension: options.getExtension,
     updatePlayStatus: options.updatePlayStatus,
     setupPlayer: options.setupPlayer,

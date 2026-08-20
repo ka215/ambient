@@ -71,6 +71,7 @@
     "Failed to load media URL.": "Impossible de charger l'URL du média.",
     "Media URL check timed out.": "La vérification de l'URL du média a expiré.",
     "Invalid media URL.": "URL du média invalide.",
+    "Media URL could not be checked by the server.": "Le serveur n'a pas pu vérifier l'URL du média.",
     "Unsupported media URL format.": "Format d'URL du média non pris en charge.",
     "Required": "Requis",
     "Invalid URL": "URL invalide",
@@ -315,5 +316,11 @@
     "YouTube metadata applied.": "Metadonnees YouTube appliquees.",
     "Local media metadata found.": "Metadonnees du media local trouvees.",
     "Local media metadata applied.": "Metadonnees du media local appliquees.",
-    "Reading local media metadata...": "Lecture des metadonnees du media local..."
+    "Reading local media metadata...": "Lecture des metadonnees du media local...",
+    "Use local Range Proxy": "",
+    "Recommended when the checked media URL does not support byte-range requests.": "",
+    "Media URL requires authentication.": "",
+    "Media URL access is forbidden.": "",
+    "Media URL was not found.": "",
+    "Media URL host returned a server error.": ""
 }

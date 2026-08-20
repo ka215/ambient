@@ -71,6 +71,7 @@
     "Failed to load media URL.": "미디어 URL을 불러오지 못했습니다.",
     "Media URL check timed out.": "미디어 URL 확인 시간이 초과되었습니다.",
     "Invalid media URL.": "유효하지 않은 미디어 URL입니다.",
+    "Media URL could not be checked by the server.": "서버에서 미디어 URL을 확인할 수 없습니다.",
     "Unsupported media URL format.": "지원되지 않는 미디어 URL 형식입니다.",
     "Required": "필수",
     "Invalid URL": "유효하지 않은 URL",
@@ -315,5 +316,11 @@
     "YouTube metadata applied.": "YouTube 메타데이터를 적용했습니다.",
     "Local media metadata found.": "로컬 미디어 메타데이터를 찾았습니다.",
     "Local media metadata applied.": "로컬 미디어 메타데이터를 적용했습니다.",
-    "Reading local media metadata...": "로컬 미디어 메타데이터를 읽는 중..."
+    "Reading local media metadata...": "로컬 미디어 메타데이터를 읽는 중...",
+    "Use local Range Proxy": "",
+    "Recommended when the checked media URL does not support byte-range requests.": "",
+    "Media URL requires authentication.": "",
+    "Media URL access is forbidden.": "",
+    "Media URL was not found.": "",
+    "Media URL host returned a server error.": ""
 }

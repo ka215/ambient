@@ -19,6 +19,7 @@ export function createManagedYouTubeRuntimePlayer(options: {
   emitYouTubeSignal: (phase: string, error?: string) => void;
   findMediaById: (mediaItems: MediaItem[], targetId: number | null) => MediaItem | null;
   logger: (...args: unknown[]) => void;
+  playlistName: () => string | null;
   updatePlayStatus: (nextId: number) => void;
   getExtension: (src: string) => string;
   setupPlayer: (setupKind: PlayableSetupKind, src: string | null, mediaData: MediaItem, extension?: string | null) => void;
@@ -57,6 +58,7 @@ export function createManagedYouTubeRuntimePlayer(options: {
     transitionToTarget: (playbackTarget) => {
       runPlaybackTransition({
         playbackTarget,
+        playlistName: options.playlistName(),
         getExtension: options.getExtension,
         updatePlayStatus: options.updatePlayStatus,
         setupPlayer: options.setupPlayer,
@@ -104,6 +106,7 @@ export function createManagedHtmlRuntimePlayer(options: {
   abortSeeking: () => void;
   abortFadeOut: () => void;
   logger: (...args: unknown[]) => void;
+  playlistName: () => string | null;
   resolveSeekRange: (mediaData: MediaItem, fallbackEnd: number) => { seekStart: number; seekEnd: number };
   fadeOut: (media: HTMLMediaElement, period: number, start: number) => void;
   fadeIn: (media: HTMLMediaElement, period: number, start: number) => void;
@@ -137,6 +140,7 @@ export function createManagedHtmlRuntimePlayer(options: {
     showPlayingState: () => options.syncPlaybackButtonState('playing'),
     showPausedState: () => options.syncPlaybackButtonState('paused'),
     logger: options.logger,
+    playlistName: options.playlistName,
     resolveSeekRange: options.resolveSeekRange,
     fadeOut: options.fadeOut,
     fadeIn: options.fadeIn,

@@ -240,6 +240,8 @@ trait utils {
                         $app_root_normalized = str_replace( '\\', '/', APP_ROOT );
                         $media_path = str_replace( '\\', '/', MEDIA_DIR . $item['file'] );
                         $item['file'] = str_replace( $app_root_normalized, './', $media_path );
+                    } elseif ( preg_match( '#^https?://#i', (string)$item['file'] ) === 1 ) {
+                        $item['file'] = trim( (string)$item['file'] );
                     } else {
                         $item['file'] = '';
                     }

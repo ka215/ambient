@@ -1,6 +1,6 @@
 {
   "name": "ambient",
-  "version": "2.6.4",
+  "version": "2.6.5",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

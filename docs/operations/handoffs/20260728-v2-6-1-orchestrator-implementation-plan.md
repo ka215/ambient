@@ -262,14 +262,7 @@ Add keys to all language files under `assets/langs/`:
 - `A category with this name already exists.`
 - `Category name is required.`
 
-Japanese wording should match current style:
-
-- `カテゴリ編集`
-- `カテゴリの選択`
-- `新しいカテゴリ名`
-- `メディア数`
-- `カテゴリを更新`
-- `カテゴリを削除`
+Japanese locale wording should match the current UI style for the same labels.
 
 ### 4.5 Styling
 

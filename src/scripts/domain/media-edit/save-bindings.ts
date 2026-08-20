@@ -30,6 +30,7 @@ export function createMediaEditSaveBindings(options: {
   applyDraftToMediaItem: (item: MediaItem, draft: MediaEditDraft) => MediaItem;
   uploadThumbnail: (draft: MediaEditDraft) => Promise<{ ok: boolean; message: string }>;
   deleteThumbnail: (draft: MediaEditDraft) => Promise<{ ok: boolean; message: string }>;
+  cleanupGeneratedArtwork: (candidates: Array<unknown>, remainingMediaItems: MediaItem[]) => Promise<void>;
   persistWorkingMedia: (workingMedia: MediaItem[]) => Promise<{ ok: boolean; message: string }>;
   finalizeSave: (options: {
     activeItem: MediaItem;
@@ -102,6 +103,11 @@ export function createMediaEditSaveBindings(options: {
       options.failSave(persistResult.message);
       return;
     }
+
+    await options.cleanupGeneratedArtwork(
+      [activeItem.image, activeItem.thumb],
+      persistResult.workingMedia
+    );
 
     options.finalizeSave({
       activeItem,

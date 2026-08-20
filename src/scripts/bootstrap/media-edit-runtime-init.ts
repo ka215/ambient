@@ -415,6 +415,7 @@ export function initializeMediaEditRuntime(options: InitializeMediaEditRuntimeOp
     defaultVolume: options.defaultVolume,
     getLocalizedMessage: (key, fallback) => options.getLocalizedMessage(key, fallback),
     updateNotice: options.updateNotice,
+    getPlaylistName: () => options.status.playlist || null,
     getActiveItem: () => mediaEditActiveItem,
     getBaseDraft: () => mediaEditBaseDraft,
     readDraftFromForm: draftBindings.readMediaEditDraftFromForm,

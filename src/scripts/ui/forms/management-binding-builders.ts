@@ -1,5 +1,6 @@
 import type { MediaItem } from '../../types/ambient';
 import type { YouTubeMetadataPayload } from '../../types/ambient';
+import type { LocalMediaArtworkPayload } from '../../platform/local-media-metadata';
 import type { MediaManagementBindings } from './media-management';
 import type { PlaylistManagementBindings } from './playlist-management';
 
@@ -24,6 +25,7 @@ export interface MediaManagementBindingBuilderOptions {
   syncMediaCategoryField(preferredCategoryId?: number | null): void;
   syncPlaybackAfterMediaAdd(): void;
   persistMediaEditForCurrentPlaylist(workingMedia: MediaItem[]): Promise<{ ok: boolean; message: string }>;
+  saveArtworkThumbnail(artwork: LocalMediaArtworkPayload): Promise<{ ok: boolean; filename?: string; message: string }>;
   hideOptionsModal(): void;
   setValidated(targetElement: HTMLElement, result?: boolean | null): void;
   sanitizeMediaText(value: string, maxLength: number): string;
@@ -93,6 +95,7 @@ export function buildMediaManagementBindings(
     persistMediaEditForCurrentPlaylist: async (workingMedia: unknown[]) => {
       return options.persistMediaEditForCurrentPlaylist(workingMedia as MediaItem[]);
     },
+    saveArtworkThumbnail: options.saveArtworkThumbnail,
     hideOptionsModal: options.hideOptionsModal,
     setValidated: options.setValidated,
     sanitizeMediaText: options.sanitizeMediaText,

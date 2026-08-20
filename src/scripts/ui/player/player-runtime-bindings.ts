@@ -125,6 +125,7 @@ export function createAmbientPlayerBindings(options: {
         emitYouTubeSignal: options.emitYouTubeSignal,
         findMediaById: options.findMediaById,
         logger: options.logger,
+        playlistName: () => options.status.playlist || null,
         onAutoplayTimeout: options.reportPlaybackAutoplayTimeout,
         syncPlaybackButtonState: options.syncPlaybackButtonState,
         updatePlayStatus: options.updatePlayStatus,
@@ -165,6 +166,7 @@ export function createAmbientPlayerBindings(options: {
       abortFadeOut: () => options.abortFader('fadeout'),
       syncPlaybackButtonState: options.syncPlaybackButtonState,
       logger: options.logger,
+      playlistName: () => options.status.playlist || null,
       resolveSeekRange: options.resolveSeekRange,
       fadeOut,
       fadeIn,
@@ -209,10 +211,11 @@ export function createAmbientPlayerBindings(options: {
   }
 
   function playItem(object: HTMLElement | null = null, id: number | null = null): void {
-    playManagedMediaSelection({
+    void playManagedMediaSelection({
       mediaItems: options.status.media || [],
       triggerElement: options.isElement(object) ? (object as HTMLElement) : null,
       targetId: id,
+      playlistName: options.status.playlist || '',
       getExtension: options.getExtension,
       logger: options.logger,
       updatePlayStatus: options.updatePlayStatus,

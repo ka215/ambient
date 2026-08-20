@@ -128,7 +128,7 @@ export function buildPlaylistJson(options: {
 
   options.mediaItems.forEach((item) => {
     const categoryName = options.categories[item.catId] || '';
-    const serializedItem = {
+    const serializedItem: Record<string, unknown> = {
       file: (item.file || '').replace('./assets/media/', ''),
       title: item.title,
       desc: item.desc,
@@ -138,6 +138,15 @@ export function buildPlaylistJson(options: {
       start: options.seekFormat ? convertPlaylistTimeValue(item.start) : item.start,
       end: options.seekFormat ? convertPlaylistTimeValue(item.end) : item.end,
     };
+    if (Object.prototype.hasOwnProperty.call(item, 'rangeProxy')) {
+      serializedItem.rangeProxy = item.rangeProxy === true || item.rangeProxy === 'true' || item.rangeProxy === '1';
+    }
+    if (item.mediaKind === 'audio' || item.mediaKind === 'video') {
+      serializedItem.mediaKind = item.mediaKind;
+    }
+    if (typeof item.mediaMime === 'string' && /^(audio|video)\/[a-z0-9.+-]+$/i.test(item.mediaMime)) {
+      serializedItem.mediaMime = item.mediaMime.toLowerCase();
+    }
 
     if (!Object.prototype.hasOwnProperty.call(playlistData, categoryName)) {
       playlistData[categoryName] = [];
