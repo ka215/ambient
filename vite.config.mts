@@ -5,6 +5,7 @@ export default defineConfig(async ({ command }) => {
   const { default: tailwindcss } = await import('@tailwindcss/vite');
 
   return {
+    root: __dirname,
     base: command === 'serve' ? '/' : './',
     plugins: [
       tailwindcss(),
