@@ -203,7 +203,18 @@ trait api {
         $origin_url = trim( (string)$url );
         $resolved = $this->resolve_core_local_media_url( $origin_url );
         $url = $resolved['url'];
+        $this->logger( __METHOD__, 'start', [
+            'originUrl' => $origin_url,
+            'resolvedUrl' => $url,
+            'resolved' => $resolved['resolved'],
+            'resolvedBy' => $resolved['resolverName'] ?? null,
+        ] );
         if ( !$this->is_safe_external_media_check_url( $url ) ) {
+            $this->logger( __METHOD__, 'blocked-url', [
+                'originUrl' => $origin_url,
+                'resolvedUrl' => $url,
+                'resolvedBy' => $resolved['resolverName'] ?? null,
+            ] );
             $this->set_local_media_check_response(
                 400,
                 false,
@@ -218,6 +229,17 @@ trait api {
         }
 
         $sample = $this->fetch_external_media_header_sample( $url );
+        $this->logger( __METHOD__, 'sample-result', [
+            'ok' => $sample['ok'] ?? null,
+            'reason' => $sample['reason'] ?? null,
+            'httpStatus' => $sample['httpStatus'] ?? null,
+            'contentType' => $sample['contentType'] ?? null,
+            'contentLength' => $sample['contentLength'] ?? null,
+            'acceptRanges' => $sample['acceptRanges'] ?? null,
+            'curlErrno' => $sample['curlErrno'] ?? null,
+            'curlError' => $sample['curlError'] ?? null,
+            'redirects' => $sample['redirects'] ?? null,
+        ] );
         if ( !$sample['ok'] ) {
             $reason = $sample['reason'] ?? 'probe-failed';
             $message = $this->resolve_external_media_check_failure_message( $reason, $sample['httpStatus'] ?? null );
@@ -235,6 +257,9 @@ trait api {
                     'originUrl' => $origin_url,
                     'resolved' => $resolved['resolved'],
                     'resolvedBy' => $resolved['resolverName'] ?? null,
+                    'curlErrno' => $sample['curlErrno'] ?? null,
+                    'curlError' => $sample['curlError'] ?? null,
+                    'redirects' => $sample['redirects'] ?? null,
                 ]
             );
             return;
@@ -245,6 +270,11 @@ trait api {
             $sample['contentType'] ?? '',
             $url
         );
+        $this->logger( __METHOD__, 'detect-result', [
+            'kind' => $detected['kind'] ?? null,
+            'mime' => $detected['mime'] ?? null,
+            'source' => $detected['source'] ?? null,
+        ] );
         if ( $detected['kind'] === null || $detected['mime'] === null ) {
             $content_type = $sample['contentType'] ?? '';
             if (
@@ -1094,10 +1124,11 @@ trait api {
         }
 
         $current_url = $url;
+        $redirects = [];
         $max_redirects = 3;
         for ( $redirect = 0; $redirect <= $max_redirects; $redirect++ ) {
             if ( !$this->is_safe_external_media_check_url( $current_url ) ) {
-                return [ 'ok' => false, 'reason' => 'blocked-url' ];
+                return [ 'ok' => false, 'reason' => 'blocked-url', 'redirects' => $redirects ];
             }
 
             $result = $this->fetch_external_media_header_sample_once( $current_url );
@@ -1106,13 +1137,19 @@ trait api {
             if ( in_array( $status, [ 301, 302, 303, 307, 308 ], true ) && $location !== '' ) {
                 $next_url = $this->resolve_external_media_redirect_url( $location, $current_url );
                 if ( $next_url === null ) {
-                    return [ 'ok' => false, 'reason' => 'invalid-redirect' ];
+                    return array_merge( $result, [ 'ok' => false, 'reason' => 'invalid-redirect', 'redirects' => $redirects ] );
                 }
+                $redirects[] = [
+                    'from' => $current_url,
+                    'to' => $next_url,
+                    'status' => $status,
+                ];
                 if ( $this->is_google_drive_auth_redirect( $current_url, $next_url ) ) {
                     return [
                         'ok' => false,
                         'reason' => 'upstream-forbidden',
                         'httpStatus' => 403,
+                        'redirects' => $redirects,
                     ];
                 }
                 $current_url = $next_url;
@@ -1121,9 +1158,11 @@ trait api {
 
             if ( $status < 200 || $status >= 300 ) {
                 return [
+                    ...$result,
                     'ok' => false,
                     'reason' => $this->resolve_external_media_upstream_status_reason( $status ),
                     'httpStatus' => $status,
+                    'redirects' => $redirects,
                 ];
             }
 
@@ -1135,10 +1174,13 @@ trait api {
                 'contentLength' => $result['contentLength'] ?? null,
                 'acceptRanges' => $result['acceptRanges'] ?? '',
                 'body' => $result['body'] ?? '',
+                'curlErrno' => $result['curlErrno'] ?? null,
+                'curlError' => $result['curlError'] ?? null,
+                'redirects' => $redirects,
             ];
         }
 
-        return [ 'ok' => false, 'reason' => 'too-many-redirects' ];
+        return [ 'ok' => false, 'reason' => 'too-many-redirects', 'redirects' => $redirects ];
     }
 
     private function is_google_drive_auth_redirect( string $from_url, string $to_url ): bool {
@@ -1220,16 +1262,25 @@ trait api {
 
         $executed = curl_exec( $ch );
         $errno = curl_errno( $ch );
+        $error = curl_error( $ch );
         $http_code = (int)curl_getinfo( $ch, CURLINFO_HTTP_CODE );
         curl_close( $ch );
 
         if ( $executed === false && $body === '' ) {
-            return [ 'ok' => false, 'reason' => $errno === 28 ? 'timeout' : 'upstream-error' ];
+            return [
+                'ok' => false,
+                'reason' => $errno === 28 ? 'timeout' : 'upstream-error',
+                'curlErrno' => $errno,
+                'curlError' => $error,
+                'httpStatus' => $http_code,
+            ];
         }
 
         return [
             'ok' => true,
             'httpStatus' => $http_code,
+            'curlErrno' => $errno,
+            'curlError' => $error,
             'contentType' => $this->normalize_header_media_type( $headers['content-type'] ?? '' ),
             'contentLength' => isset( $headers['content-length'] ) && is_numeric( $headers['content-length'] )
                 ? (int)$headers['content-length']
