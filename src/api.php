@@ -2603,10 +2603,6 @@ trait api {
     private function resolve_media_thumbnail_source( array $payload, ?array &$error = null ): ?array {
         $source = isset( $payload['source'] ) && is_string( $payload['source'] ) ? trim( $payload['source'] ) : '';
         if ( $source === 'range-proxy' ) {
-            if ( !function_exists( 'curl_init' ) ) {
-                $error = [ 'reason' => 'curl-unavailable' ];
-                return null;
-            }
             $playlist_file = isset( $payload['playlist'] ) && is_string( $payload['playlist'] ) ? trim( $payload['playlist'] ) : '';
             $media_id = isset( $payload['media'] ) && is_numeric( $payload['media'] ) ? (int)$payload['media'] : -1;
             if ( $playlist_file === '' || $media_id < 0 ) {
@@ -2647,6 +2643,9 @@ trait api {
                     'details' => [
                         'cacheReason' => $cache['reason'] ?? null,
                         'cacheCode' => $cache['code'] ?? null,
+                        'transport' => $cache['transport'] ?? null,
+                        'streamError' => $cache['streamError'] ?? null,
+                        'curlError' => $cache['curlError'] ?? null,
                     ],
                 ];
                 return null;
