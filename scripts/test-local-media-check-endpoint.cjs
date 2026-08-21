@@ -20,7 +20,7 @@ const sandbox = {
 
 vm.runInNewContext(transpiled, sandbox, { filename: sourcePath });
 
-const { resolveLocalMediaCheckEndpointFromHref } = sandbox.exports;
+const { resolveAmbientEndpointFromHref, resolveLocalMediaCheckEndpointFromHref } = sandbox.exports;
 
 const cases = [
   ['http://dev2.ka2.org/amp/', 'http://dev2.ka2.org/amp/local-media-check'],
@@ -40,4 +40,13 @@ for (const [input, expected] of cases) {
   }
 }
 
-console.log(`local media check endpoint tests passed (${cases.length})`);
+const proxyEndpoint = resolveAmbientEndpointFromHref(
+  'http://dev2.ka2.org/amp/index.php?lang=ja',
+  'local-media-proxy'
+);
+if (proxyEndpoint !== 'http://dev2.ka2.org/amp/local-media-proxy') {
+  console.error(`Expected local media proxy endpoint, got ${proxyEndpoint}`);
+  process.exit(1);
+}
+
+console.log(`local media endpoint tests passed (${cases.length + 1})`);
