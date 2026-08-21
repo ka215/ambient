@@ -15,7 +15,11 @@ export interface ExternalMediaUrlCheckResult {
     | 'server-check-failed'
     | 'probe-failed'
     | 'curl-unavailable'
+    | 'stream-unavailable'
     | 'blocked-url'
+    | 'invalid-redirect'
+    | 'too-many-redirects'
+    | 'upstream-error'
     | 'upstream-status'
     | 'upstream-unauthorized'
     | 'upstream-forbidden'
@@ -34,6 +38,11 @@ export interface ExternalMediaUrlCheckResult {
     originUrl?: string;
     resolved?: boolean;
     resolvedBy?: string | null;
+    curlErrno?: number | null;
+    curlError?: string | null;
+    streamError?: string | null;
+    transport?: string | null;
+    redirects?: Array<{ from?: string; to?: string; status?: number }>;
   };
 }
 

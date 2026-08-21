@@ -238,6 +238,8 @@ trait api {
             'acceptRanges' => $sample['acceptRanges'] ?? null,
             'curlErrno' => $sample['curlErrno'] ?? null,
             'curlError' => $sample['curlError'] ?? null,
+            'streamError' => $sample['streamError'] ?? null,
+            'transport' => $sample['transport'] ?? null,
             'redirects' => $sample['redirects'] ?? null,
         ] );
         if ( !$sample['ok'] ) {
@@ -259,6 +261,8 @@ trait api {
                     'resolvedBy' => $resolved['resolverName'] ?? null,
                     'curlErrno' => $sample['curlErrno'] ?? null,
                     'curlError' => $sample['curlError'] ?? null,
+                    'streamError' => $sample['streamError'] ?? null,
+                    'transport' => $sample['transport'] ?? null,
                     'redirects' => $sample['redirects'] ?? null,
                 ]
             );
@@ -299,6 +303,7 @@ trait api {
                         'originUrl' => $origin_url,
                         'resolved' => $resolved['resolved'],
                         'resolvedBy' => $resolved['resolverName'] ?? null,
+                        'transport' => $sample['transport'] ?? null,
                     ]
                 );
                 return;
@@ -317,6 +322,7 @@ trait api {
                     'contentType' => $sample['contentType'] ?? '',
                     'contentLength' => $sample['contentLength'] ?? null,
                     'acceptRanges' => $sample['acceptRanges'] ?? '',
+                    'transport' => $sample['transport'] ?? null,
                 ]
             );
             return;
@@ -340,6 +346,7 @@ trait api {
                 'originUrl' => $origin_url,
                 'resolved' => $resolved['resolved'],
                 'resolvedBy' => $resolved['resolverName'] ?? null,
+                'transport' => $sample['transport'] ?? ( function_exists( 'curl_init' ) ? 'curl' : 'stream' ),
             ]
         );
     }
@@ -1119,10 +1126,6 @@ trait api {
      * @return array<string, mixed>
      */
     private function fetch_external_media_header_sample( string $url ): array {
-        if ( !function_exists( 'curl_init' ) ) {
-            return [ 'ok' => false, 'reason' => 'curl-unavailable' ];
-        }
-
         $current_url = $url;
         $redirects = [];
         $max_redirects = 3;
@@ -1176,6 +1179,8 @@ trait api {
                 'body' => $result['body'] ?? '',
                 'curlErrno' => $result['curlErrno'] ?? null,
                 'curlError' => $result['curlError'] ?? null,
+                'streamError' => $result['streamError'] ?? null,
+                'transport' => $result['transport'] ?? null,
                 'redirects' => $redirects,
             ];
         }
@@ -1215,6 +1220,17 @@ trait api {
      * @return array<string, mixed>
      */
     private function fetch_external_media_header_sample_once( string $url ): array {
+        if ( function_exists( 'curl_init' ) ) {
+            return $this->fetch_external_media_header_sample_once_with_curl( $url );
+        }
+
+        return $this->fetch_external_media_header_sample_once_with_stream( $url );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function fetch_external_media_header_sample_once_with_curl( string $url ): array {
         $headers = [];
         $body = '';
         $max_bytes = 4096;
@@ -1273,6 +1289,7 @@ trait api {
                 'curlErrno' => $errno,
                 'curlError' => $error,
                 'httpStatus' => $http_code,
+                'transport' => 'curl',
             ];
         }
 
@@ -1281,6 +1298,7 @@ trait api {
             'httpStatus' => $http_code,
             'curlErrno' => $errno,
             'curlError' => $error,
+            'transport' => 'curl',
             'contentType' => $this->normalize_header_media_type( $headers['content-type'] ?? '' ),
             'contentLength' => isset( $headers['content-length'] ) && is_numeric( $headers['content-length'] )
                 ? (int)$headers['content-length']
@@ -1288,6 +1306,129 @@ trait api {
             'acceptRanges' => $headers['accept-ranges'] ?? '',
             'location' => $headers['location'] ?? '',
             'body' => $body,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function fetch_external_media_header_sample_once_with_stream( string $url ): array {
+        if ( !filter_var( ini_get( 'allow_url_fopen' ), FILTER_VALIDATE_BOOLEAN ) ) {
+            return [ 'ok' => false, 'reason' => 'stream-unavailable' ];
+        }
+
+        $headers = [];
+        $body = '';
+        $max_bytes = 4096;
+        $timeout = 5;
+        $error_message = '';
+        $context = stream_context_create( [
+            'http' => [
+                'method' => 'GET',
+                'header' => implode( "\r\n", [
+                    'Range: bytes=0-' . ( $max_bytes - 1 ),
+                    'User-Agent: Ambient/' . $this->get_version(),
+                ] ),
+                'follow_location' => 0,
+                'ignore_errors' => true,
+                'timeout' => $timeout,
+            ],
+            'ssl' => [
+                'verify_peer' => true,
+                'verify_peer_name' => true,
+            ],
+        ] );
+
+        set_error_handler( static function( int $severity, string $message ) use ( &$error_message ): bool {
+            $error_message = $message;
+            return true;
+        } );
+        try {
+            $fp = fopen( $url, 'rb', false, $context );
+        } finally {
+            restore_error_handler();
+        }
+
+        if ( $fp === false ) {
+            return [
+                'ok' => false,
+                'reason' => 'upstream-error',
+                'streamError' => $error_message,
+                'transport' => 'stream',
+            ];
+        }
+
+        stream_set_timeout( $fp, $timeout );
+        while ( !feof( $fp ) && strlen( $body ) < $max_bytes ) {
+            $chunk = fread( $fp, $max_bytes - strlen( $body ) );
+            if ( $chunk === false ) {
+                break;
+            }
+            $body .= $chunk;
+        }
+        $meta = stream_get_meta_data( $fp );
+        fclose( $fp );
+
+        $wrapper_data = $meta['wrapper_data'] ?? [];
+        if ( is_array( $wrapper_data ) ) {
+            foreach ( $wrapper_data as $header ) {
+                if ( !is_string( $header ) ) {
+                    continue;
+                }
+                $headers[] = $header;
+            }
+        }
+        $parsed_headers = $this->parse_external_media_response_headers( $headers );
+
+        if ( !empty( $meta['timed_out'] ) && $body === '' ) {
+            return [
+                'ok' => false,
+                'reason' => 'timeout',
+                'httpStatus' => $parsed_headers['httpStatus'],
+                'streamError' => $error_message,
+                'transport' => 'stream',
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'httpStatus' => $parsed_headers['httpStatus'],
+            'contentType' => $this->normalize_header_media_type( $parsed_headers['headers']['content-type'] ?? '' ),
+            'contentLength' => isset( $parsed_headers['headers']['content-length'] ) && is_numeric( $parsed_headers['headers']['content-length'] )
+                ? (int)$parsed_headers['headers']['content-length']
+                : null,
+            'acceptRanges' => $parsed_headers['headers']['accept-ranges'] ?? '',
+            'location' => $parsed_headers['headers']['location'] ?? '',
+            'body' => $body,
+            'streamError' => $error_message,
+            'transport' => 'stream',
+        ];
+    }
+
+    /**
+     * @param string[] $raw_headers
+     * @return array{httpStatus:int,headers:array<string,string>}
+     */
+    private function parse_external_media_response_headers( array $raw_headers ): array {
+        $headers = [];
+        $http_status = 0;
+        foreach ( $raw_headers as $header ) {
+            $trimmed = trim( $header );
+            if ( preg_match( '#^HTTP/\S+\s+(\d{3})#i', $trimmed, $matches ) === 1 ) {
+                $http_status = (int)$matches[1];
+                $headers = [];
+                continue;
+            }
+            if ( $trimmed === '' || !str_contains( $trimmed, ':' ) ) {
+                continue;
+            }
+            [ $name, $value ] = array_map( 'trim', explode( ':', $trimmed, 2 ) );
+            $headers[strtolower( $name )] = $value;
+        }
+
+        return [
+            'httpStatus' => $http_status,
+            'headers' => $headers,
         ];
     }
 
