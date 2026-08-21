@@ -1,5 +1,6 @@
 import { resolveHtmlMediaMimeType } from '../ui/player/html-player-source';
 import { resolveHtmlPlayerKind, type HtmlPlayerKind } from '../ui/player/player-setup';
+import { resolveLocalMediaCheckEndpoint } from './local-media-check-endpoint';
 
 export interface ExternalMediaUrlCheckResult {
   ok: boolean;
@@ -82,11 +83,6 @@ export function normalizeExternalMediaUrl(value: string): string | null {
 export function isValidExternalMediaUrlFormat(value: string): boolean {
   const normalizedUrl = normalizeExternalMediaUrl(value);
   return normalizedUrl !== null;
-}
-
-function resolveLocalMediaCheckEndpoint(): string {
-  const currentUrl = new URL(window.location.href);
-  return `${currentUrl.origin}${currentUrl.pathname.replace(/\/?$/, '/')}local-media-check`;
 }
 
 async function checkExternalMediaUrlByServer(
