@@ -203,7 +203,18 @@ trait api {
         $origin_url = trim( (string)$url );
         $resolved = $this->resolve_core_local_media_url( $origin_url );
         $url = $resolved['url'];
+        $this->logger( __METHOD__, 'start', [
+            'originUrl' => $origin_url,
+            'resolvedUrl' => $url,
+            'resolved' => $resolved['resolved'],
+            'resolvedBy' => $resolved['resolverName'] ?? null,
+        ] );
         if ( !$this->is_safe_external_media_check_url( $url ) ) {
+            $this->logger( __METHOD__, 'blocked-url', [
+                'originUrl' => $origin_url,
+                'resolvedUrl' => $url,
+                'resolvedBy' => $resolved['resolverName'] ?? null,
+            ] );
             $this->set_local_media_check_response(
                 400,
                 false,
@@ -218,6 +229,19 @@ trait api {
         }
 
         $sample = $this->fetch_external_media_header_sample( $url );
+        $this->logger( __METHOD__, 'sample-result', [
+            'ok' => $sample['ok'] ?? null,
+            'reason' => $sample['reason'] ?? null,
+            'httpStatus' => $sample['httpStatus'] ?? null,
+            'contentType' => $sample['contentType'] ?? null,
+            'contentLength' => $sample['contentLength'] ?? null,
+            'acceptRanges' => $sample['acceptRanges'] ?? null,
+            'curlErrno' => $sample['curlErrno'] ?? null,
+            'curlError' => $sample['curlError'] ?? null,
+            'streamError' => $sample['streamError'] ?? null,
+            'transport' => $sample['transport'] ?? null,
+            'redirects' => $sample['redirects'] ?? null,
+        ] );
         if ( !$sample['ok'] ) {
             $reason = $sample['reason'] ?? 'probe-failed';
             $message = $this->resolve_external_media_check_failure_message( $reason, $sample['httpStatus'] ?? null );
@@ -235,6 +259,11 @@ trait api {
                     'originUrl' => $origin_url,
                     'resolved' => $resolved['resolved'],
                     'resolvedBy' => $resolved['resolverName'] ?? null,
+                    'curlErrno' => $sample['curlErrno'] ?? null,
+                    'curlError' => $sample['curlError'] ?? null,
+                    'streamError' => $sample['streamError'] ?? null,
+                    'transport' => $sample['transport'] ?? null,
+                    'redirects' => $sample['redirects'] ?? null,
                 ]
             );
             return;
@@ -245,6 +274,11 @@ trait api {
             $sample['contentType'] ?? '',
             $url
         );
+        $this->logger( __METHOD__, 'detect-result', [
+            'kind' => $detected['kind'] ?? null,
+            'mime' => $detected['mime'] ?? null,
+            'source' => $detected['source'] ?? null,
+        ] );
         if ( $detected['kind'] === null || $detected['mime'] === null ) {
             $content_type = $sample['contentType'] ?? '';
             if (
@@ -269,6 +303,7 @@ trait api {
                         'originUrl' => $origin_url,
                         'resolved' => $resolved['resolved'],
                         'resolvedBy' => $resolved['resolverName'] ?? null,
+                        'transport' => $sample['transport'] ?? null,
                     ]
                 );
                 return;
@@ -287,6 +322,7 @@ trait api {
                     'contentType' => $sample['contentType'] ?? '',
                     'contentLength' => $sample['contentLength'] ?? null,
                     'acceptRanges' => $sample['acceptRanges'] ?? '',
+                    'transport' => $sample['transport'] ?? null,
                 ]
             );
             return;
@@ -310,6 +346,7 @@ trait api {
                 'originUrl' => $origin_url,
                 'resolved' => $resolved['resolved'],
                 'resolvedBy' => $resolved['resolverName'] ?? null,
+                'transport' => $sample['transport'] ?? ( function_exists( 'curl_init' ) ? 'curl' : 'stream' ),
             ]
         );
     }
@@ -421,9 +458,6 @@ trait api {
             $this->send_local_media_proxy_error( 403, 'Range proxy is available only in local mode.' );
         }
         $this->maybe_cleanup_local_media_proxy_cache();
-        if ( !function_exists( 'curl_init' ) ) {
-            $this->send_local_media_proxy_error( 500, 'Range proxy requires the PHP cURL extension.' );
-        }
 
         $playlist_file = trim( (string)$playlist_file );
         $media_id_value = is_numeric( $media_id ) ? (int)$media_id : -1;
@@ -443,6 +477,7 @@ trait api {
 
         $cache = $this->ensure_local_media_proxy_cache( $url, $target['mime'] );
         if ( !$cache['ok'] ) {
+            $this->logger( __METHOD__, 'cache-failed', $cache );
             $this->send_local_media_proxy_error( (int)( $cache['code'] ?? 502 ), 'Media proxy cache could not be prepared.' );
         }
 
@@ -769,6 +804,11 @@ trait api {
                         'ok' => false,
                         'code' => ( $result['reason'] ?? '' ) === 'max-size-exceeded' ? 413 : 502,
                         'reason' => $result['reason'] ?? 'upstream-error',
+                        'httpStatus' => $result['httpStatus'] ?? null,
+                        'curlErrno' => $result['curlErrno'] ?? null,
+                        'curlError' => $result['curlError'] ?? null,
+                        'streamError' => $result['streamError'] ?? null,
+                        'transport' => $result['transport'] ?? null,
                     ];
                 }
                 $status = (int)( $result['httpStatus'] ?? 0 );
@@ -824,6 +864,36 @@ trait api {
         int &$written,
         int $max_bytes
     ): array {
+        if ( function_exists( 'curl_init' ) ) {
+            return $this->download_local_media_proxy_cache_once_with_curl(
+                $url,
+                $fp,
+                $headers,
+                $written,
+                $max_bytes
+            );
+        }
+
+        return $this->download_local_media_proxy_cache_once_with_stream(
+            $url,
+            $fp,
+            $headers,
+            $written,
+            $max_bytes
+        );
+    }
+
+    /**
+     * @param array<string, string> $headers
+     * @return array<string, mixed>
+     */
+    private function download_local_media_proxy_cache_once_with_curl(
+        string $url,
+        $fp,
+        array &$headers,
+        int &$written,
+        int $max_bytes
+    ): array {
         $ch = curl_init( $url );
         if ( $ch === false ) {
             return [ 'ok' => false, 'reason' => 'curl-init-failed' ];
@@ -867,6 +937,7 @@ trait api {
         curl_setopt_array( $ch, $options );
         $executed = curl_exec( $ch );
         $errno = curl_errno( $ch );
+        $error = curl_error( $ch );
         $http_code = (int)curl_getinfo( $ch, CURLINFO_HTTP_CODE );
         curl_close( $ch );
         if ( $executed === false ) {
@@ -874,11 +945,140 @@ trait api {
                 'ok' => false,
                 'reason' => $errno === 23 ? 'max-size-exceeded' : 'upstream-error',
                 'httpStatus' => $http_code,
+                'curlErrno' => $errno,
+                'curlError' => $error,
+                'transport' => 'curl',
             ];
         }
         return [
             'ok' => true,
             'httpStatus' => $http_code,
+            'transport' => 'curl',
+        ];
+    }
+
+    /**
+     * @param array<string, string> $headers
+     * @return array<string, mixed>
+     */
+    private function download_local_media_proxy_cache_once_with_stream(
+        string $url,
+        $fp,
+        array &$headers,
+        int &$written,
+        int $max_bytes
+    ): array {
+        if ( !filter_var( ini_get( 'allow_url_fopen' ), FILTER_VALIDATE_BOOLEAN ) ) {
+            return [ 'ok' => false, 'reason' => 'stream-unavailable', 'transport' => 'stream' ];
+        }
+
+        @ftruncate( $fp, 0 );
+        @rewind( $fp );
+        $written = 0;
+        $headers = [];
+        $timeout = 120;
+        $error_message = '';
+        $context = stream_context_create( [
+            'http' => [
+                'method' => 'GET',
+                'header' => 'User-Agent: Ambient/' . $this->get_version(),
+                'follow_location' => 0,
+                'ignore_errors' => true,
+                'timeout' => $timeout,
+            ],
+            'ssl' => [
+                'verify_peer' => true,
+                'verify_peer_name' => true,
+            ],
+        ] );
+
+        set_error_handler( static function( int $severity, string $message ) use ( &$error_message ): bool {
+            $error_message = $message;
+            return true;
+        } );
+        try {
+            $upstream = fopen( $url, 'rb', false, $context );
+        } finally {
+            restore_error_handler();
+        }
+
+        if ( $upstream === false ) {
+            return [
+                'ok' => false,
+                'reason' => 'upstream-error',
+                'streamError' => $error_message,
+                'transport' => 'stream',
+            ];
+        }
+
+        stream_set_timeout( $upstream, $timeout );
+        while ( !feof( $upstream ) ) {
+            $chunk = fread( $upstream, 8192 );
+            if ( $chunk === false ) {
+                fclose( $upstream );
+                return [
+                    'ok' => false,
+                    'reason' => 'upstream-error',
+                    'streamError' => $error_message,
+                    'transport' => 'stream',
+                ];
+            }
+            if ( $chunk === '' ) {
+                break;
+            }
+            $length = strlen( $chunk );
+            if ( $written + $length > $max_bytes ) {
+                fclose( $upstream );
+                return [
+                    'ok' => false,
+                    'reason' => 'max-size-exceeded',
+                    'streamError' => $error_message,
+                    'transport' => 'stream',
+                ];
+            }
+            $result = fwrite( $fp, $chunk );
+            if ( $result === false ) {
+                fclose( $upstream );
+                return [
+                    'ok' => false,
+                    'reason' => 'cache-write-failed',
+                    'streamError' => $error_message,
+                    'transport' => 'stream',
+                ];
+            }
+            $written += $result;
+        }
+
+        $meta = stream_get_meta_data( $upstream );
+        fclose( $upstream );
+
+        $wrapper_data = $meta['wrapper_data'] ?? [];
+        $raw_headers = [];
+        if ( is_array( $wrapper_data ) ) {
+            foreach ( $wrapper_data as $header ) {
+                if ( is_string( $header ) ) {
+                    $raw_headers[] = $header;
+                }
+            }
+        }
+        $parsed_headers = $this->parse_external_media_response_headers( $raw_headers );
+        $headers = $parsed_headers['headers'];
+
+        if ( !empty( $meta['timed_out'] ) && $written <= 0 ) {
+            return [
+                'ok' => false,
+                'reason' => 'timeout',
+                'httpStatus' => $parsed_headers['httpStatus'],
+                'streamError' => $error_message,
+                'transport' => 'stream',
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'httpStatus' => $parsed_headers['httpStatus'],
+            'transport' => 'stream',
+            'streamError' => $error_message,
         ];
     }
 
@@ -1089,15 +1289,12 @@ trait api {
      * @return array<string, mixed>
      */
     private function fetch_external_media_header_sample( string $url ): array {
-        if ( !function_exists( 'curl_init' ) ) {
-            return [ 'ok' => false, 'reason' => 'curl-unavailable' ];
-        }
-
         $current_url = $url;
+        $redirects = [];
         $max_redirects = 3;
         for ( $redirect = 0; $redirect <= $max_redirects; $redirect++ ) {
             if ( !$this->is_safe_external_media_check_url( $current_url ) ) {
-                return [ 'ok' => false, 'reason' => 'blocked-url' ];
+                return [ 'ok' => false, 'reason' => 'blocked-url', 'redirects' => $redirects ];
             }
 
             $result = $this->fetch_external_media_header_sample_once( $current_url );
@@ -1106,13 +1303,19 @@ trait api {
             if ( in_array( $status, [ 301, 302, 303, 307, 308 ], true ) && $location !== '' ) {
                 $next_url = $this->resolve_external_media_redirect_url( $location, $current_url );
                 if ( $next_url === null ) {
-                    return [ 'ok' => false, 'reason' => 'invalid-redirect' ];
+                    return array_merge( $result, [ 'ok' => false, 'reason' => 'invalid-redirect', 'redirects' => $redirects ] );
                 }
+                $redirects[] = [
+                    'from' => $current_url,
+                    'to' => $next_url,
+                    'status' => $status,
+                ];
                 if ( $this->is_google_drive_auth_redirect( $current_url, $next_url ) ) {
                     return [
                         'ok' => false,
                         'reason' => 'upstream-forbidden',
                         'httpStatus' => 403,
+                        'redirects' => $redirects,
                     ];
                 }
                 $current_url = $next_url;
@@ -1121,9 +1324,11 @@ trait api {
 
             if ( $status < 200 || $status >= 300 ) {
                 return [
+                    ...$result,
                     'ok' => false,
                     'reason' => $this->resolve_external_media_upstream_status_reason( $status ),
                     'httpStatus' => $status,
+                    'redirects' => $redirects,
                 ];
             }
 
@@ -1135,10 +1340,15 @@ trait api {
                 'contentLength' => $result['contentLength'] ?? null,
                 'acceptRanges' => $result['acceptRanges'] ?? '',
                 'body' => $result['body'] ?? '',
+                'curlErrno' => $result['curlErrno'] ?? null,
+                'curlError' => $result['curlError'] ?? null,
+                'streamError' => $result['streamError'] ?? null,
+                'transport' => $result['transport'] ?? null,
+                'redirects' => $redirects,
             ];
         }
 
-        return [ 'ok' => false, 'reason' => 'too-many-redirects' ];
+        return [ 'ok' => false, 'reason' => 'too-many-redirects', 'redirects' => $redirects ];
     }
 
     private function is_google_drive_auth_redirect( string $from_url, string $to_url ): bool {
@@ -1173,6 +1383,17 @@ trait api {
      * @return array<string, mixed>
      */
     private function fetch_external_media_header_sample_once( string $url ): array {
+        if ( function_exists( 'curl_init' ) ) {
+            return $this->fetch_external_media_header_sample_once_with_curl( $url );
+        }
+
+        return $this->fetch_external_media_header_sample_once_with_stream( $url );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function fetch_external_media_header_sample_once_with_curl( string $url ): array {
         $headers = [];
         $body = '';
         $max_bytes = 4096;
@@ -1220,16 +1441,27 @@ trait api {
 
         $executed = curl_exec( $ch );
         $errno = curl_errno( $ch );
+        $error = curl_error( $ch );
         $http_code = (int)curl_getinfo( $ch, CURLINFO_HTTP_CODE );
         curl_close( $ch );
 
         if ( $executed === false && $body === '' ) {
-            return [ 'ok' => false, 'reason' => $errno === 28 ? 'timeout' : 'upstream-error' ];
+            return [
+                'ok' => false,
+                'reason' => $errno === 28 ? 'timeout' : 'upstream-error',
+                'curlErrno' => $errno,
+                'curlError' => $error,
+                'httpStatus' => $http_code,
+                'transport' => 'curl',
+            ];
         }
 
         return [
             'ok' => true,
             'httpStatus' => $http_code,
+            'curlErrno' => $errno,
+            'curlError' => $error,
+            'transport' => 'curl',
             'contentType' => $this->normalize_header_media_type( $headers['content-type'] ?? '' ),
             'contentLength' => isset( $headers['content-length'] ) && is_numeric( $headers['content-length'] )
                 ? (int)$headers['content-length']
@@ -1237,6 +1469,129 @@ trait api {
             'acceptRanges' => $headers['accept-ranges'] ?? '',
             'location' => $headers['location'] ?? '',
             'body' => $body,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function fetch_external_media_header_sample_once_with_stream( string $url ): array {
+        if ( !filter_var( ini_get( 'allow_url_fopen' ), FILTER_VALIDATE_BOOLEAN ) ) {
+            return [ 'ok' => false, 'reason' => 'stream-unavailable' ];
+        }
+
+        $headers = [];
+        $body = '';
+        $max_bytes = 4096;
+        $timeout = 5;
+        $error_message = '';
+        $context = stream_context_create( [
+            'http' => [
+                'method' => 'GET',
+                'header' => implode( "\r\n", [
+                    'Range: bytes=0-' . ( $max_bytes - 1 ),
+                    'User-Agent: Ambient/' . $this->get_version(),
+                ] ),
+                'follow_location' => 0,
+                'ignore_errors' => true,
+                'timeout' => $timeout,
+            ],
+            'ssl' => [
+                'verify_peer' => true,
+                'verify_peer_name' => true,
+            ],
+        ] );
+
+        set_error_handler( static function( int $severity, string $message ) use ( &$error_message ): bool {
+            $error_message = $message;
+            return true;
+        } );
+        try {
+            $fp = fopen( $url, 'rb', false, $context );
+        } finally {
+            restore_error_handler();
+        }
+
+        if ( $fp === false ) {
+            return [
+                'ok' => false,
+                'reason' => 'upstream-error',
+                'streamError' => $error_message,
+                'transport' => 'stream',
+            ];
+        }
+
+        stream_set_timeout( $fp, $timeout );
+        while ( !feof( $fp ) && strlen( $body ) < $max_bytes ) {
+            $chunk = fread( $fp, $max_bytes - strlen( $body ) );
+            if ( $chunk === false ) {
+                break;
+            }
+            $body .= $chunk;
+        }
+        $meta = stream_get_meta_data( $fp );
+        fclose( $fp );
+
+        $wrapper_data = $meta['wrapper_data'] ?? [];
+        if ( is_array( $wrapper_data ) ) {
+            foreach ( $wrapper_data as $header ) {
+                if ( !is_string( $header ) ) {
+                    continue;
+                }
+                $headers[] = $header;
+            }
+        }
+        $parsed_headers = $this->parse_external_media_response_headers( $headers );
+
+        if ( !empty( $meta['timed_out'] ) && $body === '' ) {
+            return [
+                'ok' => false,
+                'reason' => 'timeout',
+                'httpStatus' => $parsed_headers['httpStatus'],
+                'streamError' => $error_message,
+                'transport' => 'stream',
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'httpStatus' => $parsed_headers['httpStatus'],
+            'contentType' => $this->normalize_header_media_type( $parsed_headers['headers']['content-type'] ?? '' ),
+            'contentLength' => isset( $parsed_headers['headers']['content-length'] ) && is_numeric( $parsed_headers['headers']['content-length'] )
+                ? (int)$parsed_headers['headers']['content-length']
+                : null,
+            'acceptRanges' => $parsed_headers['headers']['accept-ranges'] ?? '',
+            'location' => $parsed_headers['headers']['location'] ?? '',
+            'body' => $body,
+            'streamError' => $error_message,
+            'transport' => 'stream',
+        ];
+    }
+
+    /**
+     * @param string[] $raw_headers
+     * @return array{httpStatus:int,headers:array<string,string>}
+     */
+    private function parse_external_media_response_headers( array $raw_headers ): array {
+        $headers = [];
+        $http_status = 0;
+        foreach ( $raw_headers as $header ) {
+            $trimmed = trim( $header );
+            if ( preg_match( '#^HTTP/\S+\s+(\d{3})#i', $trimmed, $matches ) === 1 ) {
+                $http_status = (int)$matches[1];
+                $headers = [];
+                continue;
+            }
+            if ( $trimmed === '' || !str_contains( $trimmed, ':' ) ) {
+                continue;
+            }
+            [ $name, $value ] = array_map( 'trim', explode( ':', $trimmed, 2 ) );
+            $headers[strtolower( $name )] = $value;
+        }
+
+        return [
+            'httpStatus' => $http_status,
+            'headers' => $headers,
         ];
     }
 
@@ -2248,10 +2603,6 @@ trait api {
     private function resolve_media_thumbnail_source( array $payload, ?array &$error = null ): ?array {
         $source = isset( $payload['source'] ) && is_string( $payload['source'] ) ? trim( $payload['source'] ) : '';
         if ( $source === 'range-proxy' ) {
-            if ( !function_exists( 'curl_init' ) ) {
-                $error = [ 'reason' => 'curl-unavailable' ];
-                return null;
-            }
             $playlist_file = isset( $payload['playlist'] ) && is_string( $payload['playlist'] ) ? trim( $payload['playlist'] ) : '';
             $media_id = isset( $payload['media'] ) && is_numeric( $payload['media'] ) ? (int)$payload['media'] : -1;
             if ( $playlist_file === '' || $media_id < 0 ) {
@@ -2292,6 +2643,9 @@ trait api {
                     'details' => [
                         'cacheReason' => $cache['reason'] ?? null,
                         'cacheCode' => $cache['code'] ?? null,
+                        'transport' => $cache['transport'] ?? null,
+                        'streamError' => $cache['streamError'] ?? null,
+                        'curlError' => $cache['curlError'] ?? null,
                     ],
                 ];
                 return null;

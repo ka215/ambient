@@ -578,6 +578,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
       return;
     }
     const requestSeq = ++localMediaUrlRequestSeq;
+    logger('[local-media-url-check]', 'button-click', { requestSeq, rawUrl, originUrl }, 'force');
     setLocalMediaUrlCheckButtonDisabled(true);
     localMediaUrlCheckButton.setAttribute('aria-busy', 'true');
     setValidated(localMediaUrlInput, null);
@@ -588,8 +589,14 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
       phase: 'check',
       refreshCache: true,
     });
-    const result = await checkExternalMediaUrlPlayable(resolved.url);
+    logger('[local-media-url-check]', 'resolver-result', { requestSeq, resolved }, 'force');
+    const result = await checkExternalMediaUrlPlayable(resolved.url, 8000, logger);
+    logger('[local-media-url-check]', 'playable-check-result', { requestSeq, result }, 'force');
     if (requestSeq !== localMediaUrlRequestSeq) {
+      logger('[local-media-url-check]', 'stale-result-ignored', {
+        requestSeq,
+        currentSeq: localMediaUrlRequestSeq,
+      }, 'force');
       return;
     }
     localMediaUrlCheckButton.removeAttribute('aria-busy');
@@ -603,6 +610,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
       setLocalMediaUrlCheckButtonDisabled(false);
       setValidated(localMediaUrlInput, false);
       setLocalMediaUrlStatus(getLocalizedMessage(result.message, result.message), 'error');
+      logger('[local-media-url-check]', 'failed', { requestSeq, result }, 'force');
       return;
     }
     const inputFilepath = getInputFilepath();
@@ -631,6 +639,13 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
     localMediaUrlInput.value = originUrl;
     setValidated(localMediaUrlInput, true);
     setLocalMediaUrlStatus(getLocalizedMessage(result.message, result.message), 'success');
+    logger('[local-media-url-check]', 'succeeded', {
+      requestSeq,
+      originUrl,
+      result,
+      rangeProxySuggested: shouldSuggestRangeProxy,
+      rangeProxyEnabled: localMediaUrlCheckState.rangeProxyEnabled,
+    }, 'force');
   });
 
   elements.forEach((elm) => {
@@ -902,7 +917,9 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
             return;
           }
 
-          if (getAddType() !== 'youtube' && activeLocalMediaMode === 'url') {
+          // addtype is null until the media type radio is toggled; the default is youtube.
+          const isYouTubeAdd = (getAddType() ?? 'youtube') === 'youtube';
+          if (!isYouTubeAdd && activeLocalMediaMode === 'url') {
             const originUrl = normalizeExternalMediaUrl(localMediaUrlInput?.value || '');
             if (
               !originUrl
@@ -930,7 +947,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
           }
 
           const formData = new FormData(form);
-          if (getAddType() !== 'youtube' && activeLocalMediaMode === 'upload' && latestLocalArtwork) {
+          if (!isYouTubeAdd && activeLocalMediaMode === 'upload' && latestLocalArtwork) {
             const artworkResult = await saveArtworkThumbnail(latestLocalArtwork);
             if (artworkResult.ok && artworkResult.filename) {
               formData.set('image', artworkResult.filename);

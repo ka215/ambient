@@ -1,5 +1,6 @@
 import type { MediaItem } from '../types/ambient';
 import { normalizeExternalMediaUrl } from './external-media-url';
+import { resolveAmbientEndpointFromHref } from './local-media-check-endpoint';
 import { resolveCoreLocalMediaUrl } from './local-media-url-resolver';
 
 function normalizeBooleanish(value: unknown): boolean {
@@ -14,8 +15,7 @@ function normalizeBooleanish(value: unknown): boolean {
 }
 
 function resolveLocalMediaProxyEndpoint(): string {
-  const currentUrl = new URL(window.location.href);
-  return `${currentUrl.origin}${currentUrl.pathname.replace(/\/?$/, '/')}local-media-proxy`;
+  return resolveAmbientEndpointFromHref(window.location.href, 'local-media-proxy');
 }
 
 function resolveMediaUrlExtension(url: string): string {
