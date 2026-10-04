@@ -917,7 +917,9 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
             return;
           }
 
-          if (getAddType() !== 'youtube' && activeLocalMediaMode === 'url') {
+          // addtype is null until the media type radio is toggled; the default is youtube.
+          const isYouTubeAdd = (getAddType() ?? 'youtube') === 'youtube';
+          if (!isYouTubeAdd && activeLocalMediaMode === 'url') {
             const originUrl = normalizeExternalMediaUrl(localMediaUrlInput?.value || '');
             if (
               !originUrl
@@ -945,7 +947,7 @@ export function bindMediaManagementForm(bindings: MediaManagementBindings): void
           }
 
           const formData = new FormData(form);
-          if (getAddType() !== 'youtube' && activeLocalMediaMode === 'upload' && latestLocalArtwork) {
+          if (!isYouTubeAdd && activeLocalMediaMode === 'upload' && latestLocalArtwork) {
             const artworkResult = await saveArtworkThumbnail(latestLocalArtwork);
             if (artworkResult.ok && artworkResult.filename) {
               formData.set('image', artworkResult.filename);
