@@ -1,0 +1,82 @@
+name: Ambient Release Pipeline (Artifact Build & Deploy)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+  DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+  PRODUCTION_PATH: ${{ secrets.PRODUCTION_PATH }}
+
+jobs:
+  build-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Frontend Assets (Vite)
+        run: npm run build 
+
+      - name: Create Deployment Artifact Package
+        id: package
+        run: |
+          echo "📦 Starting artifact packaging..."
+          
+          FRONTEND_ARTIFACTS="dist"
+          BACKEND_SOURCE="./index.php ./src/Ambient.php ./functions.php" 
+
+          echo "📦 Packaging $FRONTEND_ARTIFACTS and core backend files: $BACKEND_SOURCE"
+          tar -czf ambient-release-${{ github.sha }}.tar.gz \
+            --transform='s|^./||' \
+            "$FRONTEND_ARTIFACTS" $BACKEND_SOURCE
+
+      - name: Upload Artifact for Deployment
+        uses: actions/upload-artifact@v4
+        with:
+          name: ambient-release-package-${{ github.sha }}
+          path: ambient-release-*tar.gz 
+
+  deploy:
+    needs: build-and-package
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ambient-release-package-${{ github.sha }}
+          path: .
+
+      - name: Sync Files to Production Staging Area via rsync/scp
+        run: |
+          echo "Syncing artifact to staging area on ${{ env.DEPLOY_HOST }}..."
+          rsync -avz --delete \
+            ./ambient-release-*.tar.gz \
+            ${{ secrets.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:/tmp/deployment_staging/; ;
+          echo "✅ Artifact staged on remote server.";
+      
+      - name: Execute Remote Deployment (Extraction & Cleanup)
+        run: |
+          echo "Executing remote deployment steps...";
+          ssh -o StrictHostKeyChecking=no -i <(echo "$SSH_PRIVATE_KEY") ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} -- "
+            echo '--- START DEPLOYMENT ON REMOTE SERVER ---';
+            rm -rf /var/www/ambient/*;
+            mkdir -p /var/www/ambient/;
+            tar -xzf /tmp/deployment_staging/*.tar.gz -C /var/www/ambient/; 
+            echo 'Extraction complete.';
+            rm -rf /tmp/deployment_staging/*; 
+          "
